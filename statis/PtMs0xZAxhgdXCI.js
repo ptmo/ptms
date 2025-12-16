@@ -31,11 +31,6 @@ styleTag.innerHTML = `
             border: 2px solid #7385a5;
             object-fit: cover;
         }
-
-        .nav-brand {
-            font-size: 0.9em; font-weight: bold; color: #7385a5;
-            letter-spacing: 1.2px;
-        }
     
     .container { 
         width: 90%;
