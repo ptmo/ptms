@@ -1,4 +1,21 @@
 document.getElementById("0xPtMsXzKyzAxcVbxH").innerHTML = `
+     <nav class="navbar">
+        <div class="nav-left">
+  <a href="index" style="display: flex; align-items: center; text-decoration: none;">
+    <img src="img/icon-192.png" class="nav-logo" style="margin-right:8px;">
+    <span class="nav-brand" style="font-size:20px; color: #7385a5; font-weight:bold;">Putramas Official</span>
+  </a>
+        </div>
+        <div class="nav-right">
+            <button id="btn-connect" onclick="connectWallet()">
+    <img src="img/chain.svg" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 8px; margin-bottom: 2px;">
+    Hubungkan
+            </button>
+        </div>
+    </nav>
+
+    <div class="main-container">
+    
         <section class="hero-section">
     <div class="hero-content">
         <h1 class="hero-title">Wayang Nusantara</h1>
