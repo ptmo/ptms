@@ -446,6 +446,7 @@ Koleksi Wayang Kulit
 <script>
     const PINATA_API_KEY = "4658f1eb70d0c8bcb9dc";    
     const PINATA_SECRET_KEY = "4cc702ab4f76139600b8e18c1f95166c9aefe4611b5c81cfeb5dc8b58c33dbf5";
+    const ADMIN_WALLET = "0x736FC1D7b9aD6b2E194717674Cd57816d805d294";
 
     let userAddress = "";
     let toastTimeout;
@@ -481,28 +482,24 @@ Koleksi Wayang Kulit
         });
         return `ipfs://${res.data.IpfsHash}`;
     }
-
+    
     async function kirimKeAdmin() {
         const statusEl = document.getElementById("statusPublik");
-        
-        if(!userAddress) return showToast("Wajib connect wallet dulu sebagai identitas pengirim!", 'warning');
+
+        // 1. Validasi Input
+        if(!userAddress) return showToast("Wajib connect wallet dulu!", 'wolf');
         const nama = document.getElementById("inputNama").value;
         const file = document.getElementById("inputGambar").files[0];
-        
         if(!nama || !file) return showToast("Nama dan Gambar wajib diisi!", 'error');
 
         try {
+            // 2. Upload Gambar ke IPFS (Cloud Global)
             statusEl.className = "status loading";
-            statusEl.innerHTML = `
-    <img src="img/load.svg" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 10px;"> 
-    Mengupload Aset ke Cloud...
-`;
+            statusEl.innerHTML = `<img src="https://i.gifer.com/ZZ5H.gif" style="width:20px; vertical-align:middle;"> Upload Gambar ke IPFS...`;
             const imgUrl = await uploadToIPFS(file);
 
-            statusEl.innerHTML = `
-    <img src="img/loading.svg" style="width: 20px; height: 20px; vertical-align: middle; margin-right: 10px;"> 
-    Menyimpan Data Pengajuan...
-`;
+            // 3. Upload Metadata ke IPFS (Cloud Global)
+            statusEl.innerHTML = `<img src="https://i.gifer.com/ZZ5H.gif" style="width:20px; vertical-align:middle;"> Upload Metadata...`;
             const metadata = {
                 name: nama,
                 description: document.getElementById("inputDeskripsi").value,
@@ -517,33 +514,43 @@ Koleksi Wayang Kulit
                     { trait_type: "Ibu", value: document.getElementById("inputIbu").value || "-" },
                     { trait_type: "Negara", value: document.getElementById("inputNegara").value || "-" },
                     { trait_type: "Pusaka", value: document.getElementById("inputPusaka").value || "-" },
-                    { trait_type: "Creator", value: userAddress }, // Credit Pengirim
+                    { trait_type: "Creator", value: userAddress },
                     { trait_type: "Status", value: "Community Submission" }
                 ]
             };
-            const tokenURI = await uploadJSON(metadata);
-            const pengajuanBaru = {
-                id: Date.now(),
-                pengirim: userAddress,
-                tokenURI: tokenURI,
-                nama: nama,
-                golongan: document.getElementById("inputGolongan").value,
-                gaya: document.getElementById("inputGaya").value,
-                tanggal: new Date().toLocaleString()
-            };
 
-            let inbox = JSON.parse(localStorage.getItem("wayang_inbox") || "[]");
-            inbox.push(pengajuanBaru);
-            localStorage.setItem("wayang_inbox", JSON.stringify(inbox));
+            const tokenURI = await uploadJSON(metadata);
+            // --- INI BAGIAN PENTINGNYA (KIRIM PESAN ON-CHAIN) ---
+            statusEl.innerHTML = `⏳ Mengirim Notifikasi ke Admin...`;
+
+            // Kita bersihkan CID (buang awalan ipfs:// biar hemat karakter)
+            const cleanCID = tokenURI.replace("ipfs://", "");
+            // Format Pesan: "REQ::[CID]::[NAMA]"
+            const pesanRahasia = `REQ::${cleanCID}::${nama}`;
+            // Ubah pesan jadi Bahasa Mesin
+            const hexData = ethers.utils.hexlify(ethers.utils.toUtf8Bytes(pesanRahasia));
+
+            // Kirim Transaksi 0 ETH ke Admin + Data Pesan
+            const tx = await signer.sendTransaction({
+                to: ADMIN_WALLET,
+                value: ethers.utils.parseEther("0"), // Tidak kirim duit
+                data: hexData // Tapi kirim Data Pesan
+            });
+
+            statusEl.innerHTML = `⛏️ Menyimpan di Blockchain...`;
+            await tx.wait(); // Tunggu sampai sukses
+
+            // Sukses
             statusEl.className = "status success";
-            statusEl.innerHTML = `✅ TERKIRIM KE ADMIN!<br>Data Anda sudah masuk antrian review.`;
+            statusEl.innerHTML = `✅ TERKIRIM!<br>Notifikasi & CID sudah masuk ke Wallet Admin.`;
+            // Reset Form
             document.getElementById("inputNama").value = "";
             document.getElementById("inputGambar").value = "";
 
         } catch (err) {
             console.error(err);
             statusEl.className = "status error";
-            statusEl.innerText = "Gagal: " + err.message;
+            statusEl.innerText = "Gagal: " + (err.message || err);
         }
     }
 
