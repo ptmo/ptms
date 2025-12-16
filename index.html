@@ -536,10 +536,8 @@ Koleksi Wayang Kulit
 </footer>
 
 <script>
-    // --- 1. KONFIGURASI UTAMA ---
     const CONTRACT_ADDRESS = "0x5dfe8311e98b0443C471A10e26198b72355Ca713"; 
     
-    // GANTI DENGAN WALLET OFFICIAL ANDA
     const OFFICIAL_WALLET = "0x736fc1d7b9ad6b2e194717674cd57816d805d294"; 
 
     const BASE_SEPOLIA_ID = '0x14a34';
@@ -558,49 +556,37 @@ Koleksi Wayang Kulit
     let searchIndex = [];
     let isSearchReady = false;
     let searchRequestId = 0;
-    let globalIds = [];          // Menyimpan seluruh daftar ID
-    let currentOffset = 0;       // Posisi data saat ini
-    let isFetchingBatch = false; // Mencegah double loading
+    let globalIds = [];
+    let currentOffset = 0;
+    let isFetchingBatch = false;
     let toastTimeout;
 
-    // --- 2. INIT ---
     window.onload = async function() {
-        // Init Provider Read-Only
         const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         contractReader = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
-        // UI Init
         const btns = document.querySelectorAll('.btn-filter');
         if(btns.length > 0) btns[0].classList.add('active');
         loadGaleri(); 
         buildSearchIndex(); 
     };
 
-    // --- 3. BACKGROUND INDEXING (VERSI OPTIMIZED) ---
 async function buildSearchIndex() {
     console.log("Building Search Index...");
-    searchIndex = []; // Reset Array
-
-    // Pastikan list ini SAMA PERSIS dengan <select> di HTML Menu Revisi/Upload
+    searchIndex = [];
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
     try {
         const promises = golongans.map(async (gol) => {
-            // Ambil ID per golongan
             const ids = await contractReader.getIdsByGolongan(gol);
-            
-            // Fetch Detail secara paralel tapi aman
             const detailPromises = ids.map(async (id) => {
                 try {
                     const info = await contractReader.getInfoWayang(id);
-                    
-                    // Skip jika wayang sudah dihapus/tidak aktif
                     if (!info.isActive) return null;
-
                     return { 
-                        id: id.toString(), // Penting: Ubah ke String untuk pencarian ID
+                        id: id.toString(),
                         nama: info.nama.toLowerCase(), 
                         gaya: info.gaya.toLowerCase(), 
-                        golongan: info.golongan // Tidak perlu lowercase agar tampil cantik di UI
+                        golongan: info.golongan
                     };
                 } catch(e) { return null; }
             });
@@ -609,17 +595,10 @@ async function buildSearchIndex() {
         });
 
         const results = await Promise.all(promises);
-        
-        // Ratakan array & Hapus data null/error
         const flatResults = results.flat().filter(i => i !== null);
-
-        // FILTER FINAL: Hapus Duplikat berdasarkan ID
         searchIndex = [...new Map(flatResults.map(item => [item.id, item])).values()];
-
         isSearchReady = true;
         console.log(`✅ Index Ready: ${searchIndex.length} items.`);
-        
-        // Update Placeholder Search Bar
         const searchInput = document.getElementById("searchInput");
         if (searchInput) {
             searchInput.placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
@@ -630,30 +609,23 @@ async function buildSearchIndex() {
     }
 }
 
-    // --- 4. SMART SEARCH LOGIC (UPDATED) ---
     async function smartSearch() {
         const query = document.getElementById("searchInput").value.toLowerCase();
         const container = document.getElementById("containerGaleri");
-
-        // 1. Anti Tabrakan Data (PENTING)
         searchRequestId++; 
         const currentRequestId = searchRequestId;
 
-        // 2. Jika Search Kosong -> Kembali ke Mode Galeri (Infinite Scroll)
         if (query.length === 0) {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
-            loadGaleri(); // Panggil fungsi utama lagi
+            loadGaleri();
             return;
         }
-
-        // 3. Mode Search Aktif -> Sembunyikan Filter lain
+        
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
-
-        // Cek apakah index pencarian sudah siap?
+        
         if (!isSearchReady) {
-            // PERBAIKAN: Ganti icon & Hapus variable ${titleTab} yang bikin error
             container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
                 <img src="https://i.gifer.com/ZZ5H.gif" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
                 Menyiapkan data pencarian...
@@ -661,11 +633,10 @@ async function buildSearchIndex() {
             return;
         }
 
-        // 4. FILTER PENCARIAN (Lebih Teliti)
         const results = searchIndex.filter(w => 
             w.nama.toLowerCase().includes(query) || 
             w.gaya.toLowerCase().includes(query) || 
-            String(w.id) === query // Pastikan ID dianggap string agar bisa dicari
+            String(w.id) === query
         );
 
         if (results.length === 0) {
@@ -673,18 +644,12 @@ async function buildSearchIndex() {
             return;
         }
 
-        // 5. Render Hasil
-        container.innerHTML = ""; // WAJIB CLEAR karena renderCards sekarang sifatnya "nambah ke bawah"
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // UX: Scroll ke atas
-
-        // Ambil 20 hasil teratas saja (agar tidak berat)
+        container.innerHTML = "";
+        window.scrollTo({ top: 0, behavior: 'smooth' });
         const limitedIds = results.slice(0, 20).map(r => r.id);
-        
-        // Panggil Render dengan Flag Mode Search = TRUE
         await renderCards(limitedIds, container, true, currentRequestId);
     }
 
-    // --- 5. LOGIKA TAB & KATEGORI ---
     function switchTab(tab) {
         currentTab = tab;
         document.getElementById('tab-official').className = tab === 'official' ? 'tab-btn active' : 'tab-btn';
@@ -702,47 +667,36 @@ async function buildSearchIndex() {
     }
 
     async function loadGaleri() {
-    // 1. [TETAP] Reset Search Input
     document.getElementById("searchInput").value = "";
 
-    // 2. [TETAP] ID Request & UI Loading
     searchRequestId++; 
     const currentRequestId = searchRequestId;
     const container = document.getElementById("containerGaleri");
     const titleTab = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
     
-    // Gunakan loading yang Anda suka
     container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
         <img src="img/load.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
         Memuat ${titleTab} (${currentCategory})...
     </p>`;
 
     try {
-        // 3. [TETAP] Ambil Data Blockchain
         const ids = await contractReader.getIdsByGolongan(currentCategory);
         
-        // --- PENGAMAN TAMBAHAN: Cek apakah user sudah pindah tab saat loading? ---
         if (searchRequestId !== currentRequestId) return;
-
-        // 4. [UPDATE] Setup Infinite Scroll
-        // Kita balik urutannya biar yang terbaru muncul di atas
         globalIds = ids.slice().reverse(); 
         currentOffset = 0;
         isFetchingBatch = false;
 
-        // 5. [TETAP] Cek Kosong
         if (globalIds.length === 0) {
             container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
             return;
         }
-
-        // 6. [UPDATE] Bersihkan & Mulai Batch Pertama
+        
         container.innerHTML = ""; 
-        await loadNextBatch(); // <-- Panggil fungsi batch, bukan renderCards langsung
+        await loadNextBatch();
 
     } catch (err) {
         console.error(err);
-        // Cek ID request lagi agar error tab lama tidak muncul di tab baru
         if (searchRequestId === currentRequestId) {
             container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
         }
@@ -750,13 +704,10 @@ async function buildSearchIndex() {
 }
 
     async function loadNextBatch() {
-    // Cek: Sedang loading? Data habis? Ada search text?
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
 
     isFetchingBatch = true;
     const container = document.getElementById("containerGaleri");
-    
-    // Indikator Loading Kecil di Bawah
     const loaderId = "loader-bottom";
     if (!document.getElementById(loaderId)) {
         container.insertAdjacentHTML('beforeend', `
@@ -766,30 +717,21 @@ async function buildSearchIndex() {
         `);
     }
 
-    // Ambil potongan ID (Slice)
     const batchIds = globalIds.slice(currentOffset, currentOffset + BATCH_SIZE);
-    
-    // Panggil renderCards dengan ID request yang aktif
-    await renderCards(batchIds, container, false, searchRequestId);
 
-    // Hapus Loader
+    await renderCards(batchIds, container, false, searchRequestId);
     const loaderEl = document.getElementById(loaderId);
     if (loaderEl) loaderEl.remove();
 
-    // Update Offset & Status
     currentOffset += BATCH_SIZE;
     isFetchingBatch = false;
 
-    // Jika layar masih kosong (misal batch 1 kena filter hidden semua), load lagi otomatis
     if (container.children.length === 0 && currentOffset < globalIds.length) {
         loadNextBatch();
     }
 }
     
-        // --- 6. CORE RENDERER (VERSI INFINITE SCROLL) ---
     async function renderCards(ids, container, isSearchMode, requestId) {
-        
-        // 1. Fetch Data Paralel (TETAP SAMA)
         const promises = ids.map(async (id) => {
             try {
                 const [info, owner, likes, ratingRaw, uri] = await Promise.all([
@@ -801,8 +743,6 @@ async function buildSearchIndex() {
                 ]);
 
                 if (!info.isActive) return null;
-
-                // Filter Tab (Hanya jika BUKAN mode search)
                 if (!isSearchMode) {
                     const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
                     if (currentTab === 'official' && !isOwnerOfficial) return null;
@@ -819,24 +759,17 @@ async function buildSearchIndex() {
 
         const results = await Promise.all(promises);
 
-        // 2. Cek Pembatalan (Anti Tabrakan Data)
         if (searchRequestId !== requestId) return;
-
         const cleanResults = results.filter(item => item !== null);
 
-        // --- [UPDATE 1] LOGIKA KOSONG YANG LEBIH AMAN ---
         if (cleanResults.length === 0) {
-            // Jika Mode Search: Langsung kasih tau tidak ketemu
             if (isSearchMode) {
                 container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
             } 
-            // Jika Mode Scroll: Jangan lakukan apa-apa (biarkan data sebelumnya tetap tampil)
             return;
         }
 
-        // 3. Render Loop
-        for (const w of cleanResults) {            
-            // Logika Badge (TETAP SAMA)
+        for (const w of cleanResults) {
             let ownerBadge = "";
             const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
             if (isOwnerOfficial) {
@@ -847,19 +780,14 @@ async function buildSearchIndex() {
             }
 
             const html = generateCardHTML(w, ownerBadge);
-            
-            // --- [UPDATE 2] CARA APPEND (MENEMPEL) YANG BENAR ---
-            // 'beforeend' menempelkan HTML baru di paling bawah TANPA mengganggu elemen di atasnya
-            container.insertAdjacentHTML('beforeend', html);            
-            
-            // Lazy Load Gambar
+
+            container.insertAdjacentHTML('beforeend', html);
             if (typeof fetchOptimizedImage === "function") {
                 fetchOptimizedImage(w.metaUrl, w.id);
             }
         }       
     }
 
-    // Template HTML Terpisah (Clean Code & Updated Icons)
 function generateCardHTML(w, badge) {
     return `
         <a href="detail?id=${w.id}" class="wayang-card">
@@ -894,36 +822,26 @@ function generateCardHTML(w, badge) {
         </a>`;
 }
 
-    // --- GAMBAR (DENGAN FALLBACK SYSTEM) ---
     async function fetchOptimizedImage(metaUrl, id) {
         try {
-            // 1. Ambil Metadata JSON dulu
-            const res = await axios.get(metaUrl);      
-            // Bersihkan URL gambar dari IPFS prefix
+            const res = await axios.get(metaUrl);
             const rawImgUrl = res.data.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-            // 2. Optimasi Gambar
-            // Ubah w=800 jadi w=400 (Cukup tajam untuk kartu, tapi jauh lebih ringan)
             const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=80&output=webp`;
             const imgEl = document.getElementById(`img-${id}`);
             if (!imgEl) return;
-            // 3. Teknik Preloading dengan Fallback
             const tempImg = new Image();
-            // [PENTING] Jika Optimasi Gagal (wsrv.nl down/timeout), pakai gambar asli
             tempImg.onerror = () => {
                 console.warn(`Optimasi gagal ID ${id}, menggunakan raw link.`);
-                imgEl.src = rawImgUrl; // Fallback ke link Pinata langsung
+                imgEl.src = rawImgUrl;
                 imgEl.style.opacity = 1; 
             };
 
-            // Jika Berhasil Load
             tempImg.onload = () => {
-                imgEl.src = optimizedUrl; 
-                // Efek Fade-In yang lebih smooth (lewat CSS transition)
+                imgEl.src = optimizedUrl;
                 imgEl.style.transition = "opacity 0.5s ease-in-out";
                 imgEl.style.opacity = 1; 
             };
-
-            // Mulai muat gambar
+            
             tempImg.src = optimizedUrl;
 
         } catch(e) { 
@@ -931,7 +849,6 @@ function generateCardHTML(w, badge) {
         }
     }
 
-    // --- WALLET ---
     async function connectWallet() {
         if (!window.ethereum) return showToast("Install dahulu, Metamask tidak ditemukan!", 'wolf');
         try {
@@ -991,7 +908,6 @@ function generateCardHTML(w, badge) {
     document.getElementById("year").innerText = new Date().getFullYear();
     
     window.addEventListener('scroll', () => {
-    // Jika scroll sudah mendekati bawah (sisa 200px), muat lagi
     if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
         loadNextBatch();
     }
