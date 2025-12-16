@@ -9,7 +9,7 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 
     <style>
-        /* CSS Admin Dashboard */
+        
         * { box-sizing: border-box; }
         body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; padding: 20px; color: #fff; margin: 0; }
         
@@ -20,14 +20,12 @@
         button { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.3s; }
         #btn-connect { background: #e67e22; color: white; }
         
-        /* Input Area */
         .input-area { background: white; padding: 20px; border-radius: 8px; color: #333; margin-bottom: 20px; }
         label { display: block; font-weight: bold; margin-bottom: 10px; color: #2c3e50; }
         input { width: 100%; padding: 12px; border: 2px solid #bdc3c7; border-radius: 5px; font-size: 14px; }
         .btn-check { width: 100%; background: #3498db; color: white; margin-top: 15px; }
         .btn-check:hover { background: #2980b9; }
 
-        /* Preview Card (Hidden Awalnya) */
         .preview-card { 
             background: white; border-radius: 8px; overflow: hidden; 
             box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: none; color: #333; 
@@ -51,7 +49,7 @@
 <body>
 
 <div class="container">
-    <h1>🛡️ Cek Pengajuan Karya</h1>
+    <h1>Cek Pengajuan Karya</h1>
     
     <div class="connect-box">
         <button id="btn-connect" onclick="connectWallet()">1. Koneksi Admin</button>
@@ -88,7 +86,7 @@
 </div>
 
 <script>
-    // --- KONFIGURASI ---
+
     const CONTRACT_ADDRESS = "0x5dfe8311e98b0443C471A10e26198b72355Ca713";
     
     const CONTRACT_ABI = ["function arsipWayang(address, string, string, string, string) public returns (uint256)"];
@@ -96,7 +94,6 @@
     let signer;
     let pendingData = null; 
 
-    // 1. KONEKSI ADMIN
     async function connectWallet() {
         if(!window.ethereum) return alert("Metamask required");
         try {
@@ -113,42 +110,29 @@
         }
     }
 
-    // 2. CEK DATA (PERBAIKAN LOGIKA)
     async function cekData() {
         let inputRaw = document.getElementById("ipfsInput").value.trim();
         if(!inputRaw) return alert("Masukkan kode IPFS dulu!");
-
-        // --- FIX 1: PEMBERSIHAN INPUT ---
-        // Menghapus 'ipfs://' jika ada, agar menyisakan CID murni
         let cleanCID = inputRaw.replace("ipfs://", "");
-        
-        // Hapus spasi tidak sengaja
         cleanCID = cleanCID.split(" ")[0];
 
         try {
-            // Bentuk URL Gateway
             const httpUri = `https://gateway.pinata.cloud/ipfs/${cleanCID}`;
             
             console.log("Mengambil data dari:", httpUri);
             const res = await axios.get(httpUri);
-            
-            // --- FIX 2: VALIDASI APAKAH INI JSON? ---
             const meta = res.data;
             
-            // Cek apakah ini file JSON Metadata yang valid (punya properti 'name' dan 'attributes')
             if (!meta.name || !meta.attributes) {
                 throw new Error("Ini sepertinya CID Gambar, bukan Metadata! Harap masukkan CID dari file JSON.");
             }
 
-            // Helper cari attribute
             const getAttr = (k) => {
                 const f = meta.attributes.find(a => a.trait_type === k);
                 return f ? f.value : "-";
             };
 
-            // Tampilkan ke Layar Preview
             document.getElementById("previewArea").style.display = "block";
-            // Handle gambar jika formatnya ipfs://
             const imgLink = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
             document.getElementById("pImg").src = imgLink;
             
@@ -159,7 +143,6 @@
             const creator = getAttr("Creator");
             document.getElementById("pCreator").innerText = creator;
 
-            // Simpan data untuk minting (Gunakan CID bersih + ipfs://)
             pendingData = {
                 uri: `ipfs://${cleanCID}`, 
                 nama: meta.name,
@@ -168,7 +151,6 @@
                 creator: creator
             };
 
-            // Reset tombol Mint
             const btnMint = document.getElementById("btnMint");
             btnMint.innerText = "3. ACC & MINT SEKARANG";
             btnMint.disabled = false;
@@ -180,7 +162,6 @@
         }
     }
 
-    // 3. EKSEKUSI MINTING
     async function mintSekarang() {
         if(!signer) return alert("Admin belum connect wallet!");
         if(!pendingData) return alert("Data belum dimuat!");
