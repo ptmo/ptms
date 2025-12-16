@@ -90,6 +90,9 @@
 <script>
     // --- KONFIGURASI ---
     const CONTRACT_ADDRESS = "0x5dfe8311e98b0443C471A10e26198b72355Ca713"; 
+
+    const ADMIN_WALLET = "0x736FC1D7b9aD6b2E194717674Cd57816d805d294";
+    
     const CONTRACT_ABI = ["function arsipWayang(address, string, string, string, string) public returns (uint256)"];
     
     let signer;
@@ -211,5 +214,229 @@
             document.getElementById("btnMint").innerText = "3. ACC & MINT SEKARANG";
             document.getElementById("btnMint").disabled = false;
         }
+    }
+
+    async function initInboxListener() {
+
+        if(!window.ethereum) return;
+
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+        
+
+        console.log("Memulai scanner inbox...");
+
+
+
+        // --- 1. LISTEN REALTIME (Saat ada blok baru) ---
+
+        provider.on("block", async (blockNumber) => {
+
+            // Ambil detail blok & transaksi di dalamnya
+
+            const block = await provider.getBlockWithTransactions(blockNumber);
+
+            
+
+            for (const tx of block.transactions) {
+
+                // Cek apakah ada surat masuk ke Admin?
+
+                if (tx.to && tx.to.toLowerCase() === ADMIN_WALLET.toLowerCase()) {
+
+                    prosesPesan(tx, true); // true = Notifikasi Baru Muncul
+
+                }
+
+            }
+
+        });
+
+
+
+        // --- 2. AMBIL HISTORY (Agar pesan lama tetap muncul) ---
+
+        // Kita pakai Etherscan API (Gratis) karena paling stabil baca history tanpa Backend
+
+        // Kalau tidak pakai ini, inbox akan kosong setiap di-refresh.
+
+        const API_KEY = "YourApiKeyToken"; // Boleh kosong (rate limit) atau daftar gratis di etherscan.io
+
+        const url = `https://api.etherscan.io/api?module=account&action=txlist&address=${ADMIN_WALLET}&startblock=0&endblock=99999999&sort=desc&apikey=${API_KEY}`;
+
+        
+
+        try {
+
+            const res = await axios.get(url);
+
+            if(res.data.status === "1") {
+
+                const history = res.data.result;
+
+                history.forEach(tx => {
+
+                    // Mapping nama field Etherscan ke Ethers.js (input -> data)
+
+                    const normalizedTx = {
+
+                        data: tx.input,
+
+                        from: tx.from,
+
+                        timeStamp: tx.timeStamp
+
+                    };
+
+                    prosesPesan(normalizedTx, false); // false = Jangan bunyikan notif (cuma load list)
+
+                });
+
+            }
+
+        } catch(e) { console.log("Gagal load history:", e); }
+
+    }
+
+
+
+    // FUNGSI PENERJEMAH PESAN (DECODER)
+
+    function prosesPesan(tx, isNew) {
+
+        try {
+
+            // Cek apakah transaksinya membawa data pesan?
+
+            if (tx.data && tx.data.length > 10) {
+
+                // Terjemahkan Hex ke Huruf Biasa
+
+                const text = ethers.utils.toUtf8String(tx.data);
+
+                
+
+                // Cek apakah ini pesan Request Listing kita?
+
+                // Format: "REQ::[CID]::[NAMA]"
+
+                if (text.startsWith("REQ::")) {
+
+                    const parts = text.split("::");
+
+                    const cid = parts[1]; // Ini CID yang kita cari!
+
+                    const nama = parts[2] || "Tanpa Nama";
+
+                    
+
+                    // Siapkan Data untuk ditampilkan
+
+                    const itemData = {
+
+                        tokenURI: "ipfs://" + cid,
+
+                        nama: nama,
+
+                        pengirim: tx.from,
+
+                        waktu: tx.timeStamp || (Date.now()/1000)
+
+                    };
+
+
+
+                    if(isNew) showToast(`🔔 Ada Pengajuan Baru: ${nama}`, 'info');
+
+                    
+
+                    // Masukkan ke List HTML
+
+                    addInboxItem(itemData);
+
+                }
+
+            }
+
+        } catch (e) {
+
+            // Abaikan error (berarti bukan pesan teks, mungkin transaksi biasa)
+
+        }
+
+    }
+
+
+
+    // HELPER: MENAMPILKAN KE LAYAR
+
+    // Pastikan Anda sudah punya HTML <div id="inboxList"></div> di kode sebelumnya
+
+    let processedCIDs = new Set(); // Supaya tidak duplikat di tampilan
+
+
+
+    function addInboxItem(item) {
+
+        // Cek duplikat
+
+        if(processedCIDs.has(item.tokenURI)) return;
+
+        processedCIDs.add(item.tokenURI);
+
+
+
+        const list = document.getElementById("inboxList");
+
+        const panel = document.getElementById("notificationPanel");
+
+        
+
+        // Munculkan Panel
+
+        panel.style.display = "block";
+
+        document.getElementById("inboxCount").innerText = list.children.length + 1;
+
+
+
+        // Hitung Waktu
+
+        const date = new Date(item.waktu * 1000).toLocaleDateString('id-ID');
+
+
+
+        const html = `
+
+            <div class="inbox-item" onclick="loadRequest('${item.tokenURI}')">
+
+                <div>
+
+                    <div class="inbox-info"><strong>${item.nama}</strong></div>
+
+                    <div class="inbox-date">
+
+                        Dari: <span class="creator-addr">${item.pengirim.substring(0,6)}...</span> • ${date}
+
+                    </div>
+
+                </div>
+
+                <button class="btn-load-req">
+
+                    Load CID ➜
+
+                </button>
+
+            </div>
+
+        `;
+
+        
+
+        // Taruh pesan baru di paling atas
+
+        list.insertAdjacentHTML('afterbegin', html);
+
     }
 </script>
