@@ -1,0 +1,627 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Arsip Wayang</title>
+     <meta name="description" content="Faylotto is a transparent and secure blockchain-based lottery platform with Web3 integration and trusted gaming. Decentralized Betting Web3 Social">
+    <meta name="keywords" content="Decentralized Betting Web3 Social, decentralized lottery, blockchain lottery, crypto lottery, onchain lottery, fair lottery, lottery dapp, web3 lottery, transparent lottery system, faylotto, web3 gaming, web3 games, DeFi, web3, crypto dapp games, lottery smart contract">
+    <meta name="robots" content="index, follow">
+
+    <link rel="canonical" href="https://faylotto.xyz/">
+
+    <!-- Open Graph -->
+    <meta property="og:title" content="Faylotto - Decentralized Blockchain Lottery Platform">
+    <meta property="og:description" content="Play fair. Win fair. Faylotto is a 100% on-chain, decentralized lottery built for Web3 users.">
+    <meta property="og:url" content="https://faylotto.xyz/">
+    <meta property="og:type" content="website">
+    <meta property="og:image" content="https://faylotto.xyz/img/og.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:title" content="Faylotto - Fair Blockchain Lottery for Web3">
+    <meta name="twitter:description" content="Secure, transparent, and fully decentralized lottery on the blockchain. Join now and play with confidence.">
+    <meta name="twitter:image" content="https://faylotto.xyz/img/og.png">
+
+    <!-- Sitemap -->
+    <link rel="sitemap" type="application/xml" title="Sitemap" href="https://faylotto.xyz/sitemap.xml">
+
+    <!-- Favicon -->
+    <link rel="icon" href="/img/favicon.ico">
+    <link rel="icon" type="image/svg+xml" href="/img/favicon.svg">
+    <link rel="apple-touch-icon" href="/img/apple-touch-icon.png">
+    <link rel="icon" type="image/png" sizes="192x192" href="/img/icon-192.png">
+    <link rel="icon" type="image/png" sizes="512x512" href="/img/icon-512.png">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        :root {
+            --primary: #8b5a2b;
+            --dark: #1a1510;
+            --light: #e0d8c3;
+            --accent: #deb887;
+        }
+
+        * { box-sizing: border-box; } /* Penting agar padding tidak merusak lebar */
+
+        body { 
+            font-family: 'Rubik', sans-serif; 
+            background-color: #ffffff; 
+            color: #5c6a84; 
+            margin: 0; /* Reset Margin */
+            padding: 0; /* Reset Padding: Agar Navbar/Footer mentok pinggir */
+            overflow-x: hidden; /* Mencegah scroll samping tidak perlu */
+        }
+        
+        /* --- NAVBAR PREMIUM FULL WIDTH --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 5%; /* Jarak konten dalam navbar */
+            background: #f6f9ff;
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            width: 100%; /* WAJIB FULL */
+            z-index: 1000;
+            box-shadow: 0 4px 20px rgba(0,0,0,0.5);
+        }
+
+        .nav-left { display: flex; align-items: center; gap: 15px; }
+        
+        .nav-logo {
+            width: 45px; height: 45px;
+            border-radius: 50%;
+            border: 2px solid #7385a5;
+            object-fit: cover;
+        }
+
+        .nav-brand {
+            font-size: 0.9em; font-weight: bold; color: #7385a5;
+            letter-spacing: 1.2px;
+        }
+        
+        #btn-connect {
+            background: transparent; color: #7385a5; border: 2px solid #7385a5; 
+            padding: 10px 25px; cursor: pointer; font-family: 'Rubik', sans-serif; 
+            font-weight: bold; border-radius: 30px; transition: 0.3s; font-size: 12px;
+        }
+        #btn-connect:hover { background: #f6f9ff; color: #7385a5; border: 2px solid #7385a5; }
+        #btn-connect.connected { background: #abb6c9; color: #fff; border-color: #7385a5; cursor: default; }
+        
+        /* Layout Utama */
+        .container { max-width: 1100px; margin: 40px auto; display: flex; flex-wrap: wrap; gap: 40px; padding: 20px; }
+        
+        /* Kolom Kiri */
+        .left-col { flex: 1; min-width: 300px; }
+        .img-frame { 
+            background: #fdfbf7; border: 10px solid #666666; 
+            box-shadow: 0 20px 50px rgba(0,0,0,0.5); border-radius: 5px; 
+            overflow: hidden; position: relative; 
+        }
+        .img-frame img { width: 100%; height: auto; display: block; }
+        .id-badge { 
+            position: absolute; top: 10px; right: 10px; background: rgba(0,0,0,0.7); 
+            color: white; padding: 5px 10px; font-size: 12px; border-radius: 4px; 
+        }
+
+        /* Kolom Kanan */
+        .right-col { flex: 1.5; min-width: 300px; }
+        h1, h2, h3  { margin: 0 0 10px 0; color: #7385a5; border-bottom: 2px solid #b3b3b3; display: inline-block; padding-bottom: 10px; }
+        .gaya-tag { background: #7385a5; color: white; padding: 5px 15px; border-radius: 20px; border: 2px solid #5c6a84; font-size: 14px; text-transform: uppercase; letter-spacing: 1px; vertical-align: middle; margin-left: 15px; }
+        .description { font-size: 1em; line-height: 1.8; color: #666666; margin-bottom: 30px; text-align: justify; }
+
+        /* Grid Metadata */
+        .meta-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .meta-box { background: #e9f0ff; padding: 15px; border-radius: 8px; border: 2px solid #7385a5; }
+        .meta-label { font-size: 12px; text-transform: uppercase; color: #666; letter-spacing: 1px; display: block; margin-bottom: 5px; }
+        .meta-value { font-size: 16px; font-weight: bold; color: #5c6a84; }
+
+        /* Silsilah */
+        .silsilah-box { background: #e9f0ff; padding: 20px; border: 1px solid #7385a5; border-radius: 8px; }
+        .silsilah-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #666; padding: 10px 0; }
+        
+        /* Area Sosial */
+        .social-section { margin-top: 40px; border-top: 1px dashed #5d4037; padding-top: 20px; }
+        .review-box { background: #e9f0ff; padding: 20px; border-radius: 10px; border: 1px solid #7385a5; margin-bottom: 20px; }
+        
+        /* Star Rating & Chips */
+        .star-rating span { font-size: 30px; cursor: pointer; color: #444; transition: 0.2s; }
+        .star-rating span:hover, .star-rating span.active { color: gold; }
+        
+        .chip { background: #e9f0ff; color: #666; border: 1px solid #7385a5; padding: 8px 15px; border-radius: 20px; cursor: pointer; transition: 0.2s; margin-bottom: 5px; font-weight: bold; }
+        .chip:hover, .chip.selected { background: #7385a5; color: #fff; font-weight: bold; }
+
+        /* Review List */
+        .review-card { background: #e9f0ff; padding: 15px; border-radius: 5px; border: 1px solid #7385a5; margin-bottom: 10px; }
+
+        .footer {
+            background: #f6f9ff;
+            padding: 20px 20px;
+            margin-top: 25px;
+            text-align: center;
+            width: 100%; /* WAJIB FULL */
+        }
+
+        .social-icons { margin-bottom: 10px; }
+        
+        .social-link {
+            display: inline-flex; justify-content: center; align-items: center;
+            width: 35px; height: 35px; margin: 0 07px;
+            border-radius: 50%; background: #7385a5; color: #fff;
+            font-size: 15px; transition: all 0.3s ease; border: 1.5px solid #7385a5;
+            text-decoration: none;
+        }
+        .social-link:hover {
+            background: #fff; color: #7385a5;
+            transform: translateY(-5px); box-shadow: 0 0 15px #7385a5;
+        }
+
+        .copyright { color: #888; font-size: 13px; letter-spacing: 1px; margin-top: 10px; }
+        
+    </style>
+</head>
+<body>
+
+<nav class="navbar">
+        <div class="nav-left">
+            <img src="logo.png" class="nav-logo">
+            <span class="nav-brand">Putramas Official</span>
+        </div>
+        <div class="nav-right">
+            <button id="btn-connect" onclick="connectWallet()">
+    <img src="chain.svg" style="width: 18px; height: 18px; vertical-align: middle; margin-right: 8px; margin-bottom: 2px;">
+    Hubungkan
+            </button>
+        </div>
+</nav>
+
+<div id="loading" style="text-align: center; margin-top: 100px; font-size: 13px; color: #80db80;">
+    <img src="loading.svg" style="width: 17px; height: 17px; vertical-align: middle;"> Membuka Detail Arsip...
+</div>
+
+<div id="content" class="container" style="display: none;">
+    <div class="left-col">
+        <div class="img-frame">
+            <div class="id-badge">ID: #<span id="displayId">0</span></div>
+            <img id="displayImg" src="" alt="Wayang">
+        </div>
+        <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+            Permanen di Base Mainnet
+        </div>
+    </div>
+
+    <div class="right-col">
+        <div>
+            <h2 id="displayName">Nama Tokoh</h2>
+            <span id="displayGaya" class="gaya-tag">Gaya</span>
+        </div>
+        
+        <p class="description" id="displayDesc">Deskripsi...</p>
+
+        <h3 style="color:#7385a5; border-bottom:1px solid #444; padding-bottom:5px;">Data Fisik & Budaya</h3>
+        <div class="meta-grid">
+            <div class="meta-box"><span class="meta-label">Golongan</span><span class="meta-value" id="displayGolongan">-</span></div>
+            <div class="meta-box"><span class="meta-label">Wanda</span><span class="meta-value" id="displayWanda">-</span></div>
+            <div class="meta-box"><span class="meta-label">Material</span><span class="meta-value" id="displayKulit">-</span></div>
+            <div class="meta-box"><span class="meta-label">Pembuat</span><span class="meta-value" id="displayPembuat">-</span></div>
+        </div>
+
+        <h3 style="color:#7385a5; border-bottom:1px solid #444; padding-bottom:5px;">Silsilah & Asal Usul</h3>
+        <div class="silsilah-box">
+            <div class="silsilah-row"><span style="color:#666">Negara:</span><span style="font-weight:bold" id="displayNegara">-</span></div>
+            <div class="silsilah-row"><span style="color:#666">Ayah:</span><span style="font-weight:bold" id="displayAyah">-</span></div>
+            <div class="silsilah-row"><span style="color:#666">Ibu:</span><span style="font-weight:bold" id="displayIbu">-</span></div>
+            <div class="silsilah-row"><span style="color:#666">Pusaka:</span><span style="font-weight:bold" id="displayPusaka">-</span></div>
+        </div>
+
+        <div class="social-section">
+            
+            <div style="margin-bottom: 25px;">
+
+    <div style="display: flex; align-items: center; justify-content: space-between; width: 100%;">
+        
+        <button onclick="kirimLike()" id="btnLike" style="background: none; border: 2px solid #7385a5; color: #7385a5; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 10px; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <img src="lv.svg" style="width: 16px; height: 16px; vertical-align: middle;"> 
+            <span id="likeCount">0</span> Suka
+        </button>
+
+        <button onclick="smartShare()" id="btnShare" style="background: none; color: #7385a5; border: 2px solid #7385a5; padding: 10px 20px; border-radius: 30px; cursor: pointer; font-size: 15px; display: flex; align-items: center; gap: 10px; font-weight: bold; transition: 0.3s; box-shadow: 0 4px 10px rgba(0,0,0,0.2);">
+            <img src="shr.svg" style="width: 16px; height: 16px; vertical-align: middle;">
+            Bagikan
+        </button>
+    </div>
+    <br>
+    <center><div style="margin-top: 8px; margin-left: 5px; color: #666; font-size: 12px; font-style: italic;">
+        (Klik Suka & Ulasan untuk mendukung pelestarian)
+    </div></center>
+
+            </div>
+
+            <div class="review-box">
+                <h3 style="color: #7385a5; margin-top: 0;">Beri Penilaian</h3>
+                
+                <div class="star-rating" style="margin-bottom: 15px;">
+                    <span onclick="pilihBintang(1)">★</span>
+                    <span onclick="pilihBintang(2)">★</span>
+                    <span onclick="pilihBintang(3)">★</span>
+                    <span onclick="pilihBintang(4)">★</span>
+                    <span onclick="pilihBintang(5)">★</span>
+                </div>
+                <input type="hidden" id="selectedStar" value="0">
+
+                <div style="margin-bottom: 15px;">
+                    <p style="color:#7385a5; font-size:12px; margin-bottom:5px;">Pilih Kata Pujian:</p>
+                    <div id="pilihanUlasan" style="display: flex; gap: 10px; flex-wrap: wrap;">
+                        <button class="chip" onclick="pilihTag(this, 'Luar Biasa')">Luar Biasa</button>
+                        <button class="chip" onclick="pilihTag(this, 'Sangat Detail')">Sangat Detail</button>
+                        <button class="chip" onclick="pilihTag(this, 'Estetik')">Estetik</button>
+                        <button class="chip" onclick="pilihTag(this, 'Super')">Super</button>
+                        <button class="chip" onclick="pilihTag(this, 'Masterpiece')">Masterpiece</button>
+                        <button class="chip" onclick="pilihTag(this, 'Bersejarah')">Bersejarah</button>
+                    </div>
+                    <input type="hidden" id="selectedTag" value="">
+                </div>
+
+                <button onclick="kirimUlasan()" style="background: #7385a5; color: white; border: 2px solid #5c6a84; padding: 12px 25px; border-radius: 10px; cursor: pointer; width: 50%; font-weight: bold; display: block; margin: 0 auto;">
+                    Kirim Ulasan
+                </button>
+            </div>
+
+            <div style="margin-top: 30px;">
+                <h3 style="color: #7385a5;">Ulasan Pengunjung (<span id="reviewCount">0</span>)</h3>
+                <div id="reviewContainer">
+                    <p style="color:#80db80; font-style: italic; font-size: 13px;">Memuat ulasan...</p>
+                </div>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<footer class="footer">
+        <div class="footer-content">
+            <div class="social-icons">
+                <a href="#" class="social-link"><i class="fab fa-youtube"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-instagram"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                <a href="#" class="social-link"><i class="fab fa-facebook-f"></i></a>
+            </div>
+            <p class="copyright">
+                &copy; <span id="year"></span> Powered By <strong>Putramas Official</strong>
+            </p>
+        </div>
+</footer>
+
+<script>
+    // --- 1. KONFIGURASI PENTING ---
+    const CONTRACT_ADDRESS = "0x5dfe8311e98b0443C471A10e26198b72355Ca713"; // <--- Paste Contract Address Disini
+    
+    // Konfigurasi Base Sepolia
+    const BASE_SEPOLIA_ID = '0x14a34'; // 84532
+    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
+    const BASE_SEPOLIA_CONFIG = {
+        chainId: BASE_SEPOLIA_ID,
+        chainName: 'Base Sepolia Testnet',
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: [BASE_SEPOLIA_RPC],
+        blockExplorerUrls: ['https://sepolia.basescan.org']
+    };
+
+    // ABI Lengkap (Termasuk Fungsi Sosial)
+    const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"}],"internalType":"struct WayangArsipPro.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPro.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+    let provider;
+    let signer;
+
+    // --- 2. INIT & LOAD DATA ---
+    async function init() {
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+
+        if (!id) {
+            document.getElementById("loading").innerText = "Gagal: ID Arsip tidak ditemukan.";
+            return;
+        }
+
+        // Cek apakah wallet sudah terkoneksi sebelumnya
+        if(window.ethereum && window.ethereum.selectedAddress) {
+             connectWallet(); // Auto connect visual
+        }
+
+        // Load Data Metadata & Sosial
+        await loadDetail(id);
+        await loadSocialData(id);
+    }
+
+    // --- 3. KONEKSI WALLET & NETWORK CHECK ---
+    async function connectWallet() {
+        if (!window.ethereum) return alert("Install Metamask Atau EVM Wallet Dulu!");
+
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            
+            // Cek Network Wajib Base Sepolia
+            const network = await provider.getNetwork();
+            if (network.chainId !== 84532) {
+                await switchNetwork();
+            }
+
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
+            
+            const btn = document.getElementById("btn-connect");
+            btn.innerText = address.substring(0,6) + "...";
+            btn.classList.add("connected");
+
+        } catch (err) {
+            console.error(err);
+            alert("Gagal koneksi: " + err.message);
+        }
+    }
+
+    async function switchNetwork() {
+        try {
+            await window.ethereum.request({
+                method: 'wallet_switchEthereumChain',
+                params: [{ chainId: BASE_SEPOLIA_ID }],
+            });
+        } catch (switchError) {
+            if (switchError.code === 4902) {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [BASE_SEPOLIA_CONFIG],
+                });
+            } else {
+                throw switchError;
+            }
+        }
+    }
+
+    // --- 4. LOAD METADATA (IPFS) ---
+    async function loadDetail() {
+        // 1. Ambil ID dari URL
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+
+        if (!id) {
+            document.getElementById("loading").innerText = "ID Arsip tidak ditemukan.";
+            return;
+        }
+
+        try {
+            // 2. Koneksi Blockchain (Read-Only RPC)
+            const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+            // 3. Ambil URI Metadata
+            const uri = await contract.tokenURI(id);
+            const httpUri = uri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+            
+            // 4. Download JSON
+            const response = await axios.get(httpUri);
+            const meta = response.data;
+
+            // 5. OPTIMASI GAMBAR (TARGET: 500KB - 700KB)
+            const rawImgUrl = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+            
+            // w=1200 : Resolusi Besar (HD), enak dilihat di Laptop/Tablet
+            // q=95   : Kompresi sangat sedikit, detail ukiran wayang tajam
+            const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
+
+            // 6. Helper Function Attributes
+            const getAttr = (k) => {
+                const f = meta.attributes.find(a => a.trait_type === k);
+                return f ? f.value : "-";
+            };
+
+            // 7. Masukkan Data ke HTML
+            document.getElementById("displayId").innerText = id;
+            
+            // Set Gambar HD
+            const imgEl = document.getElementById("displayImg");
+            imgEl.src = hdImageUrl;
+            
+            // Efek Loading Halus
+            imgEl.style.opacity = 0;
+            imgEl.onload = () => { imgEl.style.opacity = 1; imgEl.style.transition = "opacity 0.5s"; };
+
+            document.getElementById("displayName").innerText = meta.name;
+            document.getElementById("displayGaya").innerText = getAttr("Gaya");
+            document.getElementById("displayDesc").innerText = meta.description;
+            
+            document.getElementById("displayGolongan").innerText = getAttr("Golongan");
+            document.getElementById("displayWanda").innerText = getAttr("Wanda");
+            document.getElementById("displayKulit").innerText = getAttr("Material Kulit");
+            document.getElementById("displayPembuat").innerText = getAttr("Pembuat");
+            
+            document.getElementById("displayNegara").innerText = getAttr("Negara");
+            document.getElementById("displayAyah").innerText = getAttr("Ayah");
+            document.getElementById("displayIbu").innerText = getAttr("Ibu");
+            document.getElementById("displayPusaka").innerText = getAttr("Pusaka") || "-";
+
+            // Tampilkan Konten
+            document.getElementById("loading").style.display = "none";
+            document.getElementById("content").style.display = "flex";
+
+        } catch (err) {
+            console.error(err);
+            document.getElementById("loading").innerText = "Gagal memuat data wayang. Cek koneksi.";
+        }
+    }
+
+    // --- 5. LOAD DATA SOSIAL (BLOCKCHAIN) ---
+    async function loadSocialData(id) {
+        try {
+            const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+
+            // Likes
+            const likes = await contract.totalLikes(id);
+            document.getElementById("likeCount").innerText = likes.toString();
+
+            // Reviews
+            const reviews = await contract.getReviews(id);
+try {
+    const avgScore = await contract.getAverageRating(id);
+    const finalScore = (avgScore / 10).toFixed(1);
+    if(avgScore > 0) {
+        document.getElementById("displayName").innerHTML += 
+            ` <span style="font-size:16px; color:gold; border:1px solid gold; padding:2px 8px; border-radius:10px;">⭐ ${finalScore}</span>`;
+    }
+} catch (e) {
+    console.log("Belum ada rating rata-rata");
+}
+            document.getElementById("reviewCount").innerText = reviews.length;
+            
+            const container = document.getElementById("reviewContainer");
+            
+            if(reviews.length === 0) {
+                container.innerHTML = `<p style="color:#666; font-style: italic;">Belum ada ulasan.</p>`;
+            } else {
+                container.innerHTML = "";
+                // Balik array agar review terbaru di atas
+                [...reviews].reverse().forEach(r => {
+                    // r[0]=address, r[1]=bintang, r[2]=ulasan
+                    const bintangStr = "★".repeat(r.bintang);
+                    const html = `
+                        <div class="review-card">
+                            <div style="font-size: 11px; color: #5c6a84; margin-bottom:5px;">
+                                ${r.reviewer.substring(0,6)}...${r.reviewer.substring(38)}
+                            </div>
+                            <div style="color: gold; font-size: 16px;">${bintangStr}</div>
+                            <div style="color: #666; margin-top: 5px; font-style: italic;">"${r.ulasan}"</div>
+                        </div>
+                    `;
+                    container.innerHTML += html;
+                });
+            }
+
+        } catch (err) {
+            console.error("Gagal load social:", err);
+        }
+    }
+
+    // --- 6. INTERAKSI: LIKE & REVIEW ---
+    async function ensureWallet() {
+        if(!signer) {
+            await connectWallet();
+            if(!signer) throw new Error("Wallet belum terkoneksi");
+        }
+    }
+
+    async function kirimLike() {
+        try {
+            await ensureWallet(); // Pastikan konek dulu
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            
+            const btn = document.getElementById("btnLike");
+            const oriText = btn.innerHTML;
+            btn.innerHTML = `
+    <img src="loading.svg" style="width: 16px; height: 16px; vertical-align: middle; margin-right: 5px;"> 
+    Send...
+`;
+            const tx = await contract.kasihLike(id);
+            await tx.wait();
+            
+            alert("Berhasil Like!");
+            location.reload();
+
+        } catch(err) {
+            alert("Gagal: " + (err.reason || err.message));
+            document.getElementById("btnLike").innerHTML = '<img src="lv.svg" style="width: 16px; height: 16px; vertical-align: middle;"> Like';
+        }
+    }
+
+    async function kirimUlasan() {
+        try {
+            const bintang = document.getElementById("selectedStar").value;
+            const tag = document.getElementById("selectedTag").value;
+            if(bintang == 0 || tag == "") return alert("Pilih bintang & kata ulasan dulu!");
+
+            await ensureWallet();
+            const params = new URLSearchParams(window.location.search);
+            const id = params.get('id');
+
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            
+            const tx = await contract.kasihUlasan(id, bintang, tag);
+            alert("Transaksi review dikirim. Tunggu konfirmasi...");
+            await tx.wait();
+            
+            alert("Review Berhasil!");
+            location.reload();
+
+        } catch(err) {
+            alert("Gagal: " + (err.reason || err.message));
+        }
+    }
+
+    // --- 7. UI HELPERS ---
+    function pilihBintang(n) {
+        document.getElementById("selectedStar").value = n;
+        const stars = document.querySelectorAll('.star-rating span');
+        stars.forEach((s, index) => {
+            if(index < n) s.classList.add('active');
+            else s.classList.remove('active');
+        });
+    }
+
+    function pilihTag(btn, teks) {
+        document.querySelectorAll('.chip').forEach(c => c.classList.remove('selected'));
+        btn.classList.add('selected');
+        document.getElementById("selectedTag").value = teks;
+    }
+
+    async function smartShare() {
+    const shareData = {
+        title: document.title, // Mengambil Judul Halaman Otomatis
+        text: 'Lihat koleksi Wayang Nusantara ini! Sangat detail dan estetik.',
+        url: window.location.href // Mengambil Link Halaman saat ini
+    };
+
+    const btnShare = document.getElementById("btnShare");
+    const originalText = btnShare.innerHTML;
+
+    // Cek apakah Browser mendukung Native Share (Biasanya di HP)
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            console.log('Berhasil dibagikan');
+        } catch (err) {
+            console.log('Batal membagikan');
+        }
+    } else {
+        // Fallback untuk Desktop (Copy Link)
+        try {
+            await navigator.clipboard.writeText(window.location.href);
+            
+            // Ubah teks tombol sementara sebagai notifikasi
+            btnShare.innerHTML = `<img src="success.svg" style="width: 19px; height: 19px; vertical-align: middle;"> Link Disalin!`;
+            setTimeout(() => {
+                btnShare.innerHTML = originalText;
+            }, 2000);
+        } catch (err) {
+            alert("Gagal menyalin link: " + err);
+        }
+    }
+    }
+
+    // Jalankan Init
+    init();
+document.getElementById("year").innerText = new Date().getFullYear();
+</script>
+</script>
+</body>
+</html>
