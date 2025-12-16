@@ -2,8 +2,8 @@ document.getElementById("0xPtMsXzKyzAxcVbxH").innerHTML = `
 <nav class="navbar">
         <div class="nav-left">
   <a href="index" style="display: flex; align-items: center; text-decoration: none;">
-    <img src="img/icon-192.png" class="nav-logo">
-    <span class="nav-brand">Putramas Official</span>
+    <img src="img/icon-192.png" class="nav-logo" style="margin-right:8px;">
+    <span class="nav-brand" style="font-size:20px; color: #7385a5; font-weight:bold;">Putramas Official</span>
   </a>
         </div>
         <div class="nav-right">
