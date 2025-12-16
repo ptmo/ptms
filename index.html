@@ -877,29 +877,46 @@ function generateCardHTML(w, badge) {
         </a>`;
 }
 
-    // --- GAMBAR ---
+    // --- GAMBAR (DENGAN FALLBACK SYSTEM) ---
     async function fetchOptimizedImage(metaUrl, id) {
         try {
-            const res = await axios.get(metaUrl);
+            // 1. Ambil Metadata JSON dulu
+            const res = await axios.get(metaUrl);      
+            // Bersihkan URL gambar dari IPFS prefix
             const rawImgUrl = res.data.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=800&q=92&output=webp`;
+            // 2. Optimasi Gambar
+            // Ubah w=800 jadi w=400 (Cukup tajam untuk kartu, tapi jauh lebih ringan)
+            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=80&output=webp`;
             const imgEl = document.getElementById(`img-${id}`);
+            if (!imgEl) return;
+            // 3. Teknik Preloading dengan Fallback
+            const tempImg = new Image();
+            // [PENTING] Jika Optimasi Gagal (wsrv.nl down/timeout), pakai gambar asli
+            tempImg.onerror = () => {
+                console.warn(`Optimasi gagal ID ${id}, menggunakan raw link.`);
+                imgEl.src = rawImgUrl; // Fallback ke link Pinata langsung
+                imgEl.style.opacity = 1; 
+            };
 
-            if(imgEl) {
-                const tempImg = new Image();
-                tempImg.src = optimizedUrl;
-                tempImg.onload = () => {
-                    imgEl.src = optimizedUrl; 
-                    imgEl.style.opacity = 0; 
-                    setTimeout(() => { imgEl.style.opacity = 1; }, 50);
-                };
-            }
-        } catch(e) { console.log("Gagal load gambar id " + id); }
+            // Jika Berhasil Load
+            tempImg.onload = () => {
+                imgEl.src = optimizedUrl; 
+                // Efek Fade-In yang lebih smooth (lewat CSS transition)
+                imgEl.style.transition = "opacity 0.5s ease-in-out";
+                imgEl.style.opacity = 1; 
+            };
+
+            // Mulai muat gambar
+            tempImg.src = optimizedUrl;
+
+        } catch(e) { 
+            console.log("Gagal load metadata/gambar id " + id); 
+        }
     }
 
     // --- WALLET ---
     async function connectWallet() {
-        if (!window.ethereum) return alert("Metamask tidak ditemukan!");
+        if (!window.ethereum) return showToast("Install dahulu, Metamask tidak ditemukan!", 'wolf');
         try {
             provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
