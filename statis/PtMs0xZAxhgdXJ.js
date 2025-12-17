@@ -284,32 +284,73 @@ function generateCardHTML(w, badge) {
         </a>`;
 }
 
+// --- OPTIMIZED IMAGE LOADER DENGAN CACHE ---
 async function fetchOptimizedImage(metaUrl, id) {
-        try {
-            const res = await axios.get(metaUrl);
-            const rawImgUrl = res.data.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=80&output=webp`;
-            const imgEl = document.getElementById(`img-${id}`);
-            if (!imgEl) return;
-            const tempImg = new Image();
-            tempImg.onerror = () => {
-                console.warn(`Optimasi gagal ID ${id}, menggunakan raw link.`);
-                imgEl.src = rawImgUrl;
-                imgEl.style.opacity = 1; 
-            };
+    const imgEl = document.getElementById(`img-${id}`);
+    if (!imgEl) return;
 
-            tempImg.onload = () => {
-                imgEl.src = optimizedUrl;
-                imgEl.style.transition = "opacity 0.5s ease-in-out";
-                imgEl.style.opacity = 1; 
-            };
-            
-            tempImg.src = optimizedUrl;
+    // 1. CEK CACHE LOCAL STORAGE (Agar tidak perlu download JSON berulang kali)
+    // Format Key: "img_cache_ID"
+    const cacheKey = `wayang_img_${id}`;
+    const cachedUrl = localStorage.getItem(cacheKey);
 
-        } catch(e) { 
-            console.log("Gagal load metadata/gambar id " + id); 
-        }
+    if (cachedUrl) {
+        // Jika ada di memori HP, langsung pakai! (Instant Load)
+        loadImage(imgEl, cachedUrl);
+        return;
     }
+
+    // 2. JIKA BELUM ADA DI CACHE, BARU DOWNLOAD METADATA
+    try {
+        // Gunakan beberapa gateway alternatif jika Pinata lemot
+        // Kita coba replace domain ipfs:// dengan gateway publik yang cepat
+        let fetchUrl = metaUrl;
+        if (metaUrl.startsWith("ipfs://")) {
+            fetchUrl = metaUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+        }
+
+        const res = await axios.get(fetchUrl, { timeout: 5000 }); // Timeout 5 detik biar ga nunggu selamanya
+        
+        let rawImgUrl = res.data.image;
+        if (rawImgUrl.startsWith("ipfs://")) {
+            rawImgUrl = rawImgUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+        }
+
+        // 3. GENERATE URL OPTIMIZED (WSRV.NL)
+        // Kita turunkan quality (q) ke 75 dan width (w) ke 300 supaya lebih ringan lagi
+        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=300&q=75&output=webp`;
+
+        // 4. SIMPAN KE LOCAL STORAGE (PENTING!)
+        // Besok kalau user buka lagi, tidak perlu fetch JSON lagi.
+        localStorage.setItem(cacheKey, optimizedUrl);
+
+        // 5. Tampilkan Gambar
+        loadImage(imgEl, optimizedUrl);
+
+    } catch(e) { 
+        console.warn("Gagal load metadata id " + id, e);
+        // Fallback: Jika gagal fetch metadata, coba tebak URL gambar (opsional, jika struktur folder rapi)
+        // imgEl.src = "https://via.placeholder.com/300?text=Error"; 
+    }
+}
+
+// Helper Function untuk transisi halus
+function loadImage(imgEl, url) {
+    const tempImg = new Image();
+    
+    tempImg.onerror = () => {
+        // Jika wsrv.nl gagal, coba load raw link dari cache/source (jika logic memungkinkan) atau biarkan placeholder
+        console.warn("Gagal load gambar optimized");
+    };
+
+    tempImg.onload = () => {
+        imgEl.src = url;
+        imgEl.style.transition = "opacity 0.4s ease-out";
+        imgEl.style.opacity = 1; 
+    };
+    
+    tempImg.src = url;
+}
 
     async function connectWallet() {
         if (!window.ethereum) return showToast("Install dahulu, Metamask tidak ditemukan!", 'wolf');
