@@ -599,83 +599,66 @@ Koleksi Wayang Kulit
         contractReader = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
         const btns = document.querySelectorAll('.btn-filter');
         if(btns.length > 0) btns[0].classList.add('active');
+        loadCachedIndex()
         loadGaleri(); 
         buildSearchIndex(); 
     };
 
-    async function buildSearchIndex() {
-
-        console.log("Building Search Index...");
-
-        searchIndex = []; // RESET ARRAY WAJIB! (Solusi Bug Duplikat)
-
-        
-
-        const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
-
-        
-
-        try {
-
-            const promises = golongans.map(async (gol) => {
-
-                const ids = await contractReader.getIdsByGolongan(gol);
-
-                const detailPromises = ids.map(async (id) => {
-
-                    try {
-
-                        const info = await contractReader.getInfoWayang(id);
-
-                        if (!info.isActive) return null;
-
-                        return { 
-
-                            id: id.toString(), 
-
-                            nama: info.nama.toLowerCase(), 
-
-                            gaya: info.gaya.toLowerCase(), 
-
-                            golongan: info.golongan 
-
-                        };
-
-                    } catch(e) { return null; }
-
-                });
-
-                return Promise.all(detailPromises);
-
-            });
-
-
-
-            const results = await Promise.all(promises);
-
-            // Ratakan array dan hapus null
-
-            const flatResults = results.flat().filter(i => i !== null);
-
-            
-
-            // FILTER FINAL: Pastikan ID unik (Jaga-jaga jika ada data ganda dari blockchain)
-
-            searchIndex = [...new Map(flatResults.map(item => [item.id, item])).values()];
-
-
-
-            isSearchReady = true;
-
-            console.log("Index Ready: " + searchIndex.length + " unique items");
-
-            document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
-
-        } catch(e) { console.error("Index failed:", e); }
-
+    function loadCachedIndex() {
+    const cachedData = localStorage.getItem("wayang_search_index");
+    if (cachedData) {
+        searchIndex = JSON.parse(cachedData);
+        isSearchReady = true; // Langsung siap!
+        console.log("✅ Index dimuat dari Cache HP (Instant).");
+        document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
+    }
     }
 
+    async function buildSearchIndex() {
+    console.log("🔄 Update Index dari Blockchain...");
+    
+    // Jangan reset searchIndex dulu kalau sudah ada data dari Cache
+    // searchIndex = []; <--- HAPUS INI
 
+    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+
+    try {
+        const promises = golongans.map(async (gol) => {
+            const ids = await contractReader.getIdsByGolongan(gol);
+            const detailPromises = ids.map(async (id) => {
+                try {
+                    const info = await contractReader.getInfoWayang(id);
+                    if (!info.isActive) return null;
+                    return { 
+                        id: id.toString(), 
+                        nama: info.nama.toLowerCase(), 
+                        gaya: info.gaya.toLowerCase(), 
+                        golongan: info.golongan 
+                    };
+                } catch(e) { return null; }
+            });
+            return Promise.all(detailPromises);
+        });
+
+        const results = await Promise.all(promises);
+        const flatResults = results.flat().filter(i => i !== null);
+
+        // Filter Duplikat
+        const uniqueData = [...new Map(flatResults.map(item => [item.id, item])).values()];
+        
+        // Update Variable Global
+        searchIndex = uniqueData;
+        isSearchReady = true;
+
+        // --- SIMPAN KE MEMORI HP USER (LOCAL STORAGE) ---
+        // Ini kuncinya! Besok user buka lagi, ga perlu loading lama.
+        localStorage.setItem("wayang_search_index", JSON.stringify(searchIndex));
+        
+        console.log("✅ Index Terupdate & Disimpan.");
+        document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
+
+    } catch(e) { console.error("Index failed:", e); }
+    }
 
     // --- 4. SMART SEARCH LOGIC (FIXED) ---
 
