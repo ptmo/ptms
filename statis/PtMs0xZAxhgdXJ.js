@@ -236,7 +236,7 @@ async function renderCards(ids, container, isSearchMode, requestId) {
             const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
             if (isOwnerOfficial) {
                 ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
-                <img src="img/root.png" style="width:11px; vertical-align:middle;"> Official</div>`;
+                👑 Official</div>`;
             } else {
                 ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
             }
@@ -270,10 +270,10 @@ function generateCardHTML(w, badge) {
                     <div class="overlay-date">${w.date}</div>
                     <div class="overlay-stats">
                         <div class="stat-item">
-                           <img src="img/lv.svg" style="width:14px; vertical-align:middle;"> ${w.likes}
+                           ❤️ ${w.likes}
                         </div>
                         <div class="stat-item">
-                           <img src="img/str.svg" style="width:14px; vertical-align:middle;"> ${w.rating}
+                           ⭐ ${w.rating}
                         </div>
                     </div>
                 </div>
