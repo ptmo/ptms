@@ -643,11 +643,15 @@ async function buildSearchIndex() {
 }
 
 async function smartSearch() {
-        const query = document.getElementById("searchInput").value.toLowerCase();
+        const inputEl = document.getElementById("searchInput");
+        const query = inputEl.value.toLowerCase();
         const container = document.getElementById("containerGaleri");
+
+        // Update ID Request untuk membatalkan proses lama
         searchRequestId++; 
         const currentRequestId = searchRequestId;
 
+        // 1. Jika search kosong, kembalikan ke tampilan awal
         if (query.length === 0) {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
@@ -655,17 +659,34 @@ async function smartSearch() {
             return;
         }
         
+        // 2. Mode Search Aktif -> Sembunyikan Tab/Kategori
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
         
+        // 3. CEK APAKAH DATA SUDAH SIAP?
         if (!isSearchReady) {
             container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
                 <img src="https://i.gifer.com/ZZ5H.gif" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
                 Menyiapkan data pencarian...
             </p>`;
-            return;
+            
+            // --- PERBAIKAN UTAMA DISINI ---
+            // Jangan berhenti (return) begitu saja.
+            // Coba panggil diri sendiri lagi dalam 500ms (0.5 detik)
+            console.log("Index belum siap, menunggu...");
+            
+            setTimeout(() => {
+                // Cek: Apakah user masih mencari kata yang sama? 
+                // Kalau user sudah menghapus teks, jangan lanjut looping.
+                if (inputEl.value.toLowerCase() === query) {
+                    smartSearch(); // Panggil ulang fungsi ini
+                }
+            }, 500); 
+            
+            return; // Berhenti sementara, nanti dipanggil lagi oleh setTimeout
         }
 
+        // 4. FILTER DATA (Baru jalan kalau isSearchReady = true)
         const results = searchIndex.filter(w => 
             w.nama.toLowerCase().includes(query) || 
             w.gaya.toLowerCase().includes(query) || 
@@ -677,11 +698,13 @@ async function smartSearch() {
             return;
         }
 
-        container.innerHTML = "";
-        window.scrollTo({ top: 0, behavior: 'smooth' });
+        // 5. RENDER HASIL
+        container.innerHTML = ""; 
         const limitedIds = results.slice(0, 20).map(r => r.id);
+        
+        // Panggil renderCards
         await renderCards(limitedIds, container, true, currentRequestId);
-    }
+   }
 
     function switchTab(tab) {
         currentTab = tab;
