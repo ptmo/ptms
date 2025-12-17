@@ -270,10 +270,10 @@ function generateCardHTML(w, badge) {
                     <div class="overlay-date">${w.date}</div>
                     <div class="overlay-stats">
                         <div class="stat-item">
-                           <img src="https://cdn-icons-png.flaticon.com/512/833/833472.png" style="width:14px; vertical-align:middle;"> ${w.likes}
+                           <img src="img/lv.svg" style="width:14px; vertical-align:middle;"> ${w.likes}
                         </div>
                         <div class="stat-item">
-                           <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" style="width:14px; vertical-align:middle;"> ${w.rating}
+                           <img src="img/str.svg" style="width:14px; vertical-align:middle;"> ${w.rating}
                         </div>
                     </div>
                 </div>
