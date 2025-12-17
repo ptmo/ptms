@@ -267,16 +267,21 @@ function generateCardHTML(w, badge) {
                      style="opacity: 0; transition: opacity 0.3s;">
                 
                 <div class="img-overlay-bar">
-                    <div class="overlay-date">${w.date}</div>
-                    <div class="overlay-stats">
-                        <div class="stat-item">
-                           <img src="img/lv.svg" style="width:14px;"> ${w.likes}
-                        </div>
-                        <div class="stat-item">
-                           <img src="img/str.svg" style="width:14px;"> ${w.rating}
-                        </div>
-                    </div>
-                </div>
+    <div class="overlay-date">${w.date}</div>
+    <div class="overlay-stats">
+        
+        <div class="stat-item">
+            <img src="img/lv.svg" style="width: 14px; height: 14px; object-fit: contain;"> 
+            ${w.likes}
+        </div>
+
+        <div class="stat-item">
+            <img src="img/str.svg" style="width: 14px; height: 14px; object-fit: contain;"> 
+            ${w.rating}
+        </div>
+
+    </div>
+</div>
             </div>
             
             <div class="card-body">
