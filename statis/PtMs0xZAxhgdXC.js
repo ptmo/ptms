@@ -139,9 +139,23 @@ styleTag.innerHTML = `
             display: flex; justify-content: space-between; align-items: center;
             padding: 0 15px; z-index: 10; box-sizing: border-box;
         }
+
         .overlay-date { color: #ccc; font-size: 10px; font-weight: bold; text-transform: uppercase; }
         .overlay-stats { display: flex; gap: 15px; }
-        .stat-item { display: flex; align-items: center; gap: 5px; font-size: 11px; font-weight: bold; color: #deb887; }
+        .stat-item {
+    display: flex; 
+    align-items: center;
+    gap: 5px; 
+    font-size: 11px; 
+    font-weight: bold; 
+    color: #deb887;
+    line-height: 1;
+}
+
+.stat-item img {
+    display: block;
+    margin: 0;
+}
 
         .card-body { padding: 15px; background: #f6f9ff; }
         .card-meta { display: flex; justify-content: space-between; margin-bottom: 8px; }
