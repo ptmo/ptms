@@ -360,5 +360,31 @@ styleTag.innerHTML = `
     from {top: 30px; opacity: 1;}
     to {top: -50px; opacity: 0;}
 }
+
+/* --- CSS LOADING SPINNER --- */
+.img-loader {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    z-index: 5; /* Pastikan di atas background tapi di bawah overlay teks */
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.spinner-circle {
+    width: 30px;
+    height: 30px;
+    border: 3px solid #e0e0e0;       /* Warna abu-abu muda */
+    border-top: 3px solid #d35400;   /* Warna Oranye (Aksen) */
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
 `;
 document.head.appendChild(styleTag);
