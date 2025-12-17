@@ -603,108 +603,173 @@ Koleksi Wayang Kulit
         buildSearchIndex(); 
     };
 
-async function buildSearchIndex() {
-    console.log("Building Search Index...");
-    searchIndex = [];
-    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+    async function buildSearchIndex() {
 
-    try {
-        const promises = golongans.map(async (gol) => {
-            const ids = await contractReader.getIdsByGolongan(gol);
-            const detailPromises = ids.map(async (id) => {
-                try {
-                    const info = await contractReader.getInfoWayang(id);
-                    if (!info.isActive) return null;
-                    return { 
-                        id: id.toString(),
-                        nama: info.nama.toLowerCase(), 
-                        gaya: info.gaya.toLowerCase(), 
-                        golongan: info.golongan
-                    };
-                } catch(e) { return null; }
+        console.log("Building Search Index...");
+
+        searchIndex = []; // RESET ARRAY WAJIB! (Solusi Bug Duplikat)
+
+        
+
+        const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+
+        
+
+        try {
+
+            const promises = golongans.map(async (gol) => {
+
+                const ids = await contractReader.getIdsByGolongan(gol);
+
+                const detailPromises = ids.map(async (id) => {
+
+                    try {
+
+                        const info = await contractReader.getInfoWayang(id);
+
+                        if (!info.isActive) return null;
+
+                        return { 
+
+                            id: id.toString(), 
+
+                            nama: info.nama.toLowerCase(), 
+
+                            gaya: info.gaya.toLowerCase(), 
+
+                            golongan: info.golongan 
+
+                        };
+
+                    } catch(e) { return null; }
+
+                });
+
+                return Promise.all(detailPromises);
+
             });
 
-            return Promise.all(detailPromises);
-        });
 
-        const results = await Promise.all(promises);
-        const flatResults = results.flat().filter(i => i !== null);
-        searchIndex = [...new Map(flatResults.map(item => [item.id, item])).values()];
-        isSearchReady = true;
-        console.log(`✅ Index Ready: ${searchIndex.length} items.`);
-        const searchInput = document.getElementById("searchInput");
-        if (searchInput) {
-            searchInput.placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
-        }
 
-    } catch(e) { 
-        console.error("Index failed:", e); 
+            const results = await Promise.all(promises);
+
+            // Ratakan array dan hapus null
+
+            const flatResults = results.flat().filter(i => i !== null);
+
+            
+
+            // FILTER FINAL: Pastikan ID unik (Jaga-jaga jika ada data ganda dari blockchain)
+
+            searchIndex = [...new Map(flatResults.map(item => [item.id, item])).values()];
+
+
+
+            isSearchReady = true;
+
+            console.log("Index Ready: " + searchIndex.length + " unique items");
+
+            document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
+
+        } catch(e) { console.error("Index failed:", e); }
+
     }
-}
 
-async function smartSearch() {
-        const inputEl = document.getElementById("searchInput");
-        const query = inputEl.value.toLowerCase();
+
+
+    // --- 4. SMART SEARCH LOGIC (FIXED) ---
+
+    async function smartSearch() {
+
+        const query = document.getElementById("searchInput").value.toLowerCase();
+
         const container = document.getElementById("containerGaleri");
 
-        // Update ID Request untuk membatalkan proses lama
+        
+
+        // Counter ID untuk memastikan hasil render adalah yang terbaru
+
         searchRequestId++; 
+
         const currentRequestId = searchRequestId;
 
-        // 1. Jika search kosong, kembalikan ke tampilan awal
+
+
+        // Jika search kosong, kembalikan ke tampilan Kategori
+
         if (query.length === 0) {
+
             document.getElementById("tabContainer").style.display = "flex";
+
             document.getElementById("categoryContainer").style.display = "flex";
+
             loadGaleri();
+
             return;
-        }
-        
-        // 2. Mode Search Aktif -> Sembunyikan Tab/Kategori
-        document.getElementById("tabContainer").style.display = "none";
-        document.getElementById("categoryContainer").style.display = "none";
-        
-        // 3. CEK APAKAH DATA SUDAH SIAP?
-        if (!isSearchReady) {
-            container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
-                <img src="https://i.gifer.com/ZZ5H.gif" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
-                Menyiapkan data pencarian...
-            </p>`;
-            
-            // --- PERBAIKAN UTAMA DISINI ---
-            // Jangan berhenti (return) begitu saja.
-            // Coba panggil diri sendiri lagi dalam 500ms (0.5 detik)
-            console.log("Index belum siap, menunggu...");
-            
-            setTimeout(() => {
-                // Cek: Apakah user masih mencari kata yang sama? 
-                // Kalau user sudah menghapus teks, jangan lanjut looping.
-                if (inputEl.value.toLowerCase() === query) {
-                    smartSearch(); // Panggil ulang fungsi ini
-                }
-            }, 500); 
-            
-            return; // Berhenti sementara, nanti dipanggil lagi oleh setTimeout
+
         }
 
-        // 4. FILTER DATA (Baru jalan kalau isSearchReady = true)
+
+
+        // Mode Search Aktif
+
+        document.getElementById("tabContainer").style.display = "none";
+
+        document.getElementById("categoryContainer").style.display = "none";
+
+
+
+        if (!isSearchReady) {
+
+            container.innerHTML = `<p style="text-align:center;">⏳ Sedang menyiapkan data...</p>`;
+
+            return;
+
+        }
+
+
+
+        // FILTER PENCARIAN
+
         const results = searchIndex.filter(w => 
-            w.nama.toLowerCase().includes(query) || 
-            w.gaya.toLowerCase().includes(query) || 
-            String(w.id) === query
+
+            w.nama.includes(query) || 
+
+            w.gaya.includes(query) || 
+
+            w.id === query
+
         );
 
+
+
         if (results.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ditemukan hasil untuk "<b>${query}</b>"</p>`;
+
+            container.innerHTML = `<p style="text-align:center; color:#888;">Tidak ditemukan hasil untuk "<b>${query}</b>"</p>`;
+
             return;
+
         }
 
-        // 5. RENDER HASIL
+
+
+        // Bersihkan Container SEBELUM render
+
         container.innerHTML = ""; 
+
+
+
+        // Ambil 20 hasil teratas saja
+
         const limitedIds = results.slice(0, 20).map(r => r.id);
+
         
-        // Panggil renderCards
+
+        // Panggil Render dengan Flag Mode Search = TRUE
+
         await renderCards(limitedIds, container, true, currentRequestId);
-   }
+
+    }
 
     function switchTab(tab) {
         currentTab = tab;
