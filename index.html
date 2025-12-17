@@ -661,97 +661,64 @@ Koleksi Wayang Kulit
     }
 
     // --- 4. SMART SEARCH LOGIC (FIXED) ---
-
     async function smartSearch() {
-
         const query = document.getElementById("searchInput").value.toLowerCase();
-
         const container = document.getElementById("containerGaleri");
 
-        
-
         // Counter ID untuk memastikan hasil render adalah yang terbaru
-
         searchRequestId++; 
-
         const currentRequestId = searchRequestId;
-
-
-
         // Jika search kosong, kembalikan ke tampilan Kategori
-
         if (query.length === 0) {
-
             document.getElementById("tabContainer").style.display = "flex";
-
             document.getElementById("categoryContainer").style.display = "flex";
-
             loadGaleri();
-
             return;
-
         }
-
-
 
         // Mode Search Aktif
-
         document.getElementById("tabContainer").style.display = "none";
-
         document.getElementById("categoryContainer").style.display = "none";
 
-
-
         if (!isSearchReady) {
-
             container.innerHTML = `<p style="text-align:center;">⏳ Sedang menyiapkan data...</p>`;
-
             return;
-
         }
-
-
 
         // FILTER PENCARIAN
-
         const results = searchIndex.filter(w => 
-
             w.nama.includes(query) || 
-
             w.gaya.includes(query) || 
-
             w.id === query
-
         );
 
-
-
         if (results.length === 0) {
-
-            container.innerHTML = `<p style="text-align:center; color:#888;">Tidak ditemukan hasil untuk "<b>${query}</b>"</p>`;
-
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 60px 20px; animation: fadeIn 0.5s;">
+                    <img src="img/stl.png" 
+                         style="width: 80px; height: 80px; margin-bottom: 20px; filter: grayscale(100%) opacity(0.8);">
+                    
+                    <h3 style="color: #7385a5; margin: 0 0 10px 0; font-size: 20px; font-weight: 600;">
+                        Sinyal Tidak Ditemukan
+                    </h3>
+                    
+                    <p style="color: #7385a5; font-size: 14px; margin: 0; line-height: 1.6;">
+                        Radar kami tidak dapat melacak wayang dengan kata kunci:<br>
+                        <span style="color: #e74c3c; font-weight: bold; font-size: 15px; background: #fceceb; padding: 2px 8px; border-radius: 4px;">"${query}"</span>
+                        <br><br>
+                        <span style="font-size: 13px; opacity: 0.8;">Coba cari dengan kata kunci lain.</span>
+                    </p>
+                </div>
+            `;
             return;
-
         }
 
-
-
         // Bersihkan Container SEBELUM render
-
         container.innerHTML = ""; 
-
-
-
         // Ambil 20 hasil teratas saja
-
         const limitedIds = results.slice(0, 20).map(r => r.id);
-
-        
-
         // Panggil Render dengan Flag Mode Search = TRUE
-
         await renderCards(limitedIds, container, true, currentRequestId);
-
     }
 
     function switchTab(tab) {
