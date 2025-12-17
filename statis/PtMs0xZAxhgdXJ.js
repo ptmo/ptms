@@ -255,20 +255,26 @@ function generateCardHTML(w, badge) {
         <a href="detail?id=${w.id}" class="wayang-card">
             <div class="wayang-img">
                 ${badge}
-                <img id="img-${w.id}" src="https://via.placeholder.com/300x350/333/777?text=Loading..." alt="${w.nama}" loading="lazy">
+                
+                <div id="loader-${w.id}" class="img-loader">
+                    <div class="spinner-circle"></div>
+                </div>
+
+                <img id="img-${w.id}" 
+                     src="https://via.placeholder.com/300x400/2c3e50/2c3e50?text=." 
+                     alt="${w.nama}" 
+                     loading="lazy"
+                     style="opacity: 0; transition: opacity 0.3s;">
                 
                 <div class="img-overlay-bar">
                     <div class="overlay-date">${w.date}</div>
                     <div class="overlay-stats">
-                        
                         <div class="stat-item">
-                           ❤️ ${w.likes}
+                           <img src="https://cdn-icons-png.flaticon.com/512/833/833472.png" style="width:14px; vertical-align:middle;"> ${w.likes}
                         </div>
-
                         <div class="stat-item">
-                           ⭐ ${w.rating}
+                           <img src="https://cdn-icons-png.flaticon.com/512/1828/1828884.png" style="width:14px; vertical-align:middle;"> ${w.rating}
                         </div>
-
                     </div>
                 </div>
             </div>
@@ -284,53 +290,62 @@ function generateCardHTML(w, badge) {
         </a>`;
 }
 
-// --- OPTIMIZED IMAGE LOADER DENGAN CACHE ---
+// --- OPTIMIZED IMAGE LOADER DENGAN SPINNER ---
 async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
+    const loaderEl = document.getElementById(`loader-${id}`); // Ambil elemen loader
+    
     if (!imgEl) return;
 
-    // 1. CEK CACHE LOCAL STORAGE (Agar tidak perlu download JSON berulang kali)
-    // Format Key: "img_cache_ID"
+    // Helper untuk menampilkan gambar & sembunyikan loader
+    const showImage = (url) => {
+        imgEl.src = url;
+        imgEl.onload = () => {
+            imgEl.style.opacity = 1;     // Munculkan Gambar
+            if(loaderEl) loaderEl.style.display = 'none'; // Sembunyikan Spinner
+        };
+        // Jaga-jaga kalau onload ga jalan (misal ambil dari cache browser super cepat)
+        if (imgEl.complete) {
+            imgEl.style.opacity = 1;
+            if(loaderEl) loaderEl.style.display = 'none';
+        }
+    };
+
+    // 1. CEK CACHE LOCAL STORAGE
     const cacheKey = `wayang_img_${id}`;
     const cachedUrl = localStorage.getItem(cacheKey);
 
     if (cachedUrl) {
-        // Jika ada di memori HP, langsung pakai! (Instant Load)
-        loadImage(imgEl, cachedUrl);
+        showImage(cachedUrl);
         return;
     }
 
-    // 2. JIKA BELUM ADA DI CACHE, BARU DOWNLOAD METADATA
+    // 2. DOWNLOAD BARU
     try {
-        // Gunakan beberapa gateway alternatif jika Pinata lemot
-        // Kita coba replace domain ipfs:// dengan gateway publik yang cepat
         let fetchUrl = metaUrl;
         if (metaUrl.startsWith("ipfs://")) {
             fetchUrl = metaUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
         }
 
-        const res = await axios.get(fetchUrl, { timeout: 5000 }); // Timeout 5 detik biar ga nunggu selamanya
+        const res = await axios.get(fetchUrl, { timeout: 5000 });
         
         let rawImgUrl = res.data.image;
         if (rawImgUrl.startsWith("ipfs://")) {
             rawImgUrl = rawImgUrl.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
         }
 
-        // 3. GENERATE URL OPTIMIZED (WSRV.NL)
-        // Kita turunkan quality (q) ke 75 dan width (w) ke 300 supaya lebih ringan lagi
+        // Optimize URL (wsrv.nl)
         const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=300&q=75&output=webp`;
 
-        // 4. SIMPAN KE LOCAL STORAGE (PENTING!)
-        // Besok kalau user buka lagi, tidak perlu fetch JSON lagi.
+        // Simpan Cache
         localStorage.setItem(cacheKey, optimizedUrl);
 
-        // 5. Tampilkan Gambar
-        loadImage(imgEl, optimizedUrl);
+        // Tampilkan
+        showImage(optimizedUrl);
 
     } catch(e) { 
-        console.warn("Gagal load metadata id " + id, e);
-        // Fallback: Jika gagal fetch metadata, coba tebak URL gambar (opsional, jika struktur folder rapi)
-        // imgEl.src = "https://via.placeholder.com/300?text=Error"; 
+        console.warn("Gagal load gambar id " + id);
+        if(loaderEl) loaderEl.innerHTML = '<span style="color:red; font-size:10px;">Gagal</span>'; // Info error
     }
 }
 
