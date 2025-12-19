@@ -1,6 +1,6 @@
 // --- KONFIGURASI PINATA ---
-const PINATA_KEY = "API_KEY_ANDA";
-const PINATA_SECRET = "SECRET_KEY_ANDA";
+const PINATA_KEY = "ef370482b9db990f2b36";
+const PINATA_SECRET = "ce1afc8cc8ad991c1140d1f63e5e58fa3d97fa7da9ab882230c5ca7bfe5877ce";
 
 // --- HELPER: KOMPRESI GAMBAR (Max 150KB) ---
 async function compressImage(file, maxSizeKB = 150) {
