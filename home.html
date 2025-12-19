@@ -7,12 +7,11 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> 
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
 <body>
 
     <div class="layout-wrapper">
-        
         <div class="sidebar-left">
             <div class="menu-card">
                 <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i> Beranda</a>
@@ -21,123 +20,293 @@
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
                 <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
             </div>
-
             <div class="menu-card" style="margin-top: 20px;">
                 <h4 style="margin: 0 0 10px; font-size: 14px; color: #7385a5;">Status Wallet</h4>
-                <div style="font-size: 12px; word-break: break-all; color: #666;" id="walletDisplay">
-                    Memuat...
-                </div>
+                <div style="font-size: 12px; word-break: break-all; color: #666;" id="walletDisplay">Loading...</div>
             </div>
         </div>
 
         <div class="main-feed">
-            
             <div class="card create-post-box">
                 <div class="cp-header">
                     <img src="https://via.placeholder.com/40" class="user-avatar" id="myAvatar">
                     <textarea id="postCaption" class="cp-input" placeholder="Apa yang sedang terjadi?"></textarea>
                 </div>
-                
                 <div id="previewContainer" style="display:none; margin-bottom:10px; position:relative;">
-                    <img id="imgPreview" style="width:100%; border-radius:10px;">
-                    <button onclick="clearImage()" style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.5); color:white; border:none; border-radius:50%; width:25px; height:25px; cursor:pointer;">&times;</button>
+                    <img id="imgPreview" style="width:100%; border-radius:10px; max-height: 300px; object-fit: cover;">
+                    <button onclick="clearImage()" style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.6); color:white; border:none; border-radius:50%; width:30px; height:30px; cursor:pointer;">&times;</button>
                 </div>
-
                 <div class="cp-actions">
                     <label for="fileInput" class="btn-upload">
                         <i class="fa-solid fa-image" style="color: #2ecc71;"></i> Foto
                     </label>
                     <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImage(this)">
-                    
-                    <button class="btn-primary" onclick="submitPost()">Posting</button>
+                    <button id="btnPost" class="btn-primary" onclick="submitPost()">Posting</button>
                 </div>
             </div>
 
             <div id="feedContainer">
-                <div class="card" style="padding: 20px; text-align: center; color: #999;">
-                    <i class="fa-solid fa-circle-notch fa-spin"></i> Memuat Postingan...
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat Blockchain...
                 </div>
             </div>
-
         </div>
-
     </div>
 
+    <dialog id="ratingModal" style="border:none; border-radius:15px; padding:20px; box-shadow:0 0 50px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Rating</h3>
+        <div style="display:flex; gap:10px; font-size:30px; justify-content:center; cursor:pointer; margin:20px 0;">
+            <span onclick="setRate(1)">⭐</span>
+            <span onclick="setRate(2)">⭐</span>
+            <span onclick="setRate(3)">⭐</span>
+            <span onclick="setRate(4)">⭐</span>
+            <span onclick="setRate(5)">⭐</span>
+        </div>
+        <input type="hidden" id="targetPostId">
+        <button onclick="submitRating()" class="btn-primary" style="width:100%">Kirim</button>
+        <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
+    </dialog>
+
     <div class="mobile-nav">
-        <a href="home.html" class="menu-item active" style="flex-direction: column; gap: 2px; font-size: 10px;">
-            <i class="fa-solid fa-house" style="font-size: 18px;"></i> Beranda
-        </a>
-        <a href="notifications.html" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
-            <i class="fa-solid fa-bell" style="font-size: 18px;"></i> Notif
-        </a>
-        <a href="profile.html" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
-            <i class="fa-solid fa-user" style="font-size: 18px;"></i> Profil
-        </a>
+        <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
+        <a href="notifications.html" class="menu-item"><i class="fa-solid fa-bell"></i></a>
+        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i></a>
     </div>
 
     <div id="toast"></div>
+
     <script src="main.js"></script>
-    
+    <script src="ipfs_helper.js"></script>
+
     <script>
-        // --- LOGIC HALAMAN HOME ---
-        const PINATA_API_KEY = "ef370482b9db990f2b36"; 
-        const PINATA_SECRET_KEY = "ce1afc8cc8ad991c1140d1f63e5e58fa3d97fa7da9ab882230c5ca7bfe5877ce";
+        // Cache untuk menyimpan data profil (Address -> Nickname/Foto)
+        // Ini solusi agar loading tidak lemot (N+1 Problem)
+        const profileCache = {}; 
 
         window.onload = async () => {
-            await initApp(); // Dari main.js
+            await initApp(); 
             if(userAddress) {
                 document.getElementById("walletDisplay").innerText = userAddress;
+                // Load profil sendiri untuk avatar di kotak posting
+                loadMyProfile();
                 loadFeed();
             }
         };
 
-        // 1. Load Feed
+        async function loadMyProfile() {
+            try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const url = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    document.getElementById("myAvatar").src = url;
+                }
+            } catch(e) {}
+        }
+
         async function loadFeed() {
             try {
                 const posts = await contract.getAllPosts();
                 const container = document.getElementById("feedContainer");
                 container.innerHTML = "";
 
-                // Reverse biar yang baru di atas
-                [...posts].reverse().forEach(post => {
-                    const imgHtml = post.imageURI ? `<img src="${post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')}" class="post-image" loading="lazy">` : '';
+                if(posts.length === 0) {
+                    container.innerHTML = "<p style='text-align:center; color:#999;'>Belum ada postingan.</p>";
+                    return;
+                }
+
+                // Reverse agar postingan baru di atas
+                const sortedPosts = [...posts].reverse();
+
+                // RENDER DULU (Skeleton), FETCH PROFIL NANTI
+                // Ini teknik agar user tidak menunggu lama
+                sortedPosts.forEach(post => {
+                    const uniqueId = `post-${post.id}`;
+                    const authorAddr = post.author;
                     
+                    // Logic Gambar
+                    let imgHtml = "";
+                    if(post.imageURI && post.imageURI.length > 5) {
+                        const cleanUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                        imgHtml = `<img src="${cleanUrl}" class="post-image" loading="lazy" onerror="this.style.display='none'">`;
+                    }
+
+                    // Hitung Rating Rata-rata
+                    const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
+
                     const html = `
-                    <div class="card">
+                    <div class="card" id="${uniqueId}">
                         <div class="post-header">
-                            <img src="https://via.placeholder.com/40" class="user-avatar">
+                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${authorAddr}">
                             <div class="post-info">
-                                <h4>${post.author.substring(0,6)}...${post.author.substring(38)}</h4>
+                                <h4 class="author-nick-${authorAddr}">${authorAddr.substring(0,6)}...</h4>
                                 <span>${new Date(post.timestamp * 1000).toLocaleString()}</span>
                             </div>
                         </div>
                         
-                        <div class="post-caption">
-                            ${post.caption}
-                        </div>
-
+                        <div class="post-caption">${post.caption}</div>
                         ${imgHtml}
 
                         <div class="post-actions">
-                            <button class="action-btn" onclick="likePost(${post.id})">
+                            <button class="action-btn" onclick="handleLike(${post.id})">
                                 <i class="fa-regular fa-heart"></i> ${post.likeCount}
                             </button>
-                            <button class="action-btn">
+                            <button class="action-btn" onclick="showToast('Fitur komentar segera hadir!', 'info')">
                                 <i class="fa-regular fa-comment"></i> ${post.commentCount}
                             </button>
-                            <button class="action-btn" style="color:gold;">
-                                <i class="fa-solid fa-star"></i> ${post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0'}
+                            <button class="action-btn" onclick="openRating(${post.id})" style="color: #f1c40f;">
+                                <i class="fa-solid fa-star"></i> ${avgRating}
                             </button>
                         </div>
                     </div>`;
                     container.innerHTML += html;
+
+                    // Fetch Profil di Background
+                    fetchProfileLazy(authorAddr);
                 });
+
             } catch (e) {
                 console.error(e);
+                showToast("Gagal memuat feed.", "error");
             }
         }
 
-        // 2. Preview Image
+        // Fungsi Cerdas: Ambil profil sekali saja, update semua postingan user tersebut
+        async function fetchProfileLazy(address) {
+            if(profileCache[address]) {
+                updatePostAuthorUI(address, profileCache[address]);
+                return;
+            }
+
+            try {
+                // Ambil dari kontrak
+                const p = await contract.getProfile(address);
+                
+                // Simpan ke cache
+                const profileData = {
+                    nickname: p.nickname,
+                    avatar: p.fotoProfil ? p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : 'https://via.placeholder.com/40'
+                };
+                profileCache[address] = profileData;
+
+                // Update UI
+                updatePostAuthorUI(address, profileData);
+
+            } catch (e) {
+                console.log("Skip profile fetch for " + address);
+            }
+        }
+
+        function updatePostAuthorUI(address, data) {
+            // Update semua Avatar milik address ini
+            const avatars = document.querySelectorAll(`.author-avatar-${address}`);
+            avatars.forEach(img => img.src = data.avatar);
+
+            // Update semua Nickname milik address ini
+            const nicks = document.querySelectorAll(`.author-nick-${address}`);
+            nicks.forEach(el => el.innerText = data.nickname);
+        }
+
+        // --- INTERAKSI ---
+
+        async function submitPost() {
+            const caption = document.getElementById("postCaption").value;
+            const file = document.getElementById("fileInput").files[0];
+            const btn = document.getElementById("btnPost");
+
+            if(!caption && !file) return showToast("Tulis sesuatu atau upload foto!", "error");
+
+            try {
+                btn.disabled = true;
+                btn.innerText = "Mengirim...";
+                
+                let imgUri = "";
+                if(file) {
+                    showToast("Mengupload gambar ke IPFS...", "info");
+                    // PANGGIL FUNGSI DARI ipfs_helper.js
+                    imgUri = await uploadToIPFS(file); 
+                }
+
+                showToast("Konfirmasi di Wallet...", "info");
+                // Cari index post id di smart contract otomatis bertambah
+                const tx = await contract.createPost(imgUri, caption);
+                
+                showToast("Sedang mining...", "info");
+                await tx.wait();
+                
+                showToast("Berhasil Posting!", "success");
+                
+                // Reset Form
+                document.getElementById("postCaption").value = "";
+                clearImage();
+                btn.disabled = false;
+                btn.innerText = "Posting";
+                
+                // Reload Feed
+                loadFeed();
+
+            } catch(e) {
+                console.error(e);
+                showToast("Gagal: " + (e.reason || e.message), "error");
+                btn.disabled = false;
+                btn.innerText = "Posting";
+            }
+        }
+
+        async function handleLike(postId) {
+            try {
+                // Smart contract expects index of array, usually id-1, 
+                // BUT your contract uses `posts[_index].id`. 
+                // Loop through posts array to find correct index or if logic handles ID directly.
+                // Assuming your contract logic: function likePost(uint256 _index) -> uses posts[_index]
+                // WARNING: User post ID usually starts at 1, but Array index starts at 0.
+                // Kita harus mencari Index Array yang benar.
+                
+                // Cara aman: Cari index sebenarnya (karena ID mungkin tidak urut kalau ada hapus)
+                // Tapi kontrak Anda simpel, ID = Counter. 
+                // Jika ID = 1, Index = 0. Jadi Index = ID - 1.
+                const index = postId - 1; 
+
+                const tx = await contract.likePost(index);
+                showToast("Mengirim Like...", "info");
+                await tx.wait();
+                showToast("Berhasil Like!", "success");
+                loadFeed(); // Refresh angka
+            } catch (e) {
+                showToast("Gagal Like: " + (e.reason || "Sudah dilike?"), "error");
+            }
+        }
+
+        // --- LOGIKA RATING ---
+        let selectedRate = 0;
+        function openRating(postId) {
+            document.getElementById("targetPostId").value = postId;
+            document.getElementById("ratingModal").showModal();
+            selectedRate = 0;
+        }
+
+        function setRate(n) {
+            selectedRate = n;
+            showToast(`Anda memilih ${n} Bintang`, "info");
+        }
+
+        async function submitRating() {
+            if(selectedRate === 0) return showToast("Pilih bintang dulu!", "error");
+            const postId = document.getElementById("targetPostId").value;
+            const index = postId - 1; // Asumsi ID urut
+
+            try {
+                document.getElementById("ratingModal").close();
+                const tx = await contract.ratePost(index, selectedRate);
+                showToast("Mengirim Rating...", "info");
+                await tx.wait();
+                showToast("Rating Berhasil!", "success");
+                loadFeed();
+            } catch (e) {
+                showToast("Gagal Rate: " + e.message, "error");
+            }
+        }
+
+        // Helper Gambar
         function previewImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
@@ -148,41 +317,9 @@
                 reader.readAsDataURL(input.files[0]);
             }
         }
-
         function clearImage() {
             document.getElementById('fileInput').value = "";
             document.getElementById('previewContainer').style.display = 'none';
-        }
-
-        // 3. Submit Post
-        async function submitPost() {
-            const caption = document.getElementById("postCaption").value;
-            const file = document.getElementById("fileInput").files[0];
-
-            if(!caption && !file) return showToast("Isi caption atau foto!", "error");
-
-            try {
-                let imgUri = "";
-                if(file) {
-                    showToast("Mengupload gambar...", "info");
-                    // Gunakan logika upload IPFS Anda yang lama di sini
-                    // Mockup sementara:
-                    // imgUri = await uploadToIPFS(file); 
-                    imgUri = "ipfs://Qmdmockup..."; 
-                }
-
-                showToast("Konfirmasi Transaksi...", "info");
-                const tx = await contract.createPost(imgUri, caption);
-                await tx.wait();
-                
-                showToast("Berhasil Posting!", "success");
-                document.getElementById("postCaption").value = "";
-                clearImage();
-                loadFeed();
-
-            } catch(e) {
-                showToast("Gagal posting: " + e.message, "error");
-            }
         }
     </script>
 </body>
