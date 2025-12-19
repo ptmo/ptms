@@ -4,8 +4,10 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Daftar Profil | Putramas Social</title>
+    
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
 </head>
@@ -13,17 +15,17 @@
 
     <div class="card" style="width: 100%; max-width: 500px; padding: 30px;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #7385a5;">Selamat Datang!</h2>
-            <p style="color: #666;">Lengkapi profil Anda untuk mulai berinteraksi di Blockchain.</p>
+            <h2 style="color: #7385a5; margin: 0;">elamat Datang!</h2>
+            <p style="color: #666; font-size: 14px;">Lengkapi profil untuk berinteraksi di Blockchain.</p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 15px;">
             
             <div style="text-align: center;">
-                <img id="previewAvatar" src="https://via.placeholder.com/100" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 2px solid #ddd; margin-bottom: 10px;">
+                <img id="previewAvatar" src="https://via.placeholder.com/100" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid #f0f2f5; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
                 <br>
-                <label for="fotoInput" style="color: #7385a5; font-weight: bold; cursor: pointer; font-size: 14px;">
-                    <i class="fa-solid fa-camera"></i> Pilih Foto Profil
+                <label for="fotoInput" style="color: #7385a5; font-weight: bold; cursor: pointer; font-size: 13px; background: #eef2f8; padding: 5px 15px; border-radius: 20px;">
+                    <i class="fa-solid fa-camera"></i> Upload Foto
                 </label>
                 <input type="file" id="fotoInput" hidden accept="image/*" onchange="previewImage(this)">
             </div>
@@ -43,19 +45,56 @@
                 <input type="text" id="regLoc" class="cp-input" style="width: 100%; border: 1px solid #ddd;" placeholder="Indonesia">
             </div>
 
-            <button onclick="submitRegister()" class="btn-primary" style="margin-top: 10px; width: 100%;">
+            <button id="btnDaftar" onclick="submitRegister()" class="btn-primary" style="margin-top: 10px; width: 100%; padding: 12px;">
                 Daftar Sekarang
             </button>
+            
+            <div id="loadingText" style="text-align: center; font-size: 13px; color: #888; display: none;">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Sedang memproses transaksi...
+            </div>
         </div>
     </div>
 
     <div id="toast"></div>
+
     <script src="main.js"></script>
-    <script src="ipfs_helper.js"></script> <script>
-        // Init
+    <script src="ipfs_helper.js"></script>
+
+    <script>
+        // --- LOGIKA KHUSUS REGISTER ---
         window.onload = async () => {
-            await initApp(); // Connect wallet check
-            // Kalau sudah register, main.js otomatis lempar ke home.html, jadi aman.
+            // 1. Cek Metamask
+            if (!window.ethereum) return alert("Metamask tidak terdeteksi!");
+
+            try {
+                // 2. CONNECT ULANG (Karena pindah halaman = reset variable)
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // Minta akses wallet (Silent login jika sudah connect di halaman sebelumnya)
+                await provider.send("eth_requestAccounts", []);
+                
+                // Cek Network
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== CHAIN_ID) await switchNetwork(); // switchNetwork dari main.js
+
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+
+                // 3. SETUP KONTRAK (Ini yang memperbaiki error "undefined")
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                console.log("Kontrak Siap:", contract.address);
+
+                // 4. Cek Keamanan: Kalau ternyata sudah register, tendang ke home
+                // Mengambil data user dari struct (index ke-6 adalah isRegistered)
+                const profile = await contract.users(userAddress);
+                if(profile.isRegistered) {
+                     window.location.href = "home.html";
+                }
+
+            } catch (err) {
+                console.error("Gagal init:", err);
+                showToast("Gagal memuat wallet: " + err.message, "error");
+            }
         };
 
         function previewImage(input) {
@@ -71,27 +110,43 @@
             const bio = document.getElementById("regBio").value;
             const loc = document.getElementById("regLoc").value;
             const file = document.getElementById("fotoInput").files[0];
+            const btn = document.getElementById("btnDaftar");
+            const loading = document.getElementById("loadingText");
 
-            // Validasi Nickname (Sesuai Kontrak: Tidak boleh ada angka)
+            // Validasi Input
             if (/\d/.test(nick)) return showToast("Nickname tidak boleh mengandung angka!", "error");
             if (nick.length < 3) return showToast("Nickname minimal 3 huruf!", "error");
             if (!file) return showToast("Wajib upload foto profil!", "error");
+            if (!contract) return showToast("Koneksi Wallet belum siap, refresh halaman.", "error");
 
             try {
-                showToast("Mengupload foto ke IPFS...", "info");
-                const imgUri = await uploadToIPFS(file); // Fungsi dari ipfs_helper.js
+                btn.disabled = true;
+                btn.style.opacity = "0.7";
+                loading.style.display = "block";
 
-                showToast("Konfirmasi Transaksi...", "info");
-                // Panggil Smart Contract
+                // 1. Upload IPFS
+                loading.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Mengupload foto (Kompresi)...';
+                const imgUri = await uploadToIPFS(file); 
+
+                // 2. Transaksi Blockchain
+                loading.innerHTML = '<i class="fa-solid fa-signature"></i> Konfirmasi di Wallet Anda...';
                 const tx = await contract.registerProfile(nick, imgUri, bio, loc);
+                
+                loading.innerHTML = '<i class="fa-solid fa-hammer"></i> Sedang mining di Blockchain...';
                 await tx.wait();
 
+                // 3. Simpan Sesi Login
+                await saveSession(userAddress); // Fungsi dari main.js
+
                 showToast("Registrasi Berhasil!", "success");
-                setTimeout(() => window.location.href = "home.html", 10000);
+                setTimeout(() => window.location.href = "home.html", 2000);
 
             } catch (e) {
                 console.error(e);
                 showToast("Gagal: " + (e.reason || e.message), "error");
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                loading.style.display = "none";
             }
         }
     </script>
