@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beranda | Putramas Social</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdn.ethers.io/lib/ethers-5.7.2.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script> 
+</head>
+<body>
+
+    <div class="layout-wrapper">
+        
+        <div class="sidebar-left">
+            <div class="menu-card">
+                <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i> Beranda</a>
+                <a href="notifications.html" class="menu-item"><i class="fa-solid fa-bell"></i> Notifikasi</a>
+                <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
+                <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+            </div>
+
+            <div class="menu-card" style="margin-top: 20px;">
+                <h4 style="margin: 0 0 10px; font-size: 14px; color: #7385a5;">Status Wallet</h4>
+                <div style="font-size: 12px; word-break: break-all; color: #666;" id="walletDisplay">
+                    Memuat...
+                </div>
+            </div>
+        </div>
+
+        <div class="main-feed">
+            
+            <div class="card create-post-box">
+                <div class="cp-header">
+                    <img src="https://via.placeholder.com/40" class="user-avatar" id="myAvatar">
+                    <textarea id="postCaption" class="cp-input" placeholder="Apa yang sedang terjadi?"></textarea>
+                </div>
+                
+                <div id="previewContainer" style="display:none; margin-bottom:10px; position:relative;">
+                    <img id="imgPreview" style="width:100%; border-radius:10px;">
+                    <button onclick="clearImage()" style="position:absolute; top:5px; right:5px; background:rgba(0,0,0,0.5); color:white; border:none; border-radius:50%; width:25px; height:25px; cursor:pointer;">&times;</button>
+                </div>
+
+                <div class="cp-actions">
+                    <label for="fileInput" class="btn-upload">
+                        <i class="fa-solid fa-image" style="color: #2ecc71;"></i> Foto
+                    </label>
+                    <input type="file" id="fileInput" hidden accept="image/*" onchange="previewImage(this)">
+                    
+                    <button class="btn-primary" onclick="submitPost()">Posting</button>
+                </div>
+            </div>
+
+            <div id="feedContainer">
+                <div class="card" style="padding: 20px; text-align: center; color: #999;">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Memuat Postingan...
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div class="mobile-nav">
+        <a href="home.html" class="menu-item active" style="flex-direction: column; gap: 2px; font-size: 10px;">
+            <i class="fa-solid fa-house" style="font-size: 18px;"></i> Beranda
+        </a>
+        <a href="notifications.html" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
+            <i class="fa-solid fa-bell" style="font-size: 18px;"></i> Notif
+        </a>
+        <a href="profile.html" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
+            <i class="fa-solid fa-user" style="font-size: 18px;"></i> Profil
+        </a>
+    </div>
+
+    <div id="toast"></div>
+    <script src="main.js"></script>
+    
+    <script>
+        // --- LOGIC HALAMAN HOME ---
+        const PINATA_API_KEY = "ISI_API_KEY_PINATA_ANDA"; 
+        const PINATA_SECRET_KEY = "ISI_SECRET_KEY_PINATA_ANDA";
+
+        window.onload = async () => {
+            await initApp(); // Dari main.js
+            if(userAddress) {
+                document.getElementById("walletDisplay").innerText = userAddress;
+                loadFeed();
+            }
+        };
+
+        // 1. Load Feed
+        async function loadFeed() {
+            try {
+                const posts = await contract.getAllPosts();
+                const container = document.getElementById("feedContainer");
+                container.innerHTML = "";
+
+                // Reverse biar yang baru di atas
+                [...posts].reverse().forEach(post => {
+                    const imgHtml = post.imageURI ? `<img src="${post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/')}" class="post-image" loading="lazy">` : '';
+                    
+                    const html = `
+                    <div class="card">
+                        <div class="post-header">
+                            <img src="https://via.placeholder.com/40" class="user-avatar">
+                            <div class="post-info">
+                                <h4>${post.author.substring(0,6)}...${post.author.substring(38)}</h4>
+                                <span>${new Date(post.timestamp * 1000).toLocaleString()}</span>
+                            </div>
+                        </div>
+                        
+                        <div class="post-caption">
+                            ${post.caption}
+                        </div>
+
+                        ${imgHtml}
+
+                        <div class="post-actions">
+                            <button class="action-btn" onclick="likePost(${post.id})">
+                                <i class="fa-regular fa-heart"></i> ${post.likeCount}
+                            </button>
+                            <button class="action-btn">
+                                <i class="fa-regular fa-comment"></i> ${post.commentCount}
+                            </button>
+                            <button class="action-btn" style="color:gold;">
+                                <i class="fa-solid fa-star"></i> ${post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0'}
+                            </button>
+                        </div>
+                    </div>`;
+                    container.innerHTML += html;
+                });
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        // 2. Preview Image
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) {
+                    document.getElementById('imgPreview').src = e.target.result;
+                    document.getElementById('previewContainer').style.display = 'block';
+                }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function clearImage() {
+            document.getElementById('fileInput').value = "";
+            document.getElementById('previewContainer').style.display = 'none';
+        }
+
+        // 3. Submit Post
+        async function submitPost() {
+            const caption = document.getElementById("postCaption").value;
+            const file = document.getElementById("fileInput").files[0];
+
+            if(!caption && !file) return showToast("Isi caption atau foto!", "error");
+
+            try {
+                let imgUri = "";
+                if(file) {
+                    showToast("Mengupload gambar...", "info");
+                    // Gunakan logika upload IPFS Anda yang lama di sini
+                    // Mockup sementara:
+                    // imgUri = await uploadToIPFS(file); 
+                    imgUri = "ipfs://Qmdmockup..."; 
+                }
+
+                showToast("Konfirmasi Transaksi...", "info");
+                const tx = await contract.createPost(imgUri, caption);
+                await tx.wait();
+                
+                showToast("Berhasil Posting!", "success");
+                document.getElementById("postCaption").value = "";
+                clearImage();
+                loadFeed();
+
+            } catch(e) {
+                showToast("Gagal posting: " + e.message, "error");
+            }
+        }
+    </script>
+</body>
+</html>
