@@ -8,6 +8,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+        /* CSS Tambahan untuk Komentar */
+        .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
+        .comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+        .comment-content { flex: 1; font-size: 13px; }
+        .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
+        .comment-time { font-size: 10px; color: #999; }
+    </style>
 </head>
 <body>
 
@@ -67,6 +75,23 @@
         <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
     </dialog>
 
+    <dialog id="commentModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 500px; max-height: 80vh; display: flex; flex-direction: column;">
+        <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0; color:#7385a5;">Komentar</h3>
+            <span onclick="document.getElementById('commentModal').close()" style="cursor:pointer; font-size:20px;">&times;</span>
+        </div>
+        
+        <div id="commentList" style="flex: 1; overflow-y: auto; padding: 15px;">
+            <p style="text-align:center; color:#999;">Memuat komentar...</p>
+        </div>
+
+        <div style="padding: 15px; border-top: 1px solid #eee; background: #f9f9f9; display: flex; gap: 10px;">
+            <input type="text" id="commentInput" class="cp-input" style="height: 40px;" placeholder="Tulis komentar...">
+            <input type="hidden" id="commentPostId">
+            <button onclick="submitComment()" class="btn-primary" style="padding: 0 20px;"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </dialog>
+
     <div class="mobile-nav">
         <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
         <a href="notifications.html" class="menu-item"><i class="fa-solid fa-bell"></i></a>
@@ -79,26 +104,36 @@
     <script src="ipfs_helper.js"></script>
 
     <script>
-        // Cache untuk menyimpan data profil (Address -> Nickname/Foto)
-        // Ini solusi agar loading tidak lemot (N+1 Problem)
         const profileCache = {}; 
+
+        // Update ABI untuk mendukung Komentar
+        // Pastikan main.js memiliki ABI yang cukup atau kita extend di sini
+        const EXTENDED_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imageURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficial.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficial.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
         window.onload = async () => {
             await initApp(); 
             if(userAddress) {
+                // Override contract dengan ABI yang lebih lengkap untuk komentar
+                contract = new ethers.Contract(CONTRACT_ADDRESS, EXTENDED_ABI, signer);
+                
                 document.getElementById("walletDisplay").innerText = userAddress;
-                // Load profil sendiri untuk avatar di kotak posting
                 loadMyProfile();
                 loadFeed();
             }
         };
 
+        // --- HELPER FIX GAMBAR ---
+        function resolveIPFS(url) {
+            if (!url) return null;
+            // Ganti ipfs:// dengan Gateway Pinata
+            return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        }
+
         async function loadMyProfile() {
             try {
                 const p = await contract.getProfile(userAddress);
                 if(p.fotoProfil) {
-                    const url = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    document.getElementById("myAvatar").src = url;
+                    document.getElementById("myAvatar").src = resolveIPFS(p.fotoProfil);
                 }
             } catch(e) {}
         }
@@ -114,23 +149,19 @@
                     return;
                 }
 
-                // Reverse agar postingan baru di atas
                 const sortedPosts = [...posts].reverse();
 
-                // RENDER DULU (Skeleton), FETCH PROFIL NANTI
-                // Ini teknik agar user tidak menunggu lama
                 sortedPosts.forEach(post => {
                     const uniqueId = `post-${post.id}`;
                     const authorAddr = post.author;
                     
-                    // Logic Gambar
+                    // 1. FIX POST IMAGE
                     let imgHtml = "";
-                    if(post.imageURI && post.imageURI.length > 5) {
-                        const cleanUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    const cleanUrl = resolveIPFS(post.imageURI);
+                    if(cleanUrl && cleanUrl.length > 10) {
                         imgHtml = `<img src="${cleanUrl}" class="post-image" loading="lazy" onerror="this.style.display='none'">`;
                     }
 
-                    // Hitung Rating Rata-rata
                     const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
 
                     const html = `
@@ -148,9 +179,10 @@
 
                         <div class="post-actions">
                             <button class="action-btn" onclick="handleLike(${post.id})">
-                                <i class="fa-regular fa-heart"></i> ${post.likeCount}
+                                <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
+                                <span id="count-like-${post.id}">${post.likeCount}</span>
                             </button>
-                            <button class="action-btn" onclick="showToast('Fitur komentar segera hadir!', 'info')">
+                            <button class="action-btn" onclick="openComments(${post.id})">
                                 <i class="fa-regular fa-comment"></i> ${post.commentCount}
                             </button>
                             <button class="action-btn" onclick="openRating(${post.id})" style="color: #f1c40f;">
@@ -160,7 +192,6 @@
                     </div>`;
                     container.innerHTML += html;
 
-                    // Fetch Profil di Background
                     fetchProfileLazy(authorAddr);
                 });
 
@@ -170,7 +201,6 @@
             }
         }
 
-        // Fungsi Cerdas: Ambil profil sekali saja, update semua postingan user tersebut
         async function fetchProfileLazy(address) {
             if(profileCache[address]) {
                 updatePostAuthorUI(address, profileCache[address]);
@@ -178,36 +208,137 @@
             }
 
             try {
-                // Ambil dari kontrak
                 const p = await contract.getProfile(address);
-                
-                // Simpan ke cache
                 const profileData = {
                     nickname: p.nickname,
-                    avatar: p.fotoProfil ? p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : 'https://via.placeholder.com/40'
+                    // Fix: Pastikan avatar di-resolve IPFS-nya
+                    avatar: p.fotoProfil ? resolveIPFS(p.fotoProfil) : 'https://via.placeholder.com/40'
                 };
                 profileCache[address] = profileData;
-
-                // Update UI
                 updatePostAuthorUI(address, profileData);
-
             } catch (e) {
                 console.log("Skip profile fetch for " + address);
             }
         }
 
         function updatePostAuthorUI(address, data) {
-            // Update semua Avatar milik address ini
             const avatars = document.querySelectorAll(`.author-avatar-${address}`);
             avatars.forEach(img => img.src = data.avatar);
 
-            // Update semua Nickname milik address ini
             const nicks = document.querySelectorAll(`.author-nick-${address}`);
             nicks.forEach(el => el.innerText = data.nickname);
         }
 
-        // --- INTERAKSI ---
+        // --- INTERAKSI (KOMENTAR, LIKE, POST) ---
 
+        // 3. FITUR KOMENTAR
+        async function openComments(postId) {
+            // postId blockchain biasanya mulai dari 1, tapi index array mulai dari 0.
+            // Di contract Anda: posts[_index].id. Jadi kita butuh Index Array.
+            // Asumsi ID urut: Index = ID - 1.
+            const index = postId - 1;
+            
+            const modal = document.getElementById("commentModal");
+            const list = document.getElementById("commentList");
+            document.getElementById("commentPostId").value = index;
+            document.getElementById("commentInput").value = "";
+            
+            modal.showModal();
+            list.innerHTML = "<p style='text-align:center;'>Memuat komentar...</p>";
+
+            try {
+                const comments = await contract.getComments(index);
+                list.innerHTML = "";
+                
+                if(comments.length === 0) {
+                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar. Jadilah yang pertama!</p>";
+                }
+
+                // Render Komentar
+                for (const c of comments) {
+                    // Kita perlu fetch profil komentator juga
+                    let commenterNick = c.commenter.substring(0,6);
+                    let commenterPic = "https://via.placeholder.com/30";
+
+                    // Cek cache dulu
+                    if(profileCache[c.commenter]) {
+                        commenterNick = profileCache[c.commenter].nickname;
+                        commenterPic = profileCache[c.commenter].avatar;
+                    } else {
+                        // Fetch async (lazy)
+                        contract.getProfile(c.commenter).then(p => {
+                           // Update UI komentar nanti (skip for simplicity, reload to see)
+                        });
+                    }
+
+                    const html = `
+                    <div class="comment-item">
+                        <img src="${commenterPic}" class="comment-avatar">
+                        <div class="comment-content">
+                            <div class="comment-author">${commenterNick}</div>
+                            <div>${c.text}</div>
+                            <div class="comment-time">${new Date(c.timestamp * 1000).toLocaleTimeString()}</div>
+                        </div>
+                    </div>`;
+                    list.innerHTML += html;
+                }
+            } catch(e) {
+                list.innerHTML = "Gagal memuat komentar.";
+                console.error(e);
+            }
+        }
+
+        async function submitComment() {
+            const index = document.getElementById("commentPostId").value;
+            const text = document.getElementById("commentInput").value;
+            
+            if(!text) return;
+
+            try {
+                showToast("Mengirim komentar...", "info");
+                // Argumen ke-3 adalah imageURI, kita kosongkan dulu untuk komentar teks
+                const tx = await contract.addComment(index, text, ""); 
+                await tx.wait();
+                
+                showToast("Komentar terkirim!", "success");
+                document.getElementById("commentInput").value = "";
+                // Refresh Modal
+                openComments(parseInt(index) + 1); 
+            } catch(e) {
+                showToast("Gagal komen: " + e.message, "error");
+            }
+        }
+
+        // 4. LIKE OPTIMIS (Langsung Berubah Tanpa Reload)
+        async function handleLike(postId) {
+            const countSpan = document.getElementById(`count-like-${postId}`);
+            const icon = document.getElementById(`icon-like-${postId}`);
+            const currentCount = parseInt(countSpan.innerText);
+            
+            // 1. Update UI Dulu (Optimistic)
+            countSpan.innerText = currentCount + 1;
+            icon.classList.remove("fa-regular");
+            icon.classList.add("fa-solid");
+            icon.style.color = "#e74c3c";
+
+            try {
+                const index = postId - 1; 
+                const tx = await contract.likePost(index);
+                // Jangan showToast loading biar ga ganggu
+                await tx.wait();
+                console.log("Like confirmed on blockchain");
+            } catch (e) {
+                // Rollback jika gagal
+                countSpan.innerText = currentCount;
+                icon.classList.add("fa-regular");
+                icon.classList.remove("fa-solid");
+                icon.style.color = "";
+                
+                showToast("Gagal Like (Mungkin sudah dilike?)", "error");
+            }
+        }
+
+        // --- LOGIKA LAINNYA ---
         async function submitPost() {
             const caption = document.getElementById("postCaption").value;
             const file = document.getElementById("fileInput").files[0];
@@ -221,29 +352,22 @@
                 
                 let imgUri = "";
                 if(file) {
-                    showToast("Mengupload gambar ke IPFS...", "info");
-                    // PANGGIL FUNGSI DARI ipfs_helper.js
+                    showToast("Mengupload gambar...", "info");
                     imgUri = await uploadToIPFS(file); 
                 }
 
                 showToast("Konfirmasi di Wallet...", "info");
-                // Cari index post id di smart contract otomatis bertambah
                 const tx = await contract.createPost(imgUri, caption);
                 
                 showToast("Sedang mining...", "info");
                 await tx.wait();
                 
                 showToast("Berhasil Posting!", "success");
-                
-                // Reset Form
                 document.getElementById("postCaption").value = "";
                 clearImage();
                 btn.disabled = false;
                 btn.innerText = "Posting";
-                
-                // Reload Feed
                 loadFeed();
-
             } catch(e) {
                 console.error(e);
                 showToast("Gagal: " + (e.reason || e.message), "error");
@@ -252,61 +376,26 @@
             }
         }
 
-        async function handleLike(postId) {
-            try {
-                // Smart contract expects index of array, usually id-1, 
-                // BUT your contract uses `posts[_index].id`. 
-                // Loop through posts array to find correct index or if logic handles ID directly.
-                // Assuming your contract logic: function likePost(uint256 _index) -> uses posts[_index]
-                // WARNING: User post ID usually starts at 1, but Array index starts at 0.
-                // Kita harus mencari Index Array yang benar.
-                
-                // Cara aman: Cari index sebenarnya (karena ID mungkin tidak urut kalau ada hapus)
-                // Tapi kontrak Anda simpel, ID = Counter. 
-                // Jika ID = 1, Index = 0. Jadi Index = ID - 1.
-                const index = postId - 1; 
-
-                const tx = await contract.likePost(index);
-                showToast("Mengirim Like...", "info");
-                await tx.wait();
-                showToast("Berhasil Like!", "success");
-                loadFeed(); // Refresh angka
-            } catch (e) {
-                showToast("Gagal Like: " + (e.reason || "Sudah dilike?"), "error");
-            }
-        }
-
-        // --- LOGIKA RATING ---
         let selectedRate = 0;
         function openRating(postId) {
             document.getElementById("targetPostId").value = postId;
             document.getElementById("ratingModal").showModal();
             selectedRate = 0;
         }
-
-        function setRate(n) {
-            selectedRate = n;
-            showToast(`Anda memilih ${n} Bintang`, "info");
-        }
-
+        function setRate(n) { selectedRate = n; showToast(`Anda memilih ${n} Bintang`, "info"); }
         async function submitRating() {
             if(selectedRate === 0) return showToast("Pilih bintang dulu!", "error");
             const postId = document.getElementById("targetPostId").value;
-            const index = postId - 1; // Asumsi ID urut
-
+            const index = postId - 1;
             try {
                 document.getElementById("ratingModal").close();
                 const tx = await contract.ratePost(index, selectedRate);
                 showToast("Mengirim Rating...", "info");
                 await tx.wait();
                 showToast("Rating Berhasil!", "success");
-                loadFeed();
-            } catch (e) {
-                showToast("Gagal Rate: " + e.message, "error");
-            }
+            } catch (e) { showToast("Gagal Rate: " + e.message, "error"); }
         }
 
-        // Helper Gambar
         function previewImage(input) {
             if (input.files && input.files[0]) {
                 const reader = new FileReader();
