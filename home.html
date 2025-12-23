@@ -187,59 +187,89 @@
 
         async function loadFeed() {
             try {
+                // 1. Ambil semua post
                 const posts = await contract.getAllPosts();
                 const container = document.getElementById("feedContainer");
                 container.innerHTML = "";
 
                 if(posts.length === 0) {
-                    container.innerHTML = "<p style='text-align:center; color:#999;'>Belum ada postingan.</p>";
+                    container.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada postingan.</p>";
                     return;
                 }
 
+                // 2. Loop Postingan
                 [...posts].reverse().forEach(post => {
-                    const uniqueId = `post-${post.id}`;
                     
+                    // --- LOGIKA GAMBAR ---
                     let imgHtml = "";
                     if(post.imageURI && post.imageURI.length > 5) {
-                        const rawUrl = resolveIPFS(post.imageURI);          
-                        const optUrl = getOptimizedUrl(post.imageURI, 600); 
+                        // Pastikan fungsi resolveIPFS dan getOptimizedUrl ada di ipfs_helper.js atau main.js
+                        const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');          
+                        const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`; 
                         
                         imgHtml = `
-                        <a href="${rawUrl}" target="_blank" title="Klik untuk ukuran penuh">
-                            <img src="${optUrl}" class="post-image" loading="lazy" alt="Post Image">
-                        </a>`;
+                        <div style="margin-top:10px; margin-bottom:10px;">
+                            <a href="${rawUrl}" target="_blank" title="Klik untuk ukuran penuh">
+                                <img src="${optUrl}" class="post-image" loading="lazy" alt="Post Image" style="width:100%; border-radius:8px; display:block;">
+                            </a>
+                        </div>`;
                     }
 
+                    // --- LOGIKA RATING ---
                     const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
 
+                    // --- LOGIKA LINK PROFIL ---
+                    const profileLink = `profile.html?addr=${post.author}`;
+
+                    // --- RENDER HTML KARTU ---
                     const html = `
-                    <div class="card" id="${uniqueId}">
-                        <div class="post-header">
-                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}">
+                    <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                        
+                        <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <a href="${profileLink}">
+                                <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
+                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                            </a>
+                            
                             <div class="post-info">
-                                <h4 class="author-nick-${post.author}">${post.author.substring(0,6)}...</h4>
-                                <span>${new Date(post.timestamp * 1000).toLocaleString()}</span>
+                                <a href="${profileLink}" class="author-nick-${post.author}" 
+                                   style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                    ${post.author.substring(0,6)}...
+                                </a>
+                                <div style="font-size: 11px; color: #999;">
+                                    ${new Date(post.timestamp * 1000).toLocaleString()}
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="post-caption">${post.caption}</div>
+
+                        <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${post.caption}</div>
                         ${imgHtml}
 
-                        <div class="post-actions">
-                            <button class="action-btn" onclick="handleLike(${post.id})">
+                        <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                             
+                             <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
                                 <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
                                 <span id="count-like-${post.id}">${post.likeCount}</span>
-                            </button>
-                            <button class="action-btn" onclick="openComments(${post.id})">
+                             </button>
+
+                             <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#3498db; display:flex; gap:5px; align-items:center;">
                                 <i class="fa-regular fa-comment"></i> ${post.commentCount}
-                            </button>
-                            <button class="action-btn" onclick="openRating(${post.id})" style="color: #f1c40f;">
+                             </button>
+
+                             <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#27ae60;" title="Sawer">
+                                <i class="fa-solid fa-gift"></i>
+                             </button>
+
+                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:pointer; color:gold; display:flex; gap:5px; align-items:center;">
                                 <i class="fa-solid fa-star"></i> ${avgRating}
-                            </button>
+                             </button>
+
                         </div>
                     </div>`;
+                    
                     container.innerHTML += html;
 
+                    // Load Nama & Foto Profil Author secara Lazy
                     fetchProfileLazy(post.author);
                 });
 
@@ -248,7 +278,7 @@
                 showToast("Gagal memuat feed.", "error");
             }
         }
-
+        
         async function fetchProfileLazy(address) {
             if(profileCache[address]) {
                 updatePostAuthorUI(address, profileCache[address]);
