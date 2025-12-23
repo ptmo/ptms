@@ -15,11 +15,16 @@
         .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
         .comment-time { font-size: 10px; color: #999; }
         
-        /* Efek Hover pada Gambar agar user tahu bisa diklik */
         .post-image { cursor: zoom-in; transition: opacity 0.2s; }
         .post-image:hover { opacity: 0.9; }
 
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+
+        /* PERBAIKAN BUG MODAL: Flex hanya aktif saat modal [open] */
+        #commentModal[open] {
+            display: flex;
+            flex-direction: column;
+        }
     </style>
 </head>
 <body>
@@ -80,7 +85,7 @@
         <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
     </dialog>
 
-    <dialog id="commentModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 500px; height: 70vh; display: flex; flex-direction: column;">
+    <dialog id="commentModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 500px; height: 70vh;">
         <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
             <h3 style="margin:0; color:#7385a5;">Komentar</h3>
             <span onclick="document.getElementById('commentModal').close()" style="cursor:pointer; font-size:20px;">&times;</span>
@@ -123,7 +128,6 @@
             }
         };
 
-        // --- HELPER OPTIMASI GAMBAR ---
         function resolveIPFS(url) {
             if (!url) return null;
             return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
@@ -158,13 +162,11 @@
                 [...posts].reverse().forEach(post => {
                     const uniqueId = `post-${post.id}`;
                     
-                    // --- MODIFIKASI LINK GAMBAR ---
                     let imgHtml = "";
                     if(post.imageURI && post.imageURI.length > 5) {
-                        const rawUrl = resolveIPFS(post.imageURI);          // Link Asli (Gateway)
-                        const optUrl = getOptimizedUrl(post.imageURI, 600); // Link Proxy (Kecil)
+                        const rawUrl = resolveIPFS(post.imageURI);          
+                        const optUrl = getOptimizedUrl(post.imageURI, 600); 
                         
-                        // Bungkus <img> dengan <a> target="_blank"
                         imgHtml = `
                         <a href="${rawUrl}" target="_blank" title="Klik untuk ukuran penuh">
                             <img src="${optUrl}" class="post-image" loading="lazy" alt="Post Image">
@@ -240,7 +242,7 @@
             document.getElementById("commentPostId").value = index;
             document.getElementById("commentInput").value = "";
             modal.showModal();
-            list.innerHTML = "<p style='text-align:center;'>Memuat...</p>";
+            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
             try {
                 const comments = await contract.getComments(index);
@@ -254,7 +256,7 @@
                     let avt = "https://via.placeholder.com/30";
                     if(profileCache[c.commenter]) {
                         nick = profileCache[c.commenter].nickname;
-                        avt = profileCache[c.commenter].avatar; // Sudah optimized 100px
+                        avt = profileCache[c.commenter].avatar;
                     }
                     const html = `
                     <div class="comment-item">
@@ -313,18 +315,15 @@
             try {
                 btn.disabled = true;
                 btn.innerText = "Mengirim...";
-                
                 let imgUri = "";
                 if(file) {
-                    // Kompresi 40KB
-                    showToast("Mengompresi Gambar (Max 40KB)...", "info");
-                    imgUri = await uploadToIPFS(file, 40); 
+                    showToast("Kompresi 30KB...", "info");
+                    // PANGGIL DENGAN TARGET 30KB
+                    imgUri = await uploadToIPFS(file, 30); 
                 }
 
                 showToast("Konfirmasi di Wallet...", "info");
                 const tx = await contract.createPost(imgUri, caption);
-                
-                showToast("Sedang mining...", "info");
                 await tx.wait();
                 
                 showToast("Berhasil Posting!", "success");
@@ -369,4 +368,4 @@
         }
     </script>
 </body>
-                </html>
+</html>
