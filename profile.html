@@ -158,12 +158,21 @@
 
     <script>
     let currentProfileAddr;
-    let myChangeCount = 0; // Menyimpan data kuota ganti nama
+    let myChangeCount = 0; 
     const commentProfileCache = {};
-    const profileCache = {};
 
-    // ABI LENGKAP (Termasuk changeNickname)
-    const EXTENDED_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imageURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficial.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficial.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
+    // --- 1. ABI BARU (Sesuai Kontrak NFT PutramasUltimate) ---
+    const EXTENDED_ABI = [
+        {"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},
+        {"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"bool","name":"isPrivate","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasUltimate.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},
+        // Perhatikan getUserPosts ini sudah ada nftId & tokenURI, dan TIDAK ADA dislikeCount
+        {"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasUltimate.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasUltimate.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},
+        {"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},
+        {"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"}
+    ];
 
     window.onload = async () => {
         await initApp();
@@ -171,6 +180,7 @@
         currentProfileAddr = urlParams.get('addr') ? urlParams.get('addr') : userAddress;
 
         if(userAddress) {
+            // Gunakan EXTENDED_ABI yang baru
             contract = new ethers.Contract(CONTRACT_ADDRESS, EXTENDED_ABI, signer);
             loadProfileData(currentProfileAddr);
         }
@@ -182,23 +192,34 @@
         return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=${width}&q=80&output=webp`;
     }
 
+    // --- 2. FUNGSI LOAD PROFILE (DIPERBAIKI) ---
     async function loadProfileData(addr) {
-        try {
-            // 1. HEADER PROFIL
-            const p = await contract.getProfile(addr);
-            document.getElementById("pNick").innerText = p.nickname;
-            document.getElementById("pBio").innerText = p.bio;
-            document.getElementById("pLoc").innerText = p.lokasi;
-            document.getElementById("pWallet").innerText = addr.substring(0,8) + "...";
-            if(p.fotoProfil) document.getElementById("pAvatar").src = getOptimizedUrl(p.fotoProfil, 100);
+        // Validasi alamat dulu biar gak error
+        if (!addr || !ethers.utils.isAddress(addr)) {
+            document.getElementById("pNick").innerText = "User Tidak Ditemukan";
+            return;
+        }
 
-            // Simpan data ganti nama jika profil sendiri
-            if (addr.toLowerCase() === userAddress.toLowerCase()) {
-                document.getElementById("myActions").style.display = "flex";
-                myChangeCount = p.nameChangeCount.toNumber(); // Ambil dari struct
+        try {
+            // HEADER PROFIL
+            const p = await contract.getProfile(addr);
+            document.getElementById("pNick").innerText = p.nickname || "Tanpa Nama";
+            document.getElementById("pBio").innerText = p.bio || "-";
+            document.getElementById("pLoc").innerText = p.lokasi || "-";
+            document.getElementById("pWallet").innerText = addr.substring(0,6) + "..." + addr.substring(38);
+            
+            if(p.fotoProfil && p.fotoProfil.length > 5) {
+                document.getElementById("pAvatar").src = getOptimizedUrl(p.fotoProfil, 100);
             }
 
-            // 2. LOAD POSTINGAN (Dengan Tombol Aktif)
+            if (userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
+                document.getElementById("myActions").style.display = "flex";
+                myChangeCount = p.nameChangeCount ? p.nameChangeCount.toNumber() : 0;
+            } else {
+                document.getElementById("myActions").style.display = "none";
+            }
+
+            // LOAD POSTINGAN
             const posts = await contract.getUserPosts(addr);
             document.getElementById("pPostCount").innerText = posts.length;
             const container = document.getElementById("profileFeed");
@@ -209,19 +230,17 @@
                 return;
             }
 
-            // Render Postingan
+            // RENDER POSTINGAN
             [...posts].reverse().forEach(post => {
                 
-                // 1. Definisikan profileLink (INI YANG KURANG TADI)
+                // [FIX] Definisikan profileLink agar tidak error di HTML
                 const profileLink = `profile.html?addr=${post.author}`;
-                
-                // 2. Logika Gambar
+
+                // Logic Gambar + Link Koleksi NFT
                 let imgHtml = "";
                 if(post.imageURI && post.imageURI.length > 5) {
                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     const optUrl = getOptimizedUrl(post.imageURI, 600);
-                    
-                    // Link ke Koleksi (Jika gambar diklik)
                     imgHtml = `
                     <div style="position:relative; margin:10px -15px;">
                         <a href="koleksi.html?id=${post.id}">
@@ -230,79 +249,88 @@
                     </div>`;
                 }
 
-                // 3. Hitung Rating
-                const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
+                const avgRating = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0';
+                
+                // Badge NFT (Jika ada)
+                const nftBadge = (post.nftId && post.nftId > 0) 
+                    ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` 
+                    : "";
 
-                // 4. Render HTML
                 const html = `
-                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                    
-                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <a href="${profileLink}">
-                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
-                                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
-                        </a>
+                    <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
                         
-                        <div class="post-info">
-                            <a href="${profileLink}" class="author-nick-${post.author}" 
-                               style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                ${post.author.substring(0,6)}...
+                        <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                            <a href="${profileLink}">
+                                <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
+                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
                             </a>
-                            <div style="font-size: 11px; color: #999;">
-                                ${new Date(post.timestamp * 1000).toLocaleString()}
+                            
+                            <div class="post-info">
+                                <a href="${profileLink}" class="author-nick-${post.author}" 
+                                   style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                    ${post.author.substring(0,6)}...
+                                </a>
+                                <div style="font-size: 11px; color: #999;">
+                                    ${new Date(post.timestamp * 1000).toLocaleString()} ${nftBadge}
+                                </div>
                             </div>
                         </div>
-                    </div>
 
-                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${post.caption}</div>
-                    ${imgHtml}
+                        <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${post.caption}</div>
+                        ${imgHtml}
 
-                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                         
-                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
-                            <span id="count-like-${post.id}">${post.likeCount}</span>
-                         </button>
+                        <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                             
+                             <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                                <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
+                                <span id="count-like-${post.id}">${post.likeCount}</span>
+                             </button>
 
-                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-comment"></i> ${post.commentCount}
-                         </button>
+                             <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                                <i class="fa-regular fa-comment"></i> ${post.commentCount}
+                             </button>
 
-                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                            <i class="fa-solid fa-gift"></i>
-                         </button>
+                             <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                                <i class="fa-solid fa-gift"></i>
+                             </button>
 
-                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:pointer; color:666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-solid fa-star"></i> ${avgRating}
-                         </button>
+                             <button class="action-btn" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                                <i class="fa-solid fa-star"></i> ${avgRating}
+                             </button>
 
-                    </div>
-                </div>`;
-                
+                        </div>
+                    </div>`;
                 container.innerHTML += html;
                 
-                // Load Lazy Profile (untuk ambil nama asli user di header kartu)
-                fetchProfileLazy(post.author); 
+                // Panggil lazy load untuk nama user (biar gak cuma wallet doang)
+                if(typeof fetchProfileLazy === "function") fetchProfileLazy(post.author);
             });
-    
-    // --- INTERAKSI (LIKE & RATING) ---
+
+        } catch (e) { 
+            console.error(e); 
+            // Deteksi Error ABI
+            if(e.code === 'CALL_EXCEPTION' || e.message.includes("buffer")) {
+                showToast("Error: Kontrak diperbarui, harap hapus cache browser.", "error");
+            } else {
+                showToast("Gagal memuat profil: " + (e.reason || e.message), "error");
+            }
+        }
+    }
+
+    // --- INTERAKSI (COPY PASTE KODE LAMA ANDA DI SINI) ---
     async function handleLike(postId) {
-        // Logic Like sama seperti Home
         const countSpan = document.getElementById(`count-like-${postId}`);
         const icon = document.getElementById(`icon-like-${postId}`);
         const current = parseInt(countSpan.innerText);
-        
         countSpan.innerText = current + 1;
         icon.classList.remove("fa-regular");
         icon.classList.add("fa-solid");
         icon.style.color = "#e74c3c";
-
         try {
-            // postId blockchain -> index array (postId - 1)
             const tx = await contract.likePost(postId - 1);
             await tx.wait();
         } catch (e) {
-            countSpan.innerText = current; // Rollback
+            countSpan.innerText = current; 
             icon.classList.add("fa-regular");
             icon.classList.remove("fa-solid");
             icon.style.color = "";
@@ -323,16 +351,14 @@
             showToast("Mengirim Rating...", "info");
             await tx.wait();
             showToast("Rating Berhasil!", "success");
-            loadProfileData(currentProfileAddr); // Refresh
+            loadProfileData(currentProfileAddr); 
         } catch (e) { showToast("Gagal Rate: " + e.message, "error"); }
     }
 
-    // --- FITUR GANTI NICKNAME (PREMIUM) ---
+    // --- FITUR GANTI NICKNAME ---
     function openNickModal() {
         document.getElementById("freeCount").innerText = myChangeCount;
         const btn = document.getElementById("btnSaveNick");
-        
-        // Cek Kuota (Maksimal 2x gratis)
         if (myChangeCount >= 2) {
             btn.innerText = "Bayar 0.0001 ETH & Ganti";
         } else {
@@ -345,120 +371,72 @@
         const newNick = document.getElementById("newNickInput").value;
         if (/\d/.test(newNick)) return showToast("Nickname tidak boleh ada angka!", "error");
         if (newNick.length < 3) return showToast("Minimal 3 huruf!", "error");
-
         try {
             document.getElementById("nickModal").close();
             showToast("Memproses ganti nama...", "info");
-
             let options = {};
-            // Jika kuota habis (>2), bayar 0.0001 ETH
             if (myChangeCount >= 2) {
                 options = { value: ethers.utils.parseEther("0.0001") };
             }
-
             const tx = await contract.changeNickname(newNick, options);
             await tx.wait();
-            
             showToast("Nickname Berhasil Diganti!", "success");
             location.reload();
-        } catch(e) {
-            showToast("Gagal: " + (e.reason || e.message), "error");
-        }
+        } catch(e) { showToast("Gagal: " + (e.reason || e.message), "error"); }
     }
 
-    // --- MODAL KOMENTAR (Sama seperti Home) ---
+    // --- KOMENTAR ---
     async function openComments(postId) {
         const index = postId - 1; 
         const modal = document.getElementById("commentModal");
         const list = document.getElementById("commentList");
-
         document.getElementById("commentPostId").value = index;
         document.getElementById("commentInput").value = "";
-
         modal.showModal();
-        // Hapus style display flex manual agar fix CSS margin:auto bekerja
-        // modal.style.display = "flex"; <-- JANGAN DIPAKAI LAGI
-
         list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
         try {
             const comments = await contract.getComments(index);
             list.innerHTML = "";
-
             if(comments.length === 0) { 
                 list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
                 return; 
             }
-
-            // Loop Komentar
             for (const c of comments) {
-                let nick = c.commenter.substring(0,6) + "..."; // Default Wallet
-                let avt = "https://via.placeholder.com/30";   // Default Avatar
-                let profileFound = false;
-
-                // 1. CEK CACHE DULU (Biar gak nembak blockchain terus)
+                let nick = c.commenter.substring(0,6) + "..."; 
+                let avt = "https://via.placeholder.com/30";   
+                
+                // Cek Cache Profil Komentar
                 if (commentProfileCache[c.commenter]) {
                     nick = commentProfileCache[c.commenter].nick;
                     avt = commentProfileCache[c.commenter].avt;
-                    profileFound = true;
-                } 
-                // 2. JIKA BELUM ADA DI CACHE, AMBIL DARI SMART CONTRACT
-                else {
+                } else {
                     try { 
                         const p = await contract.getProfile(c.commenter);
-
-                        // Cek apakah user sudah set nickname?
-                        if(p.nickname && p.nickname.length > 0) {
-                            nick = p.nickname;
-                        }
-
-                        // Cek foto profil
-                        if(p.fotoProfil && p.fotoProfil.length > 5) {
-                            // PENTING: Pakai Link Langsung (Jangan dikompres wsrv.nl)
-                            // Agar PNG Transparan tidak rusak/hitam
-                            avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                        }
-
-                        // Simpan ke Cache
+                        if(p.nickname) nick = p.nickname;
+                        if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                         commentProfileCache[c.commenter] = { nick, avt };
-                        profileFound = true;
-
-                    } catch(e) {
-                        console.warn("Gagal ambil profil:", c.commenter);
-                    }
+                    } catch(e){}
                 }
 
                 const commenterLink = `profile.html?addr=${c.commenter}`;
-
-                // HTML Render
-                // Perhatikan bagian <img> ada 'onerror' untuk jaga-jaga
                 const html = `
                 <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
-
                     <a href="${commenterLink}" style="flex-shrink: 0;">
-                        <img src="${avt}" 
-                             onerror="this.onerror=null; this.src='https://via.placeholder.com/30';"
+                        <img src="${avt}" onerror="this.onerror=null; this.src='https://via.placeholder.com/30';"
                              style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee; background:#fff;">
                     </a>
-
                     <div style="flex:1; min-width: 0;">
                         <div style="margin-bottom: 2px;">
-                            <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#2c3e50; text-decoration:none;">
-                                ${nick}
-                            </a>
+                            <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#2c3e50; text-decoration:none;">${nick}</a>
                         </div>
-
                         <div style="font-size:13px; color:#333; word-wrap: break-word;">${c.text}</div>
                         <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
                     </div>
                 </div>`;
-
                 list.innerHTML += html;
             }
-        } catch(e) { 
-            console.error(e);
-            list.innerHTML = "Gagal memuat komentar."; 
-        }
+        } catch(e) { console.error(e); list.innerHTML = "Gagal memuat komentar."; }
     }
 
     async function submitComment() {
@@ -493,6 +471,44 @@
             location.reload();
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
     }
+    
+    // --- MODAL SAWER (Wajib Ada) ---
+    function openSawerModal(id) {
+        if(document.getElementById("sawerModal")) {
+            document.getElementById("sawerPostId").value = id;
+            document.getElementById("sawerModal").showModal();
+        } else {
+            showToast("Fitur sawer belum tersedia di halaman ini", "error");
+        }
+    }
     </script>
-</body>
-</html>
+
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; text-align:center;">🎁 Sawer Kreator</h3>
+        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
+        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH - Max: 0.01 ETH</small>
+        <input type="hidden" id="sawerPostId">
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; padding:10px; cursor:pointer;">Batal</button>
+            <button onclick="submitSawer()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer;">Kirim</button>
+        </div>
+    </dialog>
+
+    <script>
+    async function submitSawer() {
+        const amount = document.getElementById("sawerAmount").value;
+        const postId = document.getElementById("sawerPostId").value;
+        if(!amount) return;
+        try {
+            document.getElementById("sawerModal").close();
+            showToast("Mengirim Saweran...", "info");
+            const tx = await contract.sawerPost(postId - 1, { value: ethers.utils.parseEther(amount) });
+            await tx.wait();
+            showToast("Terima kasih sudah menyawer! 🎁", "success");
+        } catch(e) { showToast("Gagal: " + e.message, "error"); }
+    }
+    </script>
+
+</body
+
+</html
