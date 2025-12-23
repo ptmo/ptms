@@ -209,66 +209,81 @@
                 return;
             }
 
+            // Render Postingan
             [...posts].reverse().forEach(post => {
+                
+                // 1. Definisikan profileLink (INI YANG KURANG TADI)
+                const profileLink = `profile.html?addr=${post.author}`;
+                
+                // 2. Logika Gambar
                 let imgHtml = "";
                 if(post.imageURI && post.imageURI.length > 5) {
                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     const optUrl = getOptimizedUrl(post.imageURI, 600);
-                    imgHtml = `<a href="${rawUrl}" target="_blank"><img src="${optUrl}" class="post-image" style="width:100%; height:auto; display:block; margin-top:10px; border-radius:8px;"></a>`;
+                    
+                    // Link ke Koleksi (Jika gambar diklik)
+                    imgHtml = `
+                    <div style="position:relative; margin:10px -15px;">
+                        <a href="koleksi.html?id=${post.id}">
+                            <img src="${optUrl}" class="post-image" style="width:100%; display:block;" loading="lazy">
+                        </a>
+                    </div>`;
                 }
 
-                const avgRating = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0';
+                // 3. Hitung Rating
+                const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
 
+                // 4. Render HTML
                 const html = `
-                    <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                    
+                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <a href="${profileLink}">
+                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
+                                 style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                        </a>
                         
-                        <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <a href="${profileLink}">
-                                <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
-                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                        <div class="post-info">
+                            <a href="${profileLink}" class="author-nick-${post.author}" 
+                               style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                ${post.author.substring(0,6)}...
                             </a>
-                            
-                            <div class="post-info">
-                                <a href="${profileLink}" class="author-nick-${post.author}" 
-                                   style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                    ${post.author.substring(0,6)}...
-                                </a>
-                                <div style="font-size: 11px; color: #999;">
-                                    ${new Date(post.timestamp * 1000).toLocaleString()}
-                                </div>
+                            <div style="font-size: 11px; color: #999;">
+                                ${new Date(post.timestamp * 1000).toLocaleString()}
                             </div>
                         </div>
+                    </div>
 
-                        <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${post.caption}</div>
-                        ${imgHtml}
+                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${post.caption}</div>
+                    ${imgHtml}
 
-                        <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                             
-                             <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
-                                <span id="count-like-${post.id}">${post.likeCount}</span>
-                             </button>
+                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                         
+                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
+                            <span id="count-like-${post.id}">${post.likeCount}</span>
+                         </button>
 
-                             <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-comment"></i> ${post.commentCount}
-                             </button>
+                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-comment"></i> ${post.commentCount}
+                         </button>
 
-                             <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                                <i class="fa-solid fa-gift"></i>
-                             </button>
+                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                            <i class="fa-solid fa-gift"></i>
+                         </button>
 
-                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:pointer; color:666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-solid fa-star"></i> ${avgRating}
-                             </button>
+                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:pointer; color:666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-solid fa-star"></i> ${avgRating}
+                         </button>
 
-                        </div>
-                    </div>`;
+                    </div>
+                </div>`;
+                
                 container.innerHTML += html;
+                
+                // Load Lazy Profile (untuk ambil nama asli user di header kartu)
+                fetchProfileLazy(post.author); 
             });
-
-        } catch (e) { console.error(e); showToast("Gagal memuat profil", "error"); }
-    }
-
     
     // --- INTERAKSI (LIKE & RATING) ---
     async function handleLike(postId) {
