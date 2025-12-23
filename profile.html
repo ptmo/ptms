@@ -11,7 +11,14 @@
     
     <style>
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        #commentModal[open] { display: flex; flex-direction: column; }
+        #commentModal[open] { 
+        display: flex; 
+        flex-direction: column;
+        /* Wajib ada agar melayang di tengah saat display:flex */
+        margin: auto; 
+        position: fixed;
+        inset: 0;
+        }
         .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
         .post-image { cursor: zoom-in; transition: opacity 0.2s; }
         .post-image:hover { opacity: 0.9; }
@@ -329,9 +336,11 @@
         document.getElementById("commentInput").value = "";
         
         modal.showModal();
-        // Fix tampilan modal
-        modal.style.display = "flex";
-        modal.style.flexDirection = "column";
+        
+        // --- BAGIAN YANG DIHAPUS ---
+        // modal.style.display = "flex";            <-- Hapus ini
+        // modal.style.flexDirection = "column";    <-- Hapus ini
+        // ---------------------------
 
         list.innerHTML = "<p style='text-align:center; padding:20px;'>Memuat...</p>";
 
@@ -345,35 +354,28 @@
             }
 
             for (const c of comments) {
-                // 1. Default Data
                 let nick = c.commenter.substring(0,6);
                 let avt = "https://via.placeholder.com/30";
                 
-                // 2. Fetch Profil (Nama & Foto Asli)
                 try { 
                     const p = await contract.getProfile(c.commenter); 
                     nick = p.nickname; 
                     if(p.fotoProfil) avt = getOptimizedUrl(p.fotoProfil, 50); 
                 } catch(e){}
 
-                // 3. Buat Link ke Profil
                 const commenterLink = `profile.html?addr=${c.commenter}`;
 
-                // 4. Render HTML dengan Link
                 const html = `
                 <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px;">
-                    
                     <a href="${commenterLink}">
                         <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
                     </a>
-                    
                     <div style="flex:1;">
                         <div style="margin-bottom: 2px;">
                             <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none;">
                                 ${nick}
                             </a>
                         </div>
-                        
                         <div style="font-size:13px; color:#333;">${c.text}</div>
                         <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
                     </div>
