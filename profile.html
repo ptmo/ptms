@@ -331,56 +331,88 @@
         const index = postId - 1; 
         const modal = document.getElementById("commentModal");
         const list = document.getElementById("commentList");
-        
+
         document.getElementById("commentPostId").value = index;
         document.getElementById("commentInput").value = "";
-        
-        modal.showModal();
-        
-        // --- BAGIAN YANG DIHAPUS ---
-        // modal.style.display = "flex";            <-- Hapus ini
-        // modal.style.flexDirection = "column";    <-- Hapus ini
-        // ---------------------------
 
-        list.innerHTML = "<p style='text-align:center; padding:20px;'>Memuat...</p>";
+        modal.showModal();
+        // Hapus style display flex manual agar fix CSS margin:auto bekerja
+        // modal.style.display = "flex"; <-- JANGAN DIPAKAI LAGI
+
+        list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
         try {
             const comments = await contract.getComments(index);
             list.innerHTML = "";
-            
+
             if(comments.length === 0) { 
                 list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
                 return; 
             }
 
+            // Loop Komentar
             for (const c of comments) {
-                let nick = c.commenter.substring(0,6);
-                let avt = "https://via.placeholder.com/30";
-                
-                try { 
-                    const p = await contract.getProfile(c.commenter); 
-                    nick = p.nickname; 
-                    if(p.fotoProfil) avt = getOptimizedUrl(p.fotoProfil, 50); 
-                } catch(e){}
+                let nick = c.commenter.substring(0,6) + "..."; // Default Wallet
+                let avt = "https://via.placeholder.com/30";   // Default Avatar
+                let profileFound = false;
+
+                // 1. CEK CACHE DULU (Biar gak nembak blockchain terus)
+                if (commentProfileCache[c.commenter]) {
+                    nick = commentProfileCache[c.commenter].nick;
+                    avt = commentProfileCache[c.commenter].avt;
+                    profileFound = true;
+                } 
+                // 2. JIKA BELUM ADA DI CACHE, AMBIL DARI SMART CONTRACT
+                else {
+                    try { 
+                        const p = await contract.getProfile(c.commenter);
+
+                        // Cek apakah user sudah set nickname?
+                        if(p.nickname && p.nickname.length > 0) {
+                            nick = p.nickname;
+                        }
+
+                        // Cek foto profil
+                        if(p.fotoProfil && p.fotoProfil.length > 5) {
+                            // PENTING: Pakai Link Langsung (Jangan dikompres wsrv.nl)
+                            // Agar PNG Transparan tidak rusak/hitam
+                            avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                        }
+
+                        // Simpan ke Cache
+                        commentProfileCache[c.commenter] = { nick, avt };
+                        profileFound = true;
+
+                    } catch(e) {
+                        console.warn("Gagal ambil profil:", c.commenter);
+                    }
+                }
 
                 const commenterLink = `profile.html?addr=${c.commenter}`;
 
+                // HTML Render
+                // Perhatikan bagian <img> ada 'onerror' untuk jaga-jaga
                 const html = `
-                <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px;">
-                    <a href="${commenterLink}">
-                        <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
+
+                    <a href="${commenterLink}" style="flex-shrink: 0;">
+                        <img src="${avt}" 
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/30';"
+                             style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee; background:#fff;">
                     </a>
-                    <div style="flex:1;">
+
+                    <div style="flex:1; min-width: 0;">
                         <div style="margin-bottom: 2px;">
-                            <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none;">
+                            <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#2c3e50; text-decoration:none;">
                                 ${nick}
                             </a>
                         </div>
-                        <div style="font-size:13px; color:#333;">${c.text}</div>
+
+                        <div style="font-size:13px; color:#333; word-wrap: break-word;">${c.text}</div>
                         <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
                     </div>
                 </div>`;
-                
+
                 list.innerHTML += html;
             }
         } catch(e) { 
