@@ -15,7 +15,10 @@
         .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
         .comment-time { font-size: 10px; color: #999; }
         
-        /* Fix Dialog di HP */
+        /* Efek Hover pada Gambar agar user tahu bisa diklik */
+        .post-image { cursor: zoom-in; transition: opacity 0.2s; }
+        .post-image:hover { opacity: 0.9; }
+
         dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
     </style>
 </head>
@@ -120,19 +123,27 @@
             }
         };
 
+        // --- HELPER OPTIMASI GAMBAR ---
         function resolveIPFS(url) {
             if (!url) return null;
             return url.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
         }
 
+        function getOptimizedUrl(ipfsUrl, width = 600) {
+            if (!ipfsUrl) return null;
+            const rawUrl = ipfsUrl.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            return `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=${width}&q=80&output=webp`;
+        }
+
         async function loadMyProfile() {
             try {
                 const p = await contract.getProfile(userAddress);
-                if(p.fotoProfil) document.getElementById("myAvatar").src = resolveIPFS(p.fotoProfil);
+                if(p.fotoProfil) {
+                    document.getElementById("myAvatar").src = getOptimizedUrl(p.fotoProfil, 100);
+                }
             } catch(e) {}
         }
 
-        // --- FUNGSI UTAMA LOAD FEED ---
         async function loadFeed() {
             try {
                 const posts = await contract.getAllPosts();
@@ -144,18 +155,24 @@
                     return;
                 }
 
-                // Render Kartu Saja (TANPA KOMENTAR)
                 [...posts].reverse().forEach(post => {
                     const uniqueId = `post-${post.id}`;
                     
+                    // --- MODIFIKASI LINK GAMBAR ---
                     let imgHtml = "";
                     if(post.imageURI && post.imageURI.length > 5) {
-                        imgHtml = `<img src="${resolveIPFS(post.imageURI)}" class="post-image" loading="lazy" onerror="this.style.display='none'">`;
+                        const rawUrl = resolveIPFS(post.imageURI);          // Link Asli (Gateway)
+                        const optUrl = getOptimizedUrl(post.imageURI, 600); // Link Proxy (Kecil)
+                        
+                        // Bungkus <img> dengan <a> target="_blank"
+                        imgHtml = `
+                        <a href="${rawUrl}" target="_blank" title="Klik untuk ukuran penuh">
+                            <img src="${optUrl}" class="post-image" loading="lazy" alt="Post Image">
+                        </a>`;
                     }
 
                     const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
 
-                    // HTML ini BERSIH dari komentar
                     const html = `
                     <div class="card" id="${uniqueId}">
                         <div class="post-header">
@@ -202,7 +219,7 @@
                 const p = await contract.getProfile(address);
                 const profileData = {
                     nickname: p.nickname,
-                    avatar: p.fotoProfil ? resolveIPFS(p.fotoProfil) : 'https://via.placeholder.com/40'
+                    avatar: p.fotoProfil ? getOptimizedUrl(p.fotoProfil, 100) : 'https://via.placeholder.com/40'
                 };
                 profileCache[address] = profileData;
                 updatePostAuthorUI(address, profileData);
@@ -220,31 +237,25 @@
             const index = postId - 1; 
             const modal = document.getElementById("commentModal");
             const list = document.getElementById("commentList");
-            
             document.getElementById("commentPostId").value = index;
             document.getElementById("commentInput").value = "";
-            modal.showModal(); // BUKA POPUP
-            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
+            modal.showModal();
+            list.innerHTML = "<p style='text-align:center;'>Memuat...</p>";
 
             try {
                 const comments = await contract.getComments(index);
                 list.innerHTML = "";
-                
                 if(comments.length === 0) {
                     list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>";
                     return;
                 }
-
                 for (const c of comments) {
-                    // Logic sederhana tanpa lazy load untuk komentar biar cepat
                     let nick = c.commenter.substring(0,6);
                     let avt = "https://via.placeholder.com/30";
-                    
                     if(profileCache[c.commenter]) {
                         nick = profileCache[c.commenter].nickname;
-                        avt = profileCache[c.commenter].avatar;
+                        avt = profileCache[c.commenter].avatar; // Sudah optimized 100px
                     }
-
                     const html = `
                     <div class="comment-item">
                         <img src="${avt}" class="comment-avatar">
@@ -256,24 +267,20 @@
                     </div>`;
                     list.innerHTML += html;
                 }
-            } catch(e) {
-                list.innerHTML = "Gagal memuat komentar.";
-            }
+            } catch(e) { list.innerHTML = "Gagal memuat komentar."; }
         }
 
         async function submitComment() {
             const index = document.getElementById("commentPostId").value;
             const text = document.getElementById("commentInput").value;
             if(!text) return;
-
             try {
                 showToast("Mengirim...", "info");
                 const tx = await contract.addComment(index, text, "");
                 await tx.wait();
                 showToast("Terkirim!", "success");
                 document.getElementById("commentInput").value = "";
-                openComments(parseInt(index) + 1); // Refresh modal
-                loadFeed(); // Refresh counter di home
+                openComments(parseInt(index) + 1);
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
         }
 
@@ -281,26 +288,21 @@
             const countSpan = document.getElementById(`count-like-${postId}`);
             const icon = document.getElementById(`icon-like-${postId}`);
             const current = parseInt(countSpan.innerText);
-            
-            // Optimistic UI
             countSpan.innerText = current + 1;
             icon.classList.remove("fa-regular");
             icon.classList.add("fa-solid");
             icon.style.color = "#e74c3c";
-
             try {
                 const tx = await contract.likePost(postId - 1);
                 await tx.wait();
             } catch (e) {
-                countSpan.innerText = current; // Rollback
+                countSpan.innerText = current;
                 icon.classList.add("fa-regular");
                 icon.classList.remove("fa-solid");
                 icon.style.color = "";
-                showToast("Gagal Like", "error");
             }
         }
 
-        // Post & Rating
         async function submitPost() {
             const caption = document.getElementById("postCaption").value;
             const file = document.getElementById("fileInput").files[0];
@@ -311,14 +313,21 @@
             try {
                 btn.disabled = true;
                 btn.innerText = "Mengirim...";
+                
                 let imgUri = "";
                 if(file) {
-                    showToast("Mengupload (Kompresi 30KB)...", "info");
-                    imgUri = await uploadToIPFS(file);
+                    // Kompresi 40KB
+                    showToast("Mengompresi Gambar (Max 40KB)...", "info");
+                    imgUri = await uploadToIPFS(file, 40); 
                 }
+
+                showToast("Konfirmasi di Wallet...", "info");
                 const tx = await contract.createPost(imgUri, caption);
+                
+                showToast("Sedang mining...", "info");
                 await tx.wait();
-                showToast("Berhasil!", "success");
+                
+                showToast("Berhasil Posting!", "success");
                 document.getElementById("postCaption").value = "";
                 clearImage();
                 btn.disabled = false;
@@ -360,4 +369,4 @@
         }
     </script>
 </body>
-    </html>
+                </html>
