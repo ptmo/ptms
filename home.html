@@ -303,40 +303,63 @@
         // --- INTERAKSI ---
         
         async function openComments(postId) {
-            const index = postId - 1; 
-            const modal = document.getElementById("commentModal");
-            const list = document.getElementById("commentList");
-            document.getElementById("commentPostId").value = index;
-            document.getElementById("commentInput").value = "";
-            modal.showModal();
-            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
+    const index = postId - 1; 
+    const modal = document.getElementById("commentModal");
+    const list = document.getElementById("commentList");
+    
+    document.getElementById("commentPostId").value = index;
+    document.getElementById("commentInput").value = "";
+    
+    modal.showModal();
+    list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
-            try {
-                const comments = await contract.getComments(index);
-                list.innerHTML = "";
-                if(comments.length === 0) {
-                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>";
-                    return;
-                }
-                for (const c of comments) {
-                    let nick = c.commenter.substring(0,6);
-                    let avt = "https://via.placeholder.com/30";
-                    if(profileCache[c.commenter]) {
-                        nick = profileCache[c.commenter].nickname;
-                        avt = profileCache[c.commenter].avatar;
-                    }
-                    const html = `
-                    <div class="comment-item">
-                        <img src="${avt}" class="comment-avatar">
-                        <div class="comment-content">
-                            <div class="comment-author">${nick}</div>
-                            <div>${c.text}</div>
-                            <div class="comment-time">${new Date(c.timestamp * 1000).toLocaleTimeString()}</div>
-                        </div>
-                    </div>`;
-                    list.innerHTML += html;
-                }
-            } catch(e) { list.innerHTML = "Gagal memuat komentar."; }
+    try {
+        const comments = await contract.getComments(index);
+        list.innerHTML = "";
+        
+        if(comments.length === 0) {
+            list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>";
+            return;
+        }
+
+        for (const c of comments) {
+            // 1. Logika Nama & Avatar (Tetap menggunakan Cache Anda)
+            let nick = c.commenter.substring(0,6);
+            let avt = "https://via.placeholder.com/30";
+            
+            if(typeof profileCache !== 'undefined' && profileCache[c.commenter]) {
+                nick = profileCache[c.commenter].nickname;
+                avt = profileCache[c.commenter].avatar;
+            }
+
+            // 2. Buat Link Profil
+            const profileLink = `profile.html?addr=${c.commenter}`;
+
+            // 3. Render HTML dengan Link
+            const html = `
+            <div class="comment-item">
+                <a href="${profileLink}">
+                    <img src="${avt}" class="comment-avatar">
+                </a>
+
+                <div class="comment-content">
+                    <div class="comment-author">
+                        <a href="${profileLink}" style="text-decoration: none; color: inherit;">
+                            ${nick}
+                        </a>
+                    </div>
+                    
+                    <div>${c.text}</div>
+                    <div class="comment-time">${new Date(c.timestamp * 1000).toLocaleTimeString()}</div>
+                </div>
+            </div>`;
+            
+            list.innerHTML += html;
+        }
+    } catch(e) { 
+        console.error(e);
+        list.innerHTML = "Gagal memuat komentar."; 
+    }
         }
 
         async function submitComment() {
