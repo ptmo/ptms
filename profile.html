@@ -324,23 +324,67 @@
         const index = postId - 1; 
         const modal = document.getElementById("commentModal");
         const list = document.getElementById("commentList");
+        
         document.getElementById("commentPostId").value = index;
         document.getElementById("commentInput").value = "";
+        
         modal.showModal();
+        // Fix tampilan modal
+        modal.style.display = "flex";
+        modal.style.flexDirection = "column";
+
         list.innerHTML = "<p style='text-align:center; padding:20px;'>Memuat...</p>";
 
         try {
             const comments = await contract.getComments(index);
             list.innerHTML = "";
-            if(comments.length === 0) { list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; return; }
+            
+            if(comments.length === 0) { 
+                list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
+                return; 
+            }
+
             for (const c of comments) {
+                // 1. Default Data
                 let nick = c.commenter.substring(0,6);
                 let avt = "https://via.placeholder.com/30";
-                try { const p = await contract.getProfile(c.commenter); nick = p.nickname; if(p.fotoProfil) avt = getOptimizedUrl(p.fotoProfil, 50); } catch(e){}
-                const html = `<div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px;"><img src="${avt}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;"><div style="flex:1;"><div style="font-weight:bold; font-size:12px; color:#7385a5;">${nick}</div><div style="font-size:13px;">${c.text}</div><div style="font-size:10px; color:#999;">${new Date(c.timestamp * 1000).toLocaleTimeString()}</div></div></div>`;
+                
+                // 2. Fetch Profil (Nama & Foto Asli)
+                try { 
+                    const p = await contract.getProfile(c.commenter); 
+                    nick = p.nickname; 
+                    if(p.fotoProfil) avt = getOptimizedUrl(p.fotoProfil, 50); 
+                } catch(e){}
+
+                // 3. Buat Link ke Profil
+                const commenterLink = `profile.html?addr=${c.commenter}`;
+
+                // 4. Render HTML dengan Link
+                const html = `
+                <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px;">
+                    
+                    <a href="${commenterLink}">
+                        <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                    </a>
+                    
+                    <div style="flex:1;">
+                        <div style="margin-bottom: 2px;">
+                            <a href="${commenterLink}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none;">
+                                ${nick}
+                            </a>
+                        </div>
+                        
+                        <div style="font-size:13px; color:#333;">${c.text}</div>
+                        <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
+                    </div>
+                </div>`;
+                
                 list.innerHTML += html;
             }
-        } catch(e) { list.innerHTML = "Gagal memuat komentar."; }
+        } catch(e) { 
+            console.error(e);
+            list.innerHTML = "Gagal memuat komentar."; 
+        }
     }
 
     async function submitComment() {
