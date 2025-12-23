@@ -77,8 +77,25 @@
     <script>
         window.onload = async () => {
             await initApp();
-            if(userAddress) loadNotifs();
+            if(userAddress) {
+                // 1. Load dulu notifikasinya
+                await loadNotifs();
+                
+                // 2. Setelah tampil, baru tandai sudah dibaca (Reset Dot Merah)
+                markAsReadLocal(); 
+            }
         };
+
+        // Fungsi Reset Dot Merah (Gratis tanpa Gas Fee)
+        function markAsReadLocal() {
+            // Simpan waktu sekarang (detik) ke browser
+            const now = Math.floor(Date.now() / 1000);
+            localStorage.setItem("lastNotifCheck", now);
+            
+            // Hilangkan badge merah di Navbar seketika
+            const badges = document.querySelectorAll('.nav-badge');
+            badges.forEach(b => b.style.display = 'none');
+        }
 
         async function loadNotifs() {
             try {
@@ -87,41 +104,54 @@
                 container.innerHTML = "";
 
                 if(notifs.length === 0) {
-                    container.innerHTML = `<div class="card" style="padding: 20px; text-align: center;">Belum ada notifikasi.</div>`;
+                    container.innerHTML = `<div class="card" style="padding: 20px; text-align: center; color: #999;">Belum ada notifikasi.</div>`;
                     return;
                 }
 
+                // Ambil waktu cek terakhir (untuk menentukan mana yang "BARU")
+                const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+
                 [...notifs].reverse().forEach(n => {
-                    // Tentukan Icon & Pesan berdasarkan Action Type
                     let icon = '<i class="fa-solid fa-circle-info"></i>';
                     let text = 'berinteraksi dengan post Anda';
                     let color = '#7385a5';
 
+                    // Logika Icon & Warna
                     if(n.actionType === "LIKE") {
-                        icon = '<i class="fa-solid fa-heart"></i>';
-                        text = 'menyukai postingan Anda';
-                        color = '#e74c3c';
+                        icon = '<i class="fa-solid fa-heart"></i>'; 
+                        text = 'menyukai postingan Anda'; 
+                        color = '#e74c3c'; // Merah
                     } else if (n.actionType === "COMMENT") {
-                        icon = '<i class="fa-solid fa-comment"></i>';
-                        text = 'mengomentari postingan Anda';
-                        color = '#3498db';
+                        icon = '<i class="fa-solid fa-comment"></i>'; 
+                        text = 'mengomentari postingan Anda'; 
+                        color = '#3498db'; // Biru
                     } else if (n.actionType === "RATE") {
-                        icon = '<i class="fa-solid fa-star"></i>';
-                        text = 'memberi bintang pada postingan Anda';
-                        color = 'gold';
+                        icon = '<i class="fa-solid fa-star"></i>'; 
+                        text = 'memberi bintang'; 
+                        color = 'gold'; // Emas
+                    } else if (n.actionType === "FOLLOW") {
+                        icon = '<i class="fa-solid fa-user-plus"></i>'; 
+                        text = 'mulai mengikuti Anda'; 
+                        color = '#2ecc71'; // Hijau
                     }
 
+                    // Logika Highlight (Jika timestamp notif > terakhir cek)
+                    // Notif baru akan berwarna biru muda dan ada border kiri
+                    const isNew = n.timestamp > lastCheck;
+                    const bgStyle = isNew ? "background-color: #f0f8ff; border-left: 4px solid #3498db;" : "";
+                    const badgeNew = isNew ? `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:9px; margin-left:5px; vertical-align:middle;">BARU</span>` : "";
+
                     const html = `
-                    <div class="card" style="padding: 15px; display: flex; gap: 15px; align-items: center;">
-                        <div style="font-size: 24px; color: ${color}; width: 30px; text-align: center;">
+                    <div class="card" style="padding: 15px; display: flex; gap: 15px; align-items: center; ${bgStyle}">
+                        <div style="font-size: 24px; color: ${color}; width: 40px; text-align: center;">
                             ${icon}
                         </div>
-                        <div>
-                            <div style="font-size: 14px;">
-                                <strong>${n.actor.substring(0,6)}...</strong> ${text}
+                        <div style="flex: 1;">
+                            <div style="font-size: 14px; line-height: 1.4;">
+                                <strong>${n.actor.substring(0,6)}...</strong> ${text} ${badgeNew}
                             </div>
-                            <div style="font-size: 11px; color: #999; margin-top: 4px;">
-                                ${new Date(n.timestamp * 1000).toLocaleString()}
+                            <div style="font-size: 11px; color: #999; margin-top: 5px;">
+                                <i class="fa-regular fa-clock"></i> ${new Date(n.timestamp * 1000).toLocaleString()}
                             </div>
                         </div>
                     </div>`;
@@ -129,6 +159,7 @@
                 });
             } catch (e) {
                 console.error(e);
+                container.innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat notifikasi.</p>";
             }
         }
     </script>
