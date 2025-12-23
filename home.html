@@ -56,6 +56,14 @@
     top: 8px;
     right: 10px; /* Di ujung kanan tombol */
     }
+
+    @media (max-width: 900px) {
+        .layout-wrapper { grid-template-columns: 1fr !important; }
+        .sidebar-left, .sidebar-right { display: none !important; }
+    }
+    @media (min-width: 901px) {
+        .sidebar-right { display: block !important; }
+    }
     </style>
 </head>
 <body>
@@ -96,6 +104,28 @@
                     <button id="btnPost" class="btn-primary" onclick="submitPost()">Posting</button>
                 </div>
             </div>
+
+            <div class="layout-wrapper" style="display: grid; grid-template-columns: 250px 1fr 280px; gap: 20px;">
+    
+    <div class="sidebar-left">...</div>
+
+    <div class="main-feed">...</div>
+
+    <div class="sidebar-right" style="display: none;"> <div class="menu-card" style="margin-bottom: 20px;">
+            <h4 style="margin-top:0; color:#7385a5;">🔥 Sedang Populer</h4>
+            <div id="trendingWidget">
+                <p style="font-size:12px; color:#999;">Memuat...</p>
+            </div>
+        </div>
+
+        <div class="menu-card">
+            <h4 style="margin-top:0; color:#7385a5;">✨ Siapa yang diikuti</h4>
+            <div id="recomWidget">
+                <p style="font-size:12px; color:#999;">Mencari...</p>
+            </div>
+        </div>
+    </div>
+</div>
 
             <div id="feedContainer">
                 <div style="text-align: center; padding: 40px; color: #999;">
@@ -162,6 +192,7 @@
                 document.getElementById("walletDisplay").innerText = userAddress;
                 loadMyProfile();
                 loadFeed();
+                renderWidgets();
             }
         };
 
@@ -455,6 +486,186 @@
         function clearImage() {
             document.getElementById('fileInput').value = "";
             document.getElementById('previewContainer').style.display = 'none';
+        }
+
+        // --- ALGORITMA TRENDING ADVANCE (GRAVITY SCORE) ---
+async function getTrendingPosts() {
+    try {
+        const allPosts = await contract.getAllPosts();
+        const now = Math.floor(Date.now() / 1000); // Waktu sekarang (detik)
+
+        const scoredPosts = allPosts.map(post => {
+            // 1. RAW SCORE (Like + Komen + Rating)
+            // Rating kita bobotkan lebih tinggi (x5) karena butuh effort lebih
+            const rawScore = post.likeCount.toNumber() + 
+                             (post.commentCount.toNumber() * 2) + 
+                             (post.ratingCount.toNumber() * 5);
+
+            // 2. TIME DECAY (Penurunan Nilai Waktu)
+            // Hitung umur postingan dalam jam
+            const postTime = post.timestamp.toNumber();
+            const ageInHours = (now - postTime) / 3600;
+
+            // RUMUS GRAVITY: Score / (Umur + 2)^Gravity
+            // Gravity 1.8 = Postingan cepat basi (News)
+            // Gravity 1.2 = Postingan tahan lama (Blog)
+            const gravity = 1.8;
+            
+            // Tambah 1 di rawScore agar tidak pembagian nol
+            const finalScore = (rawScore + 1) / Math.pow(ageInHours + 2, gravity);
+
+            return { ...post, popularityScore: finalScore };
+        });
+
+        // 3. Urutkan & Filter
+        scoredPosts.sort((a, b) => b.popularityScore - a.popularityScore);
+
+        const trendingList = [];
+        for (let post of scoredPosts) {
+            if (trendingList.length >= 5) break;
+            
+            // Filter: Jangan tampilkan post sendiri & Cek Private
+            if (post.author.toLowerCase() !== userAddress.toLowerCase()) {
+                 // Cek profile untuk pastikan tidak private (opsional, memakan waktu loading)
+                 // Jika ingin cepat, skip pengecekan isPrivate di widget trending
+                 trendingList.push(post);
+            }
+        }
+        return trendingList;
+
+    } catch (e) { console.error("Trending Error:", e); return []; }
+}
+        
+        // --- ALGORITMA REKOMENDASI (TANPA UPDATE KONTRAK) ---
+async function getWhoToFollow() {
+    try {
+        // 1. KONFIGURASI AKUN OFFICIAL (Ganti dengan Wallet Owner/Admin)
+        const OFFICIAL_WALLET = "0x1234567890ABCDEF1234567890ABCDEF12345678"; 
+
+        const allPosts = await contract.getAllPosts();
+        
+        // 2. Analisis Aktivitas User (Siapa yang paling rajin posting?)
+        // Format: { "0xUserA": 10_post, "0xUserB": 5_post }
+        const userActivity = {};
+        
+        allPosts.forEach(post => {
+            const author = post.author;
+            if(userActivity[author]) {
+                userActivity[author]++;
+            } else {
+                userActivity[author] = 1;
+            }
+        });
+
+        // 3. Filter Kandidat (Kecualikan Diri Sendiri & Yang Sudah Difollow)
+        // Kita ubah Object ke Array biar bisa disortir
+        const uniqueAuthors = Object.keys(userActivity);
+        const candidates = [];
+
+        for (let author of uniqueAuthors) {
+            // Skip diri sendiri
+            if (author.toLowerCase() === userAddress.toLowerCase()) continue;
+            
+            // Skip Official (karena nanti ditaruh manual di paling atas)
+            if (author.toLowerCase() === OFFICIAL_WALLET.toLowerCase()) continue;
+
+            // Cek apakah sudah follow?
+            const isFollowing = await contract.isFollowing(userAddress, author);
+            if (!isFollowing) {
+                candidates.push({
+                    address: author,
+                    score: userActivity[author] // Skor berdasarkan jumlah postingan
+                });
+            }
+        }
+
+        // 4. Sortir berdasarkan Keaktifan (Tertinggi ke Terendah)
+        candidates.sort((a, b) => b.score - a.score);
+
+        // 5. Ambil Top 20 User Teraktif, lalu ACAK (Randomize)
+        // Supaya user tidak bosan melihat rekomendasi yang sama terus
+        const topCandidates = candidates.slice(0, 20); 
+        const randomPicks = topCandidates.sort(() => 0.5 - Math.random()).slice(0, 4); // Ambil 4 orang acak
+
+        // 6. GABUNGKAN: Official Account (Wajib Pertama) + Random User
+        const finalRecommendations = [];
+
+        // Cek dulu apakah Official sudah difollow belum?
+        if (userAddress.toLowerCase() !== OFFICIAL_WALLET.toLowerCase()) {
+            const isFollowOfficial = await contract.isFollowing(userAddress, OFFICIAL_WALLET);
+            if (!isFollowOfficial) {
+                finalRecommendations.push(OFFICIAL_WALLET);
+            }
+        }
+
+        // Masukkan user random hasil acakan tadi
+        randomPicks.forEach(u => finalRecommendations.push(u.address));
+
+        // 7. Fetch Data Profil untuk ditampilkan di UI
+        const resultData = [];
+        for (let addr of finalRecommendations) {
+            try {
+                const p = await contract.getProfile(addr);
+                resultData.push({
+                    wallet: addr,
+                    nickname: p.nickname || "User",
+                    avatar: p.fotoProfil,
+                    // Penanda khusus untuk Official Account
+                    isOfficial: addr.toLowerCase() === OFFICIAL_WALLET.toLowerCase()
+                });
+            } catch(e) { console.log("Skip err profile", addr); }
+        }
+
+        return resultData;
+
+    } catch (e) {
+        console.error("Gagal load rekomendasi:", e);
+        return [];
+    }
+}
+        
+        async function renderWidgets() {
+        // ... (Bagian Trending Posts Biarkan Saja) ...
+
+        // --- RENDER WHO TO FOLLOW ---
+        const suggestions = await getWhoToFollow();
+        const recDiv = document.getElementById("recomWidget");
+        recDiv.innerHTML = "";
+
+        if(suggestions.length === 0) {
+            recDiv.innerHTML = "<small style='color:#999'>Tidak ada saran saat ini.</small>";
+            return;
+        }
+
+        suggestions.forEach(user => {
+            // Gunakan Image Proxy agar ringan
+            const avt = user.avatar ? getOptimizedUrl(user.avatar, 50) : 'https://via.placeholder.com/30';
+            
+            // Logika UI: Jika Official, tampilkan badge
+            let badgeHtml = "";
+            let nameColor = "black";
+            
+            if (user.isOfficial) {
+                badgeHtml = `<i class="fa-solid fa-circle-check" style="color:#3498db; margin-left:4px;" title="Official Account"></i>`;
+                nameColor = "#3498db"; // Warna biru untuk nama official
+            }
+
+            recDiv.innerHTML += `
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:15px;">
+                <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                
+                <div style="flex:1; overflow:hidden;">
+                    <div style="font-size:13px; font-weight:bold; color:${nameColor}; display:flex; align-items:center;">
+                        ${user.nickname} ${badgeHtml}
+                    </div>
+                    <div style="font-size:10px; color:#999;">${user.wallet.substring(0,6)}...</div>
+                </div>
+                
+                <button onclick="followUser('${user.wallet}')" class="btn-primary" style="padding:5px 10px; font-size:10px; border-radius:20px;">
+                    Ikuti
+                </button>
+            </div>`;
+        });
         }
     </script>
 </body>
