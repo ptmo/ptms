@@ -136,4 +136,41 @@ function showToast(msg, type="info") {
     t.className = "show";
     t.style.background = type === "error" ? "#e74c3c" : "#333";
     setTimeout(() => t.className = t.className.replace("show", ""), 3000);
-          }
+    }
+
+// --- LOGIKA BADGE NOTIFIKASI (LOCAL STORAGE) ---
+
+// Panggil ini di window.onload atau initApp
+async function updateNotifBadge() {
+    if(!contract || !userAddress) return;
+
+    try {
+        // 1. Ambil semua notifikasi dari Blockchain
+        const notifs = await contract.getMyNotifications();
+        
+        // 2. Ambil waktu terakhir user buka halaman notif dari LocalStorage
+        // Default 0 jika belum pernah buka
+        const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+
+        // 3. Hitung notifikasi yang timestamp-nya LEBIH BARU dari lastCheck
+        // Solidity timestamp dalam detik, JS Date.now() dalam ms. Kita pakai detik.
+        const unreadCount = notifs.filter(n => n.timestamp > lastCheck).length;
+
+        // 4. Update UI Badge
+        const badges = document.querySelectorAll('.nav-badge');
+        badges.forEach(badge => {
+            if (unreadCount > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+            } else {
+                badge.style.display = 'none';
+            }
+        });
+
+    } catch (e) {
+        console.log("Badge error (Silent):", e);
+    }
+}
+
+// Jalankan otomatis setiap 10 detik agar realtime tanpa refresh
+setInterval(updateNotifBadge, 10000);
