@@ -85,11 +85,13 @@
                 <div id="statPost" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
                 <div style="font-size: 11px; color: #999;">POST</div>
             </div>
-            <div style="text-align: center;">
+            
+            <div style="text-align: center; cursor: pointer;" onclick="openFollowList('followers')">
                 <div id="statFollower" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
                 <div style="font-size: 11px; color: #999;">PENGIKUT</div>
             </div>
-            <div style="text-align: center;">
+            
+            <div style="text-align: center; cursor: pointer;" onclick="openFollowList('following')">
                 <div id="statFollowing" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
                 <div style="font-size: 11px; color: #999;">MENGIKUTI</div>
             </div>
@@ -166,6 +168,17 @@
         <div style="display:flex; gap:10px;">
             <button onclick="document.getElementById('sawerModal').close()" style="flex:1; padding:10px; cursor:pointer;">Batal</button>
             <button onclick="submitSawer()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer;">Kirim</button>
+        </div>
+    </dialog>
+
+    <dialog id="followListModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 400px; height: 60vh;">
+        <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center; position:sticky; top:0; background:white;">
+            <h3 id="followListTitle" style="margin:0; color:#7385a5;">Daftar Teman</h3>
+            <span onclick="document.getElementById('followListModal').close()" style="cursor:pointer; font-size:20px;">&times;</span>
+        </div>
+        
+        <div id="followListContainer" style="overflow-y: auto; padding: 10px; height: calc(100% - 60px);">
+            <p style="text-align:center; color:#999; margin-top:20px;">Memuat daftar...</p>
         </div>
     </dialog>
 
@@ -646,6 +659,89 @@
             await tx.wait();
             showToast("Terima kasih sudah menyawer! 🎁", "success");
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
+    }
+
+    // --- FITUR LIST FOLLOWERS/FOLLOWING ---
+
+    async function openFollowList(type) {
+        const modal = document.getElementById("followListModal");
+        const container = document.getElementById("followListContainer");
+        const title = document.getElementById("followListTitle");
+        
+        // Tentukan Judul & Jumlah Loop
+        let count = 0;
+        if (type === 'followers') {
+            title.innerText = "Pengikut";
+            count = parseInt(document.getElementById("statFollower").innerText);
+        } else {
+            title.innerText = "Mengikuti";
+            count = parseInt(document.getElementById("statFollowing").innerText);
+        }
+
+        modal.showModal();
+        container.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat data...</p>";
+
+        if (count === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada data.</p>";
+            return;
+        }
+
+        try {
+            // Kita akan ambil data profil target (profil yang sedang dilihat)
+            // Pastikan variabel 'currentProfileAddr' tersedia (sudah ada di script profile.html sebelumnya)
+            const target = currentProfileAddr || userAddress; 
+
+            let htmlContent = "";
+            
+            // LOOPING FETCH DATA (Maksimal 20 agar tidak berat)
+            // Kontrak: followerList(address user, uint256 index) -> returns address
+            const maxFetch = Math.min(count, 20); 
+
+            for (let i = 0; i < maxFetch; i++) {
+                let friendAddr = "0x0";
+                
+                // Panggil getter array dari kontrak
+                if (type === 'followers') {
+                    friendAddr = await contract.followerList(target, i);
+                } else {
+                    friendAddr = await contract.followingList(target, i);
+                }
+
+                // Ambil Detail Profil Teman
+                let nick = friendAddr.substring(0,6) + "...";
+                let avt = "https://via.placeholder.com/40";
+                
+                try {
+                    const p = await contract.getProfile(friendAddr);
+                    if (p.nickname) nick = p.nickname;
+                    if (p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                } catch(err) {}
+
+                // Render Item
+                htmlContent += `
+                <div style="display:flex; align-items:center; gap:10px; padding:10px; border-bottom:1px solid #eee;">
+                    <a href="profile.html?addr=${friendAddr}">
+                        <img src="${avt}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                    </a>
+                    <div style="flex:1;">
+                        <a href="profile.html?addr=${friendAddr}" style="text-decoration:none; color:#333; font-weight:bold; font-size:14px;">
+                            ${nick}
+                        </a>
+                        <div style="font-size:11px; color:#999;">${friendAddr.substring(0,8)}...</div>
+                    </div>
+                </div>`;
+            }
+
+            if (count > 20) {
+                htmlContent += `<div style="text-align:center; padding:10px; font-size:12px; color:#999;">Dan ${count - 20} lainnya...</div>`;
+            }
+
+            container.innerHTML = htmlContent;
+
+        } catch (e) {
+            console.error(e);
+            container.innerHTML = "<p style='text-align:center; color:red;'>Gagal mengambil daftar.</p>";
+        }
     }
     </script>
 
