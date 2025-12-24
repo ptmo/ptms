@@ -31,6 +31,7 @@
             min-height: 500px;
             border: 2px solid #d4af37;
             box-shadow: 0 10px 40px rgba(0,0,0,0.2);
+            position: relative;
         }
         .art-image {
             max-width: 100%;
@@ -59,6 +60,38 @@
         }
         .meta-key { font-weight: bold; color: #8b4513; width: 40%; }
         .meta-val { color: #333; text-align: right; }
+
+        /* Style Tombol Interaksi Baru */
+        .interaction-row {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            border-top: 1px solid #eee;
+            padding-top: 15px;
+        }
+        .interact-btn {
+            flex: 1;
+            padding: 10px;
+            border: 1px solid #ddd;
+            background: white;
+            border-radius: 8px;
+            cursor: pointer;
+            color: #555;
+            font-size: 13px;
+            transition: all 0.2s;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 5px;
+        }
+        .interact-btn:hover {
+            background: #fffaf0;
+            border-color: #d4af37;
+            color: #8b4513;
+        }
+        .interact-btn i { font-size: 16px; }
+
+        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
 
         @media (max-width: 800px) {
             .collection-wrapper { grid-template-columns: 1fr; }
@@ -109,7 +142,30 @@
             <table class="meta-table" id="metaTable">
                 </table>
 
-            <div style="margin-top:25px; display:flex; gap:10px;">
+            <div class="interaction-row">
+                <button class="interact-btn" onclick="handleLikeDetail()">
+                    <i class="fa-regular fa-heart" id="iconLikeDetail"></i> 
+                    <span id="countLikeDetail">0</span>
+                </button>
+                <button class="interact-btn" onclick="document.getElementById('commentInputDetail').focus()">
+                    <i class="fa-regular fa-comment"></i> 
+                    <span id="countCommentDetail">0</span>
+                </button>
+                <button class="interact-btn" onclick="openSawerModalDetail()">
+                    <i class="fa-solid fa-gift" style="color:#27ae60;"></i> 
+                    <span>Sawer</span>
+                </button>
+                <button class="interact-btn" onclick="openRatingModalDetail()">
+                    <i class="fa-solid fa-star" style="color:gold;"></i> 
+                    <span id="scoreRatingDetail">0.0</span>
+                </button>
+                <button class="interact-btn" onclick="shareCollection()">
+                    <i class="fa-solid fa-share-nodes" style="color:#3498db;"></i>
+                    <span>Bagikan</span>
+                </button>
+            </div>
+
+            <div style="margin-top:15px; display:flex; gap:10px;">
                 <a id="openseaLink" href="#" target="_blank" class="btn-primary" style="flex:1; text-align:center; background:#2081e2; text-decoration:none;">
                     Lihat di OpenSea
                 </a>
@@ -117,27 +173,58 @@
         </div>
     </div>
 
-    <div style="max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 15px;">
+    <div style="max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05);">
         <h3>Diskusi Kurator</h3>
+        
+        <div style="display:flex; gap:10px; margin-bottom:20px;">
+            <input type="text" id="commentInputDetail" class="cp-input" placeholder="Tulis pendapat Anda tentang wayang ini..." style="flex:1;">
+            <button onclick="submitCommentDetail()" class="btn-primary" style="background:#8b4513;">Kirim</button>
+        </div>
+
         <div id="pageComments">Memuat komentar...</div>
     </div>
 
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; text-align:center; color:#27ae60;">🎁 Sawer Kurator</h3>
+        <p style="text-align:center; font-size:12px; color:#666;">Dukung pelestari budaya dengan ETH.</p>
+        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
+        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH</small>
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:5px;">Batal</button>
+            <button onclick="submitSawerDetail()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer; border-radius:5px;">Kirim</button>
+        </div>
+    </dialog>
+
+    <dialog id="ratingModal" style="border:none; border-radius:15px; padding:20px; box-shadow:0 0 50px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; text-align:center; color:#d4af37;">Beri Penilaian</h3>
+        <div style="display:flex; gap:10px; font-size:30px; justify-content:center; cursor:pointer; margin:20px 0;">
+            <span onclick="setRate(1)">⭐</span><span onclick="setRate(2)">⭐</span><span onclick="setRate(3)">⭐</span><span onclick="setRate(4)">⭐</span><span onclick="setRate(5)">⭐</span>
+        </div>
+        <button onclick="submitRatingDetail()" class="btn-primary" style="width:100%; background:#d4af37;">Kirim Bintang</button>
+        <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
+    </dialog>
+
+    <div id="toast"></div>
     <script src="main.js"></script>
     <script>
-        window.onload = async () => {
-            await initApp(); // Connect Wallet
-            
-            // Ambil ID dari URL (?id=1)
-            const urlParams = new URLSearchParams(window.location.search);
-            const postId = urlParams.get('id');
+        let currentPostId = null; // Menyimpan ID post yang sedang dibuka
+        let selectedRate = 0;
 
-            if(!postId) {
+        window.onload = async () => {
+            await initApp(); 
+            
+            const urlParams = new URLSearchParams(window.location.search);
+            const idParam = urlParams.get('id');
+
+            if(!idParam) {
                 alert("ID Postingan tidak ditemukan!");
                 window.location.href = "home.html";
                 return;
             }
 
-            loadCollectionDetail(postId);
+            // Simpan ID untuk fungsi interaksi
+            currentPostId = parseInt(idParam);
+            loadCollectionDetail(currentPostId);
         };
 
         async function loadCollectionDetail(id) {
@@ -145,7 +232,7 @@
                 // Array index = ID - 1
                 const index = id - 1;
                 
-                // 1. Ambil Data Postingan dari Blockchain
+                // 1. Ambil Data Postingan
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
 
@@ -160,27 +247,36 @@
                 document.getElementById("detailAuthorLink").innerText = profile.nickname || post.author.substring(0,6);
                 document.getElementById("detailAuthorLink").href = `profile.html?addr=${post.author}`;
                 if(profile.fotoProfil) {
-                    document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    // Gunakan Pinata Direct Link
+                    document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                 }
 
                 // Gambar Utama
-                const rawImg = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
-                document.getElementById("detailImg").src = rawImg; // Pakai Resolusi Penuh
+                const rawImg = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                document.getElementById("detailImg").src = rawImg; 
 
                 document.getElementById("detailDesc").innerText = post.caption;
 
-                // 4. FETCH METADATA JSON (Untuk Judul & Tabel)
+                // --- UPDATE INTERFACE TOMBOL INTERAKSI ---
+                document.getElementById("countLikeDetail").innerText = post.likeCount;
+                document.getElementById("countCommentDetail").innerText = post.commentCount;
+                const avg = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
+                document.getElementById("scoreRatingDetail").innerText = avg;
+
+                // Cek apakah user sudah like? (Optional UI enhancement)
+                // const isLiked = await contract.hasLiked(post.id, userAddress);
+                // if(isLiked) document.getElementById("iconLikeDetail").classList.replace("fa-regular", "fa-solid");
+
+                // 4. FETCH METADATA
                 if (post.tokenURI && post.tokenURI.length > 5) {
-                    const metaUrl = post.tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    const metaUrl = post.tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     
                     try {
                         const res = await fetch(metaUrl);
                         const meta = await res.json();
                         
-                        // Update Judul dari Metadata
                         document.getElementById("detailTitle").innerText = meta.name;
                         
-                        // Render Tabel Atribut
                         const table = document.getElementById("metaTable");
                         let rows = "";
                         if(meta.attributes) {
@@ -195,19 +291,17 @@
                             });
                         }
                         table.innerHTML = rows;
-
                     } catch(e) { console.log("Gagal load metadata", e); }
                 } else {
                     document.getElementById("detailTitle").innerText = "Arsip Tanpa Judul";
                 }
 
-                // 5. Link OpenSea (Testnet)
-                // Format: https://testnets.opensea.io/assets/base-sepolia/CONTRACT_ADDRESS/TOKEN_ID
+                // 5. Link OpenSea
                 const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
                 document.getElementById("openseaLink").href = osUrl;
                 if(!isNFT) document.getElementById("openseaLink").style.display = "none";
 
-                // 6. Load Komentar (Reuse Logic)
+                // 6. Load Komentar
                 loadPageComments(index);
 
             } catch (e) {
@@ -221,22 +315,142 @@
             const comments = await contract.getComments(index);
             
             if(comments.length === 0) {
-                container.innerHTML = "<p style='color:#999;'>Belum ada diskusi.</p>";
+                container.innerHTML = "<p style='color:#999; text-align:center;'>Belum ada diskusi. Jadilah yang pertama!</p>";
                 return;
             }
 
             container.innerHTML = "";
             for(const c of comments) {
-                // Simple render untuk komentar
+                // Fetch nama user untuk komentar
+                let nick = c.commenter.substring(0,6) + "...";
+                let avt = "https://via.placeholder.com/30";
+
+                try {
+                    const p = await contract.getProfile(c.commenter);
+                    if(p.nickname) nick = p.nickname;
+                    if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                } catch(e){}
+
                 const html = `
-                <div style="border-bottom:1px solid #eee; padding:10px 0; display:flex; gap:10px;">
-                    <div style="font-weight:bold; font-size:13px; color:#8b4513;">${c.commenter.substring(0,6)}...</div>
+                <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
+                    <a href="profile.html?addr=${c.commenter}">
+                        <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;">
+                    </a>
                     <div style="flex:1;">
-                        <div style="font-size:14px;">${c.text}</div>
-                        <div style="font-size:10px; color:#999;">${new Date(c.timestamp*1000).toLocaleString()}</div>
+                        <div style="margin-bottom:5px;">
+                            <a href="profile.html?addr=${c.commenter}" style="font-weight:bold; font-size:13px; color:#8b4513; text-decoration:none;">${nick}</a>
+                        </div>
+                        <div style="font-size:14px; color:#333; line-height:1.4;">${c.text}</div>
+                        <div style="font-size:11px; color:#999; margin-top:5px;">${new Date(c.timestamp*1000).toLocaleString()}</div>
                     </div>
                 </div>`;
                 container.innerHTML += html;
+            }
+        }
+
+        // --- FUNGSI INTERAKSI ---
+
+        async function handleLikeDetail() {
+            if(!currentPostId) return;
+            const btnIcon = document.getElementById("iconLikeDetail");
+            const btnCount = document.getElementById("countLikeDetail");
+            const current = parseInt(btnCount.innerText);
+
+            // Update UI Optimis
+            btnCount.innerText = current + 1;
+            btnIcon.classList.remove("fa-regular");
+            btnIcon.classList.add("fa-solid");
+            btnIcon.style.color = "#e74c3c";
+
+            try {
+                // ID Postingan di Blockchain = ID - 1
+                const tx = await contract.likePost(currentPostId - 1);
+                await tx.wait();
+                showToast("Berhasil menyukai arsip ini!", "success");
+            } catch (e) {
+                showToast("Gagal Like (Mungkin sudah like?)", "error");
+                btnCount.innerText = current; // Rollback
+            }
+        }
+
+        async function submitCommentDetail() {
+            if(!currentPostId) return;
+            const input = document.getElementById("commentInputDetail");
+            const text = input.value;
+            if(!text) return showToast("Tulis komentar dulu!", "error");
+
+            try {
+                showToast("Mengirim komentar...", "info");
+                const tx = await contract.addComment(currentPostId - 1, text, "");
+                await tx.wait();
+                
+                showToast("Komentar terkirim!", "success");
+                input.value = "";
+                // Reload komentar
+                loadPageComments(currentPostId - 1);
+                // Update counter
+                const cCount = document.getElementById("countCommentDetail");
+                cCount.innerText = parseInt(cCount.innerText) + 1;
+
+            } catch(e) { showToast("Gagal komentar: " + e.message, "error"); }
+        }
+
+        // SAWER
+        function openSawerModalDetail() { document.getElementById("sawerModal").showModal(); }
+        
+        async function submitSawerDetail() {
+            const amount = document.getElementById("sawerAmount").value;
+            if(!amount || !currentPostId) return;
+            try {
+                document.getElementById("sawerModal").close();
+                showToast("Memproses saweran...", "info");
+                const tx = await contract.sawerPost(currentPostId - 1, { value: ethers.utils.parseEther(amount) });
+                await tx.wait();
+                showToast("Terima kasih sudah mendukung! 🎁", "success");
+            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        // RATING
+        function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); selectedRate = 0; }
+        function setRate(n) { selectedRate = n; showToast(`${n} Bintang`, "info"); }
+
+        async function submitRatingDetail() {
+            if(!selectedRate || !currentPostId) return showToast("Pilih bintang dulu", "error");
+            try {
+                document.getElementById("ratingModal").close();
+                showToast("Mengirim penilaian...", "info");
+                const tx = await contract.ratePost(currentPostId - 1, selectedRate);
+                await tx.wait();
+                showToast("Rating berhasil dikirim!", "success");
+                
+                // Refresh data untuk update rata-rata bintang
+                loadCollectionDetail(currentPostId); 
+            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        // --- FITUR SHARE ---
+        async function shareCollection() {
+            // Ambil Judul Wayang dari elemen HTML
+            const title = document.getElementById("detailTitle").innerText;
+            
+            const shareData = {
+                title: `Arsip Putramas: ${title}`,
+                text: `Lihat koleksi wayang "${title}" ini di Putramas Museum Digital!`,
+                url: window.location.href // Link halaman saat ini
+            };
+
+            try {
+                // Cek apakah browser mendukung Native Share (HP biasanya support)
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    // Fallback untuk PC: Salin ke Clipboard
+                    await navigator.clipboard.writeText(shareData.url);
+                    showToast("Link berhasil disalin!", "success");
+                }
+            } catch (err) {
+                console.error("Gagal membagikan:", err);
+                // Jangan show error toast jika user cuma membatalkan share dialog
             }
         }
     </script>
