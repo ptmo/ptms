@@ -72,25 +72,40 @@
         </div>
 
         <div class="main-feed">
-            <div class="card" style="text-align: center; padding: 30px 20px;">
-                <img id="pAvatar" src="https://via.placeholder.com/100" style="width: 100px; height: 100px; border-radius: 50%; border: 4px solid #f0f2f5; margin-top: -10px; object-fit: cover;">
-                <h2 id="pNick" style="margin: 10px 0 5px 0; color: #333;">Memuat...</h2>
-                <div id="pWallet" style="font-size: 12px; color: #888; background: #eee; display: inline-block; padding: 3px 10px; border-radius: 10px;">0x...</div>
-                <p id="pBio" style="margin: 15px 0; color: #555; font-style: italic;">-</p>
-                <div style="display: flex; justify-content: center; gap: 15px; font-size: 13px; color: #666;">
-                    <span><i class="fa-solid fa-location-dot"></i> <span id="pLoc">-</span></span>
-                    <span><i class="fa-solid fa-image"></i> <span id="pPostCount">0</span> Post</span>
-                </div>
-                <div id="myActions" style="margin-top: 20px; display: none; gap: 10px; justify-content: center;">
-                    <button class="btn-primary" style="font-size: 13px; background: #eee; color: #333;" onclick="openEditModal()">Edit Profil</button>
-                    <button class="btn-primary" style="font-size: 13px; background: #e74c3c;" onclick="openNickModal()">Ganti Nickname</button>
-                </div>
+    <div class="card" style="text-align: center; padding: 30px 20px;">
+        <img id="pAvatar" src="https://via.placeholder.com/100" style="width: 100px; height: 100px; border-radius: 50%; border: 4px solid #f0f2f5; margin-top: -10px; object-fit: cover;">
+        
+        <h2 id="pNick" style="margin: 10px 0 5px 0; color: #333;">Memuat...</h2>
+        <div id="pWallet" style="font-size: 12px; color: #888; background: #eee; display: inline-block; padding: 3px 10px; border-radius: 10px;">0x...</div>
+        
+        <p id="pBio" style="margin: 15px 0; color: #555; font-style: italic;">-</p>
+        
+        <div style="display: flex; justify-content: center; gap: 25px; margin: 20px 0; border-top: 1px solid #eee; border-bottom: 1px solid #eee; padding: 15px 0;">
+            <div style="text-align: center;">
+                <div id="statPost" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
+                <div style="font-size: 11px; color: #999;">POST</div>
             </div>
-
-            <h4 style="margin: 20px 0 10px; color: #7385a5;">Postingan</h4>
-            <div id="profileFeed"></div>
+            <div style="text-align: center;">
+                <div id="statFollower" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
+                <div style="font-size: 11px; color: #999;">PENGIKUT</div>
+            </div>
+            <div style="text-align: center;">
+                <div id="statFollowing" style="font-weight: bold; font-size: 18px; color: #333;">0</div>
+                <div style="font-size: 11px; color: #999;">MENGIKUTI</div>
+            </div>
         </div>
+
+        <div style="display: flex; justify-content: center; gap: 15px; font-size: 13px; color: #666; margin-bottom: 15px;">
+            <span><i class="fa-solid fa-location-dot"></i> <span id="pLoc">-</span></span>
+        </div>
+
+        <div id="actionButtons" style="display: flex; gap: 10px; justify-content: center;">
+            </div>
     </div>
+
+    <h4 style="margin: 20px 0 10px; color: #7385a5;">Postingan</h4>
+    <div id="profileFeed"></div>
+</div>
 
     <dialog id="editModal" style="border:none; border-radius:10px; padding:20px; width:90%; max-width:400px; box-shadow:0 0 20px rgba(0,0,0,0.3);">
         <h3 style="margin-top:0;">Edit Profil</h3>
@@ -141,6 +156,17 @@
         <input type="hidden" id="targetPostId">
         <button onclick="submitRating()" class="btn-primary" style="width:100%">Kirim</button>
         <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
+    </dialog>
+
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+        <h3 style="margin-top:0; text-align:center;">🎁 Sawer Kreator</h3>
+        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
+        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH - Max: 0.01 ETH</small>
+        <input type="hidden" id="sawerPostId">
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; padding:10px; cursor:pointer;">Batal</button>
+            <button onclick="submitSawer()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer;">Kirim</button>
+        </div>
     </dialog>
 
     <div class="mobile-nav">
@@ -222,7 +248,8 @@
 
             // 2. LOAD POSTINGAN
             const posts = await contract.getUserPosts(addr);
-            document.getElementById("pPostCount").innerText = posts.length;
+            document.getElementById("statPost").innerText = posts.length; // Update ID baru
+            loadFollowData(addr); // Panggil fungsi follow system
             const container = document.getElementById("profileFeed");
             container.innerHTML = "";
 
@@ -315,7 +342,92 @@
                 showToast("Gagal memuat profil: " + (e.reason || e.message), "error");
             }
         }
-                    }
+    }
+
+    // --- FITUR FOLLOW SYSTEM ---
+    
+    async function loadFollowData(targetAddr) {
+        try {
+            // 1. Ambil Statistik (Followers & Following)
+            // Return contract: (followersCount, followingCount)
+            const stats = await contract.getFollowCounts(targetAddr);
+            
+            document.getElementById("statFollower").innerText = stats[0].toString();
+            document.getElementById("statFollowing").innerText = stats[1].toString();
+
+            // 2. Tentukan Tombol Aksi
+            const btnContainer = document.getElementById("actionButtons");
+            btnContainer.innerHTML = ""; // Bersihkan dulu
+
+            // SKENARIO A: PROFIL SENDIRI
+            if (userAddress && targetAddr.toLowerCase() === userAddress.toLowerCase()) {
+                // Tampilkan Tombol Edit
+                btnContainer.innerHTML = `
+                    <button class="btn-primary" style="background: #eee; color: #333;" onclick="openEditModal()">Edit Profil</button>
+                    <button class="btn-primary" style="background: #e74c3c;" onclick="openNickModal()">Ganti Nama</button>
+                `;
+            } 
+            // SKENARIO B: PROFIL ORANG LAIN
+            else {
+                // Cek apakah kita sudah follow dia?
+                const isFollowing = await contract.isFollowing(userAddress, targetAddr);
+                
+                if (isFollowing) {
+                    // Tombol Unfollow
+                    btnContainer.innerHTML = `
+                        <button onclick="toggleFollow('${targetAddr}', false)" class="btn-primary" style="background: #ccc; color: #333; border: 1px solid #999;">
+                            <i class="fa-solid fa-user-check"></i> Mengikuti
+                        </button>
+                        <button onclick="toggleBlock('${targetAddr}')" class="btn-primary" style="background: #333; color: white;">
+                            <i class="fa-solid fa-ban"></i>
+                        </button>
+                    `;
+                } else {
+                    // Tombol Follow
+                    btnContainer.innerHTML = `
+                        <button onclick="toggleFollow('${targetAddr}', true)" class="btn-primary" style="background: #3498db;">
+                            <i class="fa-solid fa-user-plus"></i> Ikuti
+                        </button>
+                    `;
+                }
+            }
+
+        } catch (e) {
+            console.error("Gagal load follow data:", e);
+        }
+    }
+
+    // Fungsi Eksekusi Follow/Unfollow
+    async function toggleFollow(targetAddr, isToFollow) {
+        try {
+            if (isToFollow) {
+                showToast("Memproses Mengikuti...", "info");
+                const tx = await contract.followUser(targetAddr);
+                await tx.wait();
+                showToast("Berhasil Mengikuti!", "success");
+            } else {
+                showToast("Memproses Berhenti Mengikuti...", "info");
+                const tx = await contract.unfollowUser(targetAddr);
+                await tx.wait();
+                showToast("Berhasil Unfollow.", "success");
+            }
+            // Reload data tanpa refresh halaman
+            loadFollowData(targetAddr); 
+        } catch (e) {
+            showToast("Gagal: " + (e.reason || e.message), "error");
+        }
+    }
+    
+    // Fungsi Blokir (Opsional)
+    async function toggleBlock(targetAddr) {
+        if(!confirm("Blokir user ini? Anda tidak akan melihat postingannya lagi.")) return;
+        try {
+            const tx = await contract.blockUser(targetAddr);
+            await tx.wait();
+            showToast("User Diblokir", "success");
+            window.location.href = "home.html"; // Lempar ke home
+        } catch(e) { showToast("Gagal blokir", "error"); }
+    }
 
     // --- INTERAKSI (COPY PASTE KODE LAMA ANDA DI SINI) ---
     async function handleLike(postId) {
@@ -522,20 +634,7 @@
             showToast("Fitur sawer belum tersedia di halaman ini", "error");
         }
     }
-    </script>
 
-    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
-        <h3 style="margin-top:0; text-align:center;">🎁 Sawer Kreator</h3>
-        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
-        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH - Max: 0.01 ETH</small>
-        <input type="hidden" id="sawerPostId">
-        <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; padding:10px; cursor:pointer;">Batal</button>
-            <button onclick="submitSawer()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer;">Kirim</button>
-        </div>
-    </dialog>
-
-    <script>
     async function submitSawer() {
         const amount = document.getElementById("sawerAmount").value;
         const postId = document.getElementById("sawerPostId").value;
