@@ -542,40 +542,6 @@
             }
         }
 
-        async function submitPost() {
-            const caption = document.getElementById("postCaption").value;
-            const file = document.getElementById("fileInput").files[0];
-            const btn = document.getElementById("btnPost");
-
-            if(!caption && !file) return showToast("Konten kosong!", "error");
-
-            try {
-                btn.disabled = true;
-                btn.innerText = "Mengirim...";
-                let imgUri = "";
-                if(file) {
-                    showToast("Kompresi 30KB...", "info");
-                    // PANGGIL DENGAN TARGET 30KB
-                    imgUri = await uploadToIPFS(file, 30); 
-                }
-
-                showToast("Konfirmasi di Wallet...", "info");
-                const tx = await contract.createPost(imgUri, caption);
-                await tx.wait();
-                
-                showToast("Berhasil Posting!", "success");
-                document.getElementById("postCaption").value = "";
-                clearImage();
-                btn.disabled = false;
-                btn.innerText = "Posting";
-                loadFeed();
-            } catch(e) {
-                showToast("Gagal: " + e.message, "error");
-                btn.disabled = false;
-                btn.innerText = "Posting";
-            }
-        }
-
         let selectedRate = 0;
         function openRating(pid) { document.getElementById("targetPostId").value = pid; document.getElementById("ratingModal").showModal(); selectedRate=0; }
         function setRate(n) { selectedRate=n; showToast(`${n} Bintang`, "info"); }
