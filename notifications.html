@@ -7,37 +7,49 @@
     <link rel="stylesheet" href="style.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    
 <style>
-/* Style Badge Notifikasi */
-.menu-item { position: relative; } /* Wajib agar badge menempel */
+    /* Style Badge Notifikasi */
+    .menu-item { position: relative; }
 
-.nav-badge {
-    background-color: #e74c3c; /* Warna Merah */
-    color: white;
-    font-size: 10px;
-    font-weight: bold;
-    min-width: 18px; /* Lebar minimum agar bulat */
-    height: 18px;
-    border-radius: 50%; /* Membuat lingkaran */
-    display: none; /* Sembunyi jika 0 */
-    align-items: center;
-    justify-content: center;
-    position: absolute;
-    border: 2px solid #fff; /* Border putih biar rapi */
-    z-index: 10;
-}
+    .nav-badge {
+        background-color: #e74c3c;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        border: 2px solid #fff;
+        z-index: 10;
+    }
 
-/* Posisi di Mobile (Bawah) */
-.mobile-nav .nav-badge {
-    top: 0px;
-    right: 25%; /* Geser supaya pas di pojok ikon */
-}
+    .mobile-nav .nav-badge { top: 0px; right: 25%; }
+    .sidebar-left .nav-badge { top: 8px; right: 10px; }
 
-/* Posisi di Sidebar Desktop (Kiri) */
-.sidebar-left .nav-badge {
-    top: 8px;
-    right: 10px; /* Di ujung kanan tombol */
-}
+    /* STYLE BARU UNTUK KARTU NOTIFIKASI */
+    .notif-card {
+        display: flex; 
+        align-items: center; 
+        gap: 15px; 
+        padding: 15px;
+        text-decoration: none; /* Hilangkan garis bawah link */
+        color: inherit; /* Warna teks ikut parent */
+        transition: background 0.2s;
+        border-bottom: 1px solid #eee; /* Garis pemisah */
+    }
+    .notif-card:hover {
+        background-color: #f9f9f9; /* Efek hover */
+    }
+    
+    /* Layout Mobile Responsif */
+    .notif-text { font-size: 14px; line-height: 1.4; flex: 1; }
+    .notif-time { font-size: 11px; color: #999; margin-top: 3px; }
+    
 </style>
 </head>
 <body>
@@ -46,9 +58,9 @@
         <div class="sidebar-left">
             <div class="menu-card">
                 <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
-                <a href="notifications.html" class="menu-item">
-    <i class="fa-solid fa-bell"></i> Notifikasi
-    <span class="nav-badge" id="badgeSidebar">0</span> 
+                <a href="notifications.html" class="menu-item active">
+                    <i class="fa-solid fa-bell"></i> Notifikasi
+                    <span class="nav-badge" id="badgeSidebar">0</span> 
                 </a>
                 <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
                 <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
@@ -66,39 +78,36 @@
 
     <div class="mobile-nav">
         <a href="home.html" class="menu-item"><i class="fa-solid fa-house" style="font-size: 18px;"></i></a>
-        <a href="notifications.html" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
-    <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
-    <span class="nav-badge" id="badgeMobile">0</span> 
+        <a href="notifications.html" class="menu-item active" style="flex-direction: column; gap: 2px; font-size: 10px;">
+            <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
+            <span class="nav-badge" id="badgeMobile">0</span> 
         </a>
         <a href="profile.html" class="menu-item"><i class="fa-solid fa-user" style="font-size: 18px;"></i></a>
     </div>
 
     <script src="main.js"></script>
     <script>
+        // Cache sederhana untuk profil biar loading cepat
+        const profileCache = {};
+
         window.onload = async () => {
             await initApp();
             if(userAddress) {
-                // 1. Load dulu notifikasinya
                 await loadNotifs();
-                
-                // 2. Setelah tampil, baru tandai sudah dibaca (Reset Dot Merah)
                 markAsReadLocal(); 
             }
         };
 
-        // Fungsi Reset Dot Merah (Gratis tanpa Gas Fee)
         function markAsReadLocal() {
-            // Simpan waktu sekarang (detik) ke browser
             const now = Math.floor(Date.now() / 1000);
             localStorage.setItem("lastNotifCheck", now);
-            
-            // Hilangkan badge merah di Navbar seketika
             const badges = document.querySelectorAll('.nav-badge');
             badges.forEach(b => b.style.display = 'none');
         }
 
         async function loadNotifs() {
             try {
+                // Gunakan EXTENDED_ABI di main.js atau pastikan getMyNotifications ada di ABI
                 const notifs = await contract.getMyNotifications();
                 const container = document.getElementById("notifContainer");
                 container.innerHTML = "";
@@ -108,58 +117,92 @@
                     return;
                 }
 
-                // Ambil waktu cek terakhir (untuk menentukan mana yang "BARU")
                 const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
 
-                [...notifs].reverse().forEach(n => {
-                    let icon = '<i class="fa-solid fa-circle-info"></i>';
-                    let text = 'berinteraksi dengan post Anda';
-                    let color = '#7385a5';
+                // Loop menggunakan for..of agar bisa AWAIT (Fetch profil satu-satu)
+                // Reverse agar yang baru paling atas
+                for (const n of [...notifs].reverse()) {
+                    
+                    // 1. Ambil Data Profil (Nickname & Foto)
+                    let nick = n.actor.substring(0,6) + "...";
+                    let avatar = "https://via.placeholder.com/40"; // Default
 
-                    // Logika Icon & Warna
-                    if(n.actionType === "LIKE") {
-                        icon = '<i class="fa-solid fa-heart"></i>'; 
-                        text = 'menyukai postingan Anda'; 
-                        color = '#e74c3c'; // Merah
-                    } else if (n.actionType === "COMMENT") {
-                        icon = '<i class="fa-solid fa-comment"></i>'; 
-                        text = 'mengomentari postingan Anda'; 
-                        color = '#3498db'; // Biru
-                    } else if (n.actionType === "RATE") {
-                        icon = '<i class="fa-solid fa-star"></i>'; 
-                        text = 'memberi bintang'; 
-                        color = 'gold'; // Emas
-                    } else if (n.actionType === "FOLLOW") {
-                        icon = '<i class="fa-solid fa-user-plus"></i>'; 
-                        text = 'mulai mengikuti Anda'; 
-                        color = '#2ecc71'; // Hijau
+                    // Cek Cache dulu
+                    if(profileCache[n.actor]) {
+                        nick = profileCache[n.actor].nick;
+                        avatar = profileCache[n.actor].avatar;
+                    } else {
+                        // Fetch Blockchain
+                        try {
+                            const p = await contract.getProfile(n.actor);
+                            if(p.nickname) nick = p.nickname;
+                            if(p.fotoProfil) {
+                                // Direct Link Pinata (Anti Broken Image)
+                                avatar = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                            }
+                            // Simpan ke cache
+                            profileCache[n.actor] = { nick, avatar };
+                        } catch(err) { console.log("Skip profil", n.actor); }
                     }
 
-                    // Logika Highlight (Jika timestamp notif > terakhir cek)
-                    // Notif baru akan berwarna biru muda dan ada border kiri
-                    const isNew = n.timestamp > lastCheck;
-                    const bgStyle = isNew ? "background-color: #f0f8ff; border-left: 4px solid #3498db;" : "";
-                    const badgeNew = isNew ? `<span style="background:#e74c3c; color:white; padding:2px 6px; border-radius:4px; font-size:9px; margin-left:5px; vertical-align:middle;">BARU</span>` : "";
+                    // 2. Tentukan Ikon & Teks
+                    let iconHtml = '<i class="fa-solid fa-circle-info"></i>';
+                    let text = 'berinteraksi';
+                    let color = '#7385a5';
 
+                    if(n.actionType === "LIKE") {
+                        iconHtml = '<i class="fa-solid fa-heart" style="color: #e74c3c;"></i>'; 
+                        text = 'menyukai postingan Anda'; 
+                    } else if (n.actionType === "COMMENT") {
+                        iconHtml = '<i class="fa-solid fa-comment" style="color: #3498db;"></i>'; 
+                        text = 'mengomentari postingan Anda'; 
+                    } else if (n.actionType === "RATE") {
+                        iconHtml = '<i class="fa-solid fa-star" style="color: gold;"></i>'; 
+                        text = 'memberi bintang'; 
+                    } else if (n.actionType === "SAWER") {
+                        iconHtml = '<i class="fa-solid fa-gift" style="color: #27ae60;"></i>'; 
+                        text = 'menyawer Anda! 💸'; 
+                    } else if (n.actionType === "FOLLOW") {
+                        iconHtml = '<i class="fa-solid fa-user-plus" style="color: #9b59b6;"></i>'; 
+                        text = 'mulai mengikuti Anda'; 
+                    }
+
+                    // 3. Highlight Baru
+                    const isNew = n.timestamp > lastCheck;
+                    const bgStyle = isNew ? "background-color: #f0f8ff; border-left: 4px solid #3498db;" : "background-color: #fff;";
+                    const badgeNew = isNew ? `<span style="background:#e74c3c; color:white; padding:1px 4px; border-radius:3px; font-size:9px; vertical-align:middle; margin-left:5px;">BARU</span>` : "";
+
+                    // 4. Link Navigasi (Membuka detail postingan)
+                    // Jika FOLLOW, buka profil orang itu. Jika POST, buka koleksi.html
+                    let targetLink = `koleksi.html?id=${n.postId}`;
+                    if(n.actionType === "FOLLOW") targetLink = `profile.html?addr=${n.actor}`;
+
+                    // 5. Render HTML
                     const html = `
-                    <div class="card" style="padding: 15px; display: flex; gap: 15px; align-items: center; ${bgStyle}">
-                        <div style="font-size: 24px; color: ${color}; width: 40px; text-align: center;">
-                            ${icon}
-                        </div>
-                        <div style="flex: 1;">
-                            <div style="font-size: 14px; line-height: 1.4;">
-                                <strong>${n.actor.substring(0,6)}...</strong> ${text} ${badgeNew}
-                            </div>
-                            <div style="font-size: 11px; color: #999; margin-top: 5px;">
+                    <a href="${targetLink}" class="card notif-card" style="${bgStyle}">
+                        <img src="${avatar}" 
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/40';"
+                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                        
+                        <div class="notif-text">
+                            <span style="font-weight:bold; color:#2c3e50;">${nick}</span>
+                            <span style="color:#555;">${text}</span> ${badgeNew}
+                            <div class="notif-time">
                                 <i class="fa-regular fa-clock"></i> ${new Date(n.timestamp * 1000).toLocaleString()}
                             </div>
                         </div>
-                    </div>`;
+
+                        <div style="font-size: 18px; opacity: 0.8; margin-left: auto;">
+                            ${iconHtml}
+                        </div>
+                    </a>`;
+                    
                     container.innerHTML += html;
-                });
+                }
+
             } catch (e) {
                 console.error(e);
-                container.innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat notifikasi.</p>";
+                document.getElementById("notifContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat notifikasi.</p>";
             }
         }
     </script>
