@@ -456,8 +456,10 @@ function handleSearch() {
     if (filtered.length === 0) {
         container.innerHTML = `
             <div style="text-align:center; padding:40px; color:#999;">
-                <i class="fa-solid fa-ghost fa-2x"></i><br><br>
-                Tidak ditemukan wayang dengan nama tersebut.
+                <i class="fa-solid fa-satellite-dish fa-beat-fade fa-2x" style="--fa-animation-duration: 2s; color: #7385a5;"></i>
+                <br><br>
+                <span style="font-size:14px; font-weight:bold;">Sinyal Hilang...</span><br>
+                <span style="font-size:12px;">Tidak ditemukan data wayang dengan nama tersebut.</span>
             </div>`;
         return;
     }
