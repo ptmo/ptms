@@ -91,7 +91,7 @@ async function saveSession(address) {
     try {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
         const uniqueId = "PTS-" + Date.now();
-        const msg = `Selamat Datang di Putramas Social\n\nUser: ${address}\nTime: ${timezone}\nID: ${uniqueId}\n\nSign untuk login 3 bulan.`;
+        const msg = `Selamat Datang di Putramas Social\n\nUser: ${address}\nTime: ${timezone}\nID: ${uniqueId}\n\n`;
         
         await signer.signMessage(msg); // Minta Tanda Tangan
         
@@ -481,8 +481,8 @@ function clearSearch() {
 function switchFeed(mode) {
     currentFeedMode = mode;
     // Ubah Tampilan Tab Active
-    const tGlobal = document.getElementById("tabGlobal");
     const tFriends = document.getElementById("tabFriends");
+    const tGlobal = document.getElementById("tabGlobal");
 
     if(mode === 'global') {
         tGlobal.style.color = "#8b4513";
