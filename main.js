@@ -173,6 +173,9 @@ async function updateNotifBadge() {
     }
 }
 
+// ==========================================
+// 1. FUNGSI SUBMIT POSTING (UTAMA)
+// ==========================================
 async function submitPost() {
     const caption = document.getElementById("mainCaption").value;
 
@@ -180,13 +183,16 @@ async function submitPost() {
     if (pendingNftData) {
         try {
             showToast("1/3 Upload Gambar ke IPFS...", "info");
-            // 1. Upload Gambar
-            const imgCid = await uploadToIPFS(pendingNftData.file);
+            
+            // 1. Upload Gambar (File sudah dikompres saat saveNftDraft)
+            // Menggunakan fungsi dari ipfs_helper.js
+            const imgCid = await uploadToPinata(pendingNftData.file);
+            
             // 2. Buat JSON Metadata
             showToast("2/3 Mencetak Metadata...", "info");
             const metadata = {
                 name: pendingNftData.name,
-                description: caption, // Caption jadi deskripsi NFT
+                description: caption,
                 image: imgCid,
                 attributes: [
                     { trait_type: "Golongan", value: pendingNftData.attributes.golongan },
@@ -201,12 +207,14 @@ async function submitPost() {
             };
 
             // 3. Upload JSON Metadata
+            // JSON tidak perlu dikompres, langsung upload
             const blob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
             const metaFile = new File([blob], "metadata.json");
-            const metaCid = await uploadToIPFS(metaFile);
+            const metaCid = await uploadToPinata(metaFile);
+
             // 4. Kirim ke Blockchain (Bayar 0.0001 ETH)
             showToast("3/3 Konfirmasi Wallet (0.0001 ETH)...", "info");
-            // PARAMETER BARU: (imgURI, metaURI, caption) + VALUE
+            
             const tx = await contract.createPost(
                 imgCid, 
                 metaCid, 
@@ -216,10 +224,11 @@ async function submitPost() {
 
             await tx.wait();
             showToast("Berhasil Mengarsipkan Wayang!", "success");
+            
             // Bersihkan
             cancelNft();
             document.getElementById("mainCaption").value = "";
-            setTimeout(() => location.reload(), 2000); // Refresh halaman
+            setTimeout(() => location.reload(), 2000); 
 
         } catch (e) {
             console.error(e);
@@ -233,7 +242,6 @@ async function submitPost() {
 
         try {
             showToast("Mengirim status...", "info");
-            // Parameter: Image Kosong, Meta Kosong, Caption
             const tx = await contract.createPost("", "", caption); 
             await tx.wait();
 
@@ -246,12 +254,13 @@ async function submitPost() {
     }
 }
 
-// 1. Fungsi Buka Modal
+// ==========================================
+// 2. FUNGSI UTILITAS MODAL
+// ==========================================
 function openNftModal() {
     document.getElementById("nftModal").showModal();
 }
 
-// 2. Fungsi Preview Nama File (Dipanggil saat user pilih foto)
 function previewInModal(input) {
     if (input.files && input.files[0]) {
         document.getElementById("modalFilePreview").innerText = "File Terpilih: " + input.files[0].name;
@@ -260,7 +269,9 @@ function previewInModal(input) {
     }
 }
 
-// 3. FUNGSI SIMPAN DRAFT (Updated dengan Auto-Compress)
+// ==========================================
+// 3. FUNGSI SIMPAN DRAFT (KOMPRESI DISINI)
+// ==========================================
 async function saveNftDraft() {
     // A. Ambil Elemen Input Utama
     const nameInput = document.getElementById("mName");
@@ -274,31 +285,30 @@ async function saveNftDraft() {
         return showToast("Foto Fisik Wayang wajib dipilih!", "error");
     }
 
-    // --- LOGIKA BARU: KOMPRESI OTOMATIS ---
+    // --- LOGIKA KOMPRESI HELPER ---
     let finalFile = fileInput.files[0];
-    const LIMIT_500KB = 500 * 1024; // 500KB dalam bytes
+    
+    showToast("Memproses gambar (Target 500KB)...", "info");
 
-    if (finalFile.size > LIMIT_500KB) {
-        showToast("Gambar besar terdeteksi, sedang mengompresi...", "info");
-        try {
-            // Panggil fungsi compressImage (tunggu sampai selesai)
-            finalFile = await compressImage(finalFile, LIMIT_500KB);
-            console.log(`File dikompresi: ${(finalFile.size / 1024).toFixed(2)} KB`);
-        } catch (error) {
-            console.error(error);
-            return showToast("Gagal memproses gambar. Coba gambar lain.", "error");
-        }
-    } else {
-        console.log(`File aman: ${(finalFile.size / 1024).toFixed(2)} KB (Lolos)`);
+    try {
+        // Panggil customCompress dari ipfs_helper.js
+        // Target: 500 KB
+        // Dimensi: 1500 px (Agar tetap tajam untuk NFT Wayang)
+        finalFile = await customCompress(finalFile, 500, 1500);
+        
+        console.log(`✅ Gambar Siap NFT: ${(finalFile.size / 1024).toFixed(2)} KB`);
+    } catch (e) {
+        console.error(e);
+        return showToast("Gagal memproses gambar.", "error");
     }
-    // -------------------------------------
+    // -----------------------------
 
     // C. Ambil Nilai dari Dropdown
     const golongan = document.getElementById("mGolongan").value;
     const gaya = document.getElementById("mGaya").value;
 
     // D. Simpan ke Variabel Global (pendingNftData)
-    // NOTE: Kita simpan 'finalFile' (yang mungkin sudah dikompresi), bukan fileInput.files[0]
+    // NOTE: Kita simpan 'finalFile' yang SUDAH dikompresi
     pendingNftData = {
         name: nameInput.value,
         file: finalFile, 
@@ -323,10 +333,12 @@ async function saveNftDraft() {
     if (indicator) indicator.style.display = "block";
     if (previewName) previewName.innerText = `(${pendingNftData.name})`;
     
-    showToast("Data Arsip Tersimpan (Optimized)! Klik tombol KIRIM.", "success");
+    showToast("Data Tersimpan! Klik KIRIM untuk upload.", "success");
 }
 
+// ==========================================
 // 4. FUNGSI BATAL / RESET FORM
+// ==========================================
 function cancelNft() {
     pendingNftData = null;
 
@@ -339,7 +351,7 @@ function cancelNft() {
     document.getElementById("modalFilePreview").innerText = "";
     document.getElementById("mName").value = "";
 
-    // Reset Dropdown kembali ke "Pilih" (Index 0)
+    // Reset Dropdown
     document.getElementById("mGolongan").selectedIndex = 0;
     document.getElementById("mGaya").selectedIndex = 0;
 
@@ -350,69 +362,6 @@ function cancelNft() {
     });
 
     showToast("Mode Arsip Dibatalkan.", "info");
-}
-
-// FUNGSI HELPER: Kompresi Gambar
-function compressImage(file, maxSizeBytes) {
-    return new Promise((resolve, reject) => {
-        // Jika file sudah dibawah batas, langsung kembalikan
-        if (file.size <= maxSizeBytes) {
-            resolve(file);
-            return;
-        }
-
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            img.onload = () => {
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // Strategi 1: Resize dimensi jika terlalu raksasa (> 2000px)
-                // Ini membantu menjaga ketajaman saat dilihat di HP
-                const MAX_DIMENSION = 1920; 
-                if (width > height) {
-                    if (width > MAX_DIMENSION) {
-                        height *= MAX_DIMENSION / width;
-                        width = MAX_DIMENSION;
-                    }
-                } else {
-                    if (height > MAX_DIMENSION) {
-                        width *= MAX_DIMENSION / height;
-                        height = MAX_DIMENSION;
-                    }
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Strategi 2: Turunkan kualitas JPEG/WebP
-                // Mulai dari 0.9 (90%), turunkan pelan-pelan jika masih kegedean?
-                // Untuk simpel dan cepat, kita tembak di 0.7 (70%) yang biasanya cukup ampuh
-                canvas.toBlob((blob) => {
-                    if (!blob) {
-                        reject(new Error("Gagal kompresi gambar"));
-                        return;
-                    }
-                    
-                    // Kita ganti nama file jadi .webp atau .jpg
-                    const compressedFile = new File([blob], file.name, {
-                        type: 'image/jpeg', // Ubah ke JPEG/WebP
-                        lastModified: Date.now(),
-                    });
-                    
-                    resolve(compressedFile);
-                }, 'image/jpeg', 0.7); // Kualitas 70%
-            };
-            img.onerror = (error) => reject(error);
-        };
-        reader.onerror = (error) => reject(error);
-    });
 }
 
 // --- FUNGSI HELPER FETCH METADATA ---
