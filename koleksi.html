@@ -288,83 +288,122 @@
             loadCollectionDetail(currentPostId);
         };
 
-        // --- FUNGSI LOAD DATA UTAMA ---
-        async function loadCollectionDetail(id) {
-            try {
-                const index = id - 1;
-                const post = await contract.posts(index);
-                const isNFT = post.nftId > 0;
+    // --- UPDATED LOAD FUNCTION WITH CACHING ---
+    async function loadCollectionDetail(id) {
+        const cacheKey = `post_cache_${id}`;
 
-                // Tampilkan Kontainer Utama
-                document.getElementById("loadingState").style.display = "none";
-                document.getElementById("mainContent").style.display = "grid";
-                
-                // Gambar (Pakai Proxy biar cepat)
-                if(post.imageURI) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    const fastUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=800&q=80&output=webp`;
-                    document.getElementById("detailImg").src = fastUrl;
-                }
-                
-                document.getElementById("detailDesc").innerText = post.caption;
-                document.getElementById("detailBadge").innerText = isNFT ? `ARSIP NFT #${post.nftId}` : `POSTINGAN #${post.id}`;
-                
-                // Update Statistik
-                document.getElementById("countLikeDetail").innerText = post.likeCount;
-                document.getElementById("countCommentDetail").innerText = post.commentCount;
-                document.getElementById("scoreRatingDetail").innerText = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : "0.0";
+        // 1. Try to load from Local Storage first
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            console.log("Loading from cache...");
+            const data = JSON.parse(cachedData);
+            renderUI(data); // Helper function to render data
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("mainContent").style.display = "grid";
+        }
 
-                // FETCH DATA LAIN (Parallel)
-                Promise.all([
-                    contract.getProfile(post.author),
-                    (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
-                    fetchMetadata(post.tokenURI)
-                ]).then(([profile, ownerAddr, meta]) => {
-                    
-                    // 1. Profil
-                    document.getElementById("detailAuthorLink").innerText = profile.nickname || post.author.substring(0,6);
-                    document.getElementById("detailAuthorLink").href = `profile.html?addr=${post.author}`;
-                    if(profile.fotoProfil) {
-                        document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    }
+        try {
+            // 2. Fetch fresh data from Blockchain (Background Update)
+            const index = id - 1;
+            const post = await contract.posts(index);
+            const isNFT = post.nftId > 0;
 
-                    // 2. Owner & Transfer
-                    if(ownerAddr) {
-                        document.getElementById("ownerSection").style.display = "flex";
-                        document.getElementById("detailOwner").innerText = ownerAddr.substring(0,6)+"..."+ownerAddr.substring(38);
-                        if(userAddress && ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
-                            document.getElementById("btnTransfer").style.display = "flex";
-                        }
-                    }
+            // Parallel Fetch
+            const [profile, ownerAddr, meta] = await Promise.all([
+                contract.getProfile(post.author),
+                (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
+                fetchMetadata(post.tokenURI)
+            ]);
 
-                    // 3. Metadata Tabel
-                    if(meta) {
-                        document.getElementById("detailTitle").innerText = meta.name || "Tanpa Judul";
-                        renderMetaTable(meta.attributes);
-                    } else {
-                        document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
-                    }
+            // Construct Data Object
+            const freshData = {
+                caption: post.caption,
+                imageURI: post.imageURI,
+                nftId: post.nftId ? post.nftId.toString() : null,
+                postId: post.id.toString(),
+                likeCount: post.likeCount.toString(),
+                commentCount: post.commentCount.toString(),
+                ratingCount: post.ratingCount.toString(),
+                totalRatingScore: post.totalRatingScore.toString(),
+                timestamp: post.timestamp.toString(),
+                authorAddr: post.author,
+                authorNick: profile.nickname,
+                authorPhoto: profile.fotoProfil,
+                ownerAddr: ownerAddr,
+                meta: meta,
+                isNFT: isNFT
+            };
 
-                    // 4. Isi Data Tab Riwayat
-                    // Kita isi manual di sini agar saat diklik tab-nya datanya sudah ada
-                    const dateStr = new Date(post.timestamp * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
-                    document.getElementById("histCreator").innerText = profile.nickname || post.author.substring(0,6);
-                    document.getElementById("histTime").innerText = dateStr;
+            // 3. Save to Local Storage & Re-render
+            localStorage.setItem(cacheKey, JSON.stringify(freshData));
+            renderUI(freshData); // Update UI with fresh data
 
-                }).catch(console.error);
+            // Hide loading if it was still showing (first visit)
+            document.getElementById("loadingState").style.display = "none";
+            document.getElementById("mainContent").style.display = "grid";
 
-                loadPageComments(index);
-                
-                // OpenSea Link
-                const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
-                document.getElementById("openseaLink").href = osUrl;
-                if(!isNFT) document.getElementById("openseaLink").style.display = "none";
+            loadPageComments(index); // Comments are dynamic, load fresh
 
-            } catch (e) {
-                console.error(e);
+            // OpenSea Link logic
+            const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
+            document.getElementById("openseaLink").href = osUrl;
+            if(!isNFT) document.getElementById("openseaLink").style.display = "none";
+
+        } catch (e) {
+            console.error(e);
+            if(!cachedData) {
                 document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data.</p>";
             }
         }
+    }
+
+        function renderUI(data) {
+        // Image
+        if(data.imageURI) {
+            const rawUrl = data.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            const fastUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=800&q=80&output=webp`;
+            document.getElementById("detailImg").src = fastUrl;
+        }
+
+        // Texts
+        document.getElementById("detailDesc").innerText = data.caption;
+        document.getElementById("detailBadge").innerText = data.isNFT ? `ARSIP NFT #${data.nftId}` : `POSTINGAN #${data.postId}`;
+        // Stats
+        document.getElementById("countLikeDetail").innerText = data.likeCount;
+        document.getElementById("countCommentDetail").innerText = data.commentCount;
+        const score = parseInt(data.totalRatingScore);
+        const count = parseInt(data.ratingCount);
+        document.getElementById("scoreRatingDetail").innerText = count > 0 ? (score/count).toFixed(1) : "0.0";
+
+        // Author
+        document.getElementById("detailAuthorLink").innerText = data.authorNick || data.authorAddr.substring(0,6);
+        document.getElementById("detailAuthorLink").href = `profile.html?addr=${data.authorAddr}`;
+        if(data.authorPhoto) {
+            document.getElementById("detailAvatar").src = data.authorPhoto.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        }
+
+        // Owner
+        if(data.ownerAddr) {
+            document.getElementById("ownerSection").style.display = "flex";
+            document.getElementById("detailOwner").innerText = data.ownerAddr.substring(0,6)+"..."+data.ownerAddr.substring(38);
+            if(userAddress && data.ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
+                document.getElementById("btnTransfer").style.display = "flex";
+            }
+        }
+
+        // Metadata
+        if(data.meta) {
+            document.getElementById("detailTitle").innerText = data.meta.name || "Tanpa Judul";
+            renderMetaTable(data.meta.attributes);
+        } else {
+            document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
+        }
+
+        // History Data
+        const dateStr = new Date(parseInt(data.timestamp) * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
+        document.getElementById("histCreator").innerText = data.authorNick || data.authorAddr.substring(0,6);
+        document.getElementById("histTime").innerText = dateStr;
+    }
 
         // --- FUNGSI GANTI TAB (DIPERBAIKI) ---
         function switchTab(mode) {
