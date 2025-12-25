@@ -558,20 +558,56 @@
     // --- EDIT & KOMENTAR & SAWER ---
     function openEditModal() { document.getElementById('editModal').showModal(); }
     async function submitEditProfile() {
-        const bio = document.getElementById("editBio").value;
-        const loc = document.getElementById("editLoc").value;
-        const file = document.getElementById("editFoto").files[0];
-        if(!bio && !loc && !file) return showToast("Tidak ada perubahan", "info");
-        try {
-            const p = await contract.getProfile(userAddress);
-            let imgUri = p.fotoProfil;
-            if(file) { showToast("Kompresi 30KB...", "info"); imgUri = await uploadToIPFS(file, 30); }
-            showToast("Update Blockchain...", "info");
-            const tx = await contract.updateProfile(p.nickname, imgUri, bio || p.bio, loc || p.lokasi);
-            await tx.wait();
-            showToast("Sukses!", "success");
-            location.reload();
-        } catch(e) { showToast("Gagal update", "error"); }
+    // 1. Ambil Data Input
+    const bio = document.getElementById("editBio").value;
+    const loc = document.getElementById("editLoc").value;
+    const fileAsli = document.getElementById("editFoto").files[0]; // File Mentah
+
+    // Cek jika tidak ada yang diisi
+    if(!bio && !loc && !fileAsli) return showToast("Tidak ada perubahan", "info");
+
+    try {
+        // 2. Ambil data profil lama dari blockchain (untuk backup jika field kosong)
+        const p = await contract.getProfile(userAddress);
+        let imgUri = p.fotoProfil; // Default pakai foto lama
+
+        // --- LOGIKA BARU: KOMPRESI & UPLOAD ---
+        if (fileAsli) { 
+            // A. Kompresi Paksa
+            showToast("Mengompres Gambar (Max 35KB)...", "info");
+            
+            // Parameter: (File, Target 35KB, Lebar 400px)
+            // Menggunakan helper 'customCompress' yang sudah kita buat sebelumnya
+            const fileSiap = await customCompress(fileAsli, 35, 400); 
+
+            // B. Upload ke Pinata
+            showToast("Mengupload ke IPFS...", "info");
+            // Menggunakan helper 'uploadToPinata'
+            imgUri = await uploadToPinata(fileSiap); 
+        }
+        // -------------------------------------
+
+        // 3. Kirim ke Blockchain
+        showToast("Konfirmasi Wallet...", "info");
+        
+        // Logika: Jika input kosong, pakai data lama (p.bio / p.lokasi)
+        const tx = await contract.updateProfile(
+            p.nickname, 
+            imgUri, 
+            bio || p.bio, 
+            loc || p.lokasi
+        );
+        
+        showToast("Sedang Mining...", "info");
+        await tx.wait();
+        
+        showToast("Update Profil Sukses!", "success");
+        setTimeout(() => location.reload(), 2000);
+
+    } catch(e) { 
+        console.error(e);
+        showToast("Gagal update: " + (e.reason || e.message), "error"); 
+    }
     }
 
     function openNickModal() {
