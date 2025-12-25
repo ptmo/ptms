@@ -82,6 +82,27 @@
         }
 
         dialog::backdrop { background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); }
+
+        /* Wrapper agar bintang sejajar */
+.star-wrapper {
+    display: flex;
+    gap: 15px;
+    direction: ltr; /* Pastikan urutan kiri-ke-kanan */
+}
+
+/* Warna Dasar Bintang (Abu-abu #666) */
+.star-item {
+    color: #666; 
+    transition: color 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+
+/* Warna Saat Hover atau Aktif (Gold) */
+.star-item.active, 
+.star-item:hover { 
+    color: gold; 
+    transform: scale(1.2); /* Efek membesar sedikit */
+}
     </style>
 </head>
 <body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
@@ -213,16 +234,22 @@
         <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH</small>
         <div style="display:flex; gap:10px;">
             <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:5px;">Batal</button>
-            <button onclick="submitSawerDetail()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer; border-radius:5px;">Kirim</button>
+            <button onclick="submitSawerDetail()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; cursor:pointer; border-radius:5px;">Kirim</button>
         </div>
     </dialog>
     
     <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
-        <h3 style="margin-top:0; text-align:center; color:#d4af37;">Beri Bintang</h3>
+        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Bintang</h3>
         <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
-            <span onclick="setRate(1)">⭐</span><span onclick="setRate(2)">⭐</span><span onclick="setRate(3)">⭐</span><span onclick="setRate(4)">⭐</span><span onclick="setRate(5)">⭐</span>
+            <div class="star-wrapper">
+    <i class="fa-solid fa-star star-item" data-value="1" onclick="setRate(1)"></i>
+    <i class="fa-solid fa-star star-item" data-value="2" onclick="setRate(2)"></i>
+    <i class="fa-solid fa-star star-item" data-value="3" onclick="setRate(3)"></i>
+    <i class="fa-solid fa-star star-item" data-value="4" onclick="setRate(4)"></i>
+    <i class="fa-solid fa-star star-item" data-value="5" onclick="setRate(5)"></i>
+            </div>
         </div>
-        <button onclick="submitRatingDetail()" style="width:100%; background:#d4af37; border:none; padding:12px; color:white; border-radius:8px; cursor:pointer; font-weight:bold;">Kirim Penilaian</button>
+        <button onclick="submitRatingDetail()" style="width:100%; background:#7385a5; border:none; padding:12px; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">Kirim Penilaian</button>
     </dialog>
 
     <dialog id="transferModal" style="border:none; padding:20px; border-radius:12px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
@@ -230,8 +257,8 @@
         <p style="text-align:center; font-size:12px; color:#666;">Hak milik akan berpindah permanen.</p>
         <input type="text" id="transferTarget" class="cp-input" placeholder="0x..." style="width:100%; margin-bottom:15px; padding:10px; box-sizing:border-box;">
         <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('transferModal').close()" style="flex:1; padding:10px; border:1px solid #ccc; background:white; border-radius:5px; cursor:pointer;">Batal</button>
-            <button onclick="submitTransfer()" style="flex:1; background:#e74c3c; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">Kirim</button>
+            <button onclick="document.getElementById('transferModal').close()" style="flex:1; padding:10px; border:1px solid #ccc; background:white; border-radius:10px; cursor:pointer;">Batal</button>
+            <button onclick="submitTransfer()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; border-radius:10px; cursor:pointer;">Kirim</button>
         </div>
     </dialog>
 
@@ -470,16 +497,44 @@
         }
 
         function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
-        function setRate(n) { selectedRate = n; showToast(`${n} Bintang`, "info"); }
-        async function submitRatingDetail() {
-            if(!selectedRate) return;
-            try {
-                document.getElementById("ratingModal").close();
-                const tx = await contract.ratePost(currentPostId - 1, selectedRate);
-                await tx.wait();
-                showToast("Rating Terkirim!", "success");
-            } catch(e) { showToast("Gagal", "error"); }
+        
+        function setRate(n) {
+    selectedRate = n; // Simpan nilai
+    
+    // Ambil semua elemen bintang
+    const stars = document.querySelectorAll('.star-item');
+    
+    stars.forEach((star, index) => {
+        // Jika index bintang lebih kecil dari nilai n, nyalakan (Gold)
+        // Contoh: Pilih 3. Index 0, 1, 2 akan Gold. Index 3, 4 tetap Abu.
+        if (index < n) {
+            star.style.color = "gold";
+            star.classList.add('active');
+        } else {
+            star.style.color = "#666";
+            star.classList.remove('active');
         }
+    });
+    
+    showToast(`${n} Bintang Dipilih`, "info");
+    }
+        
+        async function submitRatingDetail() {
+    if(!selectedRate) return showToast("Pilih jumlah bintang dulu!", "error");
+    
+    try {
+        document.getElementById("ratingModal").close();
+        showToast("Mengirim rating...", "info");
+        
+        // Panggil Smart Contract
+        const tx = await contract.ratePost(currentPostId - 1, selectedRate);
+        await tx.wait();
+        
+        showToast("Terima kasih atas penilaian Anda!", "success");
+    } catch(e) {
+        showToast("Gagal kirim rating", "error");
+    }
+}
 
         function openTransferModal() { document.getElementById("transferModal").showModal(); }
         async function submitTransfer() {
