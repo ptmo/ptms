@@ -260,8 +260,8 @@ function previewInModal(input) {
     }
 }
 
-// 3. FUNGSI SIMPAN DRAFT (PENTING: Menangani Dropdown)
-function saveNftDraft() {
+// 3. FUNGSI SIMPAN DRAFT (Updated dengan Auto-Compress)
+async function saveNftDraft() {
     // A. Ambil Elemen Input Utama
     const nameInput = document.getElementById("mName");
     const fileInput = document.getElementById("modalFileInput");
@@ -274,21 +274,37 @@ function saveNftDraft() {
         return showToast("Foto Fisik Wayang wajib dipilih!", "error");
     }
 
-    // C. Ambil Nilai dari Dropdown (Select)
-    // .value akan mengambil atribut 'value' dari <option> yang dipilih
+    // --- LOGIKA BARU: KOMPRESI OTOMATIS ---
+    let finalFile = fileInput.files[0];
+    const LIMIT_500KB = 500 * 1024; // 500KB dalam bytes
+
+    if (finalFile.size > LIMIT_500KB) {
+        showToast("Gambar besar terdeteksi, sedang mengompresi...", "info");
+        try {
+            // Panggil fungsi compressImage (tunggu sampai selesai)
+            finalFile = await compressImage(finalFile, LIMIT_500KB);
+            console.log(`File dikompresi: ${(finalFile.size / 1024).toFixed(2)} KB`);
+        } catch (error) {
+            console.error(error);
+            return showToast("Gagal memproses gambar. Coba gambar lain.", "error");
+        }
+    } else {
+        console.log(`File aman: ${(finalFile.size / 1024).toFixed(2)} KB (Lolos)`);
+    }
+    // -------------------------------------
+
+    // C. Ambil Nilai dari Dropdown
     const golongan = document.getElementById("mGolongan").value;
     const gaya = document.getElementById("mGaya").value;
 
     // D. Simpan ke Variabel Global (pendingNftData)
+    // NOTE: Kita simpan 'finalFile' (yang mungkin sudah dikompresi), bukan fileInput.files[0]
     pendingNftData = {
         name: nameInput.value,
-        file: fileInput.files[0],
+        file: finalFile, 
         attributes: {
-            // Jika user tidak memilih dropdown (masih default), simpan sebagai "-"
             golongan: golongan || "-", 
             gaya: gaya || "-",
-            
-            // Ambil input teks lainnya
             bahan: document.getElementById("mBahan").value || "-",
             gapit: document.getElementById("mGapit").value || "-",
             penatah: document.getElementById("mPenatah").value || "-",
@@ -298,17 +314,16 @@ function saveNftDraft() {
         }
     };
 
-    // E. Update Tampilan Utama (Indikator Hijau)
-    document.getElementById("nftModal").close(); // Tutup modal
+    // E. Update Tampilan Utama
+    document.getElementById("nftModal").close(); 
     
-    // Tampilkan indikator bahwa data siap dikirim (Pastikan elemen ini ada di home.html)
     const indicator = document.getElementById("nftReadyIndicator");
     const previewName = document.getElementById("nftFilenamePreview");
     
     if (indicator) indicator.style.display = "block";
     if (previewName) previewName.innerText = `(${pendingNftData.name})`;
     
-    showToast("Data Arsip Tersimpan! Klik tombol KIRIM untuk memproses.", "success");
+    showToast("Data Arsip Tersimpan (Optimized)! Klik tombol KIRIM.", "success");
 }
 
 // 4. FUNGSI BATAL / RESET FORM
@@ -335,6 +350,69 @@ function cancelNft() {
     });
 
     showToast("Mode Arsip Dibatalkan.", "info");
+}
+
+// FUNGSI HELPER: Kompresi Gambar
+function compressImage(file, maxSizeBytes) {
+    return new Promise((resolve, reject) => {
+        // Jika file sudah dibawah batas, langsung kembalikan
+        if (file.size <= maxSizeBytes) {
+            resolve(file);
+            return;
+        }
+
+        const reader = new FileReader();
+        reader.readAsDataURL(file);
+        reader.onload = (event) => {
+            const img = new Image();
+            img.src = event.target.result;
+            img.onload = () => {
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Strategi 1: Resize dimensi jika terlalu raksasa (> 2000px)
+                // Ini membantu menjaga ketajaman saat dilihat di HP
+                const MAX_DIMENSION = 1920; 
+                if (width > height) {
+                    if (width > MAX_DIMENSION) {
+                        height *= MAX_DIMENSION / width;
+                        width = MAX_DIMENSION;
+                    }
+                } else {
+                    if (height > MAX_DIMENSION) {
+                        width *= MAX_DIMENSION / height;
+                        height = MAX_DIMENSION;
+                    }
+                }
+
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Strategi 2: Turunkan kualitas JPEG/WebP
+                // Mulai dari 0.9 (90%), turunkan pelan-pelan jika masih kegedean?
+                // Untuk simpel dan cepat, kita tembak di 0.7 (70%) yang biasanya cukup ampuh
+                canvas.toBlob((blob) => {
+                    if (!blob) {
+                        reject(new Error("Gagal kompresi gambar"));
+                        return;
+                    }
+                    
+                    // Kita ganti nama file jadi .webp atau .jpg
+                    const compressedFile = new File([blob], file.name, {
+                        type: 'image/jpeg', // Ubah ke JPEG/WebP
+                        lastModified: Date.now(),
+                    });
+                    
+                    resolve(compressedFile);
+                }, 'image/jpeg', 0.7); // Kualitas 70%
+            };
+            img.onerror = (error) => reject(error);
+        };
+        reader.onerror = (error) => reject(error);
+    });
 }
 
 // --- FUNGSI HELPER FETCH METADATA ---
