@@ -549,31 +549,45 @@ function closeEditMode(commentIndex) {
 
 // Mengirim Perubahan ke Blockchain
 async function submitEditComment(postIndex, commentIndex) {
-    // Ambil ID input yang sesuai dengan index loop
-    const newText = document.getElementById(`input-edit-${commentIndex}`).value;
+    // Ambil text baru dari inputan
+    const inputElement = document.getElementById(`input-edit-${commentIndex}`);
+    const newText = inputElement.value;
     
     if(!newText.trim()) return showToast("Komentar tidak boleh kosong", "error");
 
     try {
         showToast("Menyimpan perubahan...", "info");
         
-        // --- PERBAIKAN DI SINI (Sesuai nama di kontrak Solidity Anda) ---
+        // 1. Kirim ke Blockchain
         const tx = await contract.editComment(postIndex, commentIndex, newText);
-        // ---------------------------------------------------------------
+        await tx.wait(); // Tunggu sampai sukses
         
-        await tx.wait();
         showToast("Komentar berhasil diedit!", "success");
         
-        // Reload komentar
-        loadPageComments(postIndex);
+        // --- TEKNIK OPTIMISTIC UPDATE (Ubah Layar Langsung) ---
+        
+        // A. Update teks tampilan dengan teks baru
+        const viewElement = document.getElementById(`view-txt-${commentIndex}`);
+        if(viewElement) {
+            viewElement.innerText = newText;
+        }
+
+        // B. Tutup Mode Edit secara manual
+        closeEditMode(commentIndex);
+
+        // --- SELESAI ---
+
+        // (Opsional) Reload background setelah 3 detik untuk memastikan sinkronisasi
+        // Jangan langsung reload supaya user tidak melihat teks "berkedip" kembali ke lama
+        setTimeout(() => {
+            loadPageComments(postIndex);
+        }, 3000);
         
     } catch(e) {
         console.error(e);
-        // Tampilkan pesan error yang lebih jelas
-        showToast("Gagal edit: " + (e.reason || e.message || "Error tidak diketahui"), "error");
+        showToast("Gagal edit: " + (e.reason || e.message || "Error"), "error");
     }
 }
-
         function openSawerModalDetail() { document.getElementById("sawerModal").showModal(); }
         async function submitSawerDetail() {
             const amount = document.getElementById("sawerAmount").value;
