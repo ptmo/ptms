@@ -293,8 +293,7 @@
             if(userAddress) {
                 document.getElementById("walletDisplay").innerText = userAddress;
                 loadMyProfile();
-                // LOAD DEFAULT: MENGUKUTI (FRIENDS)
-                switchFeed('friends'); 
+                loadFeed();
                 renderWidgets();
             }
         };
@@ -305,7 +304,9 @@
                 const p = await contract.getProfile(userAddress);
                 if(p.fotoProfil) {
                     const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    document.getElementById("myAvatar").src = cleanUrl;
+                    // Avatar Profil juga dikompres kecil
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
                 }
             } catch(e) {}
         }
@@ -337,38 +338,6 @@
 
             loadFeed();
         }
-
-        // --- 4. FUNGSI LOAD FEED UTAMA ---
-        async function loadFeed() {
-            try {
-                let posts;
-
-                // Cek Mode Tab
-                if(currentFeedType === 'friends') {
-                    posts = await contract.getMyFeed();
-                } else {
-                    posts = await contract.getAllPosts();
-                }
-
-                const container = document.getElementById("feedContainer");
-                container.innerHTML = "";
-                if(posts.length === 0) {
-                    const msg = currentFeedType === 'friends' 
-                        ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
-                        : "Belum ada postingan di platform.";
-                    container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
-                    return;
-                }
-
-                // Panggil Fungsi Render Terpisah (Agar Rapi)
-                renderPostLoop(posts, container);
-            } catch (e) { 
-                console.error(e);
-                document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data.</p>";
-            }
-        }
-
-        
         
         // --- SCRIPT SAWWER (WAJIB ADA) ---
         function openSawerModal(id) {
@@ -428,30 +397,44 @@
         // --- FUNGSI LOAD FEED (FIXED FOR HOME.HTML) ---
         async function loadFeed() {
             try {
-                const posts = await contract.getAllPosts();
+                let posts;
+
+                // Cek Mode Tab
+                if(currentFeedType === 'friends') {
+                    posts = await contract.getMyFeed();
+                } else {
+                    posts = await contract.getAllPosts();
+                }
+
                 const container = document.getElementById("feedContainer");
                 container.innerHTML = "";
 
                 if(posts.length === 0) {
-                    container.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada postingan.</p>";
+                    const msg = currentFeedType === 'friends' 
+                        ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
+                        : "Belum ada postingan di platform.";
+                    container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
                     return;
                 }
 
-                // 3. RENDER LOOP POSTINGAN
+                // LOOP POSTINGAN (DIBALIK AGAR TERBARU DIATAS)
                 [...posts].reverse().forEach(post => {
-                    
                     const profileLink = `profile.html?addr=${post.author}`;
 
                     // --- LOGIKA GAMBAR & KUTIPAN NFT ---
                     let imgHtml = "";
                     if(post.imageURI && post.imageURI.length > 5) {
                         const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                        const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`;
+                        
+                        // --- OPTIMASI ULTRA RINGAN (TARGET < 60KB) ---
+                        // w=500 : Lebar cukup untuk HP
+                        // q=60  : Kualitas 60% (Kompromi terbaik size vs visual)
+                        // output=webp : Format wajib untuk web modern
+                        const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
                         // A. SIAPKAN KOTAK KUTIPAN (Hanya jika NFT)
                         let metaBox = "";
                         if(post.nftId > 0) {
-                            // Note: Di Home, kita pakai wallet address dulu untuk kolektor karena nick belum diload
                             const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
                             
                             metaBox = `
@@ -492,12 +475,13 @@
                                 <img src="${optUrl}" 
                                      class="post-image" 
                                      style="width:100%; display:block; min-height:200px; background:#f0f0f0; border-radius: ${post.nftId > 0 ? '0' : '8px'};" 
-                                     loading="lazy">
+                                     loading="lazy" 
+                                     alt="Post Image">
                                 ${metaBox}
                             </a>
                         </div>`;
                         
-                        // Trigger Fetch Metadata JSON
+                        // Trigger Fetch Metadata JSON (Delay sedikit biar scrolling lancar)
                         if(post.nftId > 0 && post.tokenURI) {
                             setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
                         }
@@ -507,13 +491,13 @@
                     const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
                     const nftBadge = post.nftId > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
 
-                    // --- HTML KARTU (VERSI HOME - PAKAI LAZY LOADING CLASS) ---
+                    // --- HTML KARTU ---
                     const html = `
                     <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
                         <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                             <a href="${profileLink}">
                                 <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
-                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
                             </a>
                             <div class="post-info">
                                 <a href="${profileLink}" class="author-nick-${post.author}" 
@@ -553,15 +537,16 @@
                     
                     container.innerHTML += html;
                     
-                    // PENTING DI HOME: Load profil secara lazy
+                    // Lazy Load Profil
                     fetchProfileLazy(post.author);
                 });
 
             } catch (e) { 
-                console.error(e); 
+                console.error(e);
+                document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data.</p>";
             }
         }
-
+        
         async function fetchProfileLazy(address) {
             if(profileCache[address]) {
                 updatePostAuthorUI(address, profileCache[address]);
@@ -569,15 +554,23 @@
             }
             try {
                 const p = await contract.getProfile(address);
+                
+                // Optimasi Avatar Penulis di Feed (Sangat kecil, 40px)
+                let avatarUrl = 'https://via.placeholder.com/40';
+                if (p.fotoProfil) {
+                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
+                }
+
                 const data = {
                     nickname: p.nickname,
-                    avatar: p.fotoProfil ? p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : 'https://via.placeholder.com/40'
+                    avatar: avatarUrl
                 };
                 profileCache[address] = data;
                 updatePostAuthorUI(address, data);
             } catch (e) {}
         }
-
+                
         function updatePostAuthorUI(address, data) {
             document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
             document.querySelectorAll(`.author-nick-${address}`).forEach(el => el.innerText = data.nickname);
