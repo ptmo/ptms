@@ -266,8 +266,92 @@
     <script>
         const profileCache = {};
         const commentProfileCache = {};
+        let currentFeedType = 'friends';
         
         // ABI BARU (PASTE ABI LENGKAP DARI REMIX DI SINI ATAU DI MAIN.JS)
+
+        // --- 1. WINDOW ONLOAD ---
+        window.onload = async () => {
+            await initApp(); 
+            if(userAddress) {
+                document.getElementById("walletDisplay").innerText = userAddress;
+                loadMyProfile();
+                // LOAD DEFAULT: MENGUKUTI (FRIENDS)
+                switchFeed('friends'); 
+                renderWidgets();
+            }
+        };
+
+        // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
+        async function loadMyProfile() {
+            try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    document.getElementById("myAvatar").src = cleanUrl;
+                }
+            } catch(e) {}
+        }
+
+        // --- 3. FUNGSI GANTI TAB ---
+        function switchFeed(type) {
+            currentFeedType = type;
+            const tabFriends = document.getElementById("tabFriends");
+            const tabGlobal = document.getElementById("tabGlobal");
+
+            // Reset UI Loading
+            document.getElementById("feedContainer").innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...
+                </div>`;
+
+            // Atur Style Tab
+            if(type === 'friends') {
+                tabFriends.style.color = "#8b4513";
+                tabFriends.style.borderBottom = "3px solid #8b4513";
+                tabGlobal.style.color = "#999";
+                tabGlobal.style.borderBottom = "3px solid transparent";
+            } else {
+                tabGlobal.style.color = "#8b4513";
+                tabGlobal.style.borderBottom = "3px solid #8b4513";
+                tabFriends.style.color = "#999";
+                tabFriends.style.borderBottom = "3px solid transparent";
+            }
+
+            loadFeed();
+        }
+
+        // --- 4. FUNGSI LOAD FEED UTAMA ---
+        async function loadFeed() {
+            try {
+                let posts;
+
+                // Cek Mode Tab
+                if(currentFeedType === 'friends') {
+                    posts = await contract.getMyFeed();
+                } else {
+                    posts = await contract.getAllPosts();
+                }
+
+                const container = document.getElementById("feedContainer");
+                container.innerHTML = "";
+                if(posts.length === 0) {
+                    const msg = currentFeedType === 'friends' 
+                        ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
+                        : "Belum ada postingan di platform.";
+                    container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
+                    return;
+                }
+
+                // Panggil Fungsi Render Terpisah (Agar Rapi)
+                renderPostLoop(posts, container);
+            } catch (e) { 
+                console.error(e);
+                document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data.</p>";
+            }
+        }
+
+        
         
         // --- SCRIPT SAWWER (WAJIB ADA) ---
         function openSawerModal(id) {
