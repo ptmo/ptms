@@ -543,5 +543,31 @@ async function loadFeed() {
     }
 }
 
+// --- FUNGSI HELPER FETCH METADATA ---
+async function fetchCardMetadata(postId, tokenUri) {
+    if (!tokenUri) return;
+    try {
+        const url = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        const res = await fetch(url);
+        const meta = await res.json();
+
+        // 1. Update Nama
+        const nameEl = document.getElementById(`meta-name-${postId}`);
+        if(nameEl) nameEl.innerText = meta.name || "Tanpa Nama";
+
+        // 2. Update Gagrak
+        const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
+        if(gagrakEl && meta.attributes) {
+            const attr = meta.attributes.find(a => 
+                a.trait_type === "Gaya (Gagrak)" || a.trait_type === "Gaya" || a.trait_type === "Gagrak"
+            );
+            if(attr) gagrakEl.innerText = attr.value;
+            else gagrakEl.innerText = "-";
+        }
+    } catch (e) {
+        console.warn(`Gagal load metadata post ${postId}`);
+    }
+}
+
 // Jalankan otomatis setiap 10 detik agar realtime tanpa refresh
 setInterval(updateNotifBadge, 10000);
