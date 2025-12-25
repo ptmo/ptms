@@ -11,7 +11,7 @@ const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constr
 let provider, signer, userAddress, contract;
 let pendingNftData = null;
 let allLoadedPosts = [];
-let currentFeedMode = 'global';
+let currentFeedMode = 'friends';
 
 // --- WALLET LOGIC ---
 async function initApp() {
