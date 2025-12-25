@@ -250,20 +250,65 @@
 
             [...posts].reverse().forEach(post => {
                 const profileLink = `profile.html?addr=${post.author}`;
+                // --- LOGIKA GAMBAR & KUTIPAN NFT (VERSI FONT AWESOME) ---
                 let imgHtml = "";
                 if(post.imageURI && post.imageURI.length > 5) {
                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    // Optimasi gambar
                     const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`;
+
+                    // A. SIAPKAN KOTAK KUTIPAN (Hanya jika NFT)
+                    let metaBox = "";
+                    if(post.nftId > 0) {
+                        metaBox = `
+                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                            
+                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+                                <span>
+                                    <i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px; width:14px; text-align:center;"></i> 
+                                    <strong>Nama:</strong> 
+                                    <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Memuat...</span>
+                                </span>
+                            </div>
+
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                <span>
+                                    <i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px; width:14px; text-align:center;"></i> 
+                                    <strong>Gagrak:</strong> 
+                                    <span id="meta-gagrak-${post.id}">-</span>
+                                </span>
+                            </div>
+
+                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <span>
+                                    <i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px; width:14px; text-align:center;"></i> 
+                                    <strong>Kolektor:</strong> ${ownerNick}
+                                </span>
+                                <span style="font-size:10px; color:#8b4513; font-style:italic;">
+                                    Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
+                                </span>
+                            </div>
+                        </div>`;
+                    }
+
+                    // B. GABUNGKAN GAMBAR + KUTIPAN
                     imgHtml = `
-                    <div style="position:relative; margin:10px -15px;">
-                        <a href="koleksi.html?id=${post.id}">
+                    <div style="margin:10px -15px 0 -15px;">
+                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
                             <img src="${optUrl}" 
                                  class="post-image" 
-                                 style="width:100%; display:block; min-height:200px; background:#f0f0f0;" 
+                                 style="width:100%; display:block; min-height:200px; background:#f0f0f0; border-radius: ${post.nftId > 0 ? '0' : '8px'};" 
                                  loading="lazy">
+                            ${metaBox}
                         </a>
                     </div>`;
+                    
+                    // Trigger Fetch Metadata JSON
+                    if(post.nftId > 0 && post.tokenURI) {
+                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+                    }
                 }
+            }
 
                 const avgRating = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0';
                 const nftBadge = (post.nftId && post.nftId > 0) ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
