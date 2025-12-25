@@ -19,7 +19,6 @@
         /* Tampilan Mobile: Stack ke bawah */
         @media (max-width: 768px) {
             .search-grid { grid-template-columns: 1fr; }
-            /* Balik urutan di mobile: User dulu baru post, atau sebaliknya sesuai selera */
             .col-users { order: -1; margin-bottom: 20px; } 
         }
 
@@ -57,7 +56,8 @@
             </div>
         </div>
 
-        <div class="main-feed" style="max-width: 100%;"> <div class="card" style="padding: 15px; margin-bottom: 20px;">
+        <div class="main-feed" style="max-width: 100%;"> 
+            <div class="card" style="padding: 15px; margin-bottom: 20px;">
                 <h2 style="margin:0; font-size:18px; color:#333;">
                     <i class="fa-solid fa-magnifying-glass"></i> Hasil Pencarian: <span id="queryDisplay" style="color:#e74c3c;">...</span>
                 </h2>
@@ -130,6 +130,8 @@
                 const allPosts = await contract.getAllPosts();
                 
                 // Filter: Caption mengandung kata kunci
+                // NOTE: Pencarian NFT (Arjuna) tidak bisa dilakukan ke metadata IPFS secara instan client-side
+                // Jadi kita hanya mencari di Caption. Pastikan saat posting, nama wayang masuk ke caption atau metadata.
                 const filtered = allPosts.filter(p => p.caption.toLowerCase().includes(query));
 
                 container.innerHTML = "";
@@ -137,7 +139,7 @@
                     container.innerHTML = `
                     <div style='padding:30px; text-align:center; color:#999; border:1px dashed #ddd; border-radius:8px;'>
                         <i class="fa-regular fa-folder-open fa-2x"></i><br><br>
-                        Tidak ada postingan dengan kata kunci "${query}".
+                        Tidak ada postingan dengan kata kunci "${query}" di caption.
                     </div>`;
                     return;
                 }
@@ -182,27 +184,30 @@
             }
         }
 
-        // --- B. LOGIKA CARI USER (PALING PENTING: LOOP ID) ---
+        // --- B. LOGIKA CARI USER (FIXED: Loop ID) ---
         async function searchUsers() {
             const container = document.getElementById("usersResultContainer");
             container.innerHTML = "<div style='text-align:center; padding:20px; color:#999;'><i class='fa-solid fa-spinner fa-spin'></i> Memindai User...</div>";
 
             try {
                 // 1. Ambil Total User
+                // Pastikan smart contract Anda memiliki public variable 'userCounter'
                 const userCountBN = await contract.userCounter();
                 const totalUsers = userCountBN.toNumber();
                 let foundCount = 0;
                 let htmlResult = "";
 
                 // 2. Loop Semua User (Dari ID 1 sampai Total)
-                // Note: Jika user ribuan, ini bisa lambat. Untuk app kecil ini masih oke.
                 for (let i = 1; i <= totalUsers; i++) {
                     try {
                         // Ambil data user dari mapping 'users' berdasarkan ID
-                        // Pastikan struct 'users' public di smart contract
+                        // Pastikan struct 'users' public di smart contract: mapping(uint256 => UserProfile) public users;
                         const u = await contract.users(i); 
                         
-                        // Cek Nama vs Query
+                        // Cek Validitas Data (kadang ada data kosong jika di-delete/burn)
+                        if(u.wallet === "0x0000000000000000000000000000000000000000") continue;
+
+                        // Cek Nama vs Query (Case Insensitive)
                         if (u.nickname.toLowerCase().includes(query) || u.wallet.toLowerCase() === query) {
                             foundCount++;
                             
@@ -237,7 +242,7 @@
                             </div>`;
                         }
                     } catch (err) {
-                        console.warn("Skip user id " + i);
+                        console.warn("Skip user id " + i, err);
                     }
                 }
 
@@ -248,13 +253,13 @@
                     container.innerHTML = `
                     <div style='text-align:center; padding:20px; color:#999;'>
                         <i class="fa-solid fa-user-slash"></i><br>
-                        User tidak ditemukan.
+                        User "${query}" tidak ditemukan.
                     </div>`;
                 }
 
             } catch(e) {
                 console.error("User search error:", e);
-                container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat user.</p>";
+                container.innerHTML = "<p style='color:red; text-align:center; font-size:12px;'>Gagal memuat user (Network/Contract Error).</p>";
             }
         }
 
@@ -277,7 +282,8 @@
                 const tx = await contract.followUser(target);
                 await tx.wait();
                 showToast("Berhasil mengikuti!", "success");
-                setTimeout(()=>location.reload(), 1000);
+                // Refresh hasil user saja tanpa reload page
+                searchUsers();
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
         }
         
@@ -287,7 +293,7 @@
                 const tx = await contract.unfollowUser(target);
                 await tx.wait();
                 showToast("Berhasil unfollow.", "success");
-                setTimeout(()=>location.reload(), 1000);
+                searchUsers();
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
         }
     </script>
