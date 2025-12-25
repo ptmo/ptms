@@ -89,152 +89,177 @@
     <script src="ipfs_helper.js"></script>
 
     <script>
-        // Ambil Kata Kunci dari URL (?q=Budi)
+        // Ambil Kata Kunci dari URL
         const urlParams = new URLSearchParams(window.location.search);
-        const query = urlParams.get('q') ? urlParams.get('q').toLowerCase() : "";
+        const query = urlParams.get('q') ? urlParams.get('q').toLowerCase().trim() : "";
 
         // Tampilkan kata kunci di Header
         document.getElementById("queryDisplay").innerText = query || "Semua";
 
+        // --- WINDOW ONLOAD ---
         window.onload = async () => {
             await initApp();
-            if(userAddress && query) {
-                performSearch();
-            } else {
-                document.getElementById("postsResultContainer").innerHTML = "<p>Silakan masukkan kata kunci.</p>";
-                document.getElementById("usersResultContainer").innerHTML = "";
-            }
-        };
-
-        async function performSearch() {
-            // 1. CARI POSTINGAN (Filter Caption)
-            try {
-                const allPosts = await contract.getAllPosts();
-                const filteredPosts = allPosts.filter(p => p.caption.toLowerCase().includes(query));
-                renderPosts(filteredPosts);
-            } catch(e) { console.error(e); }
-
-            // 2. CARI USER (Looping User ID)
-            // Smart contract tidak punya fitur "Search User", jadi kita harus manual loop
-            // Ini mungkin lambat jika user ribuan, tapi oke untuk demo.
-            try {
-                const userCount = await contract.userCounter(); // Pastikan di ABI ada userCounter
-                const foundUsers = [];
-                const maxSearch = userCount.toNumber(); 
-
-                // Kita loop semua user (atau batasi 50 terakhir biar cepat)
-                for(let i = 1; i <= maxSearch; i++) {
-                    try {
-                        // Get Profile By ID (Pastikan fungsi ini ada di Contract/ABI)
-                        // Kalau tidak ada, kita pakai getProfile(address) dari list address jika ada.
-                        // Asumsi: Contract punya getProfileById atau kita pakai cara lain.
-                        // JIKA TIDAK ADA getProfileById, kita skip bagian ini atau pakai trik lain.
-                        
-                        // TRIK AMAN: Cari User dari Author Postingan yang sudah ditarik
-                        // (Lebih hemat gas daripada nembak ID satu2)
-                    } catch(err) {}
-                }
-                
-                // ALTERNATIF SEARCH USER (DARI DATA POSTINGAN AGAR CEPAT)
-                // Kita ambil semua author unik dari postingan, lalu cek namanya
-                const allPosts = await contract.getAllPosts();
-                const uniqueAuthors = [...new Set(allPosts.map(p => p.author))];
-                
-                document.getElementById("usersResultContainer").innerHTML = "";
-                let userFoundCount = 0;
-
-                for (const addr of uniqueAuthors) {
-                    const p = await contract.getProfile(addr);
-                    const nick = p.nickname || "";
-                    
-                    // Cek apakah Nickname atau Address mengandung kata kunci
-                    if (nick.toLowerCase().includes(query) || addr.toLowerCase().includes(query)) {
-                        userFoundCount++;
-                        renderUserCard(addr, p);
-                    }
-                }
-
-                if(userFoundCount === 0) {
-                    document.getElementById("usersResultContainer").innerHTML = "<p style='color:#999; font-size:12px;'>Tidak ada user dengan nama tersebut di daftar kreator.</p>";
-                }
-
-            } catch(e) { 
-                console.error("User search error", e);
-                document.getElementById("usersResultContainer").innerHTML = "Gagal memuat user.";
-            }
-        }
-
-        // --- RENDER POSTINGAN (Sama seperti Home) ---
-        function renderPosts(posts) {
-            const container = document.getElementById("postsResultContainer");
-            container.innerHTML = "";
             
-            if(posts.length === 0) {
-                container.innerHTML = "<div style='padding:20px; background:white; border-radius:8px; text-align:center; color:#999;'>Tidak ditemukan postingan.</div>";
+            if(!query) {
+                document.getElementById("postsResultContainer").innerHTML = "<p style='text-align:center; color:#999;'>Masukkan kata kunci pencarian.</p>";
+                document.getElementById("usersResultContainer").innerHTML = "";
                 return;
             }
 
-            [...posts].reverse().forEach(post => {
-                // ... (Snippet Render Kartu Postingan Sederhana) ...
-                const profileLink = `profile.html?addr=${post.author}`;
-                let imgHtml = "";
-                if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`;
-                    imgHtml = `<a href="koleksi.html?id=${post.id}"><img src="${optUrl}" style="width:100%; height:200px; object-fit:cover; border-radius:8px; margin-top:10px;"></a>`;
-                }
+            if(userAddress) {
+                performSearch();
+            }
+        };
+
+        // --- FUNGSI PENCARIAN UTAMA ---
+        async function performSearch() {
+            // A. CARI POSTINGAN (Berdasarkan Caption)
+            searchPosts();
+
+            // B. CARI USER (Berdasarkan Data Registrasi Blockchain)
+            searchUsers();
+        }
+
+        // --- A. LOGIKA CARI POSTINGAN ---
+        async function searchPosts() {
+            const container = document.getElementById("postsResultContainer");
+            container.innerHTML = "<div style='text-align:center; padding:20px; color:#999;'><i class='fa-solid fa-spinner fa-spin'></i> Mencari di arsip...</div>";
+
+            try {
+                // Ambil semua postingan
+                const allPosts = await contract.getAllPosts();
                 
-                const html = `
-                <div class="card" style="padding:15px; margin-bottom:15px;">
-                    <div style="display:flex; gap:10px; align-items:center;">
-                        <img src="https://via.placeholder.com/30" class="avt-${post.author}" style="width:30px; height:30px; border-radius:50%;">
-                        <div>
-                            <div style="font-weight:bold; font-size:13px;" class="nick-${post.author}">${post.author.substring(0,6)}...</div>
-                            <div style="font-size:10px; color:#999;">${new Date(post.timestamp * 1000).toLocaleDateString()}</div>
+                // Filter: Caption mengandung kata kunci
+                const filtered = allPosts.filter(p => p.caption.toLowerCase().includes(query));
+
+                container.innerHTML = "";
+                if(filtered.length === 0) {
+                    container.innerHTML = `
+                    <div style='padding:30px; text-align:center; color:#999; border:1px dashed #ddd; border-radius:8px;'>
+                        <i class="fa-regular fa-folder-open fa-2x"></i><br><br>
+                        Tidak ada postingan dengan kata kunci "${query}".
+                    </div>`;
+                    return;
+                }
+
+                // Render Hasil
+                [...filtered].reverse().forEach(post => {
+                    const profileLink = `profile.html?addr=${post.author}`;
+                    
+                    // Logika Gambar
+                    let imgHtml = "";
+                    if(post.imageURI && post.imageURI.length > 5) {
+                        const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                        const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`;
+                        imgHtml = `<a href="koleksi.html?id=${post.id}"><img src="${optUrl}" style="width:100%; height:200px; object-fit:cover; border-radius:8px; margin-top:10px; background:#f0f0f0;"></a>`;
+                    }
+                    
+                    // Render Kartu Simple
+                    const html = `
+                    <div class="card" style="padding:15px; margin-bottom:15px;">
+                        <div style="display:flex; gap:10px; align-items:center;">
+                            <a href="${profileLink}">
+                                <img src="https://via.placeholder.com/30" class="avt-${post.author}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">
+                            </a>
+                            <div>
+                                <div style="font-weight:bold; font-size:13px;">
+                                    <a href="${profileLink}" class="nick-${post.author}" style="text-decoration:none; color:#333;">${post.author.substring(0,6)}...</a>
+                                </div>
+                                <div style="font-size:10px; color:#999;">${new Date(post.timestamp * 1000).toLocaleDateString()}</div>
+                            </div>
                         </div>
-                    </div>
-                    <p style="font-size:13px; margin:10px 0;">${post.caption}</p>
-                    ${imgHtml}
-                </div>`;
-                container.innerHTML += html;
-                fetchProfileLazy(post.author); // Helper profile fetcher
-            });
+                        <p style="font-size:13px; margin:10px 0;">${post.caption}</p>
+                        ${imgHtml}
+                    </div>`;
+                    
+                    container.innerHTML += html;
+                    fetchProfileLazy(post.author); // Ambil nama & foto author
+                });
+
+            } catch(e) {
+                console.error("Post search error:", e);
+                container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat postingan.</p>";
+            }
         }
 
-        // --- RENDER USER CARD ---
-        async function renderUserCard(addr, profile) {
+        // --- B. LOGIKA CARI USER (PALING PENTING: LOOP ID) ---
+        async function searchUsers() {
             const container = document.getElementById("usersResultContainer");
-            const nick = profile.nickname || addr.substring(0,6)+"...";
-            const avt = profile.fotoProfil ? profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : "https://via.placeholder.com/40";
-            
-            // Cek status follow
-            const isFollowing = await contract.isFollowing(userAddress, addr);
-            const btnText = isFollowing ? "Mengikuti" : "Ikuti";
-            const btnClass = isFollowing ? "btn-follow-small following" : "btn-follow-small";
-            const btnAction = isFollowing ? `unfollow('${addr}')` : `follow('${addr}')`;
+            container.innerHTML = "<div style='text-align:center; padding:20px; color:#999;'><i class='fa-solid fa-spinner fa-spin'></i> Memindai User...</div>";
 
-            // Jangan tampilkan tombol follow jika diri sendiri
-            let btnHtml = `<button onclick="${btnAction}" class="${btnClass}">${btnText}</button>`;
-            if(addr.toLowerCase() === userAddress.toLowerCase()) btnHtml = `<span style="font-size:10px; color:#999;">Anda</span>`;
+            try {
+                // 1. Ambil Total User
+                const userCountBN = await contract.userCounter();
+                const totalUsers = userCountBN.toNumber();
+                let foundCount = 0;
+                let htmlResult = "";
 
-            const html = `
-            <div class="user-result-card">
-                <a href="profile.html?addr=${addr}">
-                    <img src="${avt}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
-                </a>
-                <div style="flex:1; min-width:0;">
-                    <a href="profile.html?addr=${addr}" style="text-decoration:none; color:#333; font-weight:bold; font-size:13px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                        ${nick}
-                    </a>
-                    <div style="font-size:10px; color:#999;">${addr.substring(0,6)}...${addr.substring(38)}</div>
-                </div>
-                ${btnHtml}
-            </div>`;
-            
-            container.innerHTML += html;
+                // 2. Loop Semua User (Dari ID 1 sampai Total)
+                // Note: Jika user ribuan, ini bisa lambat. Untuk app kecil ini masih oke.
+                for (let i = 1; i <= totalUsers; i++) {
+                    try {
+                        // Ambil data user dari mapping 'users' berdasarkan ID
+                        // Pastikan struct 'users' public di smart contract
+                        const u = await contract.users(i); 
+                        
+                        // Cek Nama vs Query
+                        if (u.nickname.toLowerCase().includes(query) || u.wallet.toLowerCase() === query) {
+                            foundCount++;
+                            
+                            // Siapkan Data
+                            const displayNick = u.nickname || "Tanpa Nama";
+                            const displayAvt = u.fotoProfil ? u.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : "https://via.placeholder.com/40";
+                            const addr = u.wallet;
+
+                            // Cek Follow Status
+                            const isFollowing = await contract.isFollowing(userAddress, addr);
+                            const btnAction = isFollowing ? `unfollow('${addr}')` : `follow('${addr}')`;
+                            const btnText = isFollowing ? "Mengikuti" : "Ikuti";
+                            const btnClass = isFollowing ? "btn-follow-small following" : "btn-follow-small";
+                            
+                            // Tombol Follow (Sembunyikan jika diri sendiri)
+                            let btnHtml = `<button onclick="${btnAction}" class="${btnClass}">${btnText}</button>`;
+                            if (addr.toLowerCase() === userAddress.toLowerCase()) btnHtml = `<span style='font-size:10px; color:#999;'>Anda</span>`;
+
+                            // Render Item User
+                            htmlResult += `
+                            <div class="user-result-card">
+                                <a href="profile.html?addr=${addr}">
+                                    <img src="${displayAvt}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                                </a>
+                                <div style="flex:1; min-width:0;">
+                                    <a href="profile.html?addr=${addr}" style="text-decoration:none; color:#333; font-weight:bold; font-size:13px; display:block;">
+                                        ${displayNick}
+                                    </a>
+                                    <div style="font-size:10px; color:#999;">${addr.substring(0,6)}...${addr.substring(38)}</div>
+                                </div>
+                                ${btnHtml}
+                            </div>`;
+                        }
+                    } catch (err) {
+                        console.warn("Skip user id " + i);
+                    }
+                }
+
+                // 3. Tampilkan Hasil
+                container.innerHTML = htmlResult;
+                
+                if (foundCount === 0) {
+                    container.innerHTML = `
+                    <div style='text-align:center; padding:20px; color:#999;'>
+                        <i class="fa-solid fa-user-slash"></i><br>
+                        User tidak ditemukan.
+                    </div>`;
+                }
+
+            } catch(e) {
+                console.error("User search error:", e);
+                container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat user.</p>";
+            }
         }
 
-        // --- HELPER FUNCTION ---
+        // --- HELPER LAINNYA ---
+        
         async function fetchProfileLazy(address) {
             try {
                 const p = await contract.getProfile(address);
@@ -246,7 +271,6 @@
             } catch(e) {}
         }
 
-        // --- ACTION FOLLOW/UNFOLLOW ---
         async function follow(target) {
             try {
                 showToast("Memproses...", "info");
@@ -266,7 +290,6 @@
                 setTimeout(()=>location.reload(), 1000);
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
         }
-
     </script>
 </body>
 </html>
