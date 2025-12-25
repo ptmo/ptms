@@ -390,5 +390,24 @@ async function fetchCardMetadata(postId, tokenUri) {
     }
 }
 
+// --- FUNGSI FORMAT CAPTION (Link & Spasi) ---
+function formatCaption(text) {
+    if (!text) return "";
+
+    // 1. Sanitasi (Mencegah kode HTML berbahaya/XSS)
+    let cleanText = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+    // 2. Deteksi Link (http/https) dan ubah jadi Tag <a>
+    // Regex ini mendeteksi teks yang diawali http:// atau https://
+    const urlRegex = /(https?:\/\/[^\s]+)/g;
+    
+    cleanText = cleanText.replace(urlRegex, (url) => {
+        return `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`;
+    });
+
+    // 3. Ubah Enter (\n) menjadi <br> agar spasi bawah terbaca di HTML
+    return cleanText.replace(/\n/g, "<br>");
+}
+
 // Jalankan otomatis setiap 10 detik agar realtime tanpa refresh
 setInterval(updateNotifBadge, 10000);
