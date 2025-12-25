@@ -97,58 +97,71 @@
             }
         };
 
-        function previewImage(input) {
-            if (input.files && input.files[0]) {
-                const reader = new FileReader();
-                reader.onload = function(e) { document.getElementById('previewAvatar').src = e.target.result; }
-                reader.readAsDataURL(input.files[0]);
-            }
-        }
+        // Fungsi Preview (Tidak perlu diubah, hanya visual lokal)
+function previewImage(input) {
+    if (input.files && input.files[0]) {
+        const reader = new FileReader();
+        reader.onload = function(e) { document.getElementById('previewAvatar').src = e.target.result; }
+        reader.readAsDataURL(input.files[0]);
+    }
+}
 
-        async function submitRegister() {
-            const nick = document.getElementById("regNick").value;
-            const bio = document.getElementById("regBio").value;
-            const loc = document.getElementById("regLoc").value;
-            const file = document.getElementById("fotoInput").files[0];
-            const btn = document.getElementById("btnDaftar");
-            const loading = document.getElementById("loadingText");
+async function submitRegister() {
+    const nick = document.getElementById("regNick").value;
+    const bio = document.getElementById("regBio").value;
+    const loc = document.getElementById("regLoc").value;
+    const fileAsli = document.getElementById("fotoInput").files[0]; // File Mentah
+    const btn = document.getElementById("btnDaftar");
+    const loading = document.getElementById("loadingText");
 
-            // Validasi Input
-            if (/\d/.test(nick)) return showToast("Nickname tidak boleh mengandung angka!", "error");
-            if (nick.length < 3) return showToast("Nickname minimal 3 huruf!", "error");
-            if (!file) return showToast("Wajib upload foto profil!", "error");
-            if (!contract) return showToast("Koneksi Wallet belum siap, refresh halaman.", "error");
+    // --- VALIDASI ---
+    if (/\d/.test(nick)) return showToast("Nickname tidak boleh mengandung angka!", "error");
+    if (nick.length < 3) return showToast("Nickname minimal 3 huruf!", "error");
+    if (!fileAsli) return showToast("Wajib upload foto profil!", "error");
+    if (!contract) return showToast("Koneksi Wallet belum siap, refresh halaman.", "error");
 
-            try {
-                btn.disabled = true;
-                btn.style.opacity = "0.7";
-                loading.style.display = "block";
+    try {
+        // Kunci Tombol
+        btn.disabled = true;
+        btn.style.opacity = "0.7";
+        loading.style.display = "block";
 
-                // 1. Upload IPFS
-                loading.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Mengupload foto (Kompresi)...';
-                const imgUri = await uploadToIPFS(file); 
+        // LANGKAH 1: KOMPRESI PAKSA (TARGET 35KB)
+        loading.innerHTML = '<i class="fa-solid fa-compress"></i> Sedang mengompres (Target 35KB)...';
+        
+        // Parameter: (FileAsli, 35KB, Lebar 400px)
+        // Kita kecilkan dimensi ke 400px agar target 35KB mudah tercapai tanpa gambar jadi buram.
+        const fileSiap = await customCompress(fileAsli, 35, 400);
 
-                // 2. Transaksi Blockchain
-                loading.innerHTML = '<i class="fa-solid fa-signature"></i> Konfirmasi di Wallet Anda...';
-                const tx = await contract.registerProfile(nick, imgUri, bio, loc);
-                
-                loading.innerHTML = '<i class="fa-solid fa-hammer"></i> Sedang mining di Blockchain...';
-                await tx.wait();
+        // LANGKAH 2: UPLOAD KE PINATA
+        loading.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload ke Pinata...';
+        // Upload file yang SUDAH dikompres
+        const imgUri = await uploadToPinata(fileSiap); 
 
-                // 3. Simpan Sesi Login
-                await saveSession(userAddress); // Fungsi dari main.js
+        // LANGKAH 3: TRANSAKSI BLOCKCHAIN
+        loading.innerHTML = '<i class="fa-solid fa-signature"></i> Konfirmasi di Wallet Anda...';
+        const tx = await contract.registerProfile(nick, imgUri, bio, loc);
+        
+        loading.innerHTML = '<i class="fa-solid fa-hammer"></i> Mining data ke Blockchain...';
+        await tx.wait();
 
-                showToast("Registrasi Berhasil!", "success");
-                setTimeout(() => window.location.href = "home.html", 2000);
+        // LANGKAH 4: SIMPAN SESI & REDIRECT
+        // Pastikan userAddress terdefinisi (biasanya dari signer.getAddress())
+        await saveSession(userAddress); 
 
-            } catch (e) {
-                console.error(e);
-                showToast("Gagal: " + (e.reason || e.message), "error");
-                btn.disabled = false;
-                btn.style.opacity = "1";
-                loading.style.display = "none";
-            }
-        }
+        showToast("Registrasi Berhasil!", "success");
+        setTimeout(() => window.location.href = "home.html", 2000);
+
+    } catch (e) {
+        console.error(e);
+        showToast("Gagal: " + (e.reason || e.message), "error");
+        
+        // Buka Kunci Tombol jika error
+        btn.disabled = false;
+        btn.style.opacity = "1";
+        loading.style.display = "none";
+    }
+}
     </script>
 </body>
 </html>
