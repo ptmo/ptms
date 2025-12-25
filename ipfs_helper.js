@@ -2,8 +2,14 @@
 const PINATA_KEY = "ef370482b9db990f2b36";
 const PINATA_SECRET = "ce1afc8cc8ad991c1140d1f63e5e58fa3d97fa7da9ab882230c5ca7bfe5877ce";
 
-async function compressImage(file, maxSizeKB = 30) { // TARGET 30KB
-    if (file.size <= maxSizeKB * 1024) return file;
+// ALAT 1: FUNGSI KOMPRES (Murni Matematika)
+// Tugas: Terima file -> Kecilkan sesuai request -> Kembalikan file baru
+async function customCompress(file, targetKB, targetDim) {
+    // Cek: Kalau bukan gambar atau sudah kecil dari target, biarkan saja
+    if (!file.type.startsWith('image/') || file.size <= targetKB * 1024) {
+        return file; 
+    }
+
     return new Promise((resolve, reject) => {
         const reader = new FileReader();
         reader.readAsDataURL(file);
@@ -14,16 +20,15 @@ async function compressImage(file, maxSizeKB = 30) { // TARGET 30KB
                 const canvas = document.createElement('canvas');
                 let width = img.width;
                 let height = img.height;
-                // DIMENSI DIPERKECIL AGAR MUAT 30KB
-                // Max lebar/tinggi 600px (Cukup untuk HP)
-                const MAX_DIMENSION = 600; 
-                if (width > MAX_DIMENSION || height > MAX_DIMENSION) {
+
+                // 1. Resize Dimensi
+                if (width > targetDim || height > targetDim) {
                     if (width > height) {
-                        height *= MAX_DIMENSION / width;
-                        width = MAX_DIMENSION;
+                        height *= targetDim / width;
+                        width = targetDim;
                     } else {
-                        width *= MAX_DIMENSION / height;
-                        height = MAX_DIMENSION;
+                        width *= targetDim / height;
+                        height = targetDim;
                     }
                 }
 
@@ -31,43 +36,43 @@ async function compressImage(file, maxSizeKB = 30) { // TARGET 30KB
                 canvas.height = height;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, width, height);
-                // KOMPRESI AGRESIF
-                // Mulai dari kualitas 70% (0.7)
-                let quality = 0.7;
+
+                // 2. Turunkan Kualitas Bertahap
+                let quality = 0.9;
                 const tryCompress = () => {
                     canvas.toBlob((blob) => {
                         if (!blob) return reject("Gagal kompresi");
                         const sizeKB = blob.size / 1024;
-                        // Cek apakah sudah <= 30KB atau kualitas sudah mentok 10%
-                        if (sizeKB <= maxSizeKB || quality <= 0.1) {
-                            console.log(`✅ Kompresi 30KB Sukses: ${(file.size/1024).toFixed(0)}KB -> ${sizeKB.toFixed(2)}KB`);
+                        
+                        if (sizeKB <= targetKB || quality <= 0.1) {
+                            // Berhasil dikompres
                             const newFile = new File([blob], file.name, {
                                 type: 'image/jpeg',
                                 lastModified: Date.now(),
                             });
                             resolve(newFile);
                         } else {
-                            // Turunkan kualitas drastis (kurangi 0.1)
+                            // Masih kegedean, ulangi
                             quality -= 0.1;
                             tryCompress();
                         }
                     }, 'image/jpeg', quality);
                 };
-
                 tryCompress(); 
             };
         };
-        reader.onerror = (error) => reject(error);
+        reader.onerror = (err) => reject(err);
     });
 }
 
-async function uploadToIPFS(file) {
+// ALAT 2: JEMBATAN PINATA (Kurir)
+// Tugas: Terima file APAPUN (Gambar/JSON/Teks) -> Upload -> Balikin CID
+async function uploadToPinata(file) {
+    const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
+    let data = new FormData();
+    data.append('file', file);
+    
     try {
-        // Panggil fungsi kompresi 30KB
-        const compressedFile = await compressImage(file, 30);
-        const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
-        let data = new FormData();
-        data.append('file', compressedFile);
         const res = await axios.post(url, data, {
             headers: {
                 'pinata_api_key': PINATA_KEY,
@@ -75,10 +80,9 @@ async function uploadToIPFS(file) {
                 "Content-Type": "multipart/form-data"
             }
         });
-
         return `ipfs://${res.data.IpfsHash}`;
     } catch (err) {
-        console.error("IPFS Error:", err);
+        console.error(err);
         throw new Error("Gagal upload ke Pinata.");
     }
 }
