@@ -429,18 +429,24 @@
                         ${imgHtml}
 
                         <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                             
                              <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
                                 <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
                                 <span id="count-like-${post.id}">${post.likeCount}</span>
                              </button>
+
                              <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-comment"></i> ${post.commentCount}
+                                <i class="fa-regular fa-comment"></i> 
+                                <span id="count-comment-${post.id}">${post.commentCount}</span>
                              </button>
+
                              <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
                                 <i class="fa-solid fa-gift"></i>
                              </button>
-                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:pointer; color:666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-solid fa-star"></i> ${avgRating}
+
+                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                                <i class="fa-solid fa-star"></i> 
+                                <span id="score-rating-${post.id}">${avgRating}</span>
                              </button>
                         </div>
                     </div>`;
@@ -504,14 +510,37 @@
         function openRating(pid) { document.getElementById("targetPostId").value = pid; document.getElementById("ratingModal").showModal(); selectedRate=0; }
         function setRate(n) { selectedRate=n; showToast(`${n} Bintang`, "info"); }
         async function submitRating() {
-            if(!selectedRate) return;
-            try {
-                document.getElementById("ratingModal").close();
-                const tx = await contract.ratePost(document.getElementById("targetPostId").value - 1, selectedRate);
-                await tx.wait();
-                showToast("Rated!", "success");
-            } catch(e) { showToast("Gagal", "error"); }
-        }
+        if(!selectedRate) return showToast("Pilih bintang dulu!", "error");
+        
+        const postId = document.getElementById("targetPostId").value; // ID Post (misal 1)
+        const index = postId - 1; // Index array (misal 0)
+
+        try {
+            document.getElementById("ratingModal").close();
+            showToast("Mengirim Rating...", "info");
+            
+            const tx = await contract.ratePost(index, selectedRate);
+            await tx.wait();
+            
+            showToast("Rating Berhasil!", "success");
+
+            // --- UPDATE RATING OTOMATIS (BARU) ---
+            // Ambil data terbaru postingan ini dari smart contract
+            const updatedPost = await contract.posts(index);
+            
+            // Hitung rata-rata baru
+            const newAvg = updatedPost.ratingCount > 0 
+                ? (updatedPost.totalRatingScore / updatedPost.ratingCount).toFixed(1) 
+                : "0.0";
+
+            // Update tampilan angka bintang
+            const scoreSpan = document.getElementById(`score-rating-${postId}`);
+            if(scoreSpan) {
+                scoreSpan.innerText = newAvg;
+            }
+
+        } catch (e) { showToast("Gagal Rate: " + e.message, "error"); }
+    }
         
         // --- SCRIPT KOMENTAR ---
         async function openComments(postId) {
@@ -559,18 +588,34 @@
         }
 
         async function submitComment() {
-            const index = document.getElementById("commentPostId").value;
-            const text = document.getElementById("commentInput").value;
-            if(!text) return;
-            try {
-                showToast("Mengirim...", "info");
-                const tx = await contract.addComment(index, text, "");
-                await tx.wait();
-                showToast("Terkirim!", "success");
-                document.getElementById("commentInput").value = "";
-                openComments(parseInt(index) + 1);
-            } catch(e) { showToast("Gagal: " + e.message, "error"); }
-        }
+        const index = document.getElementById("commentPostId").value; // Index array (mulai dari 0)
+        const text = document.getElementById("commentInput").value;
+        if(!text) return;
+        
+        try {
+            showToast("Mengirim...", "info");
+            const tx = await contract.addComment(index, text, "");
+            await tx.wait();
+            
+            showToast("Terkirim!", "success");
+            document.getElementById("commentInput").value = "";
+            
+            // --- UPDATE ANGKA OTOMATIS (BARU) ---
+            // Post ID biasanya index + 1
+            const postId = parseInt(index) + 1; 
+            const countSpan = document.getElementById(`count-comment-${postId}`);
+            
+            if(countSpan) {
+                // Ambil angka lama, tambah 1
+                const currentCount = parseInt(countSpan.innerText);
+                countSpan.innerText = currentCount + 1;
+            }
+            
+            // Reload list komentar di modal
+            openComments(postId);
+            
+        } catch(e) { showToast("Gagal: " + e.message, "error"); }
+    }
 
         // --- TRENDING & REKOMENDASI (Widget Kanan) ---
         async function getTrendingPosts() { /* Kode algoritma trending sama seperti sebelumnya */ }
