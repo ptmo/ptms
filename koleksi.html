@@ -549,6 +549,7 @@ function closeEditMode(commentIndex) {
 
 // Mengirim Perubahan ke Blockchain
 async function submitEditComment(postIndex, commentIndex) {
+    // Ambil ID input yang sesuai dengan index loop
     const newText = document.getElementById(`input-edit-${commentIndex}`).value;
     
     if(!newText.trim()) return showToast("Komentar tidak boleh kosong", "error");
@@ -556,19 +557,20 @@ async function submitEditComment(postIndex, commentIndex) {
     try {
         showToast("Menyimpan perubahan...", "info");
         
-        // PANGGIL FUNGSI SMART CONTRACT (Sesuaikan nama fungsinya)
-        // Asumsi nama fungsinya: editPostComment(uint256 _postId, uint256 _commentId, string _newText)
-        const tx = await contract.editPostComment(postIndex, commentIndex, newText);
+        // --- PERBAIKAN DI SINI (Sesuai nama di kontrak Solidity Anda) ---
+        const tx = await contract.editComment(postIndex, commentIndex, newText);
+        // ---------------------------------------------------------------
         
         await tx.wait();
         showToast("Komentar berhasil diedit!", "success");
         
-        // Reload komentar untuk melihat hasil
+        // Reload komentar
         loadPageComments(postIndex);
         
     } catch(e) {
         console.error(e);
-        showToast("Gagal edit: " + (e.reason || e.message), "error");
+        // Tampilkan pesan error yang lebih jelas
+        showToast("Gagal edit: " + (e.reason || e.message || "Error tidak diketahui"), "error");
     }
 }
 
