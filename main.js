@@ -11,7 +11,6 @@ const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constr
 let provider, signer, userAddress, contract;
 let pendingNftData = null;
 let allLoadedPosts = [];
-let currentFeedMode = 'friends';
 
 // --- WALLET LOGIC ---
 async function initApp() {
@@ -475,72 +474,6 @@ function handleSearch() {
 function clearSearch() {
     document.getElementById("searchInput").value = "";
     handleSearch(); // Reset
-}
-
-// 1. FUNGSI GANTI TAB
-function switchFeed(mode) {
-    currentFeedMode = mode;
-    // Ubah Tampilan Tab Active
-    const tFriends = document.getElementById("tabFriends");
-    const tGlobal = document.getElementById("tabGlobal");
-
-    if(mode === 'global') {
-        tGlobal.style.color = "#8b4513";
-        tGlobal.style.borderBottomColor = "#8b4513";
-        tFriends.style.color = "#999";
-        tFriends.style.borderBottomColor = "transparent";
-    } else {
-        tFriends.style.color = "#8b4513";
-        tFriends.style.borderBottomColor = "#8b4513";
-        tGlobal.style.color = "#999";
-        tGlobal.style.borderBottomColor = "transparent";
-    }
-    // Reload Feed sesuai mode
-    loadFeed();
-}
-
-// 2. FUNGSI LOAD FEED (UPGRADE)
-async function loadFeed() {
-    const container = document.getElementById("feedContainer");
-    // Loading State
-    container.innerHTML = `
-        <div style="text-align: center; padding: 40px; color: #999;">
-            <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>
-            Sedang memuat...
-        </div>`;
-    
-    try {
-        let posts = [];
-        // CEK MODE: Ambil data dari fungsi kontrak yang berbeda
-        if (currentFeedMode === 'friends') {
-            // HANYA YANG DIFOLLOW
-            posts = await contract.getMyFeed();
-        } else {
-            // SEMUA ORANG (GLOBAL)
-            posts = await contract.getAllPosts();
-        }
-
-        // Backup untuk fitur search
-        allLoadedPosts = posts; 
-        container.innerHTML = "";
-        if(posts.length === 0) {
-            const msg = currentFeedMode === 'friends' 
-                ? "Anda belum mengikuti siapapun, atau teman Anda belum memposting wayang." 
-                : "Belum ada postingan di sistem.";
-            container.innerHTML = `<p style='text-align:center; color:#999; margin-top:30px; padding:0 20px;'>${msg}</p>`;
-            return;
-        }
-
-        // Render Loop
-        [...posts].reverse().forEach(post => {
-            container.innerHTML += generatePostCard(post);
-            fetchProfileLazy(post.author);
-        });
-
-    } catch (e) {
-        console.error(e);
-        container.innerHTML = `<p style='text-align:center; color:red;'>Gagal memuat feed (Pastikan wallet terkoneksi).</p>`;
-    }
 }
 
 // --- FUNGSI HELPER FETCH METADATA ---
