@@ -10,115 +10,92 @@
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     
     <style>
-        /* Layout Grid Khusus Halaman Detail */
+        /* --- LAYOUT GRID SIMETRIS --- */
         .collection-wrapper {
             display: grid;
-            grid-template-columns: 1fr 1fr; /* Kiri & Kanan sama lebar */
+            grid-template-columns: 1fr 1fr; /* Membagi layar 50:50 persis */
             gap: 40px;
-            max-width: 1200px;
-            margin: 40px auto;
+            max-width: 1100px;
+            margin: 30px auto;
             padding: 0 20px;
-            align-items: start;
+            align-items: start; /* Pastikan bagian atas sejajar */
         }
 
-        /* Kolom Gambar (Kiri) */
+        /* --- KOLOM KIRI (GAMBAR) --- */
         .art-stage {
-            background: #111; /* Latar gelap agar gambar menonjol */
-            border-radius: 12px;
-            height: 600px; /* Tinggi Tetap agar seimbang dengan kolom info */
+            background: #1a1a1a; /* Abu gelap elegan, bukan hitam mati */
+            border-radius: 15px;
+            overflow: hidden;
             display: flex;
             align-items: center;
             justify-content: center;
-            border: 1px solid #ddd;
-            box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+            /* Trik Simetris: Aspek Rasio Kotak atau Portrait menyesuaikan layar */
+            aspect-ratio: 4/5; 
+            max-height: 600px; 
+            border: 1px solid #333;
+            box-shadow: 0 15px 40px rgba(0,0,0,0.2);
             position: relative;
-            overflow: hidden;
         }
         .art-image {
             width: 100%;
             height: 100%;
-            object-fit: contain; /* Gambar pas di tengah, tidak terpotong */
+            object-fit: contain; /* Gambar utuh, tidak terpotong */
             padding: 10px;
+            transition: transform 0.3s;
         }
+        .art-image:hover { transform: scale(1.02); }
 
-        /* Kolom Data (Kanan) */
+        /* --- KOLOM KANAN (INFO) --- */
         .art-info {
             background: #fff;
             padding: 30px;
-            border-radius: 12px;
+            border-radius: 15px;
             border: 1px solid #eee;
-            box-shadow: 0 5px 20px rgba(0,0,0,0.05);   
-            /* Sticky: Info tetap terlihat saat scroll ke bawah */
+            box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+            /* Sticky: Info tetap terlihat saat scroll gambar panjang */
             position: sticky;
             top: 20px; 
+            height: fit-content;
         }
 
-        .meta-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 15px;
-        }
-        .meta-table td {
-            padding: 8px 0;
-            border-bottom: 1px solid #eee;
-            font-size: 13px;
-        }
-        .meta-key { font-weight: bold; color: #8b4513; width: 40%; }
-        .meta-val { color: #333; text-align: right; }
+        /* TABEL SPESIFIKASI */
+        .meta-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .meta-table td { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .meta-key { font-weight: bold; color: #8b4513; width: 35%; display: flex; align-items: center; gap: 8px; }
+        .meta-val { color: #333; text-align: right; font-weight: 500; }
 
-        /* Style Tombol Interaksi Baru */
-        .interaction-row {
-            display: flex;
-            gap: 10px;
-            margin-top: 20px;
-            border-top: 1px solid #eee;
-            padding-top: 15px;
-        }
+        /* TOMBOL INTERAKSI */
+        .interaction-row { display: flex; gap: 8px; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
         .interact-btn {
-            flex: 1;
-            padding: 10px;
-            border: 1px solid #ddd;
-            background: white;
-            border-radius: 8px;
-            cursor: pointer;
-            color: #555;
-            font-size: 13px;
-            transition: all 0.2s;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
+            flex: 1; padding: 10px 5px; border: 1px solid #ddd; background: white; border-radius: 8px;
+            cursor: pointer; color: #555; font-size: 11px; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
         }
-        .interact-btn:hover {
-            background: #fffaf0;
-            border-color: #d4af37;
-            color: #8b4513;
-        }
-        .interact-btn i { font-size: 16px; }
+        .interact-btn:hover { background: #fffaf0; border-color: #d4af37; color: #8b4513; }
+        .interact-btn i { font-size: 16px; margin-bottom: 2px; }
 
-        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-
-        @media (max-width: 900px) {
-            .collection-wrapper { 
-                grid-template-columns: 1fr; /* Tumpuk ke bawah di HP */
-                gap: 20px;
-            }
-            .art-stage { height: 400px; }
-            .art-info { position: static; }
+        /* RESPONSIVE HP */
+        @media (max-width: 800px) {
+            .collection-wrapper { grid-template-columns: 1fr; gap: 20px; }
+            .art-stage { aspect-ratio: 1/1; max-height: 400px; } /* Jadi kotak di HP */
+            .art-info { position: static; padding: 20px; }
         }
+
+        dialog::backdrop { background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); }
     </style>
 </head>
-<body>
+<body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
 
-    <div style="background:white; padding:15px 20px; border-bottom:1px solid #eee; display:flex; align-items:center; gap:10px;">
-        <a href="home.html" style="text-decoration:none; color:#333; font-weight:bold;">
+    <div style="background:white; padding:15px 20px; border-bottom:1px solid #ddd; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:100;">
+        <a href="home.html" style="text-decoration:none; color:#333; font-weight:bold; font-size:15px;">
             <i class="fa-solid fa-arrow-left"></i> Kembali
         </a>
-        <span style="margin-left:auto; font-weight:bold; color:#d4af37;">PUTRAMAS ARCHIVE</span>
+        <span style="margin-left:auto; font-weight:bold; color:#d4af37; letter-spacing:1px;">PUTRAMAS ARCHIVE</span>
     </div>
 
-    <div id="loadingState" style="text-align:center; padding:50px;">
-        <i class="fa-solid fa-spinner fa-spin fa-2x"></i><br>Mengambil Arsip Blockchain...
+    <div id="loadingState" style="text-align:center; padding:80px 20px; color:#666;">
+        <i class="fa-solid fa-circle-notch fa-spin fa-3x" style="color:#d4af37;"></i><br><br>
+        <span style="font-size:14px;">Membuka Arsip Blockchain...</span>
     </div>
 
     <div id="mainContent" class="collection-wrapper" style="display:none;">
@@ -130,57 +107,58 @@
         <div class="art-info">
             
             <div style="margin-bottom:20px;">
-                <span id="detailBadge" style="background:#d4af37; color:white; padding:3px 8px; border-radius:5px; font-size:10px; font-weight:bold;">ARSIP #ID</span>
-                <h1 id="detailTitle" style="margin:10px 0; color:#333; font-family:serif;">Memuat Judul...</h1>
+                <span id="detailBadge" style="background:#2c3e50; color:white; padding:4px 10px; border-radius:4px; font-size:10px; font-weight:bold; letter-spacing:0.5px;">ARSIP #ID</span>
                 
-                <div style="display:flex; gap:20px; margin-top:15px; background:#f9f9f9; padding:10px; border-radius:8px;">
-                    <div style="display:flex; align-items:center; gap:8px;">
-                        <img id="detailAvatar" src="https://via.placeholder.com/30" style="width:30px; height:30px; border-radius:50%;">
-                        <div>
-                            <div style="font-size:9px; color:#999; text-transform:uppercase;">Arsiparis (Kreator)</div>
-                            <a id="detailAuthorLink" href="#" style="font-weight:bold; color:#8b4513; text-decoration:none; font-size:12px;">0x...</a>
+                <h1 id="detailTitle" style="margin:10px 0; color:#222; font-family:serif; font-size:26px; line-height:1.3;">Memuat Judul...</h1>
+                
+                <div style="display:flex; gap:15px; margin-top:15px; background:#f5f5f5; padding:12px; border-radius:10px; border:1px solid #e0e0e0;">
+                    
+                    <div style="display:flex; align-items:center; gap:10px; flex:1;">
+                        <img id="detailAvatar" src="https://via.placeholder.com/35" style="width:35px; height:35px; border-radius:50%; border:1px solid #ccc;">
+                        <div style="overflow:hidden;">
+                            <div style="font-size:9px; color:#888; text-transform:uppercase; font-weight:bold;">Arsiparis</div>
+                            <a id="detailAuthorLink" href="#" style="font-weight:bold; color:#8b4513; text-decoration:none; font-size:13px; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">...</a>
                         </div>
                     </div>
 
-                    <div id="ownerSection" style="display:none; align-items:center; gap:8px; border-left:1px solid #ddd; padding-left:20px;">
-                        <div style="background:#d4af37; color:white; width:30px; height:30px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
-                            <i class="fa-solid fa-crown" style="font-size:12px;"></i>
+                    <div id="ownerSection" style="display:none; align-items:center; gap:10px; border-left:1px solid #ccc; padding-left:15px; flex:1;">
+                        <div style="background:#d4af37; color:white; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid fa-crown" style="font-size:14px;"></i>
                         </div>
-                        <div>
-                            <div style="font-size:9px; color:#999; text-transform:uppercase;">Pemegang Hak Saat Ini</div>
-                            <span id="detailOwner" style="font-weight:bold; color:#333; font-size:12px;">0x...</span>
+                        <div style="overflow:hidden;">
+                            <div style="font-size:9px; color:#888; text-transform:uppercase; font-weight:bold;">Pemilik Hak</div>
+                            <span id="detailOwner" style="font-weight:bold; color:#333; font-size:13px; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">...</span>
                         </div>
                     </div>
                 </div>
             </div>
 
-            <div style="border-bottom:2px solid #eee; display:flex; gap:20px; margin-bottom:15px;">
+            <div style="border-bottom:2px solid #eee; display:flex; gap:25px; margin-bottom:15px;">
                 <div id="tabBtnMeta" onclick="switchTab('meta')" 
-                     style="border-bottom:2px solid #8b4513; padding-bottom:5px; font-weight:bold; color:#8b4513; cursor:pointer; transition:0.3s;">
-                     Metadata
+                     style="border-bottom:3px solid #8b4513; padding-bottom:8px; font-weight:bold; color:#8b4513; cursor:pointer;">
+                     Spesifikasi
                 </div>
                 <div id="tabBtnHistory" onclick="switchTab('history')" 
-                     style="padding-bottom:5px; color:#999; cursor:pointer; border-bottom:2px solid transparent; transition:0.3s;">
+                     style="padding-bottom:8px; color:#999; cursor:pointer; border-bottom:3px solid transparent;">
                      Riwayat
                 </div>
             </div>
 
             <div id="contentMeta">
-                <p id="detailDesc" style="font-style:italic; color:#555; font-size:13px; line-height:1.5;">-</p>
-                <table class="meta-table" id="metaTable">
-                    </table>
+                <p id="detailDesc" style="font-style:italic; color:#555; font-size:14px; line-height:1.6; background:#fffbf2; padding:15px; border-radius:8px; border-left:3px solid #d4af37;">-</p>
+                <table class="meta-table" id="metaTable"></table>
             </div>
 
             <div id="contentHistory" style="display:none;">
                 <ul id="historyList" style="list-style:none; padding:0; margin:0;">
-                    <li style="display:flex; gap:10px; margin-bottom:15px; align-items:flex-start;">
-                        <div style="background:#d4af37; color:white; width:25px; height:25px; border-radius:50%; text-align:center; line-height:25px; font-size:12px;">
-                            <i class="fa-solid fa-plus"></i>
+                    <li style="display:flex; gap:15px; margin-bottom:15px; align-items:flex-start;">
+                        <div style="background:#27ae60; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-size:14px;">
+                            <i class="fa-solid fa-file-contract"></i>
                         </div>
                         <div>
-                            <div style="font-size:13px; font-weight:bold; color:#333;">Dicetak (Minted)</div>
-                            <div style="font-size:12px; color:#666;">Oleh <span id="histCreator">...</span></div>
-                            <div style="font-size:10px; color:#999;" id="histTime">...</div>
+                            <div style="font-size:13px; font-weight:bold; color:#333;">Arsip Dicetak (Minted)</div>
+                            <div style="font-size:12px; color:#666;">Oleh <span id="histCreator" style="color:#8b4513;">...</span></div>
+                            <div style="font-size:10px; color:#999; margin-top:2px;" id="histTime">...</div>
                         </div>
                     </li>
                 </ul>
@@ -188,236 +166,205 @@
 
             <div class="interaction-row">
                 <button class="interact-btn" onclick="handleLikeDetail()">
-                    <i class="fa-regular fa-heart" id="iconLikeDetail"></i> 
-                    <span id="countLikeDetail">0</span>
+                    <i class="fa-regular fa-heart" id="iconLikeDetail"></i> <span id="countLikeDetail">0</span>
                 </button>
                 <button class="interact-btn" onclick="document.getElementById('commentInputDetail').focus()">
-                    <i class="fa-regular fa-comment"></i> 
-                    <span id="countCommentDetail">0</span>
+                    <i class="fa-regular fa-comment"></i> <span id="countCommentDetail">0</span>
                 </button>
                 <button class="interact-btn" onclick="openSawerModalDetail()">
-                    <i class="fa-solid fa-gift" style="color:#27ae60;"></i> 
-                    <span>Sawer</span>
+                    <i class="fa-solid fa-gift" style="color:#27ae60;"></i> <span>Sawer</span>
                 </button>
                 <button class="interact-btn" onclick="openRatingModalDetail()">
-                    <i class="fa-solid fa-star" style="color:gold;"></i> 
-                    <span id="scoreRatingDetail">0.0</span>
+                    <i class="fa-solid fa-star" style="color:gold;"></i> <span id="scoreRatingDetail">0.0</span>
                 </button>
                 <button class="interact-btn" onclick="shareCollection()">
-                    <i class="fa-solid fa-share-nodes" style="color:#3498db;"></i>
-                    <span>Bagikan</span>
+                    <i class="fa-solid fa-share-nodes" style="color:#3498db;"></i> <span>Share</span>
                 </button>
-                
-                <button id="btnTransfer" class="interact-btn" onclick="openTransferModal()" style="display:none; border-color:#e74c3c; color:#e74c3c;">
-                    <i class="fa-solid fa-paper-plane"></i>
-                    <span>Kirim</span>
+                <button id="btnTransfer" class="interact-btn" onclick="openTransferModal()" style="display:none; border-color:#e74c3c; color:#e74c3c; background:#fff5f5;">
+                    <i class="fa-solid fa-paper-plane"></i> <span>Kirim</span>
                 </button>
             </div>
 
-            <div style="margin-top:15px; display:flex; gap:10px;">
-                <a id="openseaLink" href="#" target="_blank" class="btn-primary" style="flex:1; text-align:center; background:#2081e2; text-decoration:none;">
-                    Lihat di OpenSea
+            <div style="margin-top:20px;">
+                <a id="openseaLink" href="#" target="_blank" class="btn-primary" style="display:block; text-align:center; background:#2081e2; padding:12px; border-radius:8px; color:white; text-decoration:none; font-weight:bold;">
+                    Lihat di OpenSea <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:12px; margin-left:5px;"></i>
                 </a>
             </div>
         </div>
+    </div>
 
-    <div style="max-width: 800px; margin: 20px auto; padding: 20px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05);">
-        <h3>Diskusi Kurator</h3>
+    <div style="max-width: 800px; margin: 0 auto 50px auto; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border:1px solid #eee;">
+        <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:15px; color:#333;">Diskusi Kurator</h3>
         
-        <div style="display:flex; gap:10px; margin-bottom:20px;">
-            <input type="text" id="commentInputDetail" class="cp-input" placeholder="Tulis pendapat Anda tentang wayang ini..." style="flex:1;">
-            <button onclick="submitCommentDetail()" class="btn-primary" style="background:#8b4513;">Kirim</button>
+        <div style="display:flex; gap:10px; margin-bottom:25px;">
+            <input type="text" id="commentInputDetail" class="cp-input" placeholder="Tulis pendapat Anda tentang wayang ini..." style="flex:1; padding:12px; border:1px solid #ddd; border-radius:8px;">
+            <button onclick="submitCommentDetail()" class="btn-primary" style="background:#8b4513; color:white; border:none; padding:0 25px; border-radius:8px; cursor:pointer;">Kirim</button>
         </div>
 
         <div id="pageComments">Memuat komentar...</div>
     </div>
 
-    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:12px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
         <h3 style="margin-top:0; text-align:center; color:#27ae60;">🎁 Sawer Kurator</h3>
-        <p style="text-align:center; font-size:12px; color:#666;">Dukung pelestari budaya dengan ETH.</p>
-        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
-        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH</small>
+        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px; padding:10px; box-sizing:border-box;">
         <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:5px;">Batal</button>
-            <button onclick="submitSawerDetail()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; cursor:pointer; border-radius:5px;">Kirim</button>
+            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; padding:10px; border:1px solid #ccc; background:white; border-radius:5px; cursor:pointer;">Batal</button>
+            <button onclick="submitSawerDetail()" style="flex:1; background:#27ae60; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">Kirim</button>
         </div>
     </dialog>
 
-    <dialog id="ratingModal" style="border:none; border-radius:15px; padding:20px; box-shadow:0 0 50px rgba(0,0,0,0.5);">
-        <h3 style="margin-top:0; text-align:center; color:#d4af37;">Beri Penilaian</h3>
-        <div style="display:flex; gap:10px; font-size:30px; justify-content:center; cursor:pointer; margin:20px 0;">
+    <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
+        <h3 style="margin-top:0; text-align:center; color:#d4af37;">Beri Bintang</h3>
+        <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
             <span onclick="setRate(1)">⭐</span><span onclick="setRate(2)">⭐</span><span onclick="setRate(3)">⭐</span><span onclick="setRate(4)">⭐</span><span onclick="setRate(5)">⭐</span>
         </div>
-        <button onclick="submitRatingDetail()" class="btn-primary" style="width:100%; background:#d4af37;">Kirim Bintang</button>
-        <button onclick="document.getElementById('ratingModal').close()" style="width:100%; background:none; border:none; color:#666; margin-top:10px; cursor:pointer;">Batal</button>
+        <button onclick="submitRatingDetail()" style="width:100%; background:#d4af37; border:none; padding:12px; color:white; border-radius:8px; cursor:pointer; font-weight:bold;">Kirim Penilaian</button>
     </dialog>
 
-    <dialog id="transferModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5); width:90%; max-width:400px;">
-        <h3 style="margin-top:0; text-align:center; color:#e74c3c;"><i class="fa-solid fa-paper-plane"></i> Kirim Wayang</h3>
-        <p style="text-align:center; font-size:12px; color:#666; margin-bottom:15px;">
-            Anda akan memindahkan hak milik arsip wayang ini ke wallet lain secara permanen.
-        </p>
-        
-        <label style="font-size:12px; font-weight:bold;">Alamat Wallet Penerima</label>
-        <input type="text" id="transferTarget" class="cp-input" placeholder="0x..." style="width:100%; margin-bottom:15px;">
-        
+    <dialog id="transferModal" style="border:none; padding:20px; border-radius:12px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
+        <h3 style="margin-top:0; text-align:center; color:#e74c3c;"><i class="fa-solid fa-paper-plane"></i> Kirim NFT</h3>
+        <p style="text-align:center; font-size:12px; color:#666;">Hak milik akan berpindah permanen.</p>
+        <input type="text" id="transferTarget" class="cp-input" placeholder="0x..." style="width:100%; margin-bottom:15px; padding:10px; box-sizing:border-box;">
         <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('transferModal').close()" style="flex:1; padding:10px; cursor:pointer;">Batal</button>
-            <button onclick="submitTransfer()" style="flex:1; background:#e74c3c; color:white; border:none; padding:10px; cursor:pointer;">Kirim Sekarang</button>
+            <button onclick="document.getElementById('transferModal').close()" style="flex:1; padding:10px; border:1px solid #ccc; background:white; border-radius:5px; cursor:pointer;">Batal</button>
+            <button onclick="submitTransfer()" style="flex:1; background:#e74c3c; color:white; border:none; padding:10px; border-radius:5px; cursor:pointer;">Kirim</button>
         </div>
     </dialog>
 
     <div id="toast"></div>
+
     <script src="main.js"></script>
     <script>
         let currentPostId = null; 
         let selectedRate = 0;
 
-        // ABI HARUS SAMA DENGAN MAIN.JS
-        // Pastikan main.js sudah memuat variabel contract, signer, userAddress, dll.
-
         window.onload = async () => {
             await initApp(); 
-            
             const urlParams = new URLSearchParams(window.location.search);
             const idParam = urlParams.get('id');
-
-            if(!idParam) {
-                alert("ID Postingan tidak ditemukan!");
-                window.location.href = "home.html";
-                return;
-            }
-
+            if(!idParam) { alert("ID tidak ditemukan!"); window.location.href="home.html"; return; }
             currentPostId = parseInt(idParam);
             loadCollectionDetail(currentPostId);
         };
 
-        // --- 1. FUNGSI UTAMA LOAD DATA (FULL) ---
+        // --- TEKNIK LOAD CEPAT (PARALLEL FETCHING) ---
         async function loadCollectionDetail(id) {
             try {
-                // Array index blockchain dimulai dari 0, sedangkan ID dari 1
                 const index = id - 1;
                 
-                // A. Ambil Data Postingan
+                // 1. Ambil Data Postingan Dulu (Wajib)
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
 
-                // B. Ambil Profil Pembuat (Author)
-                const profile = await contract.getProfile(post.author);
-                
-                // C. Render Tampilan Dasar (Hilangkan Loading)
+                // 2. Render UI Dasar Langsung (Jangan tunggu data lain)
                 document.getElementById("loadingState").style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
                 
-                // D. Isi Data Header
-                document.getElementById("detailBadge").innerText = isNFT ? `ARSIP NFT #${post.nftId}` : `POSTINGAN #${post.id}`;
-                
-                // Info Pembuat (Kreator)
-                document.getElementById("detailAuthorLink").innerText = profile.nickname || post.author.substring(0,6);
-                document.getElementById("detailAuthorLink").href = `profile.html?addr=${post.author}`;
-                
-                if(profile.fotoProfil) {
-                    // Gunakan Pinata Gateway
-                    document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                }
-
-                // E. Gambar Utama & Caption
+                // Set Gambar dengan PROXY OPTIMIZER (Supaya Cepat)
                 if(post.imageURI) {
-                    const rawImg = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    document.getElementById("detailImg").src = rawImg;
+                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    // Pakai wsrv.nl untuk kompres & cache gambar otomatis
+                    const fastUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=800&q=80&output=webp`;
+                    document.getElementById("detailImg").src = fastUrl;
                 }
+                
                 document.getElementById("detailDesc").innerText = post.caption;
-
-                // F. Update Statistik Interaksi
+                document.getElementById("detailBadge").innerText = isNFT ? `ARSIP NFT #${post.nftId}` : `POSTINGAN #${post.id}`;
+                document.getElementById("histTime").innerText = new Date(post.timestamp * 1000).toLocaleString();
+                
+                // Update Angka Statistik
                 document.getElementById("countLikeDetail").innerText = post.likeCount;
                 document.getElementById("countCommentDetail").innerText = post.commentCount;
-                const avg = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
-                document.getElementById("scoreRatingDetail").innerText = avg;
+                document.getElementById("scoreRatingDetail").innerText = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : "0.0";
 
-                // --- BAGIAN BARU: CEK PEMILIK (OWNER) & TOMBOL TRANSFER ---
-                if (isNFT) {
-                    try {
-                        // Cek siapa pemilik token NFT ini sekarang
-                        const ownerAddr = await contract.ownerOf(post.nftId);
-                        
-                        // Tampilkan Section Pemilik
-                        document.getElementById("ownerSection").style.display = "flex";
-                        document.getElementById("detailOwner").innerText = ownerAddr.substring(0,6) + "..." + ownerAddr.substring(38);
-                        
-                        // LOGIKA PENTING: Jika yang login == Pemilik, Munculkan Tombol Kirim
-                        if (userAddress && ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
-                            document.getElementById("btnTransfer").style.display = "flex";
-                        } else {
-                            document.getElementById("btnTransfer").style.display = "none";
-                        }
-                    } catch(err) {
-                        console.log("Gagal cek owner (mungkin belum minted):", err);
-                    }
-                }
-
-                // G. Fetch Metadata JSON (Untuk Tabel Spesifikasi)
-                if (post.tokenURI && post.tokenURI.length > 5) {
-                    const metaUrl = post.tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                // 3. JALANKAN FETCH SISA DATA SECARA PARALEL (Background)
+                // Ini kunci kecepatan: Profile, Owner, dan Metadata diambil bersamaan
+                Promise.all([
+                    contract.getProfile(post.author),
+                    (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
+                    fetchMetadata(post.tokenURI)
+                ]).then(([profile, ownerAddr, meta]) => {
                     
-                    try {
-                        const res = await fetch(metaUrl);
-                        const meta = await res.json();
+                    // A. Update Profil
+                    document.getElementById("detailAuthorLink").innerText = profile.nickname || post.author.substring(0,6);
+                    document.getElementById("detailAuthorLink").href = `profile.html?addr=${post.author}`;
+                    document.getElementById("histCreator").innerText = profile.nickname || post.author.substring(0,6);
+                    if(profile.fotoProfil) {
+                        document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    }
+
+                    // B. Update Owner (Jika NFT)
+                    if(ownerAddr) {
+                        document.getElementById("ownerSection").style.display = "flex";
+                        document.getElementById("detailOwner").innerText = ownerAddr.substring(0,6)+"..."+ownerAddr.substring(38);
                         
-                        // Update Judul
-                        document.getElementById("detailTitle").innerText = meta.name;
-                        
-                        // Render Tabel Atribut
-                        const table = document.getElementById("metaTable");
-                        let rows = "";
-                        if(meta.attributes) {
-                            meta.attributes.forEach(attr => {
-                                if(attr.value && attr.value !== "-") {
-                                    rows += `
-                                    <tr>
-                                        <td class="meta-key">${attr.trait_type}</td>
-                                        <td class="meta-val">${attr.value}</td>
-                                    </tr>`;
-                                }
-                            });
+                        // Tombol Transfer (Hanya untuk pemilik)
+                        if(userAddress && ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
+                            document.getElementById("btnTransfer").style.display = "flex";
                         }
-                        table.innerHTML = rows;
+                    }
 
-                    } catch(e) { console.log("Gagal load metadata json", e); }
-                } else {
-                    document.getElementById("detailTitle").innerText = "Arsip Tanpa Judul";
-                }
+                    // C. Update Metadata (Judul & Tabel)
+                    if(meta) {
+                        document.getElementById("detailTitle").innerText = meta.name || "Tanpa Judul";
+                        renderMetaTable(meta.attributes);
+                    } else {
+                        document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
+                    }
 
-                // H. Isi Tab Riwayat (History)
-                // Kita isi data simplenya: Dibuat oleh Siapa & Kapan
-                if(document.getElementById("histCreator")) {
-                     document.getElementById("histCreator").innerText = profile.nickname || post.author.substring(0,6);
-                     document.getElementById("histTime").innerText = new Date(post.timestamp * 1000).toLocaleString();
-                }
+                }).catch(err => console.log("Background data error:", err));
 
-                // I. Link OpenSea
+                // 4. Load Komentar (Terpisah agar tidak memblokir)
+                loadPageComments(index);
+                
+                // Link Opensea
                 const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
                 document.getElementById("openseaLink").href = osUrl;
                 if(!isNFT) document.getElementById("openseaLink").style.display = "none";
 
-                // J. Load Komentar
-                loadPageComments(index);
-
             } catch (e) {
                 console.error(e);
-                document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data. Pastikan ID benar.</p>";
+                document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data.</p>";
             }
         }
 
-        // --- 2. LOGIKA TAB (METADATA vs RIWAYAT) ---
+        // --- HELPER FETCH METADATA ---
+        async function fetchMetadata(tokenURI) {
+            if(!tokenURI || tokenURI.length < 5) return null;
+            try {
+                const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const res = await fetch(url);
+                return await res.json();
+            } catch(e) { return null; }
+        }
+
+        // --- RENDER TABEL ---
+        function renderMetaTable(attributes) {
+            if(!attributes) return;
+            const table = document.getElementById("metaTable");
+            let rows = "";
+            attributes.forEach(attr => {
+                if(attr.value && attr.value !== "-") {
+                    let icon = "fa-tag";
+                    if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
+                    if(attr.trait_type.includes("Golongan")) icon = "fa-users";
+                    if(attr.trait_type.includes("Bahan")) icon = "fa-layer-group";
+                    rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#d4af37;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
+                }
+            });
+            table.innerHTML = rows;
+        }
+
+        // --- LOGIKA TAB ---
         function switchTab(mode) {
             const btnMeta = document.getElementById("tabBtnMeta");
-            const btnHist = document.getElementById("tabBtnHistory");
+            const btnHistory = document.getElementById("tabBtnHistory");
             const divMeta = document.getElementById("contentMeta");
             const divHist = document.getElementById("contentHistory");
 
             if(mode === 'meta') {
                 btnMeta.style.borderBottomColor = "#8b4513"; btnMeta.style.color = "#8b4513";
-                btnHist.style.borderBottomColor = "transparent"; btnHist.style.color = "#999";
+                btnHistory.style.borderBottomColor = "transparent"; btnHistory.style.color = "#999";
                 divMeta.style.display = "block"; divHist.style.display = "none";
             } else {
                 btnHist.style.borderBottomColor = "#8b4513"; btnHist.style.color = "#8b4513";
@@ -426,74 +373,7 @@
             }
         }
 
-        // --- 3. LOGIKA TRANSFER (KIRIM WAYANG) ---
-        function openTransferModal() {
-            document.getElementById("transferModal").showModal();
-        }
-
-        async function submitTransfer() {
-            const target = document.getElementById("transferTarget").value;
-            if(!ethers.utils.isAddress(target)) return showToast("Alamat wallet tidak valid!", "error");
-            if(!currentPostId) return;
-
-            try {
-                const index = currentPostId - 1;
-                const post = await contract.posts(index);
-                
-                if(post.nftId == 0) return showToast("Ini bukan NFT!", "error");
-
-                document.getElementById("transferModal").close();
-                showToast("Memproses Transfer NFT...", "info");
-
-                // Panggil Contract: transferFrom(dari, ke, tokenId)
-                const tx = await contract.transferFrom(userAddress, target, post.nftId);
-                await tx.wait();
-
-                showToast("Sukses! Hak milik berpindah.", "success");
-                setTimeout(() => location.reload(), 2000);
-            } catch(e) {
-                showToast("Gagal: " + (e.reason || e.message), "error");
-            }
-        }
-
-        // --- 4. LOGIKA KOMENTAR ---
-        async function loadPageComments(index) {
-            const container = document.getElementById("pageComments");
-            try {
-                const comments = await contract.getComments(index);
-                if(comments.length === 0) {
-                    container.innerHTML = "<p style='color:#999; text-align:center;'>Belum ada diskusi.</p>";
-                    return;
-                }
-                container.innerHTML = "";
-                for(const c of comments) {
-                    let nick = c.commenter.substring(0,6) + "...";
-                    let avt = "https://via.placeholder.com/30";
-                    try {
-                        const p = await contract.getProfile(c.commenter);
-                        if(p.nickname) nick = p.nickname;
-                        if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    } catch(e){}
-
-                    const html = `
-                    <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
-                        <a href="profile.html?addr=${c.commenter}">
-                            <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;">
-                        </a>
-                        <div style="flex:1;">
-                            <div style="margin-bottom:5px;">
-                                <a href="profile.html?addr=${c.commenter}" style="font-weight:bold; font-size:13px; color:#8b4513; text-decoration:none;">${nick}</a>
-                            </div>
-                            <div style="font-size:14px; color:#333; line-height:1.4;">${c.text}</div>
-                            <div style="font-size:11px; color:#999; margin-top:5px;">${new Date(c.timestamp*1000).toLocaleString()}</div>
-                        </div>
-                    </div>`;
-                    container.innerHTML += html;
-                }
-            } catch(e) { container.innerHTML = "Gagal memuat komentar."; }
-        }
-
-        // --- 5. INTERAKSI LAIN (Like, Sawer, Rate, Share) ---
+        // --- INTERAKSI (Like, Komen, Sawer, Transfer) ---
         async function handleLikeDetail() {
             if(!currentPostId) return;
             const btnCount = document.getElementById("countLikeDetail");
@@ -502,7 +382,6 @@
                 btnCount.innerText = parseInt(btnCount.innerText) + 1;
                 btnIcon.classList.replace("fa-regular", "fa-solid");
                 btnIcon.style.color = "#e74c3c";
-                
                 const tx = await contract.likePost(currentPostId - 1);
                 await tx.wait();
             } catch (e) { btnCount.innerText = parseInt(btnCount.innerText) - 1; } 
@@ -519,6 +398,34 @@
                 document.getElementById("commentInputDetail").value = "";
                 loadPageComments(currentPostId - 1);
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        async function loadPageComments(index) {
+            const container = document.getElementById("pageComments");
+            try {
+                const comments = await contract.getComments(index);
+                if(comments.length === 0) { container.innerHTML = "<p style='color:#999; text-align:center;'>Belum ada diskusi.</p>"; return; }
+                container.innerHTML = "";
+                for(const c of comments) {
+                    let nick = c.commenter.substring(0,6)+"...";
+                    let avt = "https://via.placeholder.com/30";
+                    // Lazy load user comment
+                    contract.getProfile(c.commenter).then(p => {
+                       if(p.nickname) document.getElementById(`cm-nick-${c.timestamp}`).innerText = p.nickname;
+                       if(p.fotoProfil) document.getElementById(`cm-avt-${c.timestamp}`).src = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    });
+
+                    container.innerHTML += `
+                    <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
+                        <a href="profile.html?addr=${c.commenter}"><img id="cm-avt-${c.timestamp}" src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;"></a>
+                        <div style="flex:1;">
+                            <div style="margin-bottom:5px;"><a href="profile.html?addr=${c.commenter}" id="cm-nick-${c.timestamp}" style="font-weight:bold; font-size:13px; color:#8b4513; text-decoration:none;">${nick}</a></div>
+                            <div style="font-size:14px; color:#333; line-height:1.4;">${c.text}</div>
+                            <div style="font-size:11px; color:#999; margin-top:5px;">${new Date(c.timestamp*1000).toLocaleString()}</div>
+                        </div>
+                    </div>`;
+                }
+            } catch(e) {}
         }
 
         function openSawerModalDetail() { document.getElementById("sawerModal").showModal(); }
@@ -545,21 +452,26 @@
             } catch(e) { showToast("Gagal", "error"); }
         }
 
-        async function shareCollection() {
-            const title = document.getElementById("detailTitle").innerText;
-            const shareData = {
-                title: `Arsip Putramas: ${title}`,
-                text: `Lihat koleksi wayang "${title}" ini di Putramas Museum Digital!`,
-                url: window.location.href 
-            };
+        function openTransferModal() { document.getElementById("transferModal").showModal(); }
+        async function submitTransfer() {
+            const target = document.getElementById("transferTarget").value;
+            if(!target) return;
             try {
-                if (navigator.share) { await navigator.share(shareData); } 
-                else { 
-                    await navigator.clipboard.writeText(shareData.url); 
-                    showToast("Link disalin!", "success"); 
-                }
-            } catch (err) {}
+                document.getElementById("transferModal").close();
+                showToast("Memproses Transfer...", "info");
+                const index = currentPostId - 1;
+                const post = await contract.posts(index);
+                const tx = await contract.transferFrom(userAddress, target, post.nftId);
+                await tx.wait();
+                showToast("NFT Berhasil Dikirim!", "success");
+                setTimeout(() => location.reload(), 2000);
+            } catch(e) { showToast("Gagal Transfer", "error"); }
         }
-                                                        </script>
+
+        function shareCollection() {
+            const url = window.location.href;
+            navigator.clipboard.writeText(url).then(() => showToast("Link disalin!", "success"));
+        }
+    </script>
 </body>
-</html>
+                            </html>
