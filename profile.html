@@ -589,42 +589,59 @@
     }
 
     async function openComments(postId) {
-        const index = postId - 1; 
-        document.getElementById("commentPostId").value = index;
-        document.getElementById("commentInput").value = "";
-        document.getElementById("commentModal").showModal();
-        document.getElementById("commentList").innerHTML = "<p style='text-align:center;'>Memuat...</p>";
-
-        try {
-            const comments = await contract.getComments(index);
+            const index = postId - 1; 
+            const modal = document.getElementById("commentModal");
             const list = document.getElementById("commentList");
-            list.innerHTML = "";
-            if(comments.length === 0) { list.innerHTML = "<p style='text-align:center; color:#999;'>Belum ada komentar.</p>"; return; }
+            document.getElementById("commentPostId").value = index;
+            document.getElementById("commentInput").value = "";
+            modal.showModal();
+            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
-            for (const c of comments) {
-                let nick = c.commenter.substring(0,6) + "...";
-                let avt = "https://via.placeholder.com/30";
-                if (commentProfileCache[c.commenter]) {
-                    nick = commentProfileCache[c.commenter].nick;
-                    avt = commentProfileCache[c.commenter].avt;
-                } else {
-                    try { 
-                        const p = await contract.getProfile(c.commenter);
-                        if(p.nickname) nick = p.nickname;
-                        if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                        commentProfileCache[c.commenter] = { nick, avt };
-                    } catch(e){}
+            try {
+                const comments = await contract.getComments(index);
+                list.innerHTML = "";
+                if(comments.length === 0) { 
+                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
+                    return; 
                 }
-                list.innerHTML += `
-                <div class="comment-item">
-                    <img src="${avt}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;">
-                    <div style="flex:1;">
-                        <div style="font-weight:bold; font-size:12px;">${nick}</div>
-                        <div style="font-size:13px;">${c.text}</div>
-                    </div>
-                </div>`;
-            }
-        } catch(e) { console.error(e); }
+                for (const c of comments) {
+                    let nick = c.commenter.substring(0,6) + "..."; 
+                    let avt = "https://via.placeholder.com/30";   
+                    if (commentProfileCache[c.commenter]) {
+                        nick = commentProfileCache[c.commenter].nick;
+                        avt = commentProfileCache[c.commenter].avt;
+                    } else {
+                        try { 
+                            const p = await contract.getProfile(c.commenter);
+                            if(p.nickname) nick = p.nickname;
+                            if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                            commentProfileCache[c.commenter] = { nick, avt };
+                        } catch(e){}
+                    }
+                    // Buat Link Profil
+                const profileUrl = `profile.html?addr=${c.commenter}`;
+
+                const html = `
+                    <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
+                        
+                        <a href="${profileUrl}" style="text-decoration:none;">
+                            <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                        </a>
+
+                        <div style="flex:1;">
+                            <div style="font-weight:bold; font-size:13px;">
+                                <a href="${profileUrl}" style="text-decoration:none; color:#2c3e50;">
+                                    ${nick}
+                                </a>
+                            </div>
+                            <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
+                            <div style="font-size:13px; color:#333;">${c.text}</div>
+                        </div>
+                    </div>`;
+                    
+                    list.innerHTML += html;
+                }
+            } catch(e) { console.error(e); }
     }
 
     async function submitComment() {
