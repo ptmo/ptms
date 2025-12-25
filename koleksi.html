@@ -247,64 +247,56 @@
             loadCollectionDetail(currentPostId);
         };
 
-        // --- TEKNIK LOAD CEPAT (PARALLEL FETCHING) ---
+        // --- FUNGSI LOAD DATA UTAMA ---
         async function loadCollectionDetail(id) {
             try {
                 const index = id - 1;
-                
-                // 1. Ambil Data Postingan Dulu (Wajib)
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
 
-                // 2. Render UI Dasar Langsung (Jangan tunggu data lain)
+                // Tampilkan Kontainer Utama
                 document.getElementById("loadingState").style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
                 
-                // Set Gambar dengan PROXY OPTIMIZER (Supaya Cepat)
+                // Gambar (Pakai Proxy biar cepat)
                 if(post.imageURI) {
                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    // Pakai wsrv.nl untuk kompres & cache gambar otomatis
                     const fastUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=800&q=80&output=webp`;
                     document.getElementById("detailImg").src = fastUrl;
                 }
                 
                 document.getElementById("detailDesc").innerText = post.caption;
                 document.getElementById("detailBadge").innerText = isNFT ? `ARSIP NFT #${post.nftId}` : `POSTINGAN #${post.id}`;
-                document.getElementById("histTime").innerText = new Date(post.timestamp * 1000).toLocaleString();
                 
-                // Update Angka Statistik
+                // Update Statistik
                 document.getElementById("countLikeDetail").innerText = post.likeCount;
                 document.getElementById("countCommentDetail").innerText = post.commentCount;
                 document.getElementById("scoreRatingDetail").innerText = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : "0.0";
 
-                // 3. JALANKAN FETCH SISA DATA SECARA PARALEL (Background)
-                // Ini kunci kecepatan: Profile, Owner, dan Metadata diambil bersamaan
+                // FETCH DATA LAIN (Parallel)
                 Promise.all([
                     contract.getProfile(post.author),
                     (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
                     fetchMetadata(post.tokenURI)
                 ]).then(([profile, ownerAddr, meta]) => {
                     
-                    // A. Update Profil
+                    // 1. Profil
                     document.getElementById("detailAuthorLink").innerText = profile.nickname || post.author.substring(0,6);
                     document.getElementById("detailAuthorLink").href = `profile.html?addr=${post.author}`;
-                    document.getElementById("histCreator").innerText = profile.nickname || post.author.substring(0,6);
                     if(profile.fotoProfil) {
                         document.getElementById("detailAvatar").src = profile.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     }
 
-                    // B. Update Owner (Jika NFT)
+                    // 2. Owner & Transfer
                     if(ownerAddr) {
                         document.getElementById("ownerSection").style.display = "flex";
                         document.getElementById("detailOwner").innerText = ownerAddr.substring(0,6)+"..."+ownerAddr.substring(38);
-                        
-                        // Tombol Transfer (Hanya untuk pemilik)
                         if(userAddress && ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
                             document.getElementById("btnTransfer").style.display = "flex";
                         }
                     }
 
-                    // C. Update Metadata (Judul & Tabel)
+                    // 3. Metadata Tabel
                     if(meta) {
                         document.getElementById("detailTitle").innerText = meta.name || "Tanpa Judul";
                         renderMetaTable(meta.attributes);
@@ -312,12 +304,17 @@
                         document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
                     }
 
-                }).catch(err => console.log("Background data error:", err));
+                    // 4. Isi Data Tab Riwayat
+                    // Kita isi manual di sini agar saat diklik tab-nya datanya sudah ada
+                    const dateStr = new Date(post.timestamp * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
+                    document.getElementById("histCreator").innerText = profile.nickname || post.author.substring(0,6);
+                    document.getElementById("histTime").innerText = dateStr;
 
-                // 4. Load Komentar (Terpisah agar tidak memblokir)
+                }).catch(console.error);
+
                 loadPageComments(index);
                 
-                // Link Opensea
+                // OpenSea Link
                 const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
                 document.getElementById("openseaLink").href = osUrl;
                 if(!isNFT) document.getElementById("openseaLink").style.display = "none";
@@ -328,7 +325,57 @@
             }
         }
 
-        // --- HELPER FETCH METADATA ---
+        // --- FUNGSI GANTI TAB (DIPERBAIKI) ---
+        function switchTab(mode) {
+            // Ambil Elemen
+            const btnMeta = document.getElementById("tabBtnMeta");
+            const btnHist = document.getElementById("tabBtnHistory");
+            const divMeta = document.getElementById("contentMeta");
+            const divHist = document.getElementById("contentHistory");
+
+            // Style Aktif & Non-Aktif
+            const activeStyle = "border-bottom:3px solid #8b4513; color:#8b4513; padding-bottom:8px; font-weight:bold; cursor:pointer;";
+            const inactiveStyle = "border-bottom:3px solid transparent; color:#999; padding-bottom:8px; cursor:pointer;";
+
+            if(mode === 'meta') {
+                // Aktifkan Metadata
+                btnMeta.style.cssText = activeStyle;
+                btnHist.style.cssText = inactiveStyle;
+                divMeta.style.display = "block";
+                divHist.style.display = "none";
+            } else {
+                // Aktifkan Riwayat
+                btnHist.style.cssText = activeStyle;
+                btnMeta.style.cssText = inactiveStyle;
+                divHist.style.display = "block";
+                divMeta.style.display = "none";
+            }
+        }
+
+        // --- FUNGSI SHARE MODERN (WEB SHARE API) ---
+        async function shareCollection() {
+            const title = document.getElementById("detailTitle").innerText;
+            const shareData = {
+                title: `Arsip Putramas: ${title}`,
+                text: `Lihat koleksi wayang "${title}" ini di Putramas Museum Digital!`,
+                url: window.location.href 
+            };
+
+            try {
+                // Cek apakah browser mendukung fitur Share Native (HP Android/iOS biasanya support)
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    // Fallback untuk browser PC yang tidak support
+                    await navigator.clipboard.writeText(shareData.url);
+                    showToast("Link berhasil disalin ke clipboard!", "success");
+                }
+            } catch (err) {
+                console.log("Share dibatalkan user");
+            }
+        }
+
+        // --- HELPER LAINNYA ---
         async function fetchMetadata(tokenURI) {
             if(!tokenURI || tokenURI.length < 5) return null;
             try {
@@ -338,7 +385,6 @@
             } catch(e) { return null; }
         }
 
-        // --- RENDER TABEL ---
         function renderMetaTable(attributes) {
             if(!attributes) return;
             const table = document.getElementById("metaTable");
@@ -348,32 +394,13 @@
                     let icon = "fa-tag";
                     if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
                     if(attr.trait_type.includes("Golongan")) icon = "fa-users";
-                    if(attr.trait_type.includes("Bahan")) icon = "fa-layer-group";
                     rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#d4af37;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
                 }
             });
             table.innerHTML = rows;
         }
 
-        // --- LOGIKA TAB ---
-        function switchTab(mode) {
-            const btnMeta = document.getElementById("tabBtnMeta");
-            const btnHistory = document.getElementById("tabBtnHistory");
-            const divMeta = document.getElementById("contentMeta");
-            const divHist = document.getElementById("contentHistory");
-
-            if(mode === 'meta') {
-                btnMeta.style.borderBottomColor = "#8b4513"; btnMeta.style.color = "#8b4513";
-                btnHistory.style.borderBottomColor = "transparent"; btnHistory.style.color = "#999";
-                divMeta.style.display = "block"; divHist.style.display = "none";
-            } else {
-                btnHist.style.borderBottomColor = "#8b4513"; btnHist.style.color = "#8b4513";
-                btnMeta.style.borderBottomColor = "transparent"; btnMeta.style.color = "#999";
-                divHist.style.display = "block"; divMeta.style.display = "none";
-            }
-        }
-
-        // --- INTERAKSI (Like, Komen, Sawer, Transfer) ---
+        // --- INTERAKSI (Like, Komen, dll) ---
         async function handleLikeDetail() {
             if(!currentPostId) return;
             const btnCount = document.getElementById("countLikeDetail");
@@ -409,12 +436,10 @@
                 for(const c of comments) {
                     let nick = c.commenter.substring(0,6)+"...";
                     let avt = "https://via.placeholder.com/30";
-                    // Lazy load user comment
                     contract.getProfile(c.commenter).then(p => {
                        if(p.nickname) document.getElementById(`cm-nick-${c.timestamp}`).innerText = p.nickname;
                        if(p.fotoProfil) document.getElementById(`cm-avt-${c.timestamp}`).src = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     });
-
                     container.innerHTML += `
                     <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
                         <a href="profile.html?addr=${c.commenter}"><img id="cm-avt-${c.timestamp}" src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;"></a>
@@ -467,11 +492,6 @@
                 setTimeout(() => location.reload(), 2000);
             } catch(e) { showToast("Gagal Transfer", "error"); }
         }
-
-        function shareCollection() {
-            const url = window.location.href;
-            navigator.clipboard.writeText(url).then(() => showToast("Link disalin!", "success"));
-        }
-    </script>
+</script>
 </body>
 </html>
