@@ -79,22 +79,31 @@
     /* Status Deep Search (Di Bawah Input, Rata Kanan) */
     .status-bar-fixed {
         display: flex;
-        align-items: center;
+        align-items: center;       /* Pastikan vertikal tengah */
         justify-content: flex-end; /* Rata Kanan */
         padding: 5px 5px 0 0;
         font-size: 11px;
         color: #7385a5;
         font-weight: 500;
+        white-space: nowrap;       /* KUNCI: Mencegah teks turun baris */
     }
     
+    .status-bar-fixed span {
+        display: inline-flex;      /* Pastikan anak elemen juga sejajar */
+        align-items: center;
+        gap: 4px;                  /* Jarak antar teks */
+    }
+
     .status-bar-fixed span, .status-bar-fixed b, .status-bar-fixed i {
         color: #7385a5 !important;
     }
 
+    /* Loader Spin */
     .spin-loader {
         animation: spin 1.5s linear infinite;
         margin-right: 6px;
         min-width: 14px;
+        display: block; /* Default muncul */
     }
 
     /* RESPONSIVE PC: Hilangkan tombol back & geser ikon */
@@ -430,6 +439,36 @@
         async function unfollow(target) {
             try { showToast("Memproses...", "info"); const tx = await contract.unfollowUser(target); await tx.wait(); showToast("Berhasil!", "success"); } catch(e) { showToast("Gagal", "error"); }
         }
-    </script>
+
+    // --- SKRIP PERBAIKAN LOADER (VERSI HILANG SETELAH SELESAI) ---
+    document.addEventListener("DOMContentLoaded", function() {
+        
+        const targetNode = document.getElementById('usersResultContainer');
+        const loaderIcon = document.querySelector('.spin-loader'); // Selector diperbaiki sesuai class baru
+        
+        // Fungsi mematikan loader
+        function stopLoader() {
+            if (loaderIcon) {
+                // HILANGKAN loader sepenuhnya
+                loaderIcon.style.display = 'none'; 
+            }
+        }
+
+        // PEMANTAU HASIL
+        if (targetNode) {
+            const observer = new MutationObserver(function(mutations) {
+                // Cek apakah ada kartu hasil atau teks 'Menunggu' hilang
+                const hasResults = targetNode.innerHTML.indexOf('user-result-card') !== -1;
+                const isNotWaiting = targetNode.innerText.indexOf('Menunggu Koneksi') === -1 && targetNode.innerText.trim() !== "";
+
+                if (hasResults || isNotWaiting) {
+                    stopLoader();
+                }
+            });
+            
+            observer.observe(targetNode, { childList: true, subtree: true });
+        }
+    });
+</script>
 </body>
 </html>
