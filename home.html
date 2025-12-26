@@ -287,16 +287,24 @@
         
         // ABI BARU (PASTE ABI LENGKAP DARI REMIX DI SINI ATAU DI MAIN.JS)
 
-        // --- 1. WINDOW ONLOAD ---
-        window.onload = async () => {
+        // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
+            // User langsung melihat konten dalam < 0.5 detik
+            loadFeedFromCacheOnly(); 
+
+            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
             await initApp(); 
+            
             if(userAddress) {
                 document.getElementById("walletDisplay").innerText = userAddress;
-                loadMyProfile();
-                loadFeed();
+                loadMyProfile(); // Load profil header
+                
+                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
+                loadFeedLive(); 
                 renderWidgets();
             }
-        };
+        });
 
         // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
         async function loadMyProfile() {
@@ -363,55 +371,59 @@
             } catch(e) { showToast("Gagal: " + e.message, "error"); }
         }
 
-        // --- LOAD AWAL ---
-        window.onload = async () => {
-            await initApp(); 
-            if(userAddress) {
-                // Pastikan ABI dan Contract Address sudah benar di main.js
-                // Render elemen UI
-                document.getElementById("walletDisplay").innerText = userAddress;
-                loadMyProfile();
-                loadFeed();
-                renderWidgets();
-            }
-        };
-
         // --- FUNGSI LOAD PROFILE HEADER ---
-        async function loadMyProfile() {
+         async function loadMyProfile() {
             try {
                 const p = await contract.getProfile(userAddress);
                 if(p.fotoProfil) {
                     const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    document.getElementById("myAvatar").src = cleanUrl;
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
                 }
             } catch(e) {}
         }
-        
-        // --- 4. FUNGSI LOAD FEED (DENGAN LOCALSTORAGE) ---
-        async function loadFeed() {
+
+        async function fetchProfileLazy(address) {
+            if(profileCache[address]) {
+                updatePostAuthorUI(address, profileCache[address]);
+                return;
+            }
             try {
-                const container = document.getElementById("feedContainer");
-                const cacheKey = `feed_cache_${currentFeedType}`; // Kunci unik (friends/global)
-
-                // 1. STRATEGI CEPAT: TAMPILKAN DATA CACHE DULU (JIKA ADA)
-                const cachedData = localStorage.getItem(cacheKey);
-                if (cachedData) {
-                    try {
-                        const parsedCache = JSON.parse(cachedData);
-                        // Cek kadaluarsa (misal valid 24 jam, atau biarkan selalu tampil)
-                        // Disini kita langsung tampilkan saja supaya instan
-                        if (parsedCache.length > 0) {
-                            console.log("🚀 Menampilkan dari Cache LocalStorage");
-                            renderPostLoop(parsedCache, container, true); // true = mode cache (tanpa loading spinner)
-                        }
-                    } catch (err) {
-                        console.error("Cache Error:", err);
-                        localStorage.removeItem(cacheKey); // Hapus jika korup
-                    }
+                const p = await contract.getProfile(address);
+                let avatarUrl = 'https://via.placeholder.com/40';
+                if (p.fotoProfil) {
+                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
                 }
+                const data = { nickname: p.nickname, avatar: avatarUrl };
+                profileCache[address] = data;
+                updatePostAuthorUI(address, data);
+            } catch (e) {}
+        }
+        
+        // --- 2. FUNGSI KHUSUS BACA CACHE (Sangat Ringan) ---
+        function loadFeedFromCacheOnly() {
+            const cacheKey = `feed_cache_${currentFeedType}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            
+            if (cachedData) {
+                console.log("⚡ Tampil Instan dari Cache");
+                try {
+                    const parsed = JSON.parse(cachedData);
+                    if(parsed.length > 0) {
+                        const container = document.getElementById("feedContainer");
+                        container.innerHTML = ""; // Bersihkan loading spinner
+                        renderPostLoop(parsed, container, true); // true = mode cache
+                    }
+                } catch(e) { console.error("Cache rusak", e); }
+            }
+        }
 
-                // 2. STRATEGI UPDATE: AMBIL DATA BARU DARI BLOCKCHAIN (BACKGROUND)
-                // Kita tetap jalankan ini meskipun cache sudah tampil, untuk update data terbaru
+        // --- 3. FUNGSI KHUSUS LIVE DATA (Blockchain) ---
+        async function loadFeedLive() {
+            try {
+                // Jangan hapus konten lama dulu (biar user gak liat layar kedip putih)
+                // Kita load data di memori dulu
                 let posts;
                 if(currentFeedType === 'friends') {
                     posts = await contract.getMyFeed();
@@ -419,20 +431,21 @@
                     posts = await contract.getAllPosts();
                 }
 
-                // Jika data blockchain kosong
+                const container = document.getElementById("feedContainer");
+
                 if(posts.length === 0) {
-                    // Kalau cache juga kosong, tampilkan pesan kosong
-                    if (!cachedData) {
-                        const msg = currentFeedType === 'friends' 
-                            ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
+                    // Cek lagi cache, kalau cache juga kosong baru tampilkan pesan kosong
+                    const cacheKey = `feed_cache_${currentFeedType}`;
+                    if(!localStorage.getItem(cacheKey)) {
+                         const msg = currentFeedType === 'friends' 
+                            ? "Belum ada postingan dari teman."
                             : "Belum ada postingan di platform.";
-                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
+                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>${msg}</p>`;
                     }
                     return;
                 }
 
-                // 3. SIMPAN DATA BARU KE LOCALSTORAGE (SERIALISASI)
-                // Kita perlu mengubah objek BigNumber (dari Ethers) ke string biasa agar bisa di-JSON-kan
+                // SIMPAN KE LOCAL STORAGE
                 const plainPosts = posts.map(p => ({
                     id: p.id.toString(),
                     author: p.author,
@@ -447,42 +460,68 @@
                     totalRatingScore: p.totalRatingScore.toString()
                 }));
 
+                const cacheKey = `feed_cache_${currentFeedType}`;
                 localStorage.setItem(cacheKey, JSON.stringify(plainPosts));
 
-                // 4. RENDER ULANG DENGAN DATA BARU (FRESH)
-                // Kosongkan container dulu agar tidak duplikat dengan cache
+                // RENDER ULANG (Update Tampilan dengan Data Baru)
                 container.innerHTML = ""; 
-                renderPostLoop(plainPosts, container, false); // false = data live
+                renderPostLoop(plainPosts, container, false); // false = mode live
 
             } catch (e) { 
-                console.error("Load Feed Error:", e);
-                // Jika error dan tidak ada cache, tampilkan error
-                if (!localStorage.getItem(`feed_cache_${currentFeedType}`)) {
-                    document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data baru. Periksa koneksi.</p>";
-                }
+                console.error("Gagal load live:", e);
+                // Tidak perlu tampilkan error di UI jika cache sudah tampil
             }
         }
 
-        // --- HELPER RENDER LOOP (DIPISAH SUPAYA RAPI) ---
-        function renderPostLoop(postsArray, container, isCache) {
-            // Jika ini render dari cache, tambahkan penanda kecil (Opsional)
-            if (isCache) {
-                // container.innerHTML = `<div style="text-align:center; font-size:10px; color:#ccc; margin-bottom:10px;">Menampilkan data tersimpan...</div>`;
-                // Atau biarkan kosong agar seamless
+        // --- 4. GANTI TAB (Panggil Cache Dulu, Baru Live) ---
+        function switchFeed(type) {
+            currentFeedType = type;
+            
+            // UI Tab
+            const tabFriends = document.getElementById("tabFriends");
+            const tabGlobal = document.getElementById("tabGlobal");
+            const activeStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;";
+            const inactiveStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;";
+
+            if(type === 'friends') {
+                tabFriends.style.cssText = activeStyle;
+                tabGlobal.style.cssText = inactiveStyle;
+            } else {
+                tabGlobal.style.cssText = activeStyle;
+                tabFriends.style.cssText = inactiveStyle;
             }
 
+            // LOGIKA GANTI TAB CEPAT
+            const container = document.getElementById("feedContainer");
+            const cacheKey = `feed_cache_${type}`;
+            const cachedData = localStorage.getItem(cacheKey);
+
+            if(cachedData) {
+                // Jika ada cache, langsung tampilkan
+                container.innerHTML = "";
+                renderPostLoop(JSON.parse(cachedData), container, true);
+                // Lalu update diam-diam
+                loadFeedLive();
+            } else {
+                // Jika tidak ada cache, baru munculkan loading spinner
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...</div>`;
+                loadFeedLive();
+            }
+        }
+
+        // --- HELPER RENDER (Sama seperti sebelumnya) ---
+        function renderPostLoop(postsArray, container, isCache) {
             [...postsArray].reverse().forEach(post => {
                 const profileLink = `profile.html?addr=${post.author}`;
-
-                // --- LOGIKA GAMBAR (OPTIMIZED 60KB) ---
                 let imgHtml = "";
+                
+                // Optimasi Gambar 60KB
                 if(post.imageURI && post.imageURI.length > 5) {
                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                     const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
-                    // KOTAK KUTIPAN NFT
                     let metaBox = "";
-                    if(parseInt(post.nftId) > 0) { // Pastikan parse int karena dari JSON string
+                    if(parseInt(post.nftId) > 0) {
                         const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
                         metaBox = `
                         <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
@@ -507,20 +546,16 @@
                         </a>
                     </div>`;
 
-                    // Fetch Metadata jika ada (Hanya jalan kalau bukan cache, atau mau jalanin di cache juga boleh)
                     if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
                         setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
                     }
                 }
 
-                // PERHITUNGAN RATING (Hati-hati pembagian nol)
                 const rCount = parseInt(post.ratingCount);
                 const rScore = parseInt(post.totalRatingScore);
                 const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-                
                 const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-                const dateStr = new Date(parseInt(post.timestamp) * 1000).toLocaleString();
-
+                
                 const html = `
                 <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
                     <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -532,7 +567,7 @@
                                 ${post.author.substring(0,6)}...
                             </a>
                             <div style="font-size: 11px; color: #999;">
-                                ${dateStr} ${nftBadge}
+                                ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
                             </div>
                         </div>
                     </div>
@@ -541,53 +576,23 @@
 
                     <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
                          <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
-                            <span id="count-like-${post.id}">${post.likeCount}</span>
+                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
                          </button>
                          <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-comment"></i> 
-                            <span id="count-comment-${post.id}">${post.commentCount}</span>
+                            <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
                          </button>
                          <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
                             <i class="fa-solid fa-gift"></i>
                          </button>
                          <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-solid fa-star"></i> 
-                            <span id="score-rating-${post.id}">${avgRating}</span>
+                            <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
                          </button>
                     </div>
                 </div>`;
-                
                 container.innerHTML += html;
-                
-                // Lazy Load Profil (Jalan di background)
                 fetchProfileLazy(post.author);
             });
-        }
-        
-        async function fetchProfileLazy(address) {
-            if(profileCache[address]) {
-                updatePostAuthorUI(address, profileCache[address]);
-                return;
-            }
-            try {
-                const p = await contract.getProfile(address);
-                
-                // Optimasi Avatar Penulis di Feed (Sangat kecil, 40px)
-                let avatarUrl = 'https://via.placeholder.com/40';
-                if (p.fotoProfil) {
-                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
-                }
-
-                const data = {
-                    nickname: p.nickname,
-                    avatar: avatarUrl
-                };
-                profileCache[address] = data;
-                updatePostAuthorUI(address, data);
-            } catch (e) {}
-        }
+                                                                          }
                 
         function updatePostAuthorUI(address, data) {
             document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
@@ -740,25 +745,16 @@
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
     }
 
-    // --- COPY DARI SINI ---
     // Fungsi untuk mengubah Enter jadi Spasi Bawah & Link jadi Biru
     function formatCaption(text) {
-        if (!text) return "";
+            if (!text) return "";
+            let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            clean = clean.replace(urlRegex, (url) => `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`);
+            return clean.replace(/\n/g, "<br>");
+        }
         
-        // 1. Amankan simbol HTML
-        let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-
-        // 2. Deteksi Link (http/https)
-        const urlRegex = /(https?:\/\/[^\s]+)/g;
-        clean = clean.replace(urlRegex, (url) => {
-            return `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`;
-        });
-
-        // 3. Deteksi Enter (\n) jadi baris baru <br>
-        return clean.replace(/\n/g, "<br>");
-    }
-    // --- SAMPAI SINI ---
-
+        async function renderWidgets() {
         // --- TRENDING & REKOMENDASI (Widget Kanan) ---
         async function getTrendingPosts() { /* Kode algoritma trending sama seperti sebelumnya */ }
         async function getWhoToFollow() { /* Kode algoritma rekomendasi sama seperti sebelumnya */ }
@@ -766,6 +762,7 @@
             // Panggil fungsi widget di sini
             // (Untuk menghemat tempat, silakan gunakan fungsi getWhoToFollow yang sudah saya berikan di respon sebelumnya)
             // ...
+        }
         }
     </script>
 </body>
