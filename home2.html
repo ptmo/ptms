@@ -347,10 +347,24 @@
         let pendingNftData = null;
         const profileCache = {};
 
-        // --- 2. STARTUP & KONEKSI ROBUST ---
-        window.addEventListener('load', async () => {
-            // A. Cek Cache Feed Dulu (Biar Cepat)
-            loadFeedFromCacheOnly();
+        // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
+            // User langsung melihat konten dalam < 0.5 detik
+            loadFeedFromCacheOnly(); 
+
+            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
+            await initApp(); 
+            
+            if(userAddress) {
+                document.getElementById("walletDisplay").innerText = userAddress;
+                loadMyProfile(); // Load profil header
+                
+                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
+                loadFeedLive(); 
+                renderWidgets();
+            }
+        });
 
             // B. Cek Sesi Login
             const sessionRaw = localStorage.getItem("putramas_session");
@@ -657,86 +671,294 @@
         // Agar script tidak kepanjangan, saya asumsikan Anda bisa copy paste logic interaksi dari kode sebelumnya.
         // Bagian KONEKSI dan UI UTAMA sudah diperbaiki total di atas.
         
-        async function handleLike(id) {
-            try { await contract.likePost(id-1); } catch(e){ alert("Gagal Like"); }
-        }
-
-        function openComments(id) {
-             document.getElementById("commentPostId").value = id-1;
-             document.getElementById("commentModal").showModal();
-             loadComments(id-1);
-        }
-
-        async function loadComments(idx) {
-             const list = document.getElementById("commentList");
-             list.innerHTML = "Loading...";
-             try {
-                const cmts = await contract.getComments(idx);
-                list.innerHTML = "";
-                cmts.forEach(c => {
-                    list.innerHTML += `<div style="border-bottom:1px solid #eee; padding:5px; font-size:13px;"><b>${c.commenter.substring(0,6)}</b>: ${c.text}</div>`;
-                });
-             } catch(e){ list.innerHTML = "Gagal memuat."; }
-        }
-
-        async function submitComment() {
-             const idx = document.getElementById("commentPostId").value;
-             const txt = document.getElementById("commentInput").value;
-             try {
-                 const tx = await contract.addComment(idx, txt, "");
-                 await tx.wait();
-                 document.getElementById("commentInput").value = "";
-                 loadComments(idx);
-             } catch(e){ alert("Gagal komen"); }
-        }
-
-        function openSawerModal(id) {
-            document.getElementById("sawerTargetId").value = id;
-            document.getElementById("sawerModal").showModal();
-        }
-        async function submitSawer() {
-            const id = document.getElementById("sawerTargetId").value;
-            const amt = document.getElementById("sawerAmount").value;
-            try {
-                const tx = await contract.sawerPost(id-1, {value: ethers.utils.parseEther(amt)});
-                await tx.wait();
-                document.getElementById("sawerModal").close();
-            } catch(e){ alert("Gagal sawer"); }
-        }
-
-        function openRating(id) {
-            document.getElementById("ratingTargetId").value = id;
-            document.getElementById("ratingModal").showModal();
-        }
-        function setRate(n) { selectedRate = n; }
-        async function submitRating() {
-            const id = document.getElementById("ratingTargetId").value;
-            try {
-                const tx = await contract.ratePost(id-1, selectedRate);
-                await tx.wait();
-                document.getElementById("ratingModal").close();
-            } catch(e){ alert("Gagal rating"); }
-        }
         
-        // Modal NFT logic
-        function openNftModal() { document.getElementById("nftModal").showModal(); }
-        function cancelNft() { document.getElementById("nftReadyIndicator").style.display="none"; pendingNftData=null; }
-        function previewInModal(input) {
-            if(input.files && input.files[0]) {
-               const r = new FileReader();
-               r.onload = e => document.getElementById("modalFilePreview").innerHTML = `<img src="${e.target.result}" width="100">`;
-               r.readAsDataURL(input.files[0]);
+        / --- UTILS ---
+function showToast(msg, type="info") {
+    const t = document.getElementById("toast");
+    t.innerText = msg;
+    t.className = "show";
+    t.style.background = type === "error" ? "#e74c3c" : "#333";
+    setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+    }
+
+// --- LOGIKA BADGE NOTIFIKASI (LOCAL STORAGE) ---
+
+// Panggil ini di window.onload atau initApp
+async function updateNotifBadge() {
+    if(!contract || !userAddress) return;
+
+    try {
+        // 1. Ambil semua notifikasi dari Blockchain
+        const notifs = await contract.getMyNotifications();
+        
+        // 2. Ambil waktu terakhir user buka halaman notif dari LocalStorage
+        // Default 0 jika belum pernah buka
+        const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+
+        // 3. Hitung notifikasi yang timestamp-nya LEBIH BARU dari lastCheck
+        // Solidity timestamp dalam detik, JS Date.now() dalam ms. Kita pakai detik.
+        const unreadCount = notifs.filter(n => n.timestamp > lastCheck).length;
+
+        // 4. Update UI Badge
+        const badges = document.querySelectorAll('.nav-badge');
+        badges.forEach(badge => {
+            if (unreadCount > 0) {
+                badge.style.display = 'flex';
+                badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+            } else {
+                badge.style.display = 'none';
             }
+        });
+
+    } catch (e) {
+        console.log("Badge error (Silent):", e);
+    }
+}
+
+// ==========================================
+// 1. FUNGSI SUBMIT POSTING (UTAMA)
+// ==========================================
+async function submitPost() {
+    const caption = document.getElementById("mainCaption").value;
+
+    // SKENARIO A: POSTING NFT (WAYANG)
+    if (pendingNftData) {
+        try {
+            showToast("1/3 Upload Gambar ke IPFS...", "info");
+            
+            // 1. Upload Gambar (File sudah dikompres saat saveNftDraft)
+            // Menggunakan fungsi dari ipfs_helper.js
+            const imgCid = await uploadToPinata(pendingNftData.file);
+            
+            // 2. Buat JSON Metadata
+            showToast("2/3 Mencetak Metadata...", "info");
+            const metadata = {
+                name: pendingNftData.name,
+                description: caption,
+                image: imgCid,
+                attributes: [
+                    { trait_type: "Golongan", value: pendingNftData.attributes.golongan },
+                    { trait_type: "Gaya", value: pendingNftData.attributes.gaya },
+                    { trait_type: "Bahan", value: pendingNftData.attributes.bahan },
+                    { trait_type: "Gapit", value: pendingNftData.attributes.gapit },
+                    { trait_type: "Penatah", value: pendingNftData.attributes.penatah },
+                    { trait_type: "Penyungging", value: pendingNftData.attributes.penyungging },
+                    { trait_type: "Tahun", value: pendingNftData.attributes.tahun },
+                    { trait_type: "Kolektor", value: pendingNftData.attributes.kolektor }
+                ]
+            };
+
+            // 3. Upload JSON Metadata
+            // JSON tidak perlu dikompres, langsung upload
+            const blob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
+            const metaFile = new File([blob], "metadata.json");
+            const metaCid = await uploadToPinata(metaFile);
+
+            // 4. Kirim ke Blockchain (Bayar 0.0001 ETH)
+            showToast("3/3 Konfirmasi Wallet (0.0001 ETH)...", "info");
+            
+            const tx = await contract.createPost(
+                imgCid, 
+                metaCid, 
+                caption, 
+                { value: ethers.utils.parseEther("0.0001") }
+            );
+
+            await tx.wait();
+            showToast("Berhasil Mengarsipkan Wayang!", "success");
+            
+            // Bersihkan
+            cancelNft();
+            document.getElementById("mainCaption").value = "";
+            setTimeout(() => location.reload(), 2000); 
+
+        } catch (e) {
+            console.error(e);
+            showToast("Gagal: " + (e.reason || e.message), "error");
         }
-        async function saveNftDraft() {
-             // Logic kompresi dll...
-             document.getElementById("nftModal").close();
-             document.getElementById("nftReadyIndicator").style.display="block";
+    } 
+
+    // SKENARIO B: POSTING TEKS BIASA (GRATIS)
+    else {
+        if(!caption) return showToast("Tulis sesuatu dulu!", "error");
+
+        try {
+            showToast("Mengirim status...", "info");
+            const tx = await contract.createPost("", "", caption); 
+            await tx.wait();
+
+            showToast("Berhasil Posting!", "success");
+            document.getElementById("mainCaption").value = "";
+            setTimeout(() => location.reload(), 2000);
+        } catch(e) {
+            showToast("Gagal: " + (e.reason || e.message), "error");
         }
-        async function submitPost() {
-             // Logic posting...
-             alert("Posting...");
+    }
+}
+
+// ==========================================
+// 2. FUNGSI UTILITAS MODAL
+// ==========================================
+function openNftModal() {
+    document.getElementById("nftModal").showModal();
+}
+
+function previewInModal(input) {
+    if (input.files && input.files[0]) {
+        document.getElementById("modalFilePreview").innerText = "File Terpilih: " + input.files[0].name;
+    } else {
+        document.getElementById("modalFilePreview").innerText = "";
+    }
+}
+
+// ==========================================
+// 3. FUNGSI SIMPAN DRAFT (KOMPRESI DISINI)
+// ==========================================
+async function saveNftDraft() {
+    // A. Ambil Elemen Input Utama
+    const nameInput = document.getElementById("mName");
+    const fileInput = document.getElementById("modalFileInput");
+    
+    // B. Validasi (Wajib diisi)
+    if (!nameInput.value.trim()) {
+        return showToast("Nama Tokoh Wayang wajib diisi!", "error");
+    }
+    if (!fileInput.files || !fileInput.files[0]) {
+        return showToast("Foto Fisik Wayang wajib dipilih!", "error");
+    }
+
+    // --- LOGIKA KOMPRESI HELPER ---
+    let finalFile = fileInput.files[0];
+    
+    showToast("Memproses gambar (Target 500KB)...", "info");
+
+    try {
+        // Panggil customCompress dari ipfs_helper.js
+        // Target: 500 KB
+        // Dimensi: 1500 px (Agar tetap tajam untuk NFT Wayang)
+        finalFile = await customCompress(finalFile, 500, 1500);
+        
+        console.log(`✅ Gambar Siap NFT: ${(finalFile.size / 1024).toFixed(2)} KB`);
+    } catch (e) {
+        console.error(e);
+        return showToast("Gagal memproses gambar.", "error");
+    }
+    // -----------------------------
+
+    // C. Ambil Nilai dari Dropdown
+    const golongan = document.getElementById("mGolongan").value;
+    const gaya = document.getElementById("mGaya").value;
+
+    // D. Simpan ke Variabel Global (pendingNftData)
+    // NOTE: Kita simpan 'finalFile' yang SUDAH dikompresi
+    pendingNftData = {
+        name: nameInput.value,
+        file: finalFile, 
+        attributes: {
+            golongan: golongan || "-", 
+            gaya: gaya || "-",
+            bahan: document.getElementById("mBahan").value || "-",
+            gapit: document.getElementById("mGapit").value || "-",
+            penatah: document.getElementById("mPenatah").value || "-",
+            penyungging: document.getElementById("mPenyungging").value || "-",
+            tahun: document.getElementById("mTahun").value || "-",
+            kolektor: document.getElementById("mKolektor").value || "-"
         }
+    };
+
+    // E. Update Tampilan Utama
+    document.getElementById("nftModal").close(); 
+    
+    const indicator = document.getElementById("nftReadyIndicator");
+    const previewName = document.getElementById("nftFilenamePreview");
+    
+    if (indicator) indicator.style.display = "block";
+    if (previewName) previewName.innerText = `(${pendingNftData.name})`;
+    
+    showToast("Data Tersimpan! Klik KIRIM untuk upload.", "success");
+}
+
+        // ==========================================
+// 4. FUNGSI BATAL / RESET FORM
+// ==========================================
+function cancelNft() {
+    pendingNftData = null;
+
+    // Sembunyikan Indikator
+    const indicator = document.getElementById("nftReadyIndicator");
+    if (indicator) indicator.style.display = "none";
+
+    // Reset Input File & Nama
+    document.getElementById("modalFileInput").value = "";
+    document.getElementById("modalFilePreview").innerText = "";
+    document.getElementById("mName").value = "";
+
+    // Reset Dropdown
+    document.getElementById("mGolongan").selectedIndex = 0;
+    document.getElementById("mGaya").selectedIndex = 0;
+
+    // Reset Input Teks Lainnya
+    const textIds = ['mBahan', 'mGapit', 'mPenatah', 'mPenyungging', 'mTahun', 'mKolektor'];
+    textIds.forEach(id => {
+        document.getElementById(id).value = "";
+    });
+
+    showToast("Mode Arsip Dibatalkan.", "info");
+}
+
+// --- FUNGSI HELPER FETCH METADATA ---
+async function fetchCardMetadata(postId, tokenUri) {
+    if (!tokenUri) return;
+    try {
+        const url = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        const res = await fetch(url);
+        const meta = await res.json();
+
+        // 1. Update Nama
+        const nameEl = document.getElementById(`meta-name-${postId}`);
+        if(nameEl) nameEl.innerText = meta.name || "Tanpa Nama";
+
+        // 2. Update Gagrak
+        const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
+        if(gagrakEl && meta.attributes) {
+            const attr = meta.attributes.find(a => 
+                a.trait_type === "Gaya (Gagrak)" || a.trait_type === "Gaya" || a.trait_type === "Gagrak"
+            );
+            if(attr) gagrakEl.innerText = attr.value;
+            else gagrakEl.innerText = "-";
+        }
+    } catch (e) {
+        console.warn(`Gagal load metadata post ${postId}`);
+    }
+}
+
+// ==========================================
+// 5. INISIALISASI & AUTOMATION (PALING BAWAH)
+// ==========================================
+
+// Jalankan initApp saat browser siap sepenuhnya
+window.addEventListener('load', () => {
+    // 1. Coba inisialisasi pertama kali
+    initApp();
+    
+    // 2. (SAFETY NET) Cek ulang setiap 2 detik
+    // Jika tiba-tiba variabel contract hilang/undefined, paksa connect ulang
+    setInterval(() => {
+        // Logika: Jika contract kosong DAN ada sesi tersimpan -> Konek ulang
+        if (!contract && localStorage.getItem("putramas_session")) {
+            console.warn("⚠️ Koneksi terputus, mencoba reconnect...");
+            checkSession();
+        }
+    }, 2000);
+});
+
+// 3. Update Notifikasi setiap 10 detik (Realtime)
+setInterval(() => {
+    // Hanya jalan jika sudah login & kontrak siap
+    if (contract && userAddress) {
+        updateNotifBadge();
+    }
+}, 5000);
 
     </script>
 </body>
