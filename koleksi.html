@@ -358,77 +358,61 @@
     }
 
         function renderUI(data) {
-        // Image Logic
-        if(data.imageURI && data.imageURI.length > 5) {
-            const rawUrl = data.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-            
-            // 1. VERSI TAMPILAN (Optimasi ~200KB)
-            // w=1000 : Cukup tajam di layar HP/Laptop
-            // q=75   : Kompresi efisien
-            const displayUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1000&q=75&output=webp`;
-
-            // 2. VERSI RAW / FULL HD (Untuk Klik/Zoom)
-            // q=100 : Kualitas maksimal
-            // (Tanpa parameter 'w' agar resolusi asli keluar)
-            const rawViewUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&q=100&output=webp`;
-            
-            const imgEl = document.getElementById("detailImg");
-            imgEl.src = displayUrl;
-            
-            // --- FITUR KLIK UNTUK ZOOM ---
-            imgEl.style.cursor = "zoom-in"; // Ubah kursor jadi kaca pembesar
-            imgEl.title = "Klik untuk melihat ukuran asli (Full HD)";
-            
-            imgEl.onclick = function() {
-                // Buka versi RAW di tab baru
-                window.open(rawViewUrl, '_blank');
-            };
-
-            // Error handling
-            imgEl.onerror = () => { imgEl.src = "https://via.placeholder.com/800x600?text=Gagal+Memuat+Gambar"; };
-        }
-        }
-
-        // Texts
-        document.getElementById("detailDesc").innerText = data.caption;
-        document.getElementById("detailBadge").innerText = data.isNFT ? `ARSIP NFT #${data.nftId}` : `POSTINGAN #${data.postId}`;
-        // Stats
-        document.getElementById("countLikeDetail").innerText = data.likeCount;
-        document.getElementById("countCommentDetail").innerText = data.commentCount;
-        const score = parseInt(data.totalRatingScore);
-        const count = parseInt(data.ratingCount);
-        document.getElementById("scoreRatingDetail").innerText = count > 0 ? (score/count).toFixed(1) : "0.0";
-
-        // Author
-        document.getElementById("detailAuthorLink").innerText = data.authorNick || data.authorAddr.substring(0,6);
-        document.getElementById("detailAuthorLink").href = `profile.html?addr=${data.authorAddr}`;
-        if(data.authorPhoto) {
-            document.getElementById("detailAvatar").src = data.authorPhoto.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-        }
-
-        // Owner
-        if(data.ownerAddr) {
-            document.getElementById("ownerSection").style.display = "flex";
-            document.getElementById("detailOwner").innerText = data.ownerAddr.substring(0,6)+"..."+data.ownerAddr.substring(38);
-            if(userAddress && data.ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
-                document.getElementById("btnTransfer").style.display = "flex";
+            // 1. Logika Gambar
+            if(data.imageURI && data.imageURI.length > 5) {
+                const rawUrl = data.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const displayUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1000&q=75&output=webp`;
+                const rawViewUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&q=100&output=webp`;
+                
+                const imgEl = document.getElementById("detailImg");
+                imgEl.src = displayUrl;
+                imgEl.style.cursor = "zoom-in";
+                imgEl.title = "Klik untuk melihat ukuran asli";
+                
+                imgEl.onclick = function() { window.open(rawViewUrl, '_blank'); };
+                imgEl.onerror = () => { imgEl.src = "https://via.placeholder.com/800x600?text=Gagal+Memuat+Gambar"; };
             }
+
+            // 2. Teks Dasar
+            document.getElementById("detailDesc").innerText = data.caption;
+            document.getElementById("detailBadge").innerText = data.isNFT ? `ARSIP NFT #${data.nftId}` : `POSTINGAN #${data.postId}`;
+            // 3. Judul (Metadata)
+            if(data.meta && data.meta.name) {
+                document.getElementById("detailTitle").innerText = data.meta.name;
+                renderMetaTable(data.meta.attributes);
+            } else {
+                document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
+            }
+
+            // 4. Statistik
+            document.getElementById("countLikeDetail").innerText = data.likeCount;
+            document.getElementById("countCommentDetail").innerText = data.commentCount;
+            const score = parseInt(data.totalRatingScore);
+            const count = parseInt(data.ratingCount);
+            document.getElementById("scoreRatingDetail").innerText = count > 0 ? (score/count).toFixed(1) : "0.0";
+
+            // 5. Author
+            document.getElementById("detailAuthorLink").innerText = data.authorNick || data.authorAddr.substring(0,6);
+            document.getElementById("detailAuthorLink").href = `profile.html?addr=${data.authorAddr}`;
+            if(data.authorPhoto) {
+                document.getElementById("detailAvatar").src = data.authorPhoto.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            }
+
+            // 6. Owner
+            if(data.ownerAddr) {
+                document.getElementById("ownerSection").style.display = "flex";
+                document.getElementById("detailOwner").innerText = data.ownerAddr.substring(0,6)+"..."+data.ownerAddr.substring(38);
+                if(userAddress && data.ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
+                    document.getElementById("btnTransfer").style.display = "flex";
+                }
+            }
+
+            // 7. Riwayat
+            const dateStr = new Date(parseInt(data.timestamp) * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
+            document.getElementById("histCreator").innerText = data.authorNick || data.authorAddr.substring(0,6);
+            document.getElementById("histTime").innerText = dateStr;
         }
-
-        // Metadata
-        if(data.meta) {
-            document.getElementById("detailTitle").innerText = data.meta.name || "Tanpa Judul";
-            renderMetaTable(data.meta.attributes);
-        } else {
-            document.getElementById("detailTitle").innerText = "Koleksi Tanpa Judul";
-        }
-
-        // History Data
-        const dateStr = new Date(parseInt(data.timestamp) * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
-        document.getElementById("histCreator").innerText = data.authorNick || data.authorAddr.substring(0,6);
-        document.getElementById("histTime").innerText = dateStr;
-    }
-
+        
         // --- FUNGSI GANTI TAB (DIPERBAIKI) ---
         function switchTab(mode) {
             // Ambil Elemen
@@ -455,6 +439,7 @@
                 divMeta.style.display = "none";
             }
         }
+        
 
         // --- FUNGSI SHARE MODERN (WEB SHARE API) ---
         async function shareCollection() {
