@@ -8,91 +8,83 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
-   <style>
-    /* --- RESET & GLOBAL --- */
-    * { box-sizing: border-box; }
-    body { margin: 0; font-family: sans-serif; background: #f0f2f5; }
+    <style>
+        .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
+        .comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+        .comment-content { flex: 1; font-size: 13px; }
+        .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
+        .comment-time { font-size: 10px; color: #999; }
+        
+        .post-image { cursor: zoom-in; transition: opacity 0.2s; }
+        .post-image:hover { opacity: 0.9; }
 
-    /* --- LAYOUT GRID UTAMA --- */
-    .layout-wrapper { 
-        display: grid; 
-        grid-template-columns: 280px 1fr; /* Kiri 280px, Kanan Auto */
-        gap: 25px; 
-        max-width: 1200px; 
-        margin: 20px auto;
-        padding: 0 15px;
-    }
+        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        #commentModal[open] { display: flex; flex-direction: column; }
 
-    /* --- SIDEBAR PC --- */
-    .sidebar-left { display: block; }
+        /* Badge Notifikasi */
+        .menu-item { position: relative; }
+        .nav-badge {
+            background-color: #e74c3c; color: white;
+            font-size: 10px; font-weight: bold;
+            min-width: 18px; height: 18px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            position: absolute; border: 2px solid #fff; z-index: 10;
+        }
+        .mobile-nav .nav-badge { top: 0px; right: 25%; }
+        .sidebar-left .nav-badge { top: 8px; right: 10px; }
 
-    /* --- MOBILE NAV (MENU BAWAH) --- */
-    .mobile-nav {
-        display: none; /* Default sembunyi di PC */
-        position: fixed; /* KUNCI: Menempel di layar */
-        bottom: 0; left: 0; width: 100%;
-        background: white; border-top: 1px solid #eee;
-        justify-content: space-around; align-items: center;
-        padding: 12px 0; z-index: 1000;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
-    }
+        /* Responsive Layout (Grid) - DIPERBARUI: 2 Kolom (Sidebar Kiri + Feed Lebar) */
+        .layout-wrapper { 
+            display: grid; 
+            /* Ubah jadi 2 kolom: Kiri (300px) dan Kanan (Sisa/Flexible) */
+            grid-template-columns: 300px 1fr; 
+            gap: 25px; 
+            max-width: 1200px; 
+            margin: 20px auto;
+            padding: 0 15px;
+        }
 
-    .mobile-nav .menu-item {
-        font-size: 20px; color: #ccc;
-        text-decoration: none; position: relative;
-        padding: 5px 15px; display: flex;
-        align-items: center; justify-content: center;
-    }
-    .mobile-nav .menu-item.active { color: #7385a5; }
+        @media (max-width: 900px) {
+            .layout-wrapper { grid-template-columns: 1fr !important; }
+            .sidebar-left { display: none !important; } /* Sidebar kanan sudah dihapus */
+        }
 
-    /* --- RESPONSIVE (HP) --- */
-    @media (max-width: 900px) {
-        .layout-wrapper { grid-template-columns: 1fr; display: block; }
-        .sidebar-left { display: none !important; } /* Paksa Sidebar Hilang */
-        .mobile-nav { display: flex !important; } /* Paksa Menu Bawah Muncul */
-        .main-feed { margin-bottom: 80px; } /* Beri jarak agar tidak tertutup menu */
-    }
+        /* Wrapper agar bintang sejajar */
+.star-wrapper {
+    display: flex;
+    gap: 15px;
+    direction: ltr; /* Pastikan urutan kiri-ke-kanan */
+}
 
-    /* --- COMPONENTS --- */
-    .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
-    .comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
-    .comment-content { flex: 1; font-size: 13px; }
-    .post-image { cursor: zoom-in; transition: opacity 0.2s; }
-    dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-    
-    .nav-badge {
-        background-color: #e74c3c; color: white;
-        font-size: 10px; font-weight: bold;
-        min-width: 16px; height: 16px; border-radius: 50%;
-        display: none; align-items: center; justify-content: center;
-        position: absolute; top: -5px; right: -25%; z-index: 10;
-    }
-    .star-wrapper { display: flex; gap: 15px; direction: ltr; }
-    .star-item { color: #ccc; transition: 0.2s; cursor: pointer; }
-    .star-item.active, .star-item:hover { color: gold; transform: scale(1.2); }
-   </style>
+/* Warna Dasar Bintang (Abu-abu #666) */
+.star-item {
+    color: #666; 
+    transition: color 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+
+/* Warna Saat Hover atau Aktif (Gold) */
+.star-item.active, 
+.star-item:hover { 
+    color: gold; 
+    transform: scale(1.2); /* Efek membesar sedikit */
+}
+    </style>
 </head>
 <body>
 
     <div class="layout-wrapper">
-        
         <div class="sidebar-left">
-    <div class="menu-card">
-        <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i> Beranda</a>
-        <a href="notifications.html" class="menu-item">
-            <i class="fa-solid fa-bell"></i> Notifikasi
-            <span class="nav-badge" id="badgeSidebar">0</span> 
-        </a>
-        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
-        
-        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
-        
-        <a href="#" id="sidebarWalletBtn" onclick="handleWalletClick()" class="menu-item" style="justify-content: space-between;">
-            <span><i class="fa-solid fa-wallet"></i> <span id="sidebarWalletText">Connect</span></span>
-            <i class="fa-solid fa-circle" id="walletIndicator" style="font-size: 8px; color: #ccc;"></i>
-        </a>
-    </div>
-</div>
+            <div class="menu-card">
+                <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i> Beranda</a>
+                <a href="notifications.html" class="menu-item">
+                    <i class="fa-solid fa-bell"></i> Notifikasi
+                    <span class="nav-badge" id="badgeSidebar">0</span> 
+                </a>
+                <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
+                <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+            </div>
 
             <div class="menu-card" style="margin-top: 20px;">
                 <h4 style="margin: 0 0 10px; font-size: 14px; color: #7385a5;">Status Wallet</h4>
@@ -345,20 +337,20 @@
     </div>
     
     <div class="mobile-nav">
-    <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
-    <a href="notifications.html" class="menu-item">
-        <i class="fa-solid fa-bell"></i>
+    <a href="home" class="menu-item active"><i class="fa-solid fa-house"></i></a>
+    <a href="notifications" class="menu-item" style="flex-direction: column; gap: 2px; font-size: 10px;">
+        <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
         <span class="nav-badge" id="badgeMobile">0</span> 
     </a>
-    <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i></a>
+    <a href="profile" class="menu-item"><i class="fa-solid fa-user"></i></a>
     <a href="#" id="navWalletBtn" onclick="handleWalletClick()" class="menu-item">
         <i class="fa-solid fa-wallet"></i>
     </a>
     </div>
-    
+
     <div id="toast"></div>
 
-    <script src="main.js"></script>
+    
     <script src="ipfs_helper.js"></script>
 
     <script>
@@ -373,74 +365,43 @@
         // ABI BARU (PASTE ABI LENGKAP DARI REMIX DI SINI ATAU DI MAIN.JS)
 
         // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
-        // --- FIX STARTUP LOGIC ---
-window.addEventListener('load', async () => {
-    // 1. Cek Sesi Lokal
-    const sessionRaw = localStorage.getItem("putramas_session");
-    if (!sessionRaw) {
-        // Jangan redirect, biarkan user lihat feed public/cache dulu
-        // window.location.replace("index.html"); 
-        return;
-    }
+        document.addEventListener("DOMContentLoaded", async () => {
+            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
+            // User langsung melihat konten dalam < 0.5 detik
+            loadFeedFromCacheOnly(); 
 
-    try {
-        const session = JSON.parse(sessionRaw);
-        
-        // 2. Cek Expired
-        if (Date.now() > session.expiry) {
-            localStorage.removeItem("putramas_session");
-            return;
-        }
+            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
+            await initApp(); 
+            
+            if(userAddress) {
+                document.getElementById("walletDisplay").innerText = userAddress;
+                loadMyProfile(); // Load profil header
+                
+                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
+                loadFeedLive(); 
+                renderWidgets();
+            }
+        });
 
-        if (!window.ethereum) return;
+        window.addEventListener('load', async () => {
+    // ... (Logika Cek Session Lama Tetap Ada) ...
+    // ...
+    // Setelah sukses connect di dalam blok try:
+            
+            // ... (Kode active signer sebelumnya) ...
+            contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
+            window.contract = contract;
+            window.userAddress = currentAddr;
 
-        // 3. Init Provider & Active Signer
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        
-        // Cek apakah wallet terkunci (Silent check dulu)
-        const accounts = await provider.listAccounts();
-        if (accounts.length > 0) {
-             // Kalau sudah unlock, minta akses penuh
-             await provider.send("eth_requestAccounts", []);
-        } else {
-             // Kalau terkunci, stop dulu (tunggu user klik tombol connect)
-             return;
-        }
+            console.log("✅ Active Signer Ready:", currentAddr);
+            
+            // ---> TAMBAHAN BARU: Update Status UI
+            isWalletConnected = true;
+            updateWalletUI(currentAddr); 
 
-        // 4. Cek Network
-        const { chainId } = await provider.getNetwork();
-        if (chainId !== BASE_SEPOLIA_ID) return; // Salah network, stop
-
-        signer = provider.getSigner();
-        const currentAddr = await signer.getAddress();
-
-        // 5. Validasi Akun Sesuai Sesi
-        if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
-            throw new Error("Akun Berbeda");
-        }
-
-        // 6. Setup Kontrak & State Global
-        contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
-        window.contract = contract;
-        window.userAddress = currentAddr;
-        userAddress = currentAddr;
-
-        console.log("✅ KONEKSI AMAN:", currentAddr);
-        
-        // 7. Update UI (PENTING)
-        isWalletConnected = true;
-        updateWalletUI(currentAddr);
-        loadMyProfile();
-        
-        // 8. Load Data Live
-        loadFeedLive(); 
-
-    } catch (e) {
-        console.warn("Sesi Invalid/Reset:", e.message);
-        localStorage.removeItem("putramas_session");
-        isWalletConnected = false;
-        updateWalletUI("");
-    }
+            // Load Data Halaman
+            if (typeof loadFeed === "function") loadFeed();
+            // ...
 });
 
         // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
@@ -1018,13 +979,7 @@ function performDisconnect() {
         window.location.replace("index.html");
     }
     }
-        // --- FIX DUMMY WIDGETS ---
-async function renderWidgets() {
-    const tW = document.getElementById("trendingWidget");
-    const rW = document.getElementById("recomWidget");
-    if(tW) tW.innerHTML = "<div style='font-size:11px; color:#999; padding:10px;'>Fitur Segera Hadir</div>";
-    if(rW) rW.innerHTML = "<div style='font-size:11px; color:#999; padding:10px;'>Fitur Segera Hadir</div>";
-                                             }
+        
         async function renderWidgets() {
         // --- TRENDING & REKOMENDASI (Widget Kanan) ---
         async function getTrendingPosts() { /* Kode algoritma trending sama seperti sebelumnya */ }
