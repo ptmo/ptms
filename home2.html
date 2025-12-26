@@ -518,23 +518,126 @@
             }
         }
 
-        async function loadFeedLive() {
-            if(!contract) return;
+        // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
+        async function loadMyProfile() {
             try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    // Avatar Profil juga dikompres kecil
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
+                }
+
+        try {
+            document.getElementById("sawerModal").close();
+            showToast("Mengirim Saweran...", "info");
+            
+            // Konversi ke Wei
+            const weiAmount = ethers.utils.parseEther(amount.toString());
+            
+            // Eksekusi Smart Contract (Index blockchain = ID - 1)
+            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
+            
+            await tx.wait();
+            showToast("Terima kasih! Saweran terkirim", "success");
+        } catch (e) {
+            console.error(e);
+            // Cek jika user reject
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Transaksi dibatalkan user", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
+        }
+    }
+
+        // --- SCRIPT FOLLOW ---
+        async function followUser(targetAddr) {
+            try {
+                showToast("Memproses Follow...", "info");
+                const tx = await contract.followUser(targetAddr);
+                await tx.wait();
+                showToast("Berhasil Mengikuti!", "success");
+                renderWidgets(); // Refresh widget
+            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        // --- FUNGSI LOAD PROFILE HEADER ---
+         async function loadMyProfile() {
+            try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
+                }
+            } catch(e) {}
+        }
+
+        async function fetchProfileLazy(address) {
+            if(profileCache[address]) {
+                updatePostAuthorUI(address, profileCache[address]);
+                return;
+            }
+            try {
+                const p = await contract.getProfile(address);
+                let avatarUrl = 'https://via.placeholder.com/40';
+                if (p.fotoProfil) {
+                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
+                }
+                const data = { nickname: p.nickname, avatar: avatarUrl };
+                profileCache[address] = data;
+                updatePostAuthorUI(address, data);
+            } catch (e) {}
+        }
+        
+        // --- 2. FUNGSI KHUSUS BACA CACHE (Sangat Ringan) ---
+        function loadFeedFromCacheOnly() {
+            const cacheKey = `feed_cache_${currentFeedType}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            
+            if (cachedData) {
+                console.log("⚡ Tampil Instan dari Cache");
+                try {
+                    const parsed = JSON.parse(cachedData);
+                    if(parsed.length > 0) {
+                        const container = document.getElementById("feedContainer");
+                        container.innerHTML = ""; // Bersihkan loading spinner
+                        renderPostLoop(parsed, container, true); // true = mode cache
+                    }
+                } catch(e) { console.error("Cache rusak", e); }
+            }
+        }
+
+        // --- 3. FUNGSI KHUSUS LIVE DATA (Blockchain) ---
+        async function loadFeedLive() {
+            try {
+                // Jangan hapus konten lama dulu (biar user gak liat layar kedip putih)
+                // Kita load data di memori dulu
                 let posts;
-                if(currentFeedType === 'friends') posts = await contract.getMyFeed();
-                else posts = await contract.getAllPosts();
+                if(currentFeedType === 'friends') {
+                    posts = await contract.getMyFeed();
+                } else {
+                    posts = await contract.getAllPosts();
+                }
 
                 const container = document.getElementById("feedContainer");
+
                 if(posts.length === 0) {
+                    // Cek lagi cache, kalau cache juga kosong baru tampilkan pesan kosong
                     const cacheKey = `feed_cache_${currentFeedType}`;
                     if(!localStorage.getItem(cacheKey)) {
-                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>Belum ada postingan.</p>`;
+                         const msg = currentFeedType === 'friends' 
+                            ? "Belum ada postingan dari teman."
+                            : "Belum ada postingan di platform.";
+                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>${msg}</p>`;
                     }
                     return;
                 }
 
-                // Format Data
+                // SIMPAN KE LOCAL STORAGE
                 const plainPosts = posts.map(p => ({
                     id: p.id.toString(),
                     author: p.author,
@@ -549,127 +652,54 @@
                     totalRatingScore: p.totalRatingScore.toString()
                 }));
 
-                localStorage.setItem(`feed_cache_${currentFeedType}`, JSON.stringify(plainPosts));
-                container.innerHTML = "";
-                renderPostLoop(plainPosts, container, false);
+                const cacheKey = `feed_cache_${currentFeedType}`;
+                localStorage.setItem(cacheKey, JSON.stringify(plainPosts));
 
-            } catch(e) { console.error("Feed error:", e); }
+                // RENDER ULANG (Update Tampilan dengan Data Baru)
+                container.innerHTML = ""; 
+                renderPostLoop(plainPosts, container, false); // false = mode live
+
+            } catch (e) { 
+                console.error("Gagal load live:", e);
+                // Tidak perlu tampilkan error di UI jika cache sudah tampil
+            }
         }
 
-        function renderPostLoop(postsArray, container, isCache) {
-            [...postsArray].reverse().forEach(post => {
-                let imgHtml = "";
-                if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
-                    
-                    let metaHtml = "";
-                    if(parseInt(post.nftId) > 0) {
-                        metaHtml = `<div style="background:#f8f9fa; padding:10px; border:1px solid #eee; font-size:12px; color:#444;"><strong>NFT #${post.nftId}</strong> | Kolektor: ${post.author.substring(0,6)}...</div>`;
-                    }
-
-                    imgHtml = `<div style="margin:10px -15px;"><img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;">${metaHtml}</div>`;
-                }
-
-                const rCount = parseInt(post.ratingCount);
-                const rScore = parseInt(post.totalRatingScore);
-                const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-                
-                const html = `
-                <div class="card" style="padding: 15px; margin-bottom: 20px;">
-                    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <img src="https://via.placeholder.com/40" class="author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%;">
-                        <div>
-                            <div class="author-nick-${post.author}" style="font-weight: bold;">${post.author.substring(0,6)}...</div>
-                            <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()}</div>
-                        </div>
-                    </div>
-                    <div style="font-size:14px;">${formatCaption(post.caption)}</div>
-                    ${imgHtml}
-                    <div style="border-top:1px solid #eee; padding-top:10px; display:flex; justify-content:space-around;">
-                         <button onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;">
-                            <i class="fa-regular fa-heart"></i> ${post.likeCount}
-                         </button>
-                         <button onclick="openComments(${post.id})" style="background:none; border:none; color:#666;">
-                            <i class="fa-regular fa-comment"></i> ${post.commentCount}
-                         </button>
-                         <button onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;">
-                            <i class="fa-solid fa-gift"></i>
-                         </button>
-                         <button onclick="openRating(${post.id})" style="background:none; border:none; color:gold;">
-                            <i class="fa-solid fa-star"></i> ${avgRating}
-                         </button>
-                    </div>
-                </div>`;
-                container.innerHTML += html;
-                fetchProfileLazy(post.author);
-            });
-        }
-
-        // --- 5. HELPERS ---
+        // --- 4. GANTI TAB (Panggil Cache Dulu, Baru Live) ---
         function switchFeed(type) {
             currentFeedType = type;
-            const tF = document.getElementById("tabFriends");
-            const tG = document.getElementById("tabGlobal");
             
+            // UI Tab
+            const tabFriends = document.getElementById("tabFriends");
+            const tabGlobal = document.getElementById("tabGlobal");
+            const activeStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;";
+            const inactiveStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;";
+
             if(type === 'friends') {
-                tF.style.borderBottom = "3px solid #8b4513"; tF.style.color = "#8b4513";
-                tG.style.borderBottom = "3px solid transparent"; tG.style.color = "#999";
+                tabFriends.style.cssText = activeStyle;
+                tabGlobal.style.cssText = inactiveStyle;
             } else {
-                tG.style.borderBottom = "3px solid #8b4513"; tG.style.color = "#8b4513";
-                tF.style.borderBottom = "3px solid transparent"; tF.style.color = "#999";
+                tabGlobal.style.cssText = activeStyle;
+                tabFriends.style.cssText = inactiveStyle;
             }
-            
-            loadFeedFromCacheOnly();
-            loadFeedLive();
-        }
 
-        async function fetchProfileLazy(address) {
-            if(profileCache[address]) { updatePostAuthorUI(address, profileCache[address]); return; }
-            try {
-                const p = await contract.getProfile(address);
-                let avt = "https://via.placeholder.com/40";
-                if(p.fotoProfil) {
-                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    avt = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
-                }
-                const data = { nickname: p.nickname, avatar: avt };
-                profileCache[address] = data;
-                updatePostAuthorUI(address, data);
-            } catch(e){}
-        }
+            // LOGIKA GANTI TAB CEPAT
+            const container = document.getElementById("feedContainer");
+            const cacheKey = `feed_cache_${type}`;
+            const cachedData = localStorage.getItem(cacheKey);
 
-        function updatePostAuthorUI(address, data) {
-            document.querySelectorAll(`.author-avatar-${address}`).forEach(i => i.src = data.avatar);
-            document.querySelectorAll(`.author-nick-${address}`).forEach(i => i.innerText = data.nickname);
+            if(cachedData) {
+                // Jika ada cache, langsung tampilkan
+                container.innerHTML = "";
+                renderPostLoop(JSON.parse(cachedData), container, true);
+                // Lalu update diam-diam
+                loadFeedLive();
+            } else {
+                // Jika tidak ada cache, baru munculkan loading spinner
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...</div>`;
+                loadFeedLive();
+            }
         }
-
-        async function loadMyProfile() {
-            try {
-                const p = await contract.getProfile(userAddress);
-                if(p.fotoProfil) {
-                    const clean = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    document.getElementById("myAvatar").src = `https://wsrv.nl/?url=${encodeURIComponent(clean)}&w=100&q=70&output=webp`;
-                }
-            } catch(e){}
-        }
-
-        function formatCaption(text) {
-            if (!text) return "";
-            return text.replace(/</g, "&lt;").replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#7385a5;">$1</a>').replace(/\n/g, "<br>");
-        }
-
-        function showToast(msg, type="info") {
-            const t = document.getElementById("toast");
-            t.innerText = msg; t.className = "show";
-            t.style.background = type === "error" ? "#e74c3c" : "#333";
-            setTimeout(() => t.className = t.className.replace("show", ""), 3000);
-        }
-
-        // --- FUNGSI INTERAKSI (LIKE, COMMENT, DST) SAMA SEPERTI SEBELUMNYA ---
-        // (Pastikan fungsi openSawerModal, openRating, submitSawer, submitRating, dll ada di sini jika belum ter-copy)
-        // Agar script tidak kepanjangan, saya asumsikan Anda bisa copy paste logic interaksi dari kode sebelumnya.
-        // Bagian KONEKSI dan UI UTAMA sudah diperbaiki total di atas.
 
         // --- HELPER RENDER (Sama seperti sebelumnya) ---
         function renderPostLoop(postsArray, container, isCache) {
@@ -1190,26 +1220,6 @@ async function fetchCardMetadata(postId, tokenUri) {
         console.warn(`Gagal load metadata post ${postId}`);
     }
 }
-
-// ==========================================
-// 5. INISIALISASI & AUTOMATION (PALING BAWAH)
-// ==========================================
-
-// Jalankan initApp saat browser siap sepenuhnya
-window.addEventListener('load', () => {
-    // 1. Coba inisialisasi pertama kali
-    initApp();
-    
-    // 2. (SAFETY NET) Cek ulang setiap 2 detik
-    // Jika tiba-tiba variabel contract hilang/undefined, paksa connect ulang
-    setInterval(() => {
-        // Logika: Jika contract kosong DAN ada sesi tersimpan -> Konek ulang
-        if (!contract && localStorage.getItem("putramas_session")) {
-            console.warn("⚠️ Koneksi terputus, mencoba reconnect...");
-            checkSession();
-        }
-    }, 2000);
-});
 
 // 3. Update Notifikasi setiap 10 detik (Realtime)
 setInterval(() => {
