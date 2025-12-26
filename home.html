@@ -372,39 +372,74 @@
         // ABI BARU (PASTE ABI LENGKAP DARI REMIX DI SINI ATAU DI MAIN.JS)
 
         // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
-        document.addEventListener("DOMContentLoaded", async () => {
-            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
-            // User langsung melihat konten dalam < 0.5 detik
-            loadFeedFromCacheOnly(); 
+        // --- FIX STARTUP LOGIC ---
+window.addEventListener('load', async () => {
+    // 1. Cek Sesi Lokal
+    const sessionRaw = localStorage.getItem("putramas_session");
+    if (!sessionRaw) {
+        // Jangan redirect, biarkan user lihat feed public/cache dulu
+        // window.location.replace("index.html"); 
+        return;
+    }
 
-            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
-            await initApp(); 
-            
-            if(userAddress) {
-                document.getElementById("walletDisplay").innerText = userAddress;
-                loadMyProfile(); // Load profil header
-                
-                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
-                loadFeedLive(); 
-                renderWidgets();
-            }
-        });
+    try {
+        const session = JSON.parse(sessionRaw);
+        
+        // 2. Cek Expired
+        if (Date.now() > session.expiry) {
+            localStorage.removeItem("putramas_session");
+            return;
+        }
 
-        window.addEventListener('load', async () => {
-    
-            contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
-            window.contract = contract;
-            window.userAddress = currentAddr;
+        if (!window.ethereum) return;
 
-            console.log("✅ Active Signer Ready:", currentAddr);
-            
-            // ---> TAMBAHAN BARU: Update Status UI
-            isWalletConnected = true;
-            updateWalletUI(currentAddr); 
+        // 3. Init Provider & Active Signer
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // Cek apakah wallet terkunci (Silent check dulu)
+        const accounts = await provider.listAccounts();
+        if (accounts.length > 0) {
+             // Kalau sudah unlock, minta akses penuh
+             await provider.send("eth_requestAccounts", []);
+        } else {
+             // Kalau terkunci, stop dulu (tunggu user klik tombol connect)
+             return;
+        }
 
-            // Load Data Halaman
-            if (typeof loadFeed === "function") loadFeed();
-            
+        // 4. Cek Network
+        const { chainId } = await provider.getNetwork();
+        if (chainId !== BASE_SEPOLIA_ID) return; // Salah network, stop
+
+        signer = provider.getSigner();
+        const currentAddr = await signer.getAddress();
+
+        // 5. Validasi Akun Sesuai Sesi
+        if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
+            throw new Error("Akun Berbeda");
+        }
+
+        // 6. Setup Kontrak & State Global
+        contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
+        window.contract = contract;
+        window.userAddress = currentAddr;
+        userAddress = currentAddr;
+
+        console.log("✅ KONEKSI AMAN:", currentAddr);
+        
+        // 7. Update UI (PENTING)
+        isWalletConnected = true;
+        updateWalletUI(currentAddr);
+        loadMyProfile();
+        
+        // 8. Load Data Live
+        loadFeedLive(); 
+
+    } catch (e) {
+        console.warn("Sesi Invalid/Reset:", e.message);
+        localStorage.removeItem("putramas_session");
+        isWalletConnected = false;
+        updateWalletUI("");
+    }
 });
 
         // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
@@ -982,7 +1017,13 @@ function performDisconnect() {
         window.location.replace("index.html");
     }
     }
-        
+        // --- FIX DUMMY WIDGETS ---
+async function renderWidgets() {
+    const tW = document.getElementById("trendingWidget");
+    const rW = document.getElementById("recomWidget");
+    if(tW) tW.innerHTML = "<div style='font-size:11px; color:#999; padding:10px;'>Fitur Segera Hadir</div>";
+    if(rW) rW.innerHTML = "<div style='font-size:11px; color:#999; padding:10px;'>Fitur Segera Hadir</div>";
+                                             }
         async function renderWidgets() {
         // --- TRENDING & REKOMENDASI (Widget Kanan) ---
         async function getTrendingPosts() { /* Kode algoritma trending sama seperti sebelumnya */ }
