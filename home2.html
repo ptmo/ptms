@@ -347,84 +347,168 @@
         let pendingNftData = null;
         const profileCache = {};
 
-        // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
-        document.addEventListener("DOMContentLoaded", async () => {
-            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
-            // User langsung melihat konten dalam < 0.5 detik
-            loadFeedFromCacheOnly(); 
+        // --- 2. FIX INITAPP (INI PENYEBAB ERROR UTAMA) ---
 
-            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
-            await initApp(); 
+    // Fungsi ini wajib ada karena dipanggil saat startup
+
+    async function initApp() {
+
+        console.log("🚀 Aplikasi Siap.");
+
+        // Isi widget dummy agar tidak error jika data belum ada
+
+        if(document.getElementById("trendingWidget")) {
+
+            document.getElementById("trendingWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
+
+        }
+
+        if(document.getElementById("recomWidget")) {
+
+            document.getElementById("recomWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
+
+        }
+
+    }
+
+
+
+    // --- 3. EVENT LISTENER STARTUP ---
+
+    document.addEventListener("DOMContentLoaded", async () => {
+
+        if(typeof loadFeedFromCacheOnly === 'function') loadFeedFromCacheOnly(); 
+
+        await initApp();
+
+    });
+
+
+
+    // --- 4. LOGIKA KONEKSI WALLET (PERBAIKAN TOTAL) ---
+
+    window.addEventListener('load', async () => {
+
+        // Cek Sesi di LocalStorage
+
+        const sessionRaw = localStorage.getItem("putramas_session");
+
+        if (!sessionRaw) return; // Jika belum login, diam saja (jangan redirect)
+
+
+
+        try {
+
+            const session = JSON.parse(sessionRaw);
+
             
-            if(userAddress) {
-                document.getElementById("walletDisplay").innerText = userAddress;
-                loadMyProfile(); // Load profil header
-                
-                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
-                loadFeedLive(); 
-                renderWidgets();
-            }
-        });
 
-            // B. Cek Sesi Login
-            const sessionRaw = localStorage.getItem("putramas_session");
-            if (!sessionRaw) {
-                window.location.replace("index.html");
-                return;
-            }
+            // Cek Expired
 
-            try {
-                const session = JSON.parse(sessionRaw);
-                
-                if (Date.now() > session.expiry) {
-                    localStorage.removeItem("putramas_session");
-                    window.location.replace("index.html");
-                    return;
-                }
+            if (Date.now() > session.expiry) {
 
-                if (!window.ethereum) throw new Error("No Metamask");
-
-                // INIT PROVIDER & SIGNER
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []); // Wajib Active Signer
-
-                // Cek Network
-                const { chainId } = await provider.getNetwork();
-                if (chainId !== BASE_SEPOLIA_ID) throw new Error("Wrong Network");
-
-                signer = provider.getSigner();
-                const currentAddr = await signer.getAddress();
-
-                // Validasi Akun
-                if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
-                    throw new Error("Akun Berbeda");
-                }
-
-                // SETUP KONTRAK
-                contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
-                window.contract = contract;
-                window.userAddress = currentAddr;
-                userAddress = currentAddr;
-
-                console.log("✅ KONEKSI STABIL:", currentAddr);
-                
-                // UPDATE UI
-                isWalletConnected = true;
-                updateWalletUI(currentAddr);
-                loadMyProfile();
-                
-                // LOAD FEED LIVE
-                loadFeedLive();
-
-            } catch (e) {
-                console.warn("Koneksi Putus/Reset:", e.message);
                 localStorage.removeItem("putramas_session");
-                isWalletConnected = false;
-                updateWalletUI("");
-                // Jangan redirect paksa, biarkan user klik tombol connect lagi kalau mau
-            }
-        });
 
+                return;
+
+            }
+
+
+
+            if (!window.ethereum) return;
+
+
+
+            // Init Provider
+
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+
+            
+
+            // Cek status wallet (Silent Check)
+
+            const accounts = await provider.listAccounts();
+
+            if (accounts.length > 0) {
+
+                // Jika user sudah unlock wallet, minta akses penuh
+
+                await provider.send("eth_requestAccounts", []);
+
+            } else {
+
+                return; // Jika terkunci, stop
+
+            }
+
+
+
+            // Cek Network
+
+            const { chainId } = await provider.getNetwork();
+
+            if (chainId !== BASE_SEPOLIA_ID) return; 
+
+
+
+            signer = provider.getSigner();
+
+            const currentAddr = await signer.getAddress();
+
+
+
+            // Validasi Akun Sesuai Sesi
+
+            if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
+
+                throw new Error("Akun Berbeda");
+
+            }
+
+
+
+            // Setup Kontrak
+
+            contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
+
+            window.contract = contract;
+
+            window.userAddress = currentAddr;
+
+            userAddress = currentAddr;
+
+
+
+            console.log("✅ KONEKSI AMAN:", currentAddr);
+
+            
+
+            // Update UI & Load Data
+
+            isWalletConnected = true;
+
+            if(typeof updateWalletUI === 'function') updateWalletUI(currentAddr);
+
+            if(typeof loadMyProfile === 'function') loadMyProfile();
+
+            if(typeof loadFeedLive === 'function') loadFeedLive(); 
+
+
+
+        } catch (e) {
+
+            console.warn("Sesi Invalid:", e.message);
+
+            localStorage.removeItem("putramas_session");
+
+            isWalletConnected = false;
+
+            if(typeof updateWalletUI === 'function') updateWalletUI("");
+
+        }
+
+    });
+        
         // --- 3. UI WALLET LOGIC ---
         function updateWalletUI(address) {
             if(isWalletConnected) {
