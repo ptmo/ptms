@@ -9,57 +9,60 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
+    /* RESET UMUM (PENTING AGAR UKURAN AKURAT) */
+    * { box-sizing: border-box; }
 
     /* =========================================
-       BAGIAN 1: HEADER PENCARIAN (PREMIUM)
-       (Wajib ada agar Search Bar rapi)
+       BAGIAN 1: HEADER PENCARIAN (FIXED)
        ========================================= */
     
-    .header-wrapper {
-        position: relative;
+    /* Container Header agar tidak terpengaruh Grid di bawahnya */
+    .header-full-width {
         width: 100%;
-        max-width: 600px;
-        margin: 0 auto 10px auto; 
+        margin-bottom: 20px;
+        position: relative;
+        z-index: 100;
+    }
+
+    /* Wrapper Search Bar */
+    .search-bar-wrapper {
+        position: relative;
+        width: 100%; /* MEMAKSA LEBAR PENUH */
+        background: #fff;
+        border-radius: 14px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.05);
     }
 
     /* Input Field */
-    .custom-search-input {
-        width: 100%;
-        height: 48px;
-        /* Padding: Kiri 75px (ikon+back), Kanan 20px */
-        padding: 12px 20px 12px 75px; 
-        background: #ffffff;
-        border: 1px solid transparent;
+    .fix-search-input {
+        width: 100%; /* WAJIB 100% */
+        height: 50px;
+        border: none;
+        background: transparent;
         border-radius: 14px;
         font-size: 15px;
         color: #334155;
         outline: none;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.05); /* Shadow halus */
-        box-sizing: border-box;
-        transition: all 0.3s ease;
-    }
-    .custom-search-input:focus {
-        box-shadow: 0 0 0 4px rgba(115, 133, 165, 0.2);
-        border-color: #bfdbfe;
+        /* Padding: Kiri 80px (untuk Back + Icon), Kanan 20px */
+        padding: 0 20px 0 80px; 
     }
 
-    /* Ikon Kaca Pembesar (Overlay) */
-    .icon-overlay {
+    /* Ikon Kaca Pembesar (Diam di tempat) */
+    .icon-search-fixed {
         position: absolute;
         top: 50%;
+        left: 50px; /* Di sebelah tombol back */
         transform: translateY(-50%);
-        left: 45px; /* Default (Mobile) */
         color: #7385a5;
         font-size: 16px;
         pointer-events: none;
-        z-index: 9;
     }
 
     /* Tombol Back (Mobile) */
-    .btn-back-mobile {
+    .btn-back-fixed {
         position: absolute;
-        left: 10px;
-        top: 24px;
+        left: 15px;
+        top: 50%;
         transform: translateY(-50%);
         background: none;
         border: none;
@@ -68,60 +71,56 @@
         cursor: pointer;
         padding: 5px;
         z-index: 10;
+        display: flex;
+        align-items: center;
+        justify-content: center;
     }
 
-    /* Status Deep Search (Rata Kanan) */
-    .status-container {
+    /* Status Deep Search (Di Bawah Input, Rata Kanan) */
+    .status-bar-fixed {
         display: flex;
         align-items: center;
         justify-content: flex-end; /* Rata Kanan */
-        margin-top: 8px;
-        padding-right: 5px;
+        padding: 5px 5px 0 0;
         font-size: 11px;
         color: #7385a5;
         font-weight: 500;
     }
     
-    /* Warna elemen status */
-    .status-container span, .status-container b, .status-container i {
+    .status-bar-fixed span, .status-bar-fixed b, .status-bar-fixed i {
         color: #7385a5 !important;
     }
 
-    /* Animasi Loader */
     .spin-loader {
         animation: spin 1.5s linear infinite;
         margin-right: 6px;
         min-width: 14px;
     }
-    @keyframes spin { 100% { transform: rotate(360deg); } }
 
-
-    /* --- LOGIKA RESPONSIF PC (>768px) --- */
+    /* RESPONSIVE PC: Hilangkan tombol back & geser ikon */
     @media (min-width: 768px) {
-        .btn-back-mobile { display: none !important; } /* Hilangkan tombol back */
-        .icon-overlay { left: 20px !important; }       /* Geser ikon search ke kiri */
-        .custom-search-input { padding-left: 50px !important; } /* Kurangi padding input */
+        .btn-back-fixed { display: none !important; }
+        .icon-search-fixed { left: 20px !important; }
+        .fix-search-input { padding-left: 50px !important; }
     }
 
 
     /* =========================================
-       BAGIAN 2: CSS STABLE PILIHAN ANDA (BAWAH)
-       (Grid, Card, Scanning Bar - Tidak Diubah)
+       BAGIAN 2: CONTENT GRID (STABIL)
        ========================================= */
-
-    .search-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
+    .search-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; margin-top: 20px; }
     @media (max-width: 768px) { .search-grid { grid-template-columns: 1fr; } .col-users { order: -1; margin-bottom: 20px; } }
+    
     .section-title { font-size: 14px; font-weight: bold; color: #7385a5; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
     .user-result-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #eee; margin-bottom: 10px; animation: fadeIn 0.5s; }
     .btn-follow-small { padding: 5px 10px; font-size: 11px; border-radius: 20px; border: 1px solid #3498db; background: transparent; color: #3498db; cursor: pointer; }
-    .btn-follow-small:hover { background: #3498db; color: white; }
-    .btn-follow-small.following { background: #eee; border-color: #ccc; color: #666; }
+    
+    @keyframes spin { 100% { transform: rotate(360deg); } }
     @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* Indikator Deep Scan (Stable) */
-    .scanning-bar { height: 4px; width: 100%; background: #eee; margin-top: 10px; border-radius: 2px; overflow: hidden; display: none; }
-    .scanning-progress { height: 100%; background: #e74c3c; width: 0%; transition: width 0.3s; }
-    
+    /* Hide old elements */
+    #scanBar, .scanning-bar { display: none !important; }
+
     </style>
 </head>
 <body>
@@ -134,53 +133,59 @@
             </div>
         </div>
 
-        <div class="header-wrapper">
-    
-    <button type="button" onclick="window.history.back()" class="btn-back-mobile">
-        <i class="fa-solid fa-chevron-left"></i>
-    </button>
-    
-    <i class="fa-solid fa-magnifying-glass icon-overlay"></i>
+        <div class="main-feed" style="max-width: 100%; padding: 10px;">
 
-    <input type="search" 
-           id="searchInput" 
-           class="custom-search-input" 
-           placeholder="Pencarian..." 
-           autocomplete="off">
-
-    <div class="status-container">
-        <i class="fa-solid fa-circle-notch spin-loader"></i>
+    <div class="header-full-width">
         
-        <span>
-            Deep Search: <b id="queryDisplay">...</b>
+        <form onsubmit="event.preventDefault(); window.location.href = 'result.html?q=' + document.getElementById('searchInput').value;">
             
-            <span id="scanStatus" style="display: inline !important; margin-left: 5px;">
-                <span id="scanCount" style="display:none;"></span>
-            </span>
-        </span>
+            <div class="search-bar-wrapper">
+                
+                <button type="button" onclick="window.history.back()" class="btn-back-fixed">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+
+                <i class="fa-solid fa-magnifying-glass icon-search-fixed"></i>
+
+                <input type="search" 
+                       id="searchInput" 
+                       class="fix-search-input" 
+                       placeholder="Pencarian..." 
+                       autocomplete="off">
+            </div>
+
+            <div class="status-bar-fixed">
+                <i class="fa-solid fa-circle-notch spin-loader"></i>
+                <span>
+                    Deep Search: <b id="queryDisplay">...</b>
+                    <span id="scanStatus" style="display: inline !important; margin-left: 5px;">
+                        <span id="scanCount" style="display:none;"></span>
+                    </span>
+                </span>
+            </div>
+
+            <div id="scanBar" style="display: none !important;"><div id="scanProgress"></div></div>
+
+        </form>
     </div>
 
-    <div class="scanning-bar" id="scanBar" style="display: none !important;">
-        <div class="scanning-progress" id="scanProgress"></div>
-    </div>
-
+    <div class="search-grid">
+        <div class="col-posts">
+            <div class="section-title"><i class="fa-regular fa-newspaper"></i> Hasil Postingan & NFT</div>
+            <div id="postsResultContainer"></div>
         </div>
 
-            <div class="search-grid">
-                <div class="col-posts">
-                    <div class="section-title"><i class="fa-regular fa-newspaper"></i> Hasil Postingan & NFT</div>
-                    <div id="postsResultContainer"></div>
-                </div>
-
-                <div class="col-users">
-                    <div class="section-title"><i class="fa-solid fa-users"></i> Pengguna Ditemukan</div>
-                    <div id="usersResultContainer">
-                        <div style="text-align:center; padding:20px; color:#999;"><i class="fa-solid fa-circle-notch fa-spin"></i> Menunggu Koneksi...</div>
-                    </div>
+        <div class="col-users">
+            <div class="section-title"><i class="fa-solid fa-users"></i> Pengguna Ditemukan</div>
+            <div id="usersResultContainer">
+                <div style="text-align:center; padding:20px; color:#999;">
+                     <i class="fa-solid fa-circle-notch fa-spin"></i> Menunggu Koneksi...
                 </div>
             </div>
         </div>
     </div>
+
+        </div>
 
     <div id="toast"></div>
     <script src="main.js"></script>
