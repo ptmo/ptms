@@ -327,992 +327,458 @@
     <div id="toast"></div>
 
     <script src="ipfs_helper.js"></script>
+ <script>
+    // --- 1. KONFIGURASI MANDIRI ---
+    const MY_CONTRACT_ADDR = "0x0753d3a9f7cb7eD9De233a319d4AD9fF60A434B2"; 
+    const BASE_SEPOLIA_ID = 84532;
+    const BASE_SEPOLIA_HEX = "0x14a34";
+    const SAWER_MIN = 0.00002;
+    const SAWER_MAX = 0.01;
 
-    <script>
-        // --- 1. KONFIGURASI MANDIRI ---
-        const MY_CONTRACT_ADDR = "0x0753d3a9f7cb7eD9De233a319d4AD9fF60A434B2"; 
-        const BASE_SEPOLIA_ID = 84532;
-        const BASE_SEPOLIA_HEX = "0x14a34";
-        const SAWER_MIN = 0.00002;
-        const SAWER_MAX = 0.01;
+    // ABI (Gunakan ABI Lengkap Anda, ini versi singkat agar script jalan)
+    const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"followed","type":"address"}],"name":"Followed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"nftId","type":"uint256"},{"indexed":false,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"}],"name":"Sawer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"unfollowed","type":"address"}],"name":"Unfollowed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"blocker","type":"address"},{"indexed":true,"internalType":"address","name":"blocked","type":"address"}],"name":"UserBlocked","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"blockUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imgURI","type":"string"},{"internalType":"string","name":"_metaURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"followUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followerList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followingList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getFollowCounts","outputs":[{"internalType":"uint256","name":"followersCount","type":"uint256"},{"internalType":"uint256","name":"followingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyFeed","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficialWayangNusantara.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"hasBlocked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"ownerAddr","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"isFollowing","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"mintPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"sawerPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"unfollowUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
-        // ⚠️ PASTE ABI LENGKAP ANDA DI SINI ⚠️
-        const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imageURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficial.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficial.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
+    // Global Vars
+    let contract, userAddress, provider, signer;
+    let isWalletConnected = false;
+    let currentFeedType = 'friends';
+    let selectedRate = 0;
+    let pendingNftData = null;
+    const profileCache = {};
 
-        // Global Vars
-        let contract, userAddress, provider, signer;
-        let isWalletConnected = false;
-        let currentFeedType = 'friends';
-        let selectedRate = 0;
-        let pendingNftData = null;
-        const profileCache = {};
-
-        // --- 2. FIX INITAPP (INI PENYEBAB ERROR UTAMA) ---
-
-    // Fungsi ini wajib ada karena dipanggil saat startup
-
+    // --- 2. FUNGSI STARTUP (Agar tidak error initApp not defined) ---
     async function initApp() {
-
         console.log("🚀 Aplikasi Siap.");
-
-        // Isi widget dummy agar tidak error jika data belum ada
-
-        if(document.getElementById("trendingWidget")) {
-
-            document.getElementById("trendingWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
-
-        }
-
-        if(document.getElementById("recomWidget")) {
-
-            document.getElementById("recomWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
-
-        }
-
+        // Render widget dummy
+        document.getElementById("trendingWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
+        document.getElementById("recomWidget").innerHTML = "<p style='font-size:12px; color:#999;'>Coming Soon</p>";
     }
 
-
-
-    // --- 3. EVENT LISTENER STARTUP ---
-
+    // --- 3. EVENT LISTENER UTAMA ---
     document.addEventListener("DOMContentLoaded", async () => {
-
-        if(typeof loadFeedFromCacheOnly === 'function') loadFeedFromCacheOnly(); 
-
+        loadFeedFromCacheOnly(); 
         await initApp();
-
     });
 
-
-
-    // --- 4. LOGIKA KONEKSI WALLET (PERBAIKAN TOTAL) ---
-
+    // --- 4. LOGIKA KONEKSI WALLET (YANG TADI ERROR DISINI) ---
     window.addEventListener('load', async () => {
-
-        // Cek Sesi di LocalStorage
-
+        // [PERBAIKAN] Baris ini tadi hilang di kode Anda
         const sessionRaw = localStorage.getItem("putramas_session");
-
-        if (!sessionRaw) return; // Jika belum login, diam saja (jangan redirect)
-
-
+        
+        if (!sessionRaw) {
+            // Jangan redirect agar user bisa lihat feed cache
+            return;
+        }
 
         try {
-
             const session = JSON.parse(sessionRaw);
-
             
-
-            // Cek Expired
-
             if (Date.now() > session.expiry) {
-
                 localStorage.removeItem("putramas_session");
-
                 return;
-
             }
 
-
-
-            if (!window.ethereum) return;
-
-
-
-            // Init Provider
+            if (!window.ethereum) throw new Error("No Metamask");
 
             provider = new ethers.providers.Web3Provider(window.ethereum);
-
             
-
-            // Cek status wallet (Silent Check)
-
+            // Cek apakah wallet terkunci
             const accounts = await provider.listAccounts();
-
             if (accounts.length > 0) {
-
-                // Jika user sudah unlock wallet, minta akses penuh
-
                 await provider.send("eth_requestAccounts", []);
-
             } else {
-
-                return; // Jika terkunci, stop
-
+                return; // Stop jika terkunci
             }
-
-
-
-            // Cek Network
 
             const { chainId } = await provider.getNetwork();
-
-            if (chainId !== BASE_SEPOLIA_ID) return; 
-
-
+            if (chainId !== BASE_SEPOLIA_ID) throw new Error("Wrong Network");
 
             signer = provider.getSigner();
-
             const currentAddr = await signer.getAddress();
 
-
-
-            // Validasi Akun Sesuai Sesi
-
             if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
-
                 throw new Error("Akun Berbeda");
-
             }
-
-
-
-            // Setup Kontrak
 
             contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
-
             window.contract = contract;
-
             window.userAddress = currentAddr;
-
             userAddress = currentAddr;
 
-
-
-            console.log("✅ KONEKSI AMAN:", currentAddr);
-
+            console.log("✅ KONEKSI STABIL:", currentAddr);
             
-
-            // Update UI & Load Data
-
             isWalletConnected = true;
-
-            if(typeof updateWalletUI === 'function') updateWalletUI(currentAddr);
-
-            if(typeof loadMyProfile === 'function') loadMyProfile();
-
-            if(typeof loadFeedLive === 'function') loadFeedLive(); 
-
-
+            updateWalletUI(currentAddr);
+            loadMyProfile();
+            loadFeedLive(); 
 
         } catch (e) {
-
-            console.warn("Sesi Invalid:", e.message);
-
+            console.warn("Koneksi Reset:", e.message);
             localStorage.removeItem("putramas_session");
-
             isWalletConnected = false;
-
-            if(typeof updateWalletUI === 'function') updateWalletUI("");
-
+            updateWalletUI("");
         }
-
     });
-        
-        // --- 3. UI WALLET LOGIC ---
-        function updateWalletUI(address) {
-            if(isWalletConnected) {
-                const shortAddr = address.substring(0, 6) + "..." + address.substring(address.length - 4);
-                
-                // PC
-                const sideText = document.getElementById("sidebarWalletText");
-                const sideInd = document.getElementById("walletIndicator");
-                if(sideText) sideText.innerText = shortAddr;
-                if(sideInd) sideInd.style.color = "#2ecc71"; // Hijau
 
-                // HP
-                const navBtn = document.getElementById("navWalletBtn");
-                if(navBtn) navBtn.style.color = "#2ecc71";
+    // --- 5. UI WALLET LOGIC ---
+    function updateWalletUI(address) {
+        const navBtn = document.getElementById("navWalletBtn");
+        const sideText = document.getElementById("sidebarWalletText");
+        const sideInd = document.getElementById("walletIndicator");
+        const popupText = document.getElementById("popupAddressText");
+        const wDisplay = document.getElementById("walletDisplay");
 
-                // Popup
-                document.getElementById("popupAddressText").innerText = address;
-            } else {
-                // Reset Merah
-                const navBtn = document.getElementById("navWalletBtn");
-                if(navBtn) navBtn.style.color = "#e74c3c";
-                const sideInd = document.getElementById("walletIndicator");
-                if(sideInd) sideInd.style.color = "#e74c3c";
-            }
+        if(isWalletConnected && address) {
+            const short = address.substring(0, 6) + "..." + address.substring(address.length - 4);
+            if(sideText) sideText.innerText = short;
+            if(sideInd) sideInd.style.color = "#2ecc71";
+            if(navBtn) navBtn.style.color = "#2ecc71";
+            if(popupText) popupText.innerText = address;
+            if(wDisplay) { wDisplay.innerText = "Terhubung: " + short; wDisplay.style.color="#2ecc71"; }
+        } else {
+            if(sideText) sideText.innerText = "Connect";
+            if(sideInd) sideInd.style.color = "#e74c3c";
+            if(navBtn) navBtn.style.color = "#ccc";
+            if(wDisplay) { wDisplay.innerText = "Terputus"; wDisplay.style.color="#e74c3c"; }
         }
+    }
 
-        function handleWalletClick() {
-            if (isWalletConnected) {
-                document.getElementById("walletPopupOverlay").style.display = "flex";
-            } else {
-                manualConnect();
-            }
+    function handleWalletClick() {
+        if (isWalletConnected) document.getElementById("walletPopupOverlay").style.display = "flex";
+        else manualConnect();
+    }
+
+    function closeWalletPopup() { document.getElementById("walletPopupOverlay").style.display = "none"; }
+    function copyAddress() { navigator.clipboard.writeText(userAddress).then(() => alert("Alamat disalin!")); }
+    
+    function performDisconnect() {
+        if(confirm("Yakin ingin keluar?")) {
+            localStorage.removeItem("putramas_session");
+            window.location.replace("index.html");
         }
+    }
 
-        function closeWalletPopup() { document.getElementById("walletPopupOverlay").style.display = "none"; }
-        
-        function copyAddress() {
-            navigator.clipboard.writeText(userAddress).then(() => alert("Alamat disalin!"));
-        }
-
-        function performDisconnect() {
-            if(confirm("Logout?")) {
-                localStorage.removeItem("putramas_session");
-                window.location.replace("index.html");
-            }
-        }
-
-        async function manualConnect() {
-            try {
-                if (!window.ethereum) return alert("Pasang MetaMask!");
-                provider = new ethers.providers.Web3Provider(window.ethereum);
-                await provider.send("eth_requestAccounts", []);
-                const { chainId } = await provider.getNetwork();
-                if (chainId !== BASE_SEPOLIA_ID) await switchBaseSepolia();
-                
-                signer = provider.getSigner();
-                const addr = await signer.getAddress();
-                
-                // Simpan Sesi
-                localStorage.setItem("putramas_session", JSON.stringify({ address: addr, expiry: Date.now() + 864000000 }));
-                location.reload();
-            } catch (e) { alert("Gagal: " + e.message); }
-        }
-
-        async function switchBaseSepolia() {
-            try {
-                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_HEX }] });
-            } catch (e) {
-                if(e.code === 4902) {
-                    await window.ethereum.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [{ chainId: BASE_SEPOLIA_HEX, chainName: 'Base Sepolia', rpcUrls: ['https://sepolia.base.org'], nativeCurrency: { name: 'ETH', decimals: 18, symbol: 'ETH' }, blockExplorerUrls: ['https://sepolia.basescan.org'] }]
-                    });
-                }
-            }
-        }
-
-        // --- 4. FEED LOGIC (CACHE & LIVE) ---
-        function loadFeedFromCacheOnly() {
-            const cacheKey = `feed_cache_${currentFeedType}`;
-            const cachedData = localStorage.getItem(cacheKey);
-            if (cachedData) {
-                try {
-                    const parsed = JSON.parse(cachedData);
-                    const container = document.getElementById("feedContainer");
-                    if(parsed.length > 0) {
-                        container.innerHTML = "";
-                        renderPostLoop(parsed, container, true);
-                    }
-                } catch(e) {}
-            }
-        }
-
-        // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
-        async function loadMyProfile() {
-            try {
-                const p = await contract.getProfile(userAddress);
-                if(p.fotoProfil) {
-                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    // Avatar Profil juga dikompres kecil
-                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
-                    document.getElementById("myAvatar").src = optAvatar;
-                }
-
+    async function manualConnect() {
         try {
-            document.getElementById("sawerModal").close();
-            showToast("Mengirim Saweran...", "info");
+            if (!window.ethereum) return alert("Pasang MetaMask!");
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const { chainId } = await provider.getNetwork();
+            if (chainId !== BASE_SEPOLIA_ID) await switchBaseSepolia();
             
-            // Konversi ke Wei
-            const weiAmount = ethers.utils.parseEther(amount.toString());
+            signer = provider.getSigner();
+            const addr = await signer.getAddress();
             
-            // Eksekusi Smart Contract (Index blockchain = ID - 1)
-            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
-            
-            await tx.wait();
-            showToast("Terima kasih! Saweran terkirim", "success");
+            localStorage.setItem("putramas_session", JSON.stringify({ address: addr, expiry: Date.now() + 864000000 }));
+            location.reload();
+        } catch (e) { alert("Gagal: " + e.message); }
+    }
+
+    async function switchBaseSepolia() {
+        try {
+            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_HEX }] });
         } catch (e) {
-            console.error(e);
-            // Cek jika user reject
-            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
-                showToast("Transaksi dibatalkan user", "info");
-            } else {
-                showToast("Gagal: " + (e.reason || e.message), "error");
+            if(e.code === 4902) {
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{ chainId: BASE_SEPOLIA_HEX, chainName: 'Base Sepolia', rpcUrls: ['https://sepolia.base.org'], nativeCurrency: { name: 'ETH', decimals: 18, symbol: 'ETH' }, blockExplorerUrls: ['https://sepolia.basescan.org'] }]
+                });
             }
         }
     }
 
-        // --- SCRIPT FOLLOW ---
-        async function followUser(targetAddr) {
+    // --- 6. LOGIKA FEED ---
+    function loadFeedFromCacheOnly() {
+        const cacheKey = `feed_cache_${currentFeedType}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
             try {
-                showToast("Memproses Follow...", "info");
-                const tx = await contract.followUser(targetAddr);
-                await tx.wait();
-                showToast("Berhasil Mengikuti!", "success");
-                renderWidgets(); // Refresh widget
-            } catch(e) { showToast("Gagal: " + e.message, "error"); }
-        }
-
-        // --- FUNGSI LOAD PROFILE HEADER ---
-         async function loadMyProfile() {
-            try {
-                const p = await contract.getProfile(userAddress);
-                if(p.fotoProfil) {
-                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
-                    document.getElementById("myAvatar").src = optAvatar;
+                const parsed = JSON.parse(cachedData);
+                const container = document.getElementById("feedContainer");
+                if(parsed.length > 0) {
+                    container.innerHTML = "";
+                    renderPostLoop(parsed, container, true);
                 }
             } catch(e) {}
         }
+    }
 
-        async function fetchProfileLazy(address) {
-            if(profileCache[address]) {
-                updatePostAuthorUI(address, profileCache[address]);
+    async function loadFeedLive() {
+        if(!contract) return;
+        try {
+            let posts;
+            if(currentFeedType === 'friends') posts = await contract.getMyFeed();
+            else posts = await contract.getAllPosts();
+
+            const container = document.getElementById("feedContainer");
+            if(posts.length === 0) {
+                if(!localStorage.getItem(`feed_cache_${currentFeedType}`)) {
+                     container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>Belum ada postingan.</p>`;
+                }
                 return;
             }
-            try {
-                const p = await contract.getProfile(address);
-                let avatarUrl = 'https://via.placeholder.com/40';
-                if (p.fotoProfil) {
-                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
-                }
-                const data = { nickname: p.nickname, avatar: avatarUrl };
-                profileCache[address] = data;
-                updatePostAuthorUI(address, data);
-            } catch (e) {}
-        }
-        
-        // --- 2. FUNGSI KHUSUS BACA CACHE (Sangat Ringan) ---
-        function loadFeedFromCacheOnly() {
-            const cacheKey = `feed_cache_${currentFeedType}`;
-            const cachedData = localStorage.getItem(cacheKey);
+
+            const plainPosts = posts.map(p => ({
+                id: p.id.toString(), author: p.author, caption: p.caption,
+                imageURI: p.imageURI, tokenURI: p.tokenURI, timestamp: p.timestamp.toString(),
+                likeCount: p.likeCount.toString(), commentCount: p.commentCount.toString(),
+                nftId: p.nftId.toString(), ratingCount: p.ratingCount.toString(), totalRatingScore: p.totalRatingScore.toString()
+            }));
+
+            localStorage.setItem(`feed_cache_${currentFeedType}`, JSON.stringify(plainPosts));
+            container.innerHTML = ""; 
+            renderPostLoop(plainPosts, container, false);
+
+        } catch (e) { console.error("Gagal load live:", e); }
+    }
+
+    function renderPostLoop(postsArray, container, isCache) {
+        [...postsArray].reverse().forEach(post => {
+            const profileLink = `profile.html?addr=${post.author}`;
+            let imgHtml = "";
             
-            if (cachedData) {
-                console.log("⚡ Tampil Instan dari Cache");
-                try {
-                    const parsed = JSON.parse(cachedData);
-                    if(parsed.length > 0) {
-                        const container = document.getElementById("feedContainer");
-                        container.innerHTML = ""; // Bersihkan loading spinner
-                        renderPostLoop(parsed, container, true); // true = mode cache
-                    }
-                } catch(e) { console.error("Cache rusak", e); }
+            if(post.imageURI && post.imageURI.length > 5) {
+                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                let metaBox = "";
+                if(parseInt(post.nftId) > 0) metaBox = `<div style="background:#f8f9fa; padding:8px; font-size:11px;">NFT #${post.nftId} | Kolektor: ${post.author.substring(0,6)}...</div>`;
+                imgHtml = `<div style="margin:10px -15px;"><a href="koleksi.html?id=${post.id}"><img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;">${metaBox}</a></div>`;
+                if(parseInt(post.nftId) > 0 && !isCache) setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
             }
-        }
 
-        // --- 3. FUNGSI KHUSUS LIVE DATA (Blockchain) ---
-        async function loadFeedLive() {
-            try {
-                // Jangan hapus konten lama dulu (biar user gak liat layar kedip putih)
-                // Kita load data di memori dulu
-                let posts;
-                if(currentFeedType === 'friends') {
-                    posts = await contract.getMyFeed();
-                } else {
-                    posts = await contract.getAllPosts();
-                }
-
-                const container = document.getElementById("feedContainer");
-
-                if(posts.length === 0) {
-                    // Cek lagi cache, kalau cache juga kosong baru tampilkan pesan kosong
-                    const cacheKey = `feed_cache_${currentFeedType}`;
-                    if(!localStorage.getItem(cacheKey)) {
-                         const msg = currentFeedType === 'friends' 
-                            ? "Belum ada postingan dari teman."
-                            : "Belum ada postingan di platform.";
-                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>${msg}</p>`;
-                    }
-                    return;
-                }
-
-                // SIMPAN KE LOCAL STORAGE
-                const plainPosts = posts.map(p => ({
-                    id: p.id.toString(),
-                    author: p.author,
-                    caption: p.caption,
-                    imageURI: p.imageURI,
-                    tokenURI: p.tokenURI,
-                    timestamp: p.timestamp.toString(),
-                    likeCount: p.likeCount.toString(),
-                    commentCount: p.commentCount.toString(),
-                    nftId: p.nftId.toString(),
-                    ratingCount: p.ratingCount.toString(),
-                    totalRatingScore: p.totalRatingScore.toString()
-                }));
-
-                const cacheKey = `feed_cache_${currentFeedType}`;
-                localStorage.setItem(cacheKey, JSON.stringify(plainPosts));
-
-                // RENDER ULANG (Update Tampilan dengan Data Baru)
-                container.innerHTML = ""; 
-                renderPostLoop(plainPosts, container, false); // false = mode live
-
-            } catch (e) { 
-                console.error("Gagal load live:", e);
-                // Tidak perlu tampilkan error di UI jika cache sudah tampil
-            }
-        }
-
-        // --- 4. GANTI TAB (Panggil Cache Dulu, Baru Live) ---
-        function switchFeed(type) {
-            currentFeedType = type;
+            const avgRating = parseInt(post.ratingCount) > 0 ? (parseInt(post.totalRatingScore) / parseInt(post.ratingCount)).toFixed(1) : "0.0";
             
-            // UI Tab
-            const tabFriends = document.getElementById("tabFriends");
-            const tabGlobal = document.getElementById("tabGlobal");
-            const activeStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;";
-            const inactiveStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;";
-
-            if(type === 'friends') {
-                tabFriends.style.cssText = activeStyle;
-                tabGlobal.style.cssText = inactiveStyle;
-            } else {
-                tabGlobal.style.cssText = activeStyle;
-                tabFriends.style.cssText = inactiveStyle;
-            }
-
-            // LOGIKA GANTI TAB CEPAT
-            const container = document.getElementById("feedContainer");
-            const cacheKey = `feed_cache_${type}`;
-            const cachedData = localStorage.getItem(cacheKey);
-
-            if(cachedData) {
-                // Jika ada cache, langsung tampilkan
-                container.innerHTML = "";
-                renderPostLoop(JSON.parse(cachedData), container, true);
-                // Lalu update diam-diam
-                loadFeedLive();
-            } else {
-                // Jika tidak ada cache, baru munculkan loading spinner
-                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...</div>`;
-                loadFeedLive();
-            }
-        }
-
-        // --- HELPER RENDER (Sama seperti sebelumnya) ---
-        function renderPostLoop(postsArray, container, isCache) {
-            [...postsArray].reverse().forEach(post => {
-                const profileLink = `profile.html?addr=${post.author}`;
-                let imgHtml = "";
-                
-                // Optimasi Gambar 60KB
-                if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
-
-                    let metaBox = "";
-                    if(parseInt(post.nftId) > 0) {
-                        const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                        metaBox = `
-                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                                <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                                <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
-                            </div>
-                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                                <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
-                                <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
-                            </div>
-                        </div>`;
-                    }
-
-                    imgHtml = `
-                    <div style="margin:10px -15px 0 -15px;">
-                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                            <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
-                            ${metaBox}
-                        </a>
-                    </div>`;
-
-                    if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
-                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
-                    }
-                }
-
-                const rCount = parseInt(post.ratingCount);
-                const rScore = parseInt(post.totalRatingScore);
-                const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-                const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-                
-                const html = `
-                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <a href="${profileLink}">
-                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
-                        </a>
-                        <div class="post-info">
-                            <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                ${post.author.substring(0,6)}...
-                            </a>
-                            <div style="font-size: 11px; color: #999;">
-                                ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
-                            </div>
-                        </div>
+            const html = `
+            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <a href="${profileLink}"><img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%;"></a>
+                    <div>
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="font-weight: bold; text-decoration:none; color:#333;">${post.author.substring(0,6)}...</a>
+                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()}</div>
                     </div>
-                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                    ${imgHtml}
+                </div>
+                <div style="font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                ${imgHtml}
+                <div style="border-top:1px solid #eee; padding-top:10px; display:flex; justify-content:space-around;">
+                        <button onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
+                        <button onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
+                        <button onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
+                        <button onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> ${avgRating}</button>
+                </div>
+            </div>`;
+            container.innerHTML += html;
+            fetchProfileLazy(post.author);
+        });
+    }
 
-                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
-                         </button>
-                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
-                         </button>
-                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                            <i class="fa-solid fa-gift"></i>
-                         </button>
-                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
-                         </button>
-                    </div>
-                </div>`;
-                container.innerHTML += html;
-                fetchProfileLazy(post.author);
+    // --- 7. FUNGSI UTILS & HELPER ---
+    function switchFeed(type) {
+        currentFeedType = type;
+        const tF = document.getElementById("tabFriends");
+        const tG = document.getElementById("tabGlobal");
+        if(type==='friends') { tF.style.borderBottom="3px solid #8b4513"; tF.style.color="#8b4513"; tG.style.borderBottom="none"; tG.style.color="#999"; }
+        else { tG.style.borderBottom="3px solid #8b4513"; tG.style.color="#8b4513"; tF.style.borderBottom="none"; tF.style.color="#999"; }
+        loadFeedFromCacheOnly(); loadFeedLive();
+    }
+
+    function formatCaption(text) {
+        if (!text) return "";
+        return text.replace(/</g, "&lt;").replace(/(https?:\/\/[^\s]+)/g, '<a href="$1" target="_blank" style="color:#7385a5;">$1</a>').replace(/\n/g, "<br>");
+    }
+
+    function showToast(msg, type="info") {
+        const t = document.getElementById("toast");
+        t.innerText = msg; t.className = "show";
+        t.style.background = type === "error" ? "#e74c3c" : "#333";
+        setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+    }
+
+    async function loadMyProfile() {
+        try {
+            const p = await contract.getProfile(userAddress);
+            if(p.fotoProfil) document.getElementById("myAvatar").src = `https://wsrv.nl/?url=${encodeURIComponent(p.fotoProfil.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'))}&w=100&q=70&output=webp`;
+        } catch(e){}
+    }
+
+    async function fetchProfileLazy(address) {
+        if(profileCache[address]) { updatePostAuthorUI(address, profileCache[address]); return; }
+        try {
+            const p = await contract.getProfile(address);
+            let avt = "https://via.placeholder.com/40";
+            if(p.fotoProfil) avt = `https://wsrv.nl/?url=${encodeURIComponent(p.fotoProfil.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'))}&w=80&q=60&output=webp`;
+            const data = { nickname: p.nickname, avatar: avt };
+            profileCache[address] = data;
+            updatePostAuthorUI(address, data);
+        } catch (e) {}
+    }
+
+    function updatePostAuthorUI(address, data) {
+        document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
+        document.querySelectorAll(`.author-nick-${address}`).forEach(el => el.innerText = data.nickname);
+    }
+
+    async function fetchCardMetadata(postId, tokenUri) {
+        try {
+            const res = await fetch(tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/'));
+            const meta = await res.json();
+            const el = document.getElementById(`meta-name-${postId}`);
+            if(el) el.innerText = meta.name;
+        } catch(e){}
+    }
+
+    // --- 8. FUNGSI INTERAKSI (LIKE, COMMENT, POST) ---
+    async function handleLike(id) {
+        if(!contract) return manualConnect();
+        try {
+            // Optimistic Update
+            const span = document.getElementById(`count-like-${id}`);
+            const icon = document.getElementById(`icon-like-${id}`);
+            span.innerText = parseInt(span.innerText) + 1;
+            icon.classList.remove('fa-regular'); icon.classList.add('fa-solid'); icon.style.color='#e74c3c';
+            
+            const tx = await contract.likePost(id - 1);
+            await tx.wait();
+        } catch(e) { showToast("Gagal Like", "error"); }
+    }
+
+    function openComments(id) {
+        document.getElementById("commentPostId").value = id - 1;
+        document.getElementById("commentModal").showModal();
+        loadComments(id - 1);
+    }
+
+    async function loadComments(idx) {
+        const list = document.getElementById("commentList");
+        list.innerHTML = "Loading...";
+        try {
+            const comments = await contract.getComments(idx);
+            list.innerHTML = "";
+            if(comments.length === 0) list.innerHTML = "<p style='text-align:center;color:#999;'>Belum ada komentar.</p>";
+            comments.forEach(c => {
+                list.innerHTML += `<div class="comment-item"><div class="comment-content"><span class="comment-author author-nick-${c.commenter}">${c.commenter.substring(0,6)}...</span>: ${formatCaption(c.text)}</div></div>`;
+                fetchProfileLazy(c.commenter);
             });
-                                                                          }
-                
-        function updatePostAuthorUI(address, data) {
-            document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
-            document.querySelectorAll(`.author-nick-${address}`).forEach(el => el.innerText = data.nickname);
-        }
-
-        // --- INTERAKSI LIKE & RATE ---
-        async function handleLike(postId) {
-            const countSpan = document.getElementById(`count-like-${postId}`);
-            const icon = document.getElementById(`icon-like-${postId}`);
-            const current = parseInt(countSpan.innerText);
-            
-            countSpan.innerText = current + 1;
-            icon.classList.remove("fa-regular");
-            icon.classList.add("fa-solid");
-            icon.style.color = "#e74c3c";
-
-            try {
-                const tx = await contract.likePost(postId - 1);
-                await tx.wait();
-            } catch (e) {
-                // Rollback jika gagal
-                countSpan.innerText = current;
-                icon.classList.add("fa-regular");
-                icon.classList.remove("fa-solid");
-                icon.style.color = "";
-            }
-        }
-
-        // --- 1. MEMBUKA MODAL ---
-    function openRating(id) {
-        // Simpan ID ke input hidden
-        document.getElementById("ratingTargetId").value = id;
-        // Reset tampilan bintang jadi 0
-        selectedRate = 0;
-        updateStarVisuals(0);
-        // Buka Modal
-        document.getElementById("ratingModal").showModal();
+        } catch(e) { list.innerHTML = "Error loading comments."; }
     }
 
-    // --- 2. LOGIKA WARNA BINTANG ---
-    function setRate(n) {
-        selectedRate = n;
-        updateStarVisuals(n);
+    async function submitComment() {
+        const idx = document.getElementById("commentPostId").value;
+        const txt = document.getElementById("commentInput").value;
+        if(!txt) return;
+        try {
+            const tx = await contract.addComment(idx, txt, "");
+            await tx.wait();
+            document.getElementById("commentInput").value = "";
+            loadComments(idx);
+            // Update counter UI secara manual biar responsif
+            const cnt = document.getElementById(`count-comment-${parseInt(idx)+1}`);
+            if(cnt) cnt.innerText = parseInt(cnt.innerText) + 1;
+        } catch(e) { showToast("Gagal Komen", "error"); }
     }
 
-    function updateStarVisuals(n) {
-        const stars = document.querySelectorAll('.star-item');
-        stars.forEach((star, index) => {
-            // Index array mulai dari 0, nilai n mulai dari 1
-            // Jika index < n, warnai emas. Sisanya abu-abu.
-            if (index < n) {
-                star.style.color = "gold";
-                star.classList.add('active'); // Memicu efek scale di CSS
-            } else {
-                star.style.color = "#ccc"; 
-                star.classList.remove('active');
-            }
-      });
+    function openSawerModal(id) { document.getElementById("sawerTargetId").value = id; document.getElementById("sawerModal").showModal(); }
+    function setSawerVal(v) { document.getElementById("sawerAmount").value = (v==='min')?SAWER_MIN : (v==='max'?SAWER_MAX : (SAWER_MAX*v).toFixed(5)); }
+    async function submitSawer() {
+        try {
+            const id = document.getElementById("sawerTargetId").value;
+            const val = ethers.utils.parseEther(document.getElementById("sawerAmount").value);
+            const tx = await contract.sawerPost(id-1, {value: val});
+            await tx.wait();
+            document.getElementById("sawerModal").close();
+            showToast("Saweran Terkirim!");
+        } catch(e) { showToast("Gagal Sawer", "error"); }
     }
 
-    // --- 3. KIRIM KE BLOCKCHAIN ---
+    function openRating(id) { document.getElementById("ratingTargetId").value = id; document.getElementById("ratingModal").showModal(); }
+    function setRate(n) { selectedRate=n; document.querySelectorAll('.star-item').forEach((s,i)=>s.style.color=i<n?'gold':'#ccc'); }
     async function submitRating() {
-        const postId = document.getElementById("ratingTargetId").value;
-
-        if (!postId) return showToast("Error ID Postingan", "error");
-        if (selectedRate === 0) return showToast("Pilih minimal 1 bintang!", "error");
-
         try {
-            document.getElementById("ratingModal").close();
-            showToast(`Mengirim ${selectedRate} Bintang...`, "info");
-
-            // Post ID di Blockchain = ID - 1 (Array Index)
-            const tx = await contract.ratePost(postId - 1, selectedRate);
+            const id = document.getElementById("ratingTargetId").value;
+            const tx = await contract.ratePost(id-1, selectedRate);
             await tx.wait();
-            showToast("Rating berhasil dikirim!", "success");
-            // (Opsional) Refresh halaman otomatis agar nilai berubah
-            // setTimeout(() => location.reload(), 1000); 
-        } catch (e) {
-            console.error(e);
-            // Cek jika user membatalkan di Metamask
-            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
-                showToast("Batal memberi rating", "info");
-            } else {
-                showToast("Gagal: " + (e.reason || e.message), "error");
-            }
+            document.getElementById("ratingModal").close();
+            showToast("Rating Terkirim!");
+        } catch(e) { showToast("Gagal Rating", "error"); }
+    }
+
+    function openNftModal() { document.getElementById("nftModal").showModal(); }
+    function cancelNft() { pendingNftData=null; document.getElementById("nftReadyIndicator").style.display="none"; }
+    function previewInModal(input) { 
+        if(input.files[0]) {
+            const r = new FileReader();
+            r.onload = e => document.getElementById("modalFilePreview").innerHTML = `<img src="${e.target.result}" width="100">`;
+            r.readAsDataURL(input.files[0]);
         }
     }
+    
+    // --- FUNGSI SAVE DRAFT NFT ---
+    async function saveNftDraft() {
+        const file = document.getElementById("modalFileInput").files[0];
+        if(!file) return alert("Pilih foto wayang!");
+        const name = document.getElementById("mName").value;
         
-        // --- SCRIPT KOMENTAR ---
-        async function openComments(postId) {
-            const index = postId - 1; 
-            const modal = document.getElementById("commentModal");
-            const list = document.getElementById("commentList");
-            document.getElementById("commentPostId").value = index;
-            document.getElementById("commentInput").value = "";
-            modal.showModal();
-            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
-
-            try {
-                const comments = await contract.getComments(index);
-                list.innerHTML = "";
-                if(comments.length === 0) { 
-                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
-                    return; 
-                }
-                for (const c of comments) {
-                    let nick = c.commenter.substring(0,6) + "..."; 
-                    let avt = "https://via.placeholder.com/30";   
-                    if (commentProfileCache[c.commenter]) {
-                        nick = commentProfileCache[c.commenter].nick;
-                        avt = commentProfileCache[c.commenter].avt;
-                    } else {
-                        try { 
-                            const p = await contract.getProfile(c.commenter);
-                            if(p.nickname) nick = p.nickname;
-                            if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                            commentProfileCache[c.commenter] = { nick, avt };
-                        } catch(e){}
-                    }
-                    // Buat Link Profil
-                const profileUrl = `profile.html?addr=${c.commenter}`;
-
-                const html = `
-                    <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
-                        
-                        <a href="${profileUrl}" style="text-decoration:none;">
-                            <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
-                        </a>
-
-                        <div style="flex:1;">
-                            <div style="font-weight:bold; font-size:13px;">
-                                <a href="${profileUrl}" style="text-decoration:none; color:#2c3e50;">
-                                    ${nick}
-                                </a>
-                            </div>
-                            <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
-                            <div style="font-size:13px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
-                        </div>
-                    </div>`;
-                    
-                    list.innerHTML += html;
-                }
-            } catch(e) { console.error(e); }
-        }
-
-        async function submitComment() {
-        const index = document.getElementById("commentPostId").value; // Index array (mulai dari 0)
-        const text = document.getElementById("commentInput").value;
-        if(!text) return;
-        
+        // Kompresi (Mockup logic, asumsikan customCompress ada di ipfs_helper.js)
+        showToast("Memproses data...", "info");
         try {
-            showToast("Mengirim...", "info");
-            const tx = await contract.addComment(index, text, "");
-            await tx.wait();
-            
-            showToast("Terkirim!", "success");
-            document.getElementById("commentInput").value = "";
-            
-            // --- UPDATE ANGKA OTOMATIS (BARU) ---
-            // Post ID biasanya index + 1
-            const postId = parseInt(index) + 1; 
-            const countSpan = document.getElementById(`count-comment-${postId}`);
-            
-            if(countSpan) {
-                // Ambil angka lama, tambah 1
-                const currentCount = parseInt(countSpan.innerText);
-                countSpan.innerText = currentCount + 1;
+            const compressed = await customCompress(file, 50, 500); // 50KB, 500px
+            pendingNftData = {
+                file: compressed,
+                name: name,
+                attributes: {
+                    golongan: document.getElementById("mGolongan").value,
+                    gaya: document.getElementById("mGaya").value
+                }
+            };
+            document.getElementById("nftModal").close();
+            document.getElementById("nftReadyIndicator").style.display = "block";
+            document.getElementById("nftFilenamePreview").innerText = `(${name})`;
+            showToast("Draft Siap! Klik Posting.", "success");
+        } catch(e) { alert("Gagal proses gambar"); }
+    }
+
+    // --- FUNGSI SUBMIT POSTING ---
+    async function submitPost() {
+        const caption = document.getElementById("mainCaption").value;
+        if(!contract) return showToast("Wallet belum konek", "error");
+
+        try {
+            if(pendingNftData) {
+                // Mode NFT
+                showToast("1/3 Upload Gambar...", "info");
+                const imgCid = await uploadToPinata(pendingNftData.file);
+                
+                showToast("2/3 Upload Metadata...", "info");
+                const meta = { name: pendingNftData.name, description: caption, image: imgCid, attributes: [{trait_type:"Gaya", value: pendingNftData.attributes.gaya}] };
+                const metaFile = new File([JSON.stringify(meta)], "meta.json", {type:"application/json"});
+                const metaCid = await uploadToPinata(metaFile);
+
+                showToast("3/3 Konfirmasi Wallet...", "info");
+                const tx = await contract.createPost(imgCid, metaCid, caption, {value: ethers.utils.parseEther("0.0001")});
+                await tx.wait();
+            } else {
+                // Mode Biasa
+                if(!caption) return alert("Tulis caption!");
+                showToast("Posting...", "info");
+                const tx = await contract.createPost("", "", caption);
+                await tx.wait();
             }
             
-            // Reload list komentar di modal
-            openComments(postId);
-            
+            showToast("Berhasil Posting!", "success");
+            setTimeout(()=>location.reload(), 2000);
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
     }
-        
-        / --- UTILS ---
-function showToast(msg, type="info") {
-    const t = document.getElementById("toast");
-    t.innerText = msg;
-    t.className = "show";
-    t.style.background = type === "error" ? "#e74c3c" : "#333";
-    setTimeout(() => t.className = t.className.replace("show", ""), 3000);
-    }
 
-// --- LOGIKA BADGE NOTIFIKASI (LOCAL STORAGE) ---
-
-// Panggil ini di window.onload atau initApp
-async function updateNotifBadge() {
-    if(!contract || !userAddress) return;
-
-    try {
-        // 1. Ambil semua notifikasi dari Blockchain
-        const notifs = await contract.getMyNotifications();
-        
-        // 2. Ambil waktu terakhir user buka halaman notif dari LocalStorage
-        // Default 0 jika belum pernah buka
-        const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
-
-        // 3. Hitung notifikasi yang timestamp-nya LEBIH BARU dari lastCheck
-        // Solidity timestamp dalam detik, JS Date.now() dalam ms. Kita pakai detik.
-        const unreadCount = notifs.filter(n => n.timestamp > lastCheck).length;
-
-        // 4. Update UI Badge
-        const badges = document.querySelectorAll('.nav-badge');
-        badges.forEach(badge => {
-            if (unreadCount > 0) {
-                badge.style.display = 'flex';
-                badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
-            } else {
-                badge.style.display = 'none';
-            }
-        });
-
-    } catch (e) {
-        console.log("Badge error (Silent):", e);
-    }
-}
-
-// ==========================================
-// 1. FUNGSI SUBMIT POSTING (UTAMA)
-// ==========================================
-async function submitPost() {
-    const caption = document.getElementById("mainCaption").value;
-
-    // SKENARIO A: POSTING NFT (WAYANG)
-    if (pendingNftData) {
-        try {
-            showToast("1/3 Upload Gambar ke IPFS...", "info");
-            
-            // 1. Upload Gambar (File sudah dikompres saat saveNftDraft)
-            // Menggunakan fungsi dari ipfs_helper.js
-            const imgCid = await uploadToPinata(pendingNftData.file);
-            
-            // 2. Buat JSON Metadata
-            showToast("2/3 Mencetak Metadata...", "info");
-            const metadata = {
-                name: pendingNftData.name,
-                description: caption,
-                image: imgCid,
-                attributes: [
-                    { trait_type: "Golongan", value: pendingNftData.attributes.golongan },
-                    { trait_type: "Gaya", value: pendingNftData.attributes.gaya },
-                    { trait_type: "Bahan", value: pendingNftData.attributes.bahan },
-                    { trait_type: "Gapit", value: pendingNftData.attributes.gapit },
-                    { trait_type: "Penatah", value: pendingNftData.attributes.penatah },
-                    { trait_type: "Penyungging", value: pendingNftData.attributes.penyungging },
-                    { trait_type: "Tahun", value: pendingNftData.attributes.tahun },
-                    { trait_type: "Kolektor", value: pendingNftData.attributes.kolektor }
-                ]
-            };
-
-            // 3. Upload JSON Metadata
-            // JSON tidak perlu dikompres, langsung upload
-            const blob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
-            const metaFile = new File([blob], "metadata.json");
-            const metaCid = await uploadToPinata(metaFile);
-
-            // 4. Kirim ke Blockchain (Bayar 0.0001 ETH)
-            showToast("3/3 Konfirmasi Wallet (0.0001 ETH)...", "info");
-            
-            const tx = await contract.createPost(
-                imgCid, 
-                metaCid, 
-                caption, 
-                { value: ethers.utils.parseEther("0.0001") }
-            );
-
-            await tx.wait();
-            showToast("Berhasil Mengarsipkan Wayang!", "success");
-            
-            // Bersihkan
-            cancelNft();
-            document.getElementById("mainCaption").value = "";
-            setTimeout(() => location.reload(), 2000); 
-
-        } catch (e) {
-            console.error(e);
-            showToast("Gagal: " + (e.reason || e.message), "error");
+    // Update notifikasi real-time
+    setInterval(async () => {
+        if(contract && userAddress) {
+            try {
+                const notifs = await contract.getMyNotifications();
+                const unread = notifs.filter(n => !n.isRead).length; // Sesuaikan logika read/unread
+                // Update UI badge logic here if needed
+            } catch(e){}
         }
-    } 
+    }, 10000);
 
-    // SKENARIO B: POSTING TEKS BIASA (GRATIS)
-    else {
-        if(!caption) return showToast("Tulis sesuatu dulu!", "error");
-
-        try {
-            showToast("Mengirim status...", "info");
-            const tx = await contract.createPost("", "", caption); 
-            await tx.wait();
-
-            showToast("Berhasil Posting!", "success");
-            document.getElementById("mainCaption").value = "";
-            setTimeout(() => location.reload(), 2000);
-        } catch(e) {
-            showToast("Gagal: " + (e.reason || e.message), "error");
-        }
-    }
-}
-
-// ==========================================
-// 2. FUNGSI UTILITAS MODAL
-// ==========================================
-function openNftModal() {
-    document.getElementById("nftModal").showModal();
-}
-
-function previewInModal(input) {
-    if (input.files && input.files[0]) {
-        document.getElementById("modalFilePreview").innerText = "File Terpilih: " + input.files[0].name;
-    } else {
-        document.getElementById("modalFilePreview").innerText = "";
-    }
-}
-
-// ==========================================
-// 3. FUNGSI SIMPAN DRAFT (KOMPRESI DISINI)
-// ==========================================
-async function saveNftDraft() {
-    // A. Ambil Elemen Input Utama
-    const nameInput = document.getElementById("mName");
-    const fileInput = document.getElementById("modalFileInput");
-    
-    // B. Validasi (Wajib diisi)
-    if (!nameInput.value.trim()) {
-        return showToast("Nama Tokoh Wayang wajib diisi!", "error");
-    }
-    if (!fileInput.files || !fileInput.files[0]) {
-        return showToast("Foto Fisik Wayang wajib dipilih!", "error");
-    }
-
-    // --- LOGIKA KOMPRESI HELPER ---
-    let finalFile = fileInput.files[0];
-    
-    showToast("Memproses gambar (Target 500KB)...", "info");
-
-    try {
-        // Panggil customCompress dari ipfs_helper.js
-        // Target: 500 KB
-        // Dimensi: 1500 px (Agar tetap tajam untuk NFT Wayang)
-        finalFile = await customCompress(finalFile, 500, 1500);
-        
-        console.log(`✅ Gambar Siap NFT: ${(finalFile.size / 1024).toFixed(2)} KB`);
-    } catch (e) {
-        console.error(e);
-        return showToast("Gagal memproses gambar.", "error");
-    }
-    // -----------------------------
-
-    // C. Ambil Nilai dari Dropdown
-    const golongan = document.getElementById("mGolongan").value;
-    const gaya = document.getElementById("mGaya").value;
-
-    // D. Simpan ke Variabel Global (pendingNftData)
-    // NOTE: Kita simpan 'finalFile' yang SUDAH dikompresi
-    pendingNftData = {
-        name: nameInput.value,
-        file: finalFile, 
-        attributes: {
-            golongan: golongan || "-", 
-            gaya: gaya || "-",
-            bahan: document.getElementById("mBahan").value || "-",
-            gapit: document.getElementById("mGapit").value || "-",
-            penatah: document.getElementById("mPenatah").value || "-",
-            penyungging: document.getElementById("mPenyungging").value || "-",
-            tahun: document.getElementById("mTahun").value || "-",
-            kolektor: document.getElementById("mKolektor").value || "-"
-        }
-    };
-
-    // E. Update Tampilan Utama
-    document.getElementById("nftModal").close(); 
-    
-    const indicator = document.getElementById("nftReadyIndicator");
-    const previewName = document.getElementById("nftFilenamePreview");
-    
-    if (indicator) indicator.style.display = "block";
-    if (previewName) previewName.innerText = `(${pendingNftData.name})`;
-    
-    showToast("Data Tersimpan! Klik KIRIM untuk upload.", "success");
-}
-
-        // ==========================================
-// 4. FUNGSI BATAL / RESET FORM
-// ==========================================
-function cancelNft() {
-    pendingNftData = null;
-
-    // Sembunyikan Indikator
-    const indicator = document.getElementById("nftReadyIndicator");
-    if (indicator) indicator.style.display = "none";
-
-    // Reset Input File & Nama
-    document.getElementById("modalFileInput").value = "";
-    document.getElementById("modalFilePreview").innerText = "";
-    document.getElementById("mName").value = "";
-
-    // Reset Dropdown
-    document.getElementById("mGolongan").selectedIndex = 0;
-    document.getElementById("mGaya").selectedIndex = 0;
-
-    // Reset Input Teks Lainnya
-    const textIds = ['mBahan', 'mGapit', 'mPenatah', 'mPenyungging', 'mTahun', 'mKolektor'];
-    textIds.forEach(id => {
-        document.getElementById(id).value = "";
-    });
-
-    showToast("Mode Arsip Dibatalkan.", "info");
-}
-
-// --- FUNGSI HELPER FETCH METADATA ---
-async function fetchCardMetadata(postId, tokenUri) {
-    if (!tokenUri) return;
-    try {
-        const url = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-        const res = await fetch(url);
-        const meta = await res.json();
-
-        // 1. Update Nama
-        const nameEl = document.getElementById(`meta-name-${postId}`);
-        if(nameEl) nameEl.innerText = meta.name || "Tanpa Nama";
-
-        // 2. Update Gagrak
-        const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
-        if(gagrakEl && meta.attributes) {
-            const attr = meta.attributes.find(a => 
-                a.trait_type === "Gaya (Gagrak)" || a.trait_type === "Gaya" || a.trait_type === "Gagrak"
-            );
-            if(attr) gagrakEl.innerText = attr.value;
-            else gagrakEl.innerText = "-";
-        }
-    } catch (e) {
-        console.warn(`Gagal load metadata post ${postId}`);
-    }
-}
-
-// 3. Update Notifikasi setiap 10 detik (Realtime)
-setInterval(() => {
-    // Hanya jalan jika sudah login & kontrak siap
-    if (contract && userAddress) {
-        updateNotifBadge();
-    }
-}, 5000);
-
-    </script>
+                </script>
 </body>
 </html>
