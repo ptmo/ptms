@@ -58,26 +58,39 @@
         border-color: #bfdbfe;
     }
 
-    /* Status Deep Search (Clean & Floating) */
-    .ptms-status {
-        display: flex;
-        align-items: center;
-        flex-wrap: wrap; /* Jaga-jaga kalau teks kepanjangan */
-        gap: 6px;
-        margin-top: 8px;
-        margin-left: 5px;
-        font-size: 12px;
-        color: #64748b;
-        font-weight: 500;
-        animation: fadeInUp 0.5s ease-out;
-    }
-    
-    /* Ikon Putar */
-    .ptms-spin { 
-        animation: spin 1.5s linear infinite; 
-        color: #3b82f6; 
-        min-width: 14px; /* Supaya ikon tidak gepeng */
-    }
+    /* Status Deep Search (Posisi: Ujung Kanan) */
+.ptms-status {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end; /* KUNCI: Membuat isi rata kanan */
+    width: 100%; /* Wajib full width agar bisa didorong ke kanan */
+    gap: 6px;
+    margin-top: 8px; /* Jarak dari search bar */
+    padding-right: 5px; /* Sedikit jarak dari pinggir layar agar tidak mepet */
+    font-size: 11px; /* Ukuran diperkecil sedikit agar makin elegan di pojok */
+    color: #7385a5; /* Warna palet request Anda */
+    font-weight: 500;
+    animation: fadeInUp 0.5s ease-out;
+}
+
+/* Pastikan elemen span di dalamnya juga mengikuti warna */
+.ptms-status span, 
+.ptms-status span b,
+.ptms-status i {
+    color: #7385a5 !important;
+}
+
+/* Ikon Putar */
+.ptms-spin { 
+    animation: spin 1.5s linear infinite; 
+    color: #7385a5 !important;
+    min-width: 14px; 
+}
+
+/* Status Text agar seragam */
+.ptms-status span b {
+    color: #7385a5 !important;
+}
 
     /* PENTING: Penyesuaian ID Lama agar Rapi di UI Baru */
     #scanStatus {
@@ -469,6 +482,41 @@
         async function unfollow(target) {
             try { showToast("Memproses...", "info"); const tx = await contract.unfollowUser(target); await tx.wait(); showToast("Berhasil!", "success"); } catch(e) { showToast("Gagal", "error"); }
         }
+
+        document.addEventListener("DOMContentLoaded", function() {
+        // Target elemen yang dipantau (Kolom Hasil User)
+        const targetNode = document.getElementById('usersResultContainer');
+        const loaderIcon = document.querySelector('.ptms-spin');
+
+        // Fungsi untuk mematikan loader
+        function stopLoader() {
+            if (loaderIcon) {
+                // 1. Hapus animasi putar & ikon loading
+                loaderIcon.classList.remove('fa-circle-notch', 'ptms-spin', 'fa-spin');
+                // 2. Ganti dengan ikon centang (Check) statis
+                loaderIcon.classList.add('fa-check');
+                // 3. Pastikan warnanya tetap sesuai request
+                loaderIcon.style.color = '#7385a5';
+            }
+        }
+
+        // PEMANTAU: Jika ada hasil pencarian masuk, matikan loader
+        if (targetNode) {
+            const observer = new MutationObserver(function(mutations) {
+                // Cek apakah di dalam hasil sudah ada elemen card user ('user-result-card')
+                if (targetNode.innerHTML.indexOf('user-result-card') !== -1) {
+                    stopLoader();
+                }
+                // ATAU: Jika teks "Menunggu Koneksi" sudah hilang
+                else if (targetNode.innerText.indexOf('Menunggu Koneksi') === -1 && targetNode.innerText.trim() !== "") {
+                    stopLoader();
+                }
+            });
+
+            // Mulai memantau perubahan
+            observer.observe(targetNode, { childList: true, subtree: true });
+        }
+    });
     </script>
 </body>
 </html>
