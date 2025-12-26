@@ -196,17 +196,24 @@
     </dialog>
     
     <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
-        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Bintang</h3>
-        <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
-            <div class="star-wrapper">
-    <i class="fa-solid fa-star star-item" data-value="1" onclick="setRate(1)"></i>
-    <i class="fa-solid fa-star star-item" data-value="2" onclick="setRate(2)"></i>
-    <i class="fa-solid fa-star star-item" data-value="3" onclick="setRate(3)"></i>
-    <i class="fa-solid fa-star star-item" data-value="4" onclick="setRate(4)"></i>
-    <i class="fa-solid fa-star star-item" data-value="5" onclick="setRate(5)"></i>
-            </div>
+    <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Bintang</h3>
+    
+    <input type="hidden" id="ratingTargetId">
+
+    <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
+        <div class="star-wrapper">
+            <i class="fa-solid fa-star star-item" data-value="1" onclick="setRate(1)"></i>
+            <i class="fa-solid fa-star star-item" data-value="2" onclick="setRate(2)"></i>
+            <i class="fa-solid fa-star star-item" data-value="3" onclick="setRate(3)"></i>
+            <i class="fa-solid fa-star star-item" data-value="4" onclick="setRate(4)"></i>
+            <i class="fa-solid fa-star star-item" data-value="5" onclick="setRate(5)"></i>
         </div>
-        <button onclick="submitRatingDetail()" style="width:100%; background:#7385a5; border:none; padding:12px; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">Kirim Penilaian</button>
+    </div>
+    
+    <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('ratingModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:10px;">Batal</button>
+        <button onclick="submitRating()" style="flex:1; background:#7385a5; border:none; padding:10px; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">Kirim</button>
+    </div>
     </dialog>
 
     <dialog id="followListModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 400px; height: 60vh;">
@@ -672,44 +679,64 @@
         }
     }
 
-    function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
-        
-        function setRate(n) {
-    selectedRate = n; // Simpan nilai
-    
-    // Ambil semua elemen bintang
-    const stars = document.querySelectorAll('.star-item');
-    
-    stars.forEach((star, index) => {
-        // Jika index bintang lebih kecil dari nilai n, nyalakan (Gold)
-        // Contoh: Pilih 3. Index 0, 1, 2 akan Gold. Index 3, 4 tetap Abu.
-        if (index < n) {
-            star.style.color = "gold";
-            star.classList.add('active');
-        } else {
-            star.style.color = "#666";
-            star.classList.remove('active');
+    // --- 1. MEMBUKA MODAL ---
+    function openRating(id) {
+        // Simpan ID ke input hidden
+        document.getElementById("ratingTargetId").value = id;
+        // Reset tampilan bintang jadi 0
+        selectedRate = 0;
+        updateStarVisuals(0);
+        // Buka Modal
+        document.getElementById("ratingModal").showModal();
+    }
+
+    // --- 2. LOGIKA WARNA BINTANG ---
+    function setRate(n) {
+        selectedRate = n;
+        updateStarVisuals(n);
+    }
+
+    function updateStarVisuals(n) {
+        const stars = document.querySelectorAll('.star-item');
+        stars.forEach((star, index) => {
+            // Index array mulai dari 0, nilai n mulai dari 1
+            // Jika index < n, warnai emas. Sisanya abu-abu.
+            if (index < n) {
+                star.style.color = "gold";
+                star.classList.add('active'); // Memicu efek scale di CSS
+            } else {
+                star.style.color = "#ccc"; 
+                star.classList.remove('active');
+            }
+      });
+    }
+
+    // --- 3. KIRIM KE BLOCKCHAIN ---
+    async function submitRating() {
+        const postId = document.getElementById("ratingTargetId").value;
+
+        if (!postId) return showToast("Error ID Postingan", "error");
+        if (selectedRate === 0) return showToast("Pilih minimal 1 bintang!", "error");
+
+        try {
+            document.getElementById("ratingModal").close();
+            showToast(`Mengirim ${selectedRate} Bintang...`, "info");
+
+            // Post ID di Blockchain = ID - 1 (Array Index)
+            const tx = await contract.ratePost(postId - 1, selectedRate);
+            await tx.wait();
+            showToast("Rating berhasil dikirim!", "success");
+            // (Opsional) Refresh halaman otomatis agar nilai berubah
+            // setTimeout(() => location.reload(), 1000); 
+        } catch (e) {
+            console.error(e);
+            // Cek jika user membatalkan di Metamask
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Batal memberi rating", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
         }
-    });
-    
-    showToast(`${n} Bintang Dipilih`, "info");
-    }
-        
-        async function submitRatingDetail() {
-    if(!selectedRate) return showToast("Pilih jumlah bintang dulu!", "error");
-    
-    try {
-        document.getElementById("ratingModal").close();
-        showToast("Mengirim rating...", "info");
-        
-        // Panggil Smart Contract
-        const tx = await contract.ratePost(currentPostId - 1, selectedRate);
-        await tx.wait();
-        
-        showToast("Terima kasih atas penilaian Anda!", "success");
-    } catch(e) {
-        showToast("Gagal kirim rating", "error");
-    }
     }
         
     // --- FITUR LIST FOLLOWERS/FOLLOWING ---
