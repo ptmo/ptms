@@ -123,31 +123,48 @@ async function saveSession(address) {
 
 async function checkSession() {
     const sessionRaw = localStorage.getItem("putramas_session");
+    
+    // Jika tidak ada sesi atau Metamask belum inject, berhenti
     if (!sessionRaw || !window.ethereum) return;
 
     const session = JSON.parse(sessionRaw);
+    
+    // Cek kadaluarsa
     if (Date.now() > session.expiry) {
         localStorage.removeItem("putramas_session");
         return;
     }
 
-    provider = new ethers.providers.Web3Provider(window.ethereum);
+    try {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // PENTING: Minta akses akun (silent request)
+        // Ini memastikan 'signer' benar-benar terhubung ke akun yang aktif
+        await provider.send("eth_requestAccounts", []);
 
-    await provider.send("eth_requestAccounts", []);
+        signer = provider.getSigner();
+        const activeAddress = await signer.getAddress();
 
-    signer = provider.getSigner();
-    const activeAddress = await signer.getAddress();
+        // Validasi keamanan: Akun di Metamask harus sama dengan sesi Login terakhir
+        if (activeAddress.toLowerCase() !== session.address.toLowerCase()) {
+            console.warn("Akun Metamask beda dengan sesi Login. Logout otomatis.");
+            localStorage.removeItem("putramas_session");
+            location.reload();
+            return;
+        }
 
-    if (activeAddress.toLowerCase() !== session.address.toLowerCase()) {
-        localStorage.removeItem("putramas_session");
-        location.reload();
-        return;
+        userAddress = activeAddress;
+        
+        // --- INI SOLUSI INTI: INISIALISASI VARIABEL GLOBAL CONTRACT ---
+        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        console.log("Kontrak Siap:", CONTRACT_ADDRESS);
+
+        // Load Feed hanya jika fungsi tersedia (biar gak error di halaman lain)
+        if (typeof loadFeed === "function") loadFeed();
+        
+    } catch (err) {
+        console.error("Gagal Restore Sesi:", err);
     }
-
-    userAddress = activeAddress;
-    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-    if (typeof loadFeed === "function") loadFeed();
 }
 
 function disconnect() {
@@ -434,5 +451,30 @@ function formatCaption(text) {
     return cleanText.replace(/\n/g, "<br>");
 }
 
-// Jalankan otomatis setiap 10 detik agar realtime tanpa refresh
-setInterval(updateNotifBadge, 10000);
+// ==========================================
+// 5. INISIALISASI & AUTOMATION (PALING BAWAH)
+// ==========================================
+
+// Jalankan initApp saat browser siap sepenuhnya
+window.addEventListener('load', () => {
+    // 1. Coba inisialisasi pertama kali
+    initApp();
+    
+    // 2. (SAFETY NET) Cek ulang setiap 2 detik
+    // Jika tiba-tiba variabel contract hilang/undefined, paksa connect ulang
+    setInterval(() => {
+        // Logika: Jika contract kosong DAN ada sesi tersimpan -> Konek ulang
+        if (!contract && localStorage.getItem("putramas_session")) {
+            console.warn("⚠️ Koneksi terputus, mencoba reconnect...");
+            checkSession();
+        }
+    }, 2000);
+});
+
+// 3. Update Notifikasi setiap 10 detik (Realtime)
+setInterval(() => {
+    // Hanya jalan jika sudah login & kontrak siap
+    if (contract && userAddress) {
+        updateNotifBadge();
+    }
+}, 10000);
