@@ -9,18 +9,156 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        .search-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
-        @media (max-width: 768px) { .search-grid { grid-template-columns: 1fr; } .col-users { order: -1; margin-bottom: 20px; } }
-        .section-title { font-size: 14px; font-weight: bold; color: #7385a5; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .user-result-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #eee; margin-bottom: 10px; animation: fadeIn 0.5s; }
-        .btn-follow-small { padding: 5px 10px; font-size: 11px; border-radius: 20px; border: 1px solid #3498db; background: transparent; color: #3498db; cursor: pointer; }
-        .btn-follow-small:hover { background: #3498db; color: white; }
-        .btn-follow-small.following { background: #eee; border-color: #ccc; color: #666; }
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
-        
-        /* Indikator Deep Scan */
-        .scanning-bar { height: 4px; width: 100%; background: #eee; margin-top: 10px; border-radius: 2px; overflow: hidden; display: none; }
-        .scanning-progress { height: 100%; background: #e74c3c; width: 0%; transition: width 0.3s; }
+    /* ============================================================
+       1. VARIAN DESIGN BARU: PTMS PREMIUM (Search Bar & Header)
+       ============================================================ */
+    
+    /* Wrapper Utama */
+    .ptms-search-wrapper {
+        position: relative;
+        width: 100%;
+        max-width: 600px;
+        margin: 0 auto 20px auto; 
+    }
+
+    /* Tombol Back (Mobile Only) */
+    .ptms-back-btn {
+        position: absolute;
+        left: 18px;
+        top: 24px; 
+        transform: translateY(-50%);
+        background: none;
+        border: none;
+        color: #94a3b8; 
+        font-size: 16px;
+        z-index: 10;
+        cursor: pointer;
+        padding: 5px;
+        transition: color 0.3s;
+    }
+    .ptms-back-btn:hover { color: #3b82f6; }
+
+    /* Input Field Premium */
+    .ptms-input {
+        width: 100%;
+        height: 48px;
+        padding: 12px 20px 12px 50px; /* Padding kiri 50px (Mobile) */
+        background: #ffffff;
+        border: 1px solid transparent;
+        border-radius: 14px;
+        font-size: 15px;
+        color: #334155;
+        outline: none;
+        box-shadow: 0 10px 25px -5px rgba(0,0,0,0.05);
+        box-sizing: border-box;
+        transition: all 0.3s ease;
+    }
+    .ptms-input:focus {
+        box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        border-color: #bfdbfe;
+    }
+
+    /* Status Deep Search (Clean & Floating) */
+    .ptms-status {
+        display: flex;
+        align-items: center;
+        flex-wrap: wrap; /* Jaga-jaga kalau teks kepanjangan */
+        gap: 6px;
+        margin-top: 8px;
+        margin-left: 5px;
+        font-size: 12px;
+        color: #64748b;
+        font-weight: 500;
+        animation: fadeInUp 0.5s ease-out;
+    }
+    
+    /* Ikon Putar */
+    .ptms-spin { 
+        animation: spin 1.5s linear infinite; 
+        color: #3b82f6; 
+        min-width: 14px; /* Supaya ikon tidak gepeng */
+    }
+
+    /* PENTING: Penyesuaian ID Lama agar Rapi di UI Baru */
+    #scanStatus {
+        margin: 0 !important;      /* Hapus margin lama */
+        padding: 0 !important;     /* Hapus padding lama */
+        text-align: left !important;
+        display: inline-block !important; /* Supaya sejajar */
+        color: #64748b !important;
+        font-size: 12px !important;
+    }
+
+    /* ============================================================
+       2. DESIGN LAMA: HASIL PENCARIAN (Grid & Card) - JANGAN UBAH
+       ============================================================ */
+       
+    .search-grid { 
+        display: grid; 
+        grid-template-columns: 1fr 300px; 
+        gap: 20px; 
+    }
+    
+    /* Responsive Logic */
+    @media (max-width: 768px) { 
+        .search-grid { grid-template-columns: 1fr; } 
+        .col-users { order: -1; margin-bottom: 20px; } 
+    }
+
+    /* Logic PC Mode (Menghilangkan tombol back & merapikan padding) */
+    @media (min-width: 768px) {
+        .ptms-back-btn { display: none !important; } 
+        .ptms-input { padding-left: 20px !important; } 
+    }
+
+    /* Komponen Card Hasil */
+    .section-title { 
+        font-size: 14px; 
+        font-weight: bold; 
+        color: #7385a5; 
+        border-bottom: 2px solid #eee; 
+        padding-bottom: 10px; 
+        margin-bottom: 15px; 
+        text-transform: uppercase; 
+        letter-spacing: 1px; 
+    }
+
+    .user-result-card { 
+        display: flex; 
+        align-items: center; 
+        gap: 10px; 
+        padding: 10px; 
+        background: white; 
+        border-radius: 8px; 
+        border: 1px solid #eee; 
+        margin-bottom: 10px; 
+        animation: fadeIn 0.5s; 
+    }
+
+    .btn-follow-small { 
+        padding: 5px 10px; 
+        font-size: 11px; 
+        border-radius: 20px; 
+        border: 1px solid #3498db; 
+        background: transparent; 
+        color: #3498db; 
+        cursor: pointer; 
+    }
+    .btn-follow-small:hover { 
+        background: #3498db; 
+        color: white; 
+    }
+    .btn-follow-small.following { 
+        background: #eee; 
+        border-color: #ccc; 
+        color: #666; 
+    }
+
+    /* Keyframes */
+    @keyframes spin { 100% { transform: rotate(360deg); } }
+    @keyframes fadeInUp { from { opacity: 0; transform: translateY(-5px); } to { opacity: 1; transform: translateY(0); } }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
     </style>
 </head>
 <body>
@@ -34,45 +172,59 @@
         </div>
 
         <div class="main-feed" style="max-width: 100%;">
-            <div class="card" style="padding: 5px 15px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 99; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">            
-                <form onsubmit="event.preventDefault(); window.location.href = 'result.html?q=' + document.getElementById('searchInput').value;" 
-                      style="display: flex; gap: 10px; align-items: center; margin: 0; width: 100%;">
-                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: #999;"><i class="fa-solid fa-magnifying-glass"></i></button>
-                    <input type="search" id="searchInput" class="cp-input" placeholder="Pencarian..." style="border: none; background: transparent; flex: 1; outline: none; height:35px;">
-                </form>
-            </div>
+    
+    <div style="padding: 0 5px; margin-bottom: 10px; position: sticky; top: 10px; z-index: 99;">
+        
+        <form onsubmit="event.preventDefault(); window.location.href = 'result.html?q=' + document.getElementById('searchInput').value;">
             
-            <div class="card" style="padding: 15px; margin-bottom: 20px; position: relative;">
-                <div style="position: relative; display: flex; align-items: center; justify-content: center; min-height: 30px;">         
-                    <a href="home.html" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: #7385a5; font-size: 20px; padding: 5px; cursor: pointer;"><i class="fa-solid fa-arrow-left"></i></a>
-                    <h2 style="margin:0; font-size:18px; color:#333; text-align: center;">
-                        <i class="fa-solid fa-magnifying-glass" style="font-size: 16px; color:#999; margin-right: 5px;"></i> 
-                        Deep Search: <span id="queryDisplay" style="color:#7385a5;">...</span>
-                    </h2>
+            <div class="ptms-search-wrapper">
+                
+                <button type="button" onclick="window.history.back()" class="ptms-back-btn">
+                    <i class="fa-solid fa-chevron-left"></i>
+                </button>
+                
+                <input type="search" 
+                       id="searchInput" 
+                       class="ptms-input" 
+                       placeholder="Pencarian..." 
+                       autocomplete="off">
+
+                <div class="ptms-status">
+                    <i class="fa-solid fa-circle-notch ptms-spin"></i>
+                    
+                    <span>
+                        Deep Search: <b id="queryDisplay" style="color:#3b82f6;">...</b>
+                        
+                        <span id="scanStatus" style="color: #64748b; margin-left: 5px; display: inline !important;">
+                           <span id="scanCount" style="display:none;"></span> </span>
+                    </span>
                 </div>
-                <div id="scanStatus" style="font-size:11px; color:#888; margin-top:15px; text-align: center; display:none;">
-                    <i class="fa-solid fa-satellite-dish fa-beat"></i> Membongkar Metadata IPFS... (<span id="scanCount">0</span> diperiksa)
-                </div>          
-                <div class="scanning-bar" id="scanBar" style="margin-top: 10px;">
-                    <div class="scanning-progress" id="scanProgress"></div>
+
+                <div id="scanBar" style="display: none !important;">
+                    <div id="scanProgress"></div>
                 </div>
+
             </div>
+        </form>
+    </div>
 
-            <div class="search-grid">
-                <div class="col-posts">
-                    <div class="section-title"><i class="fa-regular fa-newspaper"></i> Hasil Postingan & NFT</div>
-                    <div id="postsResultContainer"></div>
-                </div>
+    <div class="search-grid" style="margin-top: 20px;">
+        <div class="col-posts">
+            <div class="section-title"><i class="fa-regular fa-newspaper"></i> Hasil Postingan & NFT</div>
+            <div id="postsResultContainer"></div>
+        </div>
 
-                <div class="col-users">
-                    <div class="section-title"><i class="fa-solid fa-users"></i> Pengguna Ditemukan</div>
-                    <div id="usersResultContainer">
-                        <div style="text-align:center; padding:20px; color:#999;"><i class="fa-solid fa-circle-notch fa-spin"></i> Menunggu Koneksi...</div>
-                    </div>
+        <div class="col-users">
+            <div class="section-title"><i class="fa-solid fa-users"></i> Pengguna Ditemukan</div>
+            <div id="usersResultContainer">
+                <div style="text-align:center; padding:20px; color:#999;">
+                     <i class="fa-solid fa-circle-notch fa-spin"></i> Menunggu Koneksi...
                 </div>
             </div>
         </div>
     </div>
+
+        </div>
 
     <div id="toast"></div>
     <script src="main.js"></script>
