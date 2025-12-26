@@ -694,41 +694,45 @@
             }
         }
 
-        let selectedRate = 0;
-        function openRating(pid) { document.getElementById("targetPostId").value = pid; document.getElementById("ratingModal").showModal(); selectedRate=0; }
-        function setRate(n) { selectedRate=n; showToast(`${n} Bintang`, "info"); }
-        async function submitRating() {
-        if(!selectedRate) return showToast("Pilih bintang dulu!", "error");
+        function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
         
-        const postId = document.getElementById("targetPostId").value; // ID Post (misal 1)
-        const index = postId - 1; // Index array (misal 0)
-
-        try {
-            document.getElementById("ratingModal").close();
-            showToast("Mengirim Rating...", "info");
-            
-            const tx = await contract.ratePost(index, selectedRate);
-            await tx.wait();
-            
-            showToast("Rating Berhasil!", "success");
-
-            // --- UPDATE RATING OTOMATIS (BARU) ---
-            // Ambil data terbaru postingan ini dari smart contract
-            const updatedPost = await contract.posts(index);
-            
-            // Hitung rata-rata baru
-            const newAvg = updatedPost.ratingCount > 0 
-                ? (updatedPost.totalRatingScore / updatedPost.ratingCount).toFixed(1) 
-                : "0.0";
-
-            // Update tampilan angka bintang
-            const scoreSpan = document.getElementById(`score-rating-${postId}`);
-            if(scoreSpan) {
-                scoreSpan.innerText = newAvg;
-            }
-
-        } catch (e) { showToast("Gagal Rate: " + e.message, "error"); }
+        function setRate(n) {
+    selectedRate = n; // Simpan nilai
+    
+    // Ambil semua elemen bintang
+    const stars = document.querySelectorAll('.star-item');
+    
+    stars.forEach((star, index) => {
+        // Jika index bintang lebih kecil dari nilai n, nyalakan (Gold)
+        // Contoh: Pilih 3. Index 0, 1, 2 akan Gold. Index 3, 4 tetap Abu.
+        if (index < n) {
+            star.style.color = "gold";
+            star.classList.add('active');
+        } else {
+            star.style.color = "#666";
+            star.classList.remove('active');
+        }
+    });
+    
+    showToast(`${n} Bintang Dipilih`, "info");
     }
+        
+        async function submitRatingDetail() {
+    if(!selectedRate) return showToast("Pilih jumlah bintang dulu!", "error");
+    
+    try {
+        document.getElementById("ratingModal").close();
+        showToast("Mengirim rating...", "info");
+        
+        // Panggil Smart Contract
+        const tx = await contract.ratePost(currentPostId - 1, selectedRate);
+        await tx.wait();
+        
+        showToast("Terima kasih atas penilaian Anda!", "success");
+    } catch(e) {
+        showToast("Gagal kirim rating", "error");
+    }
+        }
         
         // --- SCRIPT KOMENTAR ---
         async function openComments(postId) {
