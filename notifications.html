@@ -90,19 +90,26 @@
         // Cache sederhana untuk profil biar loading cepat
         const profileCache = {};
 
-        window.onload = async () => {
+        // --- 1. STARTUP SUPER CEPAT (DOMContentLoaded) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Tampilkan state loading ringan
+            document.getElementById("notifContainer").innerHTML = 
+                `<div style="text-align:center; padding:40px; color:#999;">
+                    <i class="fa-solid fa-circle-notch fa-spin"></i> Memuat...
+                 </div>`;
+
             await initApp();
+            
             if(userAddress) {
-                await loadNotifs();
+                loadNotifsLive();
                 markAsReadLocal(); 
             }
-        };
+        });
 
         function markAsReadLocal() {
             const now = Math.floor(Date.now() / 1000);
             localStorage.setItem("lastNotifCheck", now);
-            const badges = document.querySelectorAll('.nav-badge');
-            badges.forEach(b => b.style.display = 'none');
+            document.querySelectorAll('.nav-badge').forEach(b => b.style.display = 'none');
         }
 
         async function loadNotifs() {
@@ -204,6 +211,41 @@
                 console.error(e);
                 document.getElementById("notifContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat notifikasi.</p>";
             }
+        }
+
+        async function fetchProfileLazy(actorAddr, domId) {
+            // Cek Cache Dulu
+            if(profileCache[actorAddr]) {
+                updateNotifUI(domId, profileCache[actorAddr]);
+                return;
+            }
+
+            try {
+                const p = await contract.getProfile(actorAddr);
+                const data = {
+                    nickname: p.nickname || actorAddr.substring(0,6)+"...",
+                    avatar: p.fotoProfil ? p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : "https://via.placeholder.com/40"
+                };
+                
+                // Optimasi Gambar Avatar (Kecilkan)
+                if(data.avatar.includes('http')) {
+                    data.avatar = `https://wsrv.nl/?url=${encodeURIComponent(data.avatar)}&w=80&q=60&output=webp`;
+                }
+
+                // Simpan Cache
+                profileCache[actorAddr] = data;
+                
+                // Update UI
+                updateNotifUI(domId, data);
+
+            } catch(e) {}
+        }
+
+        function updateNotifUI(domId, data) {
+            const imgEl = document.getElementById(`img-${domId}`);
+            const nickEl = document.getElementById(`nick-${domId}`);
+            if(imgEl) imgEl.src = data.avatar;
+            if(nickEl) nickEl.innerText = data.nickname;
         }
     </script>
 </body>
