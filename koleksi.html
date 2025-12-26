@@ -358,11 +358,35 @@
     }
 
         function renderUI(data) {
-        // Image
-        if(data.imageURI) {
+        // Image Logic
+        if(data.imageURI && data.imageURI.length > 5) {
             const rawUrl = data.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-            const fastUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=800&q=80&output=webp`;
-            document.getElementById("detailImg").src = fastUrl;
+            
+            // 1. VERSI TAMPILAN (Optimasi ~200KB)
+            // w=1000 : Cukup tajam di layar HP/Laptop
+            // q=75   : Kompresi efisien
+            const displayUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=1000&q=75&output=webp`;
+
+            // 2. VERSI RAW / FULL HD (Untuk Klik/Zoom)
+            // q=100 : Kualitas maksimal
+            // (Tanpa parameter 'w' agar resolusi asli keluar)
+            const rawViewUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&q=100&output=webp`;
+            
+            const imgEl = document.getElementById("detailImg");
+            imgEl.src = displayUrl;
+            
+            // --- FITUR KLIK UNTUK ZOOM ---
+            imgEl.style.cursor = "zoom-in"; // Ubah kursor jadi kaca pembesar
+            imgEl.title = "Klik untuk melihat ukuran asli (Full HD)";
+            
+            imgEl.onclick = function() {
+                // Buka versi RAW di tab baru
+                window.open(rawViewUrl, '_blank');
+            };
+
+            // Error handling
+            imgEl.onerror = () => { imgEl.src = "https://via.placeholder.com/800x600?text=Gagal+Memuat+Gambar"; };
+        }
         }
 
         // Texts
