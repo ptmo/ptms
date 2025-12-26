@@ -14,6 +14,23 @@ let pendingNftData = null;
 // --- WALLET LOGIC ---
 async function initApp() {
     checkSession();
+    setupWalletListeners(); // 👈 TAMBAHKAN INI
+}
+
+function setupWalletListeners() {
+    if (!window.ethereum) return;
+
+    window.ethereum.on("accountsChanged", async (accounts) => {
+        console.log("Account berubah:", accounts);
+
+        localStorage.removeItem("putramas_session");
+        location.reload();
+    });
+
+    window.ethereum.on("chainChanged", () => {
+        console.log("Network berubah");
+        location.reload();
+    });
 }
 
 async function connectWallet() {
@@ -84,7 +101,7 @@ async function switchNetwork() {
 // --- SESSION & SIGNATURE ---
 async function saveSession(address) {
     // Cek jika sesi sudah ada dan valid
-    if(localStorage.getItem("putramas_session")) return;
+    localStorage.removeItem("putramas_session");
 
     try {
         const timezone = Intl.DateTimeFormat().resolvedOptions().timeZone;
@@ -104,25 +121,33 @@ async function saveSession(address) {
     }
 }
 
-function checkSession() {
+async function checkSession() {
     const sessionRaw = localStorage.getItem("putramas_session");
-    if (!sessionRaw) return;
+    if (!sessionRaw || !window.ethereum) return;
 
     const session = JSON.parse(sessionRaw);
     if (Date.now() > session.expiry) {
         localStorage.removeItem("putramas_session");
         return;
     }
-    
-    // Auto Reconnect Provider jika sesi valid
-    if(window.ethereum) {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        signer = provider.getSigner();
-        userAddress = session.address;
-        contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        // Update UI jika ada di halaman home
-        if(typeof loadFeed === 'function') loadFeed();
+
+    provider = new ethers.providers.Web3Provider(window.ethereum);
+
+    await provider.send("eth_requestAccounts", []);
+
+    signer = provider.getSigner();
+    const activeAddress = await signer.getAddress();
+
+    if (activeAddress.toLowerCase() !== session.address.toLowerCase()) {
+        localStorage.removeItem("putramas_session");
+        location.reload();
+        return;
     }
+
+    userAddress = activeAddress;
+    contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+    if (typeof loadFeed === "function") loadFeed();
 }
 
 function disconnect() {
