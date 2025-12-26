@@ -9,60 +9,66 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        /* CSS FIX UI MOBILE & PC */
+        .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
+        .comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
+        .comment-content { flex: 1; font-size: 13px; }
+        .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
+        .comment-time { font-size: 10px; color: #999; }
+        
+        .post-image { cursor: zoom-in; transition: opacity 0.2s; }
+        .post-image:hover { opacity: 0.9; }
+
+        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+        #commentModal[open] { display: flex; flex-direction: column; }
+
+        /* Badge Notifikasi */
+        .menu-item { position: relative; }
+        .nav-badge {
+            background-color: #e74c3c; color: white;
+            font-size: 10px; font-weight: bold;
+            min-width: 18px; height: 18px; border-radius: 50%;
+            display: none; align-items: center; justify-content: center;
+            position: absolute; border: 2px solid #fff; z-index: 10;
+        }
+        .mobile-nav .nav-badge { top: 0px; right: 25%; }
+        .sidebar-left .nav-badge { top: 8px; right: 10px; }
+
+        /* Responsive Layout (Grid) - DIPERBARUI: 2 Kolom (Sidebar Kiri + Feed Lebar) */
         .layout-wrapper { 
             display: grid; 
-            grid-template-columns: 280px 1fr; /* Sidebar Kiri fix, Kanan Auto */
+            /* Ubah jadi 2 kolom: Kiri (300px) dan Kanan (Sisa/Flexible) */
+            grid-template-columns: 300px 1fr; 
             gap: 25px; 
             max-width: 1200px; 
             margin: 20px auto;
             padding: 0 15px;
         }
 
-        /* Mobile Nav Fix: Biar 4 Icon Rapi Sejajar */
-        .mobile-nav {
-            display: none; /* Default hidden di PC */
-            position: fixed;
-            bottom: 0; left: 0; width: 100%;
-            background: white;
-            border-top: 1px solid #eee;
-            justify-content: space-around; /* RATA TENGAH */
-            align-items: center;
-            padding: 10px 0;
-            z-index: 1000;
-        }
-
-        .mobile-nav .menu-item {
-            font-size: 20px;
-            color: #ccc;
-            text-decoration: none;
-            position: relative;
-            padding: 5px 15px;
-        }
-        
-        .mobile-nav .menu-item.active { color: #7385a5; }
-
         @media (max-width: 900px) {
-            .layout-wrapper { grid-template-columns: 1fr; } /* PC Sidebar Hilang */
-            .sidebar-left { display: none; }
-            .mobile-nav { display: flex; } /* Mobile Nav Muncul */
-            .main-feed { margin-bottom: 60px; } /* Space buat nav bawah */
+            .layout-wrapper { grid-template-columns: 1fr !important; }
+            .sidebar-left { display: none !important; } /* Sidebar kanan sudah dihapus */
         }
 
-        /* Style Lainnya */
-        .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
-        .post-image { cursor: zoom-in; transition: opacity 0.2s; }
-        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        .nav-badge {
-            background-color: #e74c3c; color: white;
-            font-size: 10px; font-weight: bold;
-            min-width: 16px; height: 16px; border-radius: 50%;
-            display: none; align-items: center; justify-content: center;
-            position: absolute; top: -5px; right: -5px; z-index: 10;
-        }
-        .star-wrapper { display: flex; gap: 15px; direction: ltr; }
-        .star-item { color: #ccc; transition: 0.2s; cursor: pointer; }
-        .star-item.active { color: gold; transform: scale(1.2); }
+        /* Wrapper agar bintang sejajar */
+.star-wrapper {
+    display: flex;
+    gap: 15px;
+    direction: ltr; /* Pastikan urutan kiri-ke-kanan */
+}
+
+/* Warna Dasar Bintang (Abu-abu #666) */
+.star-item {
+    color: #666; 
+    transition: color 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+
+/* Warna Saat Hover atau Aktif (Gold) */
+.star-item.active, 
+.star-item:hover { 
+    color: gold; 
+    transform: scale(1.2); /* Efek membesar sedikit */
+}
     </style>
 </head>
 <body>
