@@ -357,10 +357,130 @@ const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constr
         let provider, signer, userAddress, contract;
         let pendingNftData = null;
         
+        // --- 3. EVENT LISTENER UTAMA ---
+    document.addEventListener("DOMContentLoaded", async () => {
+        loadFeedFromCacheOnly(); 
+        await initApp();
+    });
+
+    // --- 4. LOGIKA KONEKSI WALLET (YANG TADI ERROR DISINI) ---
+    window.addEventListener('load', async () => {
+        // [PERBAIKAN] Baris ini tadi hilang di kode Anda
+        const sessionRaw = localStorage.getItem("putramas_session");
+        
+        if (!sessionRaw) {
+            // Jangan redirect agar user bisa lihat feed cache
+            return;
+        }
+
+        try {
+            const session = JSON.parse(sessionRaw);
+            
+            if (Date.now() > session.expiry) {
+                localStorage.removeItem("putramas_session");
+                return;
+            }
+
+            if (!window.ethereum) throw new Error("No Metamask");
+
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            
+            // Cek apakah wallet terkunci
+            const accounts = await provider.listAccounts();
+            if (accounts.length > 0) {
+                await provider.send("eth_requestAccounts", []);
+            } else {
+                return; // Stop jika terkunci
+            }
+
+            const { chainId } = await provider.getNetwork();
+            if (chainId !== BASE_SEPOLIA_ID) throw new Error("Wrong Network");
+
+            signer = provider.getSigner();
+            const currentAddr = await signer.getAddress();
+
+            if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
+                throw new Error("Akun Berbeda");
+            }
+
+            contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
+            window.contract = contract;
+            window.userAddress = currentAddr;
+            userAddress = currentAddr;
+
+            console.log("✅ KONEKSI STABIL:", currentAddr);
+            
+            isWalletConnected = true;
+            updateWalletUI(currentAddr);
+            loadMyProfile();
+            loadFeedLive(); 
+
+        } catch (e) {
+            console.warn("Koneksi Reset:", e.message);
+            localStorage.removeItem("putramas_session");
+            isWalletConnected = false;
+            updateWalletUI("");
+        }
+    });
+
+    // --- 5. UI WALLET LOGIC ---
+    function updateWalletUI(address) {
+        const navBtn = document.getElementById("navWalletBtn");
+        const sideText = document.getElementById("sidebarWalletText");
+        const sideInd = document.getElementById("walletIndicator");
+        const popupText = document.getElementById("popupAddressText");
+        const wDisplay = document.getElementById("walletDisplay");
+
+        if(isWalletConnected && address) {
+            const short = address.substring(0, 6) + "..." + address.substring(address.length - 4);
+            if(sideText) sideText.innerText = short;
+            if(sideInd) sideInd.style.color = "#2ecc71";
+            if(navBtn) navBtn.style.color = "#2ecc71";
+            if(popupText) popupText.innerText = address;
+            if(wDisplay) { wDisplay.innerText = "Terhubung: " + short; wDisplay.style.color="#2ecc71"; }
+        } else {
+            if(sideText) sideText.innerText = "Connect";
+            if(sideInd) sideInd.style.color = "#e74c3c";
+            if(navBtn) navBtn.style.color = "#ccc";
+            if(wDisplay) { wDisplay.innerText = "Terputus"; wDisplay.style.color="#e74c3c"; }
+        }
+    }
+
+    function handleWalletClick() {
+        if (isWalletConnected) document.getElementById("walletPopupOverlay").style.display = "flex";
+        else manualConnect();
+    }
+
+    function closeWalletPopup() { document.getElementById("walletPopupOverlay").style.display = "none"; }
+    function copyAddress() { navigator.clipboard.writeText(userAddress).then(() => alert("Alamat disalin!")); }
+    
+    function performDisconnect() {
+        if(confirm("Yakin ingin keluar?")) {
+            localStorage.removeItem("putramas_session");
+            window.location.replace("index.html");
+        }
+    }
+
+    async function manualConnect() {
+        try {
+            if (!window.ethereum) return alert("Pasang MetaMask!");
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            const { chainId } = await provider.getNetwork();
+            if (chainId !== BASE_SEPOLIA_ID) await switchBaseSepolia();
+            
+            signer = provider.getSigner();
+            const addr = await signer.getAddress();
+            
+            localStorage.setItem("putramas_session", JSON.stringify({ address: addr, expiry: Date.now() + 864000000 }));
+            location.reload();
+        } catch (e) { alert("Gagal: " + e.message); }
+    }
+
+        
         // --- WALLET LOGIC ---
 async function initApp() {
     checkSession();
-    setupWalletListeners(); // 👈 TAMBAHKAN INI
 }
 
 function setupWalletListeners() {
@@ -561,7 +681,6 @@ function disconnect() {
                 
                 // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
                 loadFeedLive(); 
-                renderWidgets();
             }
         });
 
