@@ -237,15 +237,31 @@
         <div id="pageComments">Memuat komentar...</div>
     </div>
 
-    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5);">
-        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Sawer Kurator</h3>
-        <p style="text-align:center; font-size:12px; color:#666;">Dukung pelestari budaya dengan ETH.</p>
-        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" style="width:100%; margin-bottom:10px;">
-        <small style="display:block; text-align:center; margin-bottom:10px;">Min: 0.00002 ETH</small>
-        <div style="display:flex; gap:10px;">
-            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:10px;">Batal</button>
-            <button onclick="submitSawerDetail()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; cursor:pointer; border-radius:10px;">Kirim</button>
-        </div>
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5); width: 300px;">
+    <h3 style="margin-top:0; text-align:center; color:#7385a5;">Sawer Kurator</h3>
+    <p style="text-align:center; font-size:12px; color:#666;">Dukung pelestari budaya dengan ETH.</p>
+    
+    <input type="hidden" id="sawerTargetId">
+
+    <div class="preset-row">
+        <button type="button" class="btn-preset" onclick="setSawerVal('min')">Min</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.25)">25%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.50)">50%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.75)">75%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal('max')">Max</button>
+    </div>
+
+    <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" step="0.00001" style="width:100%; margin-bottom:5px; text-align:center; font-weight:bold; box-sizing:border-box;">
+    
+    <div style="display:flex; justify-content:space-between; margin-bottom:15px; font-size:10px; color:#999;">
+        <span>Min: 0.00002 ETH</span>
+        <span>Max: 0.01 ETH</span>
+    </div>
+
+    <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:10px;">Batal</button>
+        <button onclick="submitSawer()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; cursor:pointer; border-radius:10px;">Kirim</button>
+    </div>
     </dialog>
     
     <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
@@ -278,6 +294,8 @@
     <script>
         let currentPostId = null; 
         let selectedRate = 0;
+        const SAWER_MIN = 0.00002;
+        const SAWER_MAX = 0.01;
 
      // --- 1. STARTUP SUPER CEPAT (DOMContentLoaded) ---
         document.addEventListener("DOMContentLoaded", async () => {
@@ -695,17 +713,73 @@ async function submitEditComment(postIndex, commentIndex) {
         showToast("Gagal edit: " + (e.reason || e.message || "Error"), "error");
     }
 }
-        function openSawerModalDetail() { document.getElementById("sawerModal").showModal(); }
-        async function submitSawerDetail() {
-            const amount = document.getElementById("sawerAmount").value;
-            if(!amount) return;
-            try {
-                document.getElementById("sawerModal").close();
-                const tx = await contract.sawerPost(currentPostId - 1, { value: ethers.utils.parseEther(amount) });
-                await tx.wait();
-                showToast("Saweran Terkirim!", "success");
-            } catch(e) { showToast("Gagal", "error"); }
+
+    // 1. Fungsi Membuka Modal
+    function openSawerModalDetail(id) {
+        document.getElementById("sawerTargetId").value = id;
+        document.getElementById("sawerAmount").value = ""; // Kosongkan input
+        
+        // Reset warna tombol preset
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById("sawerModal").showModal();
+    }
+
+    // 2. Fungsi Hitung Otomatis (Preset)
+    function setSawerVal(factor) {
+        let val = 0;
+        
+        if (factor === 'min') {
+            val = SAWER_MIN;
+        } else if (factor === 'max') {
+            val = SAWER_MAX;
+        } else {
+            // Hitung persentase dari MAKSIMAL (0.01)
+            val = SAWER_MAX * factor;
         }
+
+        // Format angka (maksimal 5 desimal agar tidak error overflow)
+        // parseFloat untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
+        document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
+        
+        // Visual Feedback (Highlight tombol yang diklik)
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
+
+    // 3. Fungsi Kirim (Submit)
+    async function submitSawerDetail() {
+        const postId = document.getElementById("sawerTargetId").value; // Ambil dari input hidden
+        const amount = document.getElementById("sawerAmount").value;
+
+        // Validasi
+        if (!postId) return showToast("Error ID Postingan", "error");
+        if (!amount || amount <= 0) return showToast("Masukkan jumlah valid", "error");
+        if (amount < SAWER_MIN) return showToast(`Minimal ${SAWER_MIN} ETH`, "error");
+        if (amount > SAWER_MAX) return showToast(`Maksimal ${SAWER_MAX} ETH`, "error");
+
+        try {
+            document.getElementById("sawerModal").close();
+            showToast("Mengirim Saweran...", "info");
+            
+            // Konversi ke Wei
+            const weiAmount = ethers.utils.parseEther(amount.toString());
+            
+            // Eksekusi Smart Contract (Index blockchain = ID - 1)
+            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
+            
+            await tx.wait();
+            showToast("Terima kasih! Saweran terkirim", "success");
+        } catch (e) {
+            console.error(e);
+            // Cek jika user reject
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Transaksi dibatalkan user", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
+        }
+    }
 
         function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
         
