@@ -12,50 +12,39 @@
         .search-grid { display: grid; grid-template-columns: 1fr 300px; gap: 20px; }
         @media (max-width: 768px) { .search-grid { grid-template-columns: 1fr; } .col-users { order: -1; margin-bottom: 20px; } }
         .section-title { font-size: 14px; font-weight: bold; color: #7385a5; border-bottom: 2px solid #eee; padding-bottom: 10px; margin-bottom: 15px; text-transform: uppercase; letter-spacing: 1px; }
-        .user-result-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #eee; margin-bottom: 10px; }
+        .user-result-card { display: flex; align-items: center; gap: 10px; padding: 10px; background: white; border-radius: 8px; border: 1px solid #eee; margin-bottom: 10px; animation: fadeIn 0.5s; }
         .btn-follow-small { padding: 5px 10px; font-size: 11px; border-radius: 20px; border: 1px solid #3498db; background: transparent; color: #3498db; cursor: pointer; }
         .btn-follow-small:hover { background: #3498db; color: white; }
         .btn-follow-small.following { background: #eee; border-color: #ccc; color: #666; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
         
         /* Indikator Deep Scan */
-        .scanning-bar {
-            height: 4px; width: 100%; background: #eee; margin-top: 10px; border-radius: 2px; overflow: hidden; display: none;
-        }
-        .scanning-progress {
-            height: 100%; background: #e74c3c; width: 0%; transition: width 0.3s;
-        }
+        .scanning-bar { height: 4px; width: 100%; background: #eee; margin-top: 10px; border-radius: 2px; overflow: hidden; display: none; }
+        .scanning-progress { height: 100%; background: #e74c3c; width: 0%; transition: width 0.3s; }
     </style>
 </head>
 <body>
 
     <div class="layout-wrapper">
         <div class="sidebar-left">
-        <div class="menu-card">
-        <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
-        <a href="#" onclick="window.history.back()" class="menu-item" style="color: #7385a5;"><i class="fa-solid fa-arrow-left"></i> Kembali</a>
+            <div class="menu-card">
+                <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
+                <a href="#" onclick="window.history.back()" class="menu-item" style="color: #7385a5;"><i class="fa-solid fa-arrow-left"></i> Kembali</a>
+            </div>
         </div>
-    </div>
 
         <div class="main-feed" style="max-width: 100%;">
             <div class="card" style="padding: 5px 15px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 99; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">            
                 <form onsubmit="event.preventDefault(); window.location.href = 'result.html?q=' + document.getElementById('searchInput').value;" 
                       style="display: flex; gap: 10px; align-items: center; margin: 0; width: 100%;">
-                    
-                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: #999;">
-                        <i class="fa-solid fa-magnifying-glass"></i>
-                    </button>
-                    
-                    <input type="search" id="searchInput" 
-                           class="cp-input" 
-                           placeholder="Pencarian..." 
-                           style="border: none; background: transparent; flex: 1; outline: none; height:35px;">
+                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: #999;"><i class="fa-solid fa-magnifying-glass"></i></button>
+                    <input type="search" id="searchInput" class="cp-input" placeholder="Pencarian..." style="border: none; background: transparent; flex: 1; outline: none; height:35px;">
                 </form>
             </div>
+            
             <div class="card" style="padding: 15px; margin-bottom: 20px; position: relative;">
                 <div style="position: relative; display: flex; align-items: center; justify-content: center; min-height: 30px;">         
-                    <a href="home.html" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: #7385a5; font-size: 20px; padding: 5px; cursor: pointer;">
-                        <i class="fa-solid fa-arrow-left"></i>
-                    </a>
+                    <a href="home.html" style="position: absolute; left: 0; top: 50%; transform: translateY(-50%); color: #7385a5; font-size: 20px; padding: 5px; cursor: pointer;"><i class="fa-solid fa-arrow-left"></i></a>
                     <h2 style="margin:0; font-size:18px; color:#333; text-align: center;">
                         <i class="fa-solid fa-magnifying-glass" style="font-size: 16px; color:#999; margin-right: 5px;"></i> 
                         Deep Search: <span id="queryDisplay" style="color:#7385a5;">...</span>
@@ -70,7 +59,6 @@
             </div>
 
             <div class="search-grid">
-                
                 <div class="col-posts">
                     <div class="section-title"><i class="fa-regular fa-newspaper"></i> Hasil Postingan & NFT</div>
                     <div id="postsResultContainer"></div>
@@ -79,10 +67,9 @@
                 <div class="col-users">
                     <div class="section-title"><i class="fa-solid fa-users"></i> Pengguna Ditemukan</div>
                     <div id="usersResultContainer">
-                        <div style="text-align:center; padding:20px; color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Memindai Blockchain...</div>
+                        <div style="text-align:center; padding:20px; color:#999;"><i class="fa-solid fa-circle-notch fa-spin"></i> Menunggu Koneksi...</div>
                     </div>
                 </div>
-
             </div>
         </div>
     </div>
@@ -95,77 +82,71 @@
         const urlParams = new URLSearchParams(window.location.search);
         const query = urlParams.get('q') ? urlParams.get('q').toLowerCase().trim() : "";
         document.getElementById("queryDisplay").innerText = query || "Semua";
-
-        // Variabel untuk mencegah duplikasi hasil Deep Scan
+        
         const displayedPostIds = new Set(); 
 
-        window.onload = async () => {
+        // --- 1. STARTUP SUPER CEPAT (DOMContentLoaded) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Langsung tampilkan UI kerangka
+            if(!query) {
+                document.getElementById("postsResultContainer").innerHTML = "<p style='color:#999; text-align:center;'>Ketik kata kunci untuk mencari.</p>";
+                document.getElementById("usersResultContainer").innerHTML = "";
+                return;
+            }
+
+            // Init Wallet di Background
             await initApp();
-            if(!query) return;
+
             if(userAddress) {
-                // Jalankan Pencarian Paralel (Brutal Mode)
+                // JALANKAN PARALEL (Supaya User & Post jalan bareng)
+                // Kita tidak pakai 'await' di sini agar keduanya jalan serentak
                 searchUsersBrutal(); 
                 searchPostsDeep();
             }
-        };
+        });
 
         // ==========================================
-        // 1. PENCARIAN USER (BRUTAL LOOP ID - FIXED)
+        // 2. PENCARIAN USER (INCREMENTAL RENDER)
         // ==========================================
         async function searchUsersBrutal() {
             const container = document.getElementById("usersResultContainer");
-            container.innerHTML = "<div style='text-align:center; color:#999; font-size:12px;'><i class='fa-solid fa-spinner fa-spin'></i> Scanning Smart Contract...</div>";
+            container.innerHTML = "<div style='text-align:center; color:#999; font-size:12px;'><i class='fa-solid fa-spinner fa-spin'></i> Memindai ID...</div>";
 
             try {
-                // Ambil Total User Langsung dari Blockchain
-                // Pastikan nama variabel counter di smart contract Anda benar (userCounter atau _userIds dll)
                 const userCountBN = await contract.userCounter();
                 const totalUsers = userCountBN.toNumber();
                 
-                console.log("Total Users to Scan:", totalUsers); // Debugging
-
                 let foundCount = 0;
-                let htmlBuffer = "";
+                
+                // Bersihkan loading spinner jika user > 0
+                if(totalUsers > 0) container.innerHTML = "";
 
-                // Loop Brutal: Cek SATU PER SATU dari ID 1 sampai akhir
                 for (let i = 1; i <= totalUsers; i++) {
                     try {
-                        // COBA CARA 1: Get Profile By ID (Jika ada fungsi ini)
+                        // Ambil data satu per satu
                         let u;
-                        try {
-                            u = await contract.getProfileById(i);
-                        } catch(e) {
-                            // FALLBACK CARA 2: Akses mapping public 'users'
-                            u = await contract.users(i);
-                        }
+                        try { u = await contract.getProfileById(i); } catch(e) { u = await contract.users(i); }
                         
-                        // Validasi: Wallet tidak boleh kosong
                         if(u.wallet === "0x0000000000000000000000000000000000000000") continue;
 
-                        // DATA CLEANING
                         const nickname = u.nickname ? u.nickname.toLowerCase() : "";
                         const wallet = u.wallet ? u.wallet.toLowerCase() : "";
 
-                        // CEK KECOCOKAN (Nama ATAU Wallet)
+                        // Jika Cocok, LANGSUNG Render (Jangan ditampung di variabel)
                         if (nickname.includes(query) || wallet === query) {
                             foundCount++;
-                            htmlBuffer += await generateUserHTML(u);
+                            const html = await generateUserHTML(u);
+                            container.insertAdjacentHTML('beforeend', html); // Tampil seketika
                         }
-                    } catch (err) { 
-                        console.warn("Error scanning user ID " + i, err);
-                    }
+                    } catch (err) {}
                 }
 
-                // Render Hasil
-                if (foundCount > 0) {
-                    container.innerHTML = htmlBuffer;
-                } else {
-                    container.innerHTML = `<div style='text-align:center; padding:20px; color:#999;'>User tidak ditemukan di Blockchain.</div>`;
+                if (foundCount === 0) {
+                    container.innerHTML = `<div style='text-align:center; padding:20px; color:#999; font-size:12px;'>User tidak ditemukan.</div>`;
                 }
 
             } catch(e) {
-                console.error("User Search Error:", e);
-                container.innerHTML = "<p style='color:red; font-size:11px;'>Gagal akses data user. Pastikan Smart Contract mendukung iterasi user.</p>";
+                container.innerHTML = "<p style='color:red; font-size:11px;'>Gagal akses data user.</p>";
             }
         }
 
@@ -174,11 +155,8 @@
             const displayAvt = u.fotoProfil ? u.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/') : "https://via.placeholder.com/40";
             const addr = u.wallet;
             
-            // Cek Follow (Async di dalam loop gapapa demi akurasi)
             let isFollowing = false;
-            try {
-                isFollowing = await contract.isFollowing(userAddress, addr);
-            } catch(e) {}
+            try { isFollowing = await contract.isFollowing(userAddress, addr); } catch(e) {}
 
             const btnAction = isFollowing ? `unfollow('${addr}')` : `follow('${addr}')`;
             const btnText = isFollowing ? "Mengikuti" : "Ikuti";
@@ -192,14 +170,14 @@
                 <a href="profile.html?addr=${addr}"><img src="${displayAvt}" style="width:40px; height:40px; border-radius:50%; object-fit:cover; border:1px solid #eee;"></a>
                 <div style="flex:1; min-width:0;">
                     <a href="profile.html?addr=${addr}" style="text-decoration:none; color:#333; font-weight:bold; font-size:13px; display:block;">${displayNick}</a>
-                    <div style="font-size:10px; color:#999;">${addr.substring(0,6)}...${addr.substring(38)}</div>
+                    <div style="font-size:10px; color:#999;">${addr.substring(0,6)}...</div>
                 </div>
                 ${btnHtml}
             </div>`;
         }
 
         // ==========================================
-        // 2. PENCARIAN POST (DEEP SCAN IPFS - SUDAH BERHASIL)
+        // 3. PENCARIAN POST (CAPTION + DEEP SCAN)
         // ==========================================
         async function searchPostsDeep() {
             const container = document.getElementById("postsResultContainer");
@@ -209,10 +187,10 @@
             const scanCountEl = document.getElementById("scanCount");
 
             try {
-                // 1. Ambil SEMUA Postingan
+                // 1. Ambil Postingan (Agak berat, tapi wajib)
                 const allPosts = await contract.getAllPosts();
                 
-                // 2. TAHAP 1: Filter Cepat (Berdasarkan Caption)
+                // 2. HASIL CEPAT: Filter Caption (Langsung Tampil)
                 const captionMatches = allPosts.filter(p => p.caption.toLowerCase().includes(query));
                 
                 container.innerHTML = "";
@@ -222,7 +200,9 @@
                     fetchProfileLazy(post.author);
                 });
 
-                // 3. TAHAP 2: DEEP SCAN (Membongkar Metadata NFT)
+                if(container.innerHTML === "") container.innerHTML = "<p style='text-align:center; color:#999;'>Mencari di Metadata NFT...</p>";
+
+                // 3. HASIL LAMBAT: Filter IPFS (Deep Scan)
                 const deepScanTargets = allPosts.filter(p => !displayedPostIds.has(p.id.toString()) && p.nftId > 0 && p.tokenURI);
                 
                 if(deepScanTargets.length > 0) {
@@ -232,7 +212,7 @@
                     let scanned = 0;
                     const total = deepScanTargets.length;
 
-                    // Fetch Serial (Satu per satu) untuk stabilitas
+                    // Scan satu per satu agar tidak hang
                     for (const post of deepScanTargets) {
                         scanned++;
                         const pct = (scanned / total) * 100;
@@ -240,11 +220,11 @@
                         scanCountEl.innerText = `${scanned}/${total}`;
 
                         try {
-                            // FETCH IPFS
                             const url = post.tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
                             
+                            // Timeout 2 detik per file agar cepat
                             const controller = new AbortController();
-                            const timeoutId = setTimeout(() => controller.abort(), 3000); 
+                            const timeoutId = setTimeout(() => controller.abort(), 2000); 
                             
                             const res = await fetch(url, { signal: controller.signal });
                             clearTimeout(timeoutId);
@@ -254,8 +234,13 @@
                                 const metaString = JSON.stringify(meta).toLowerCase();
                                 
                                 if (metaString.includes(query)) {
-                                    container.innerHTML += generatePostHTML(post, `Ditemukan di Metadata: ${meta.name || 'NFT'}`);
+                                    // Jika cocok, TAMBAHKAN ke bawah (Incremental)
+                                    // Hapus pesan loading jika ini hasil pertama
+                                    if(container.innerHTML.includes("Mencari di Metadata")) container.innerHTML = "";
+                                    
+                                    container.innerHTML += generatePostHTML(post, `Metadata: ${meta.name || 'NFT'}`);
                                     fetchProfileLazy(post.author);
+                                    // Render detail metadata belakangan
                                     setTimeout(() => renderMetadataSpecific(post.id, meta), 100);
                                 }
                             }
@@ -263,21 +248,19 @@
                     }
                 }
 
-                // Selesai Scanning
+                // Selesai
                 setTimeout(() => {
-                    scanStatus.innerHTML = "<i class='fa-solid fa-check'></i> Deep Scan Selesai.";
+                    scanStatus.innerHTML = "<i class='fa-solid fa-check'></i> Selesai.";
                     scanBar.style.display = "none";
-                    if(container.innerHTML === "") {
-                        container.innerHTML = `<div style='padding:30px; text-align:center; color:#999; border:1px dashed #ddd; border-radius:8px;'>Tidak ditemukan hasil untuk "${query}" (Scan Selesai).</div>`;
+                    if(container.innerHTML.includes("Mencari di Metadata") || container.innerHTML === "") {
+                        container.innerHTML = `<div style='padding:30px; text-align:center; color:#999; border:1px dashed #ddd; border-radius:8px;'>Tidak ditemukan hasil untuk "${query}".</div>`;
                     }
                 }, 1000);
 
-            } catch(e) {
-                console.error("Deep Search Error:", e);
-            }
+            } catch(e) { console.error(e); }
         }
 
-        // --- HTML GENERATOR ---
+        // --- HELPER HTML ---
         function generatePostHTML(post, foundReason) {
             const profileLink = `profile.html?addr=${post.author}`;
             let imgHtml = "";
@@ -288,17 +271,13 @@
                 const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=600&q=80&output=webp`;
                 
                 if(post.nftId > 0) {
-                     metaBox = `
-                    <div class="nft-citation" style="background:#f0fff4; padding:8px; border:1px solid #c6f6d5; border-top:none; border-radius:0 0 10px 10px; font-size:11px; color:#2f855a; margin-top:-4px;">
-                        <i class="fa-solid fa-bolt"></i> ${foundReason}
-                        <div id="meta-details-${post.id}" style="margin-top:5px; color:#555;"></div>
-                    </div>`;
+                     metaBox = `<div class="nft-citation" style="background:#f0fff4; padding:8px; border:1px solid #c6f6d5; border-top:none; border-radius:0 0 10px 10px; font-size:11px; color:#2f855a; margin-top:-4px;"><i class="fa-solid fa-bolt"></i> ${foundReason}<div id="meta-details-${post.id}" style="margin-top:5px; color:#555;"></div></div>`;
                 }
                 imgHtml = `<a href="koleksi.html?id=${post.id}"><img src="${optUrl}" style="width:100%; height:auto; display:block; border-radius:${post.nftId>0?'0':'8px'}; margin-top:10px; background:#f0f0f0;"></a>${metaBox}`;
             }
             
             return `
-            <div class="card" style="padding:15px; margin-bottom:15px;">
+            <div class="card" style="padding:15px; margin-bottom:15px; animation: fadeIn 0.5s;">
                 <div style="display:flex; gap:10px; align-items:center;">
                     <a href="${profileLink}"><img src="https://via.placeholder.com/30" class="avt-${post.author}" style="width:30px; height:30px; border-radius:50%; object-fit:cover;"></a>
                     <div>
@@ -322,7 +301,7 @@
             el.innerHTML = `<strong>${meta.name}</strong> • Gagrak: ${gagrak}`;
         }
 
-        // --- HELPER BIASA ---
+        // --- HELPER STANDARD ---
         async function fetchProfileLazy(address) {
             try {
                 const p = await contract.getProfile(address);
