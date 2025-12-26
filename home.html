@@ -394,157 +394,182 @@
             } catch(e) {}
         }
         
-        // --- FUNGSI LOAD FEED (FIXED FOR HOME.HTML) ---
+        // --- 4. FUNGSI LOAD FEED (DENGAN LOCALSTORAGE) ---
         async function loadFeed() {
             try {
-                let posts;
+                const container = document.getElementById("feedContainer");
+                const cacheKey = `feed_cache_${currentFeedType}`; // Kunci unik (friends/global)
 
-                // Cek Mode Tab
+                // 1. STRATEGI CEPAT: TAMPILKAN DATA CACHE DULU (JIKA ADA)
+                const cachedData = localStorage.getItem(cacheKey);
+                if (cachedData) {
+                    try {
+                        const parsedCache = JSON.parse(cachedData);
+                        // Cek kadaluarsa (misal valid 24 jam, atau biarkan selalu tampil)
+                        // Disini kita langsung tampilkan saja supaya instan
+                        if (parsedCache.length > 0) {
+                            console.log("🚀 Menampilkan dari Cache LocalStorage");
+                            renderPostLoop(parsedCache, container, true); // true = mode cache (tanpa loading spinner)
+                        }
+                    } catch (err) {
+                        console.error("Cache Error:", err);
+                        localStorage.removeItem(cacheKey); // Hapus jika korup
+                    }
+                }
+
+                // 2. STRATEGI UPDATE: AMBIL DATA BARU DARI BLOCKCHAIN (BACKGROUND)
+                // Kita tetap jalankan ini meskipun cache sudah tampil, untuk update data terbaru
+                let posts;
                 if(currentFeedType === 'friends') {
                     posts = await contract.getMyFeed();
                 } else {
                     posts = await contract.getAllPosts();
                 }
 
-                const container = document.getElementById("feedContainer");
-                container.innerHTML = "";
-
+                // Jika data blockchain kosong
                 if(posts.length === 0) {
-                    const msg = currentFeedType === 'friends' 
-                        ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
-                        : "Belum ada postingan di platform.";
-                    container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
+                    // Kalau cache juga kosong, tampilkan pesan kosong
+                    if (!cachedData) {
+                        const msg = currentFeedType === 'friends' 
+                            ? "Belum ada postingan dari teman.<br><small>Klik tab 'Jelajah' untuk mencari kreator baru.</small>"
+                            : "Belum ada postingan di platform.";
+                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px; line-height:1.6;'>${msg}</p>`;
+                    }
                     return;
                 }
 
-                // LOOP POSTINGAN (DIBALIK AGAR TERBARU DIATAS)
-                [...posts].reverse().forEach(post => {
-                    const profileLink = `profile.html?addr=${post.author}`;
+                // 3. SIMPAN DATA BARU KE LOCALSTORAGE (SERIALISASI)
+                // Kita perlu mengubah objek BigNumber (dari Ethers) ke string biasa agar bisa di-JSON-kan
+                const plainPosts = posts.map(p => ({
+                    id: p.id.toString(),
+                    author: p.author,
+                    caption: p.caption,
+                    imageURI: p.imageURI,
+                    tokenURI: p.tokenURI,
+                    timestamp: p.timestamp.toString(),
+                    likeCount: p.likeCount.toString(),
+                    commentCount: p.commentCount.toString(),
+                    nftId: p.nftId.toString(),
+                    ratingCount: p.ratingCount.toString(),
+                    totalRatingScore: p.totalRatingScore.toString()
+                }));
 
-                    // --- LOGIKA GAMBAR & KUTIPAN NFT ---
-                    let imgHtml = "";
-                    if(post.imageURI && post.imageURI.length > 5) {
-                        const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                        
-                        // --- OPTIMASI ULTRA RINGAN (TARGET < 60KB) ---
-                        // w=500 : Lebar cukup untuk HP
-                        // q=60  : Kualitas 60% (Kompromi terbaik size vs visual)
-                        // output=webp : Format wajib untuk web modern
-                        const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                localStorage.setItem(cacheKey, JSON.stringify(plainPosts));
 
-                        // A. SIAPKAN KOTAK KUTIPAN (Hanya jika NFT)
-                        let metaBox = "";
-                        if(post.nftId > 0) {
-                            const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                            
-                            metaBox = `
-                            <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                                
-                                <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                                    <span>
-                                        <i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px; width:14px; text-align:center;"></i> 
-                                        <strong>Nama:</strong> 
-                                        <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Memuat...</span>
-                                    </span>
-                                </div>
-
-                                <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                                    <span>
-                                        <i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px; width:14px; text-align:center;"></i> 
-                                        <strong>Gagrak:</strong> 
-                                        <span id="meta-gagrak-${post.id}">-</span>
-                                    </span>
-                                </div>
-
-                                <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                                    <span>
-                                        <i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px; width:14px; text-align:center;"></i> 
-                                        <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span>
-                                    </span>
-                                    <span style="font-size:10px; color:#8b4513; font-style:italic;">
-                                        Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
-                                    </span>
-                                </div>
-                            </div>`;
-                        }
-
-                        // B. GABUNGKAN GAMBAR + KUTIPAN
-                        imgHtml = `
-                        <div style="margin:10px -15px 0 -15px;">
-                            <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                                <img src="${optUrl}" 
-                                     class="post-image" 
-                                     style="width:100%; display:block; min-height:200px; background:#f0f0f0; border-radius: ${post.nftId > 0 ? '0' : '8px'};" 
-                                     loading="lazy" 
-                                     alt="Post Image">
-                                ${metaBox}
-                            </a>
-                        </div>`;
-                        
-                        // Trigger Fetch Metadata JSON (Delay sedikit biar scrolling lancar)
-                        if(post.nftId > 0 && post.tokenURI) {
-                            setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
-                        }
-                    }
-
-                    // --- VARIABEL UNTUK KARTU ---
-                    const avgRating = post.ratingCount > 0 ? (post.totalRatingScore / post.ratingCount).toFixed(1) : "0.0";
-                    const nftBadge = post.nftId > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-
-                    // --- HTML KARTU ---
-                    const html = `
-                    <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                        <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <a href="${profileLink}">
-                                <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" 
-                                     style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
-                            </a>
-                            <div class="post-info">
-                                <a href="${profileLink}" class="author-nick-${post.author}" 
-                                   style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                    ${post.author.substring(0,6)}...
-                                </a>
-                                <div style="font-size: 11px; color: #999;">
-                                    ${new Date(post.timestamp * 1000).toLocaleString()} ${nftBadge}
-                                </div>
-                            </div>
-                        </div>
-                        <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                        ${imgHtml}
-
-                        <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                             
-                             <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
-                                <span id="count-like-${post.id}">${post.likeCount}</span>
-                             </button>
-
-                             <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-comment"></i> 
-                                <span id="count-comment-${post.id}">${post.commentCount}</span>
-                             </button>
-
-                             <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                                <i class="fa-solid fa-gift"></i>
-                             </button>
-
-                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-solid fa-star"></i> 
-                                <span id="score-rating-${post.id}">${avgRating}</span>
-                             </button>
-                        </div>
-                    </div>`;
-                    
-                    container.innerHTML += html;
-                    
-                    // Lazy Load Profil
-                    fetchProfileLazy(post.author);
-                });
+                // 4. RENDER ULANG DENGAN DATA BARU (FRESH)
+                // Kosongkan container dulu agar tidak duplikat dengan cache
+                container.innerHTML = ""; 
+                renderPostLoop(plainPosts, container, false); // false = data live
 
             } catch (e) { 
-                console.error(e);
-                document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data.</p>";
+                console.error("Load Feed Error:", e);
+                // Jika error dan tidak ada cache, tampilkan error
+                if (!localStorage.getItem(`feed_cache_${currentFeedType}`)) {
+                    document.getElementById("feedContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat data baru. Periksa koneksi.</p>";
+                }
             }
+        }
+
+        // --- HELPER RENDER LOOP (DIPISAH SUPAYA RAPI) ---
+        function renderPostLoop(postsArray, container, isCache) {
+            // Jika ini render dari cache, tambahkan penanda kecil (Opsional)
+            if (isCache) {
+                // container.innerHTML = `<div style="text-align:center; font-size:10px; color:#ccc; margin-bottom:10px;">Menampilkan data tersimpan...</div>`;
+                // Atau biarkan kosong agar seamless
+            }
+
+            [...postsArray].reverse().forEach(post => {
+                const profileLink = `profile.html?addr=${post.author}`;
+
+                // --- LOGIKA GAMBAR (OPTIMIZED 60KB) ---
+                let imgHtml = "";
+                if(post.imageURI && post.imageURI.length > 5) {
+                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
+                    // KOTAK KUTIPAN NFT
+                    let metaBox = "";
+                    if(parseInt(post.nftId) > 0) { // Pastikan parse int karena dari JSON string
+                        const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
+                        metaBox = `
+                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+                                <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
+                            </div>
+                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                                <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
+                            </div>
+                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                                <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
+                                <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
+                            </div>
+                        </div>`;
+                    }
+
+                    imgHtml = `
+                    <div style="margin:10px -15px 0 -15px;">
+                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
+                            <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
+                            ${metaBox}
+                        </a>
+                    </div>`;
+
+                    // Fetch Metadata jika ada (Hanya jalan kalau bukan cache, atau mau jalanin di cache juga boleh)
+                    if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
+                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+                    }
+                }
+
+                // PERHITUNGAN RATING (Hati-hati pembagian nol)
+                const rCount = parseInt(post.ratingCount);
+                const rScore = parseInt(post.totalRatingScore);
+                const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+                
+                const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+                const dateStr = new Date(parseInt(post.timestamp) * 1000).toLocaleString();
+
+                const html = `
+                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <a href="${profileLink}">
+                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                        </a>
+                        <div class="post-info">
+                            <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                ${post.author.substring(0,6)}...
+                            </a>
+                            <div style="font-size: 11px; color: #999;">
+                                ${dateStr} ${nftBadge}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                    ${imgHtml}
+
+                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
+                            <span id="count-like-${post.id}">${post.likeCount}</span>
+                         </button>
+                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-comment"></i> 
+                            <span id="count-comment-${post.id}">${post.commentCount}</span>
+                         </button>
+                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                            <i class="fa-solid fa-gift"></i>
+                         </button>
+                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-solid fa-star"></i> 
+                            <span id="score-rating-${post.id}">${avgRating}</span>
+                         </button>
+                    </div>
+                </div>`;
+                
+                container.innerHTML += html;
+                
+                // Lazy Load Profil (Jalan di background)
+                fetchProfileLazy(post.author);
+            });
         }
         
         async function fetchProfileLazy(address) {
