@@ -122,48 +122,76 @@ async function saveSession(address) {
 }
 
 async function checkSession() {
+    console.log("🔄 Cek Sesi...");
+
     const sessionRaw = localStorage.getItem("putramas_session");
     
-    // Jika tidak ada sesi atau Metamask belum inject, berhenti
-    if (!sessionRaw || !window.ethereum) return;
+    // 1. Jika kosong, stop.
+    if (!sessionRaw) {
+        console.log("⚪ Belum ada sesi."); 
+        return false;
+    }
 
-    const session = JSON.parse(sessionRaw);
-    
-    // Cek kadaluarsa
-    if (Date.now() > session.expiry) {
-        localStorage.removeItem("putramas_session");
-        return;
+    let session;
+
+    // --- PERBAIKAN UTAMA: TRY-CATCH JSON PARSE ---
+    try {
+        // Kita coba baca datanya. Jika datanya "sampah", dia akan loncat ke 'catch'
+        session = JSON.parse(sessionRaw);
+    } catch (e) {
+        console.error("⚠️ DATA SESI KORUP! Menghapus data sampah...");
+        localStorage.removeItem("putramas_session"); // HAPUS DATA RUSAK
+        location.reload(); // Refresh halaman agar bersih
+        return false;
+    }
+
+    // 2. Cek Metamask
+    if (!window.ethereum) {
+        console.error("❌ Metamask tidak terdeteksi.");
+        return false;
     }
 
     try {
+        // Cek Kadaluarsa
+        if (Date.now() > session.expiry) {
+            console.warn("⚠️ Sesi habis.");
+            localStorage.removeItem("putramas_session");
+            return false;
+        }
+
+        // KONEKSI WALLET
         provider = new ethers.providers.Web3Provider(window.ethereum);
         
-        // PENTING: Minta akses akun (silent request)
-        // Ini memastikan 'signer' benar-benar terhubung ke akun yang aktif
+        // Silent request untuk memastikan object signer siap
         await provider.send("eth_requestAccounts", []);
-
+        
         signer = provider.getSigner();
         const activeAddress = await signer.getAddress();
 
-        // Validasi keamanan: Akun di Metamask harus sama dengan sesi Login terakhir
+        // Validasi Akun
         if (activeAddress.toLowerCase() !== session.address.toLowerCase()) {
-            console.warn("Akun Metamask beda dengan sesi Login. Logout otomatis.");
+            console.warn("⚠️ Akun beda. Logout.");
             localStorage.removeItem("putramas_session");
             location.reload();
-            return;
+            return false;
         }
 
         userAddress = activeAddress;
         
-        // --- INI SOLUSI INTI: INISIALISASI VARIABEL GLOBAL CONTRACT ---
+        // --- INISIALISASI KONTRAK ---
+        // Ini bagian paling krusial
         contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        console.log("Kontrak Siap:", CONTRACT_ADDRESS);
+        
+        console.log("✅ KONEKSI PULIH! User:", userAddress);
 
-        // Load Feed hanya jika fungsi tersedia (biar gak error di halaman lain)
+        // Load data feed
         if (typeof loadFeed === "function") loadFeed();
         
+        return true;
+
     } catch (err) {
-        console.error("Gagal Restore Sesi:", err);
+        console.error("🔥 Error Koneksi:", err);
+        return false;
     }
 }
 
