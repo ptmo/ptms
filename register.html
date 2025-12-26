@@ -15,8 +15,8 @@
 
     <div class="card" style="width: 100%; max-width: 500px; padding: 30px;">
         <div style="text-align: center; margin-bottom: 20px;">
-            <h2 style="color: #7385a5; margin: 0;">elamat Datang!</h2>
-            <p style="color: #666; font-size: 14px;">Lengkapi profil untuk berinteraksi di Blockchain.</p>
+            <h2 style="color: #7385a5; margin: 0;">Selamat Datang!</h2>
+            <p style="color: #666; font-size: 14px;">Lengkapi profil untuk berinteraksi di Wayang Nusantara.</p>
         </div>
 
         <div style="display: flex; flex-direction: column; gap: 15px;">
@@ -61,31 +61,36 @@
     <script src="ipfs_helper.js"></script>
 
     <script>
-        // --- LOGIKA KHUSUS REGISTER ---
-        window.onload = async () => {
-            // 1. Cek Metamask
+        // --- 1. STARTUP CEPAT (DOMContentLoaded) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            // Cek Metamask
             if (!window.ethereum) return alert("Metamask tidak terdeteksi!");
 
             try {
-                // 2. CONNECT ULANG (Karena pindah halaman = reset variable)
+                // A. Init Provider
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 
-                // Minta akses wallet (Silent login jika sudah connect di halaman sebelumnya)
-                await provider.send("eth_requestAccounts", []);
+                // B. Silent Login (Cek apakah sudah connect sebelumnya)
+                const accounts = await provider.listAccounts();
+                if (accounts.length === 0) {
+                    // Jika belum, baru minta popup
+                    await provider.send("eth_requestAccounts", []);
+                }
                 
-                // Cek Network
+                // C. Cek Network (Dari main.js)
                 const { chainId } = await provider.getNetwork();
-                if (chainId !== CHAIN_ID) await switchNetwork(); // switchNetwork dari main.js
+                if (typeof CHAIN_ID !== 'undefined' && chainId !== CHAIN_ID) {
+                    await switchNetwork(); 
+                }
 
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
 
-                // 3. SETUP KONTRAK (Ini yang memperbaiki error "undefined")
+                // D. Setup Kontrak
                 contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-                console.log("Kontrak Siap:", contract.address);
+                console.log("Kontrak Siap di Register");
 
-                // 4. Cek Keamanan: Kalau ternyata sudah register, tendang ke home
-                // Mengambil data user dari struct (index ke-6 adalah isRegistered)
+                // E. Cek Status User (Redirect jika sudah terdaftar)
                 const profile = await contract.users(userAddress);
                 if(profile.isRegistered) {
                      window.location.href = "home.html";
@@ -95,8 +100,8 @@
                 console.error("Gagal init:", err);
                 showToast("Gagal memuat wallet: " + err.message, "error");
             }
-        };
-
+        });
+        
         // Fungsi Preview (Tidak perlu diubah, hanya visual lokal)
 function previewImage(input) {
     if (input.files && input.files[0]) {
