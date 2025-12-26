@@ -209,182 +209,210 @@
         currentProfileAddr = urlParams.get('addr') ? urlParams.get('addr') : userAddress;
 
         if(userAddress) {
-            // Re-init contract dengan ABI lengkap
             contract = new ethers.Contract(CONTRACT_ADDRESS, EXTENDED_ABI, signer);
             loadProfileData(currentProfileAddr);
         }
     };
 
-    // --- FUNGSI LOAD PROFILE (DIPERBAIKI) ---
+    // --- 1. FUNGSI UTAMA LOAD PROFILE (DENGAN CACHE) ---
     async function loadProfileData(addr) {
         if (!addr || !ethers.utils.isAddress(addr)) {
             document.getElementById("pNick").innerText = "User Tidak Ditemukan";
             return;
         }
 
+        const cacheKey = `profile_v1_${addr.toLowerCase()}`;
+        
+        // A. CEK CACHE LOCALSTORAGE (Tampil Instan)
+        const cachedData = localStorage.getItem(cacheKey);
+        if (cachedData) {
+            try {
+                const parsed = JSON.parse(cachedData);
+                console.log("🚀 Load from Cache");
+                updateHeaderUI(parsed.profile, addr); // Render Header dari Cache
+                renderPostsUI(parsed.posts, addr);    // Render Post dari Cache
+            } catch (e) { localStorage.removeItem(cacheKey); }
+        }
+
+        // B. AMBIL DATA BARU DARI BLOCKCHAIN (Background Update)
         try {
-            // 1. AMBIL DATA PROFIL UTAMA
+            // 1. Ambil Data Profil
             const p = await contract.getProfile(addr);
             
-            const ownerNick = p.nickname || "Tanpa Nama";
-            const ownerWallet = addr.substring(0,6) + "..." + addr.substring(38);
-            
-            // --- OPTIMASI AVATAR HEADER (Target Kecil & Ringan) ---
-            let ownerAvatar = "https://via.placeholder.com/40";
-            if(p.fotoProfil && p.fotoProfil.length > 5) {
-                const rawAvatar = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                // w=150: Cukup untuk lingkaran profil
-                // q=70: Kualitas cukup
-                ownerAvatar = `https://wsrv.nl/?url=${encodeURIComponent(rawAvatar)}&w=150&q=70&output=webp`;
-            }
-
-            document.getElementById("pNick").innerText = ownerNick;
-            document.getElementById("pBio").innerText = p.bio || "-";
-            document.getElementById("pLoc").innerText = p.lokasi || "-";
-            document.getElementById("pWallet").innerText = ownerWallet;
-            document.getElementById("pAvatar").src = ownerAvatar;
-
-            // Logika cek owner untuk fitur edit nama (jika ada)
-            if (userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
-                // Pastikan variabel myChangeCount dideklarasikan di scope global/atas
-                if(typeof myChangeCount !== 'undefined' && p.nameChangeCount) {
-                    myChangeCount = p.nameChangeCount.toNumber();
-                }
-            }
-
-            // 2. LOAD POSTINGAN
+            // 2. Ambil Data Postingan
             const posts = await contract.getUserPosts(addr);
-            document.getElementById("statPost").innerText = posts.length; 
+            document.getElementById("statPost").innerText = posts.length;
             
-            // Panggil fungsi follow system
-            if(typeof loadFollowData === "function") loadFollowData(addr); 
-            
-            const container = document.getElementById("profileFeed");
-            container.innerHTML = "";
-
-            if(posts.length === 0) {
-                container.innerHTML = "<p style='text-align:center; color:#999; margin-top:30px;'>Belum ada postingan.</p>";
-                return;
+            // 3. Simpan ke Global Variable (untuk fitur ganti nama)
+            if (userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
+                if(p.nameChangeCount) myChangeCount = p.nameChangeCount.toNumber();
             }
 
-            // LOOP POSTINGAN (Dibalik agar terbaru diatas)
-            [...posts].reverse().forEach(post => {
-                const profileLink = `profile.html?addr=${post.author}`;
-                
-                // --- LOGIKA GAMBAR & KUTIPAN NFT ---
-                let imgHtml = "";
-                if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    
-                    // --- OPTIMASI ULTRA RINGAN (TARGET MAX 60KB) ---
-                    // w=500 : Pas untuk lebar layar HP
-                    // q=60  : Kualitas 60% (Sangat hemat, tapi visual masih oke)
-                    // output=webp : Format wajib
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+            // 4. Update UI dengan Data Fresh
+            updateHeaderUI(p, addr);
+            
+            // 5. SIAPKAN DATA UNTUK DISIMPAN (SERIALISASI JSON)
+            // Kita harus ubah BigNumber ke String agar bisa masuk LocalStorage
+            const simpleProfile = {
+                nickname: p.nickname,
+                fotoProfil: p.fotoProfil,
+                bio: p.bio,
+                lokasi: p.lokasi
+            };
 
-                    // A. SIAPKAN KOTAK KUTIPAN (Hanya jika NFT)
-                    let metaBox = "";
-                    if(post.nftId > 0) {
-                        metaBox = `
-                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                            
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                                <span>
-                                    <i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px; width:14px; text-align:center;"></i> 
-                                    <strong>Nama:</strong> 
-                                    <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Memuat...</span>
-                                </span>
-                            </div>
+            const simplePosts = posts.map(post => ({
+                id: post.id.toString(),
+                author: post.author,
+                imageURI: post.imageURI,
+                tokenURI: post.tokenURI,
+                caption: post.caption,
+                timestamp: post.timestamp.toString(),
+                likeCount: post.likeCount.toString(),
+                commentCount: post.commentCount.toString(),
+                ratingCount: post.ratingCount.toString(),
+                totalRatingScore: post.totalRatingScore.toString(),
+                nftId: post.nftId.toString()
+            }));
 
-                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                                <span>
-                                    <i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px; width:14px; text-align:center;"></i> 
-                                    <strong>Gagrak:</strong> 
-                                    <span id="meta-gagrak-${post.id}">-</span>
-                                </span>
-                            </div>
+            // 6. Simpan ke LocalStorage
+            localStorage.setItem(cacheKey, JSON.stringify({
+                profile: simpleProfile,
+                posts: simplePosts
+            }));
 
-                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                                <span>
-                                    <i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px; width:14px; text-align:center;"></i> 
-                                    <strong>Kolektor:</strong> ${ownerNick}
-                                </span>
-                                <span style="font-size:10px; color:#8b4513; font-style:italic;">
-                                    Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i>
-                                </span>
-                            </div>
-                        </div>`;
-                    }
+            // 7. Render Ulang Postingan (Data Fresh)
+            renderPostsUI(simplePosts, addr);
 
-                    // B. GABUNGKAN GAMBAR + KUTIPAN
-                    imgHtml = `
-                    <div style="margin:10px -15px 0 -15px;">
-                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                            <img src="${optUrl}" 
-                                 class="post-image" 
-                                 style="width:100%; display:block; min-height:200px; background:#f0f0f0; border-radius: ${post.nftId > 0 ? '0' : '8px'};" 
-                                 loading="lazy">
-                            ${metaBox}
-                        </a>
+            // 8. Load Follow Data (Tidak perlu di-cache karena berubah cepat)
+            loadFollowData(addr);
+
+        } catch (e) {
+            console.error(e);
+            if(!cachedData) showToast("Gagal memuat profil: " + (e.reason || e.message), "error");
+        }
+    }
+
+    // --- 2. HELPER RENDER HEADER ---
+    function updateHeaderUI(data, addr) {
+        const ownerNick = data.nickname || "Tanpa Nama";
+        const ownerWallet = addr.substring(0,6) + "..." + addr.substring(38);
+        
+        let ownerAvatar = "https://via.placeholder.com/40";
+        if(data.fotoProfil && data.fotoProfil.length > 5) {
+            const rawAvatar = data.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            ownerAvatar = `https://wsrv.nl/?url=${encodeURIComponent(rawAvatar)}&w=150&q=70&output=webp`;
+        }
+
+        document.getElementById("pNick").innerText = ownerNick;
+        document.getElementById("pBio").innerText = data.bio || "-";
+        document.getElementById("pLoc").innerText = data.lokasi || "-";
+        document.getElementById("pWallet").innerText = ownerWallet;
+        document.getElementById("pAvatar").src = ownerAvatar;
+    }
+
+    // --- 3. HELPER RENDER POSTS ---
+    function renderPostsUI(postsArray, addr) {
+        const container = document.getElementById("profileFeed");
+        container.innerHTML = "";
+
+        if(postsArray.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#999; margin-top:30px;'>Belum ada postingan.</p>";
+            return;
+        }
+        
+        // Ambil Nickname pemilik profil (dari DOM yang sudah terisi)
+        const currentOwnerNick = document.getElementById("pNick").innerText;
+
+        // Loop Data (Reverse)
+        [...postsArray].reverse().forEach(post => {
+            const profileLink = `profile.html?addr=${post.author}`;
+            
+            // --- LOGIKA GAMBAR ---
+            let imgHtml = "";
+            if(post.imageURI && post.imageURI.length > 5) {
+                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
+                let metaBox = "";
+                // Cek NFT ID (ParseInt karena dari JSON string)
+                if(parseInt(post.nftId) > 0) {
+                    metaBox = `
+                    <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                        <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+                            <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Memuat...</span></span>
+                        </div>
+                        <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                            <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
+                        </div>
+                        <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                            <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> ${currentOwnerNick}</span>
+                            <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
+                        </div>
                     </div>`;
-                    
-                    // Trigger Fetch Metadata JSON
-                    if(post.nftId > 0 && post.tokenURI) {
-                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
-                    }
                 }
 
-                const avgRating = post.ratingCount > 0 ? (post.totalRatingScore/post.ratingCount).toFixed(1) : '0.0';
-                const nftBadge = (post.nftId && post.nftId > 0) ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+                imgHtml = `
+                <div style="margin:10px -15px 0 -15px;">
+                    <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
+                        <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
+                        ${metaBox}
+                    </a>
+                </div>`;
+                
+                // Fetch Metadata (Hanya jika belum ada di cache DOM/Memory)
+                if(parseInt(post.nftId) > 0 && post.tokenURI) {
+                    setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+                }
+            }
 
-                const html = `
-                    <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                        <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                            <a href="${profileLink}">
-                                <img src="${ownerAvatar}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+            // Hitung Rating
+            const rCount = parseInt(post.ratingCount);
+            const rScore = parseInt(post.totalRatingScore);
+            const avgRating = rCount > 0 ? (rScore/rCount).toFixed(1) : '0.0';
+            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+
+            // Ambil Avatar Header (sudah dirender sebelumnya)
+            const headerAvatarSrc = document.getElementById("pAvatar").src;
+
+            const html = `
+                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <a href="${profileLink}">
+                            <img src="${headerAvatarSrc}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                        </a>
+                        <div class="post-info">
+                            <a href="${profileLink}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                ${currentOwnerNick}
                             </a>
-                            <div class="post-info">
-                                <a href="${profileLink}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                    ${ownerNick}
-                                </a>
-                                <div style="font-size: 11px; color: #999;">
-                                    ${new Date(post.timestamp * 1000).toLocaleString()} ${nftBadge}
-                                </div>
+                            <div style="font-size: 11px; color: #999;">
+                                ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
                             </div>
                         </div>
+                    </div>
 
-                        <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                        ${imgHtml}
+                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                    ${imgHtml}
 
-                        <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                             
-                             <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
-                                <span id="count-like-${post.id}">${post.likeCount}</span>
-                             </button>
-
-                             <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-regular fa-comment"></i> 
-                                <span id="count-comment-${post.id}">${post.commentCount}</span>
-                             </button>
-
-                             <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                                <i class="fa-solid fa-gift"></i>
-                             </button>
-
-                             <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
-                                <i class="fa-solid fa-star"></i> 
-                                <span id="score-rating-${post.id}">${avgRating}</span>
-                             </button>
-                        </div>
-                    </div>`;
-                container.innerHTML += html;
-            });
-
-        } catch (e) { 
-            console.error(e); 
-            showToast("Gagal memuat profil: " + (e.reason || e.message), "error");
-        }
+                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                            <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> 
+                            <span id="count-like-${post.id}">${post.likeCount}</span>
+                            </button>
+                            <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-comment"></i> 
+                            <span id="count-comment-${post.id}">${post.commentCount}</span>
+                            </button>
+                            <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                            <i class="fa-solid fa-gift"></i>
+                            </button>
+                            <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-solid fa-star"></i> 
+                            <span id="score-rating-${post.id}">${avgRating}</span>
+                            </button>
+                    </div>
+                </div>`;
+            container.innerHTML += html;
+        });
     }
 
     // --- FITUR FOLLOW SYSTEM (DINAMIS) ---
