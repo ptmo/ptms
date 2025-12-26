@@ -876,58 +876,88 @@ async function submitEditComment(postIndex, commentIndex) {
         document.getElementById("sawerModal").showModal();
     }
 
-    // 2. Fungsi Hitung Otomatis (Preset)
+    // 2. Fungsi Hitung Otomatis (Preset) - FIX FORMAT STRING
     function setSawerVal(factor) {
         let val = 0;
         
+        // Pastikan SAWER_MIN dan SAWER_MAX diperlakukan sebagai angka
+        const minVal = parseFloat(SAWER_MIN);
+        const maxVal = parseFloat(SAWER_MAX);
+
         if (factor === 'min') {
-            val = SAWER_MIN;
+            val = minVal;
         } else if (factor === 'max') {
-            val = SAWER_MAX;
+            val = maxVal;
         } else {
-            // Hitung persentase dari MAKSIMAL (0.01)
-            val = SAWER_MAX * factor;
+            val = maxVal * factor;
         }
 
-        // Format angka (maksimal 5 desimal agar tidak error overflow)
-        // parseFloat untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
-        document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
+        // --- PERBAIKAN UTAMA ---
+        // Jangan pakai parseFloat() di hasil akhir karena bisa jadi 1e-5
+        // Gunakan toFixed(18) (standar ETH) lalu potong nol di belakang
         
-        // Visual Feedback (Highlight tombol yang diklik)
+        let stringVal = val.toFixed(18); // Ubah ke string panjang dulu
+        
+        // Hapus angka 0 tidak berguna di belakang koma (misal 0.00100 -> 0.001)
+        // Regex: hapus nol di akhir, dan hapus titik jika di akhir
+        stringVal = stringVal.replace(/\.?0+$/, ""); 
+        
+        document.getElementById("sawerAmount").value = stringVal;
+        
+        // Visual Feedback
         document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-        event.target.classList.add('active');
+        if(event && event.target) event.target.classList.add('active');
     }
 
-    // 3. Fungsi Kirim (Submit)
+    // 3. Fungsi Kirim (Submit) - FIX PARSE ETHER
     async function submitSawerDetail() {
-        const postId = document.getElementById("sawerTargetId").value; // Ambil dari input hidden
-        const amount = document.getElementById("sawerAmount").value;
+        const postId = document.getElementById("sawerTargetId").value;
+        let amountStr = document.getElementById("sawerAmount").value; // Ambil sebagai string
 
-        // Validasi
+        // Validasi Dasar
         if (!postId) return showToast("Error ID Postingan", "error");
-        if (!amount || amount <= 0) return showToast("Masukkan jumlah valid", "error");
-        if (amount < SAWER_MIN) return showToast(`Minimal ${SAWER_MIN} ETH`, "error");
-        if (amount > SAWER_MAX) return showToast(`Maksimal ${SAWER_MAX} ETH`, "error");
+        if (!amountStr) return showToast("Masukkan nominal", "error");
+
+        // --- PERBAIKAN UTAMA: Ganti Koma jadi Titik (Mobile Friendly) ---
+        amountStr = amountStr.toString().replace(',', '.');
+
+        // Cek validitas angka sebelum dikirim ke ethers
+        if (isNaN(amountStr) || parseFloat(amountStr) <= 0) {
+            return showToast("Format angka salah", "error");
+        }
 
         try {
             document.getElementById("sawerModal").close();
-            showToast("Mengirim Saweran...", "info");
+            showToast("Membuka MetaMask...", "info");
             
-            // Konversi ke Wei
-            const weiAmount = ethers.utils.parseEther(amount.toString());
+            // Konversi ke Wei (String harus bersih, cth: "0.0001")
+            const weiAmount = ethers.utils.parseEther(amountStr);
             
-            // Eksekusi Smart Contract (Index blockchain = ID - 1)
-            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
+            // Perbaikan Index PostId (Pastikan integer)
+            const targetIndex = parseInt(postId) - 1;
+
+            // Eksekusi Smart Contract
+            const tx = await contract.sawerPost(targetIndex, { value: weiAmount });
             
+            showToast("Transaksi dikirim, menunggu konfirmasi...", "info");
             await tx.wait();
             showToast("Terima kasih! Saweran terkirim", "success");
+            
+            // Reset form
+            document.getElementById("sawerAmount").value = "";
+            
         } catch (e) {
-            console.error(e);
-            // Cek jika user reject
+            console.error("Sawer Error:", e);
+            
             if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
                 showToast("Transaksi dibatalkan user", "info");
             } else {
-                showToast("Gagal: " + (e.reason || e.message), "error");
+                // Tampilkan pesan error yang lebih jelas
+                let msg = e.reason || e.message || "Gagal invalid data";
+                if (msg.includes("invalid BigNumber string")) {
+                    msg = "Format nominal tidak valid (hindari notasi ilmiah)";
+                }
+                showToast("Gagal: " + msg, "error");
             }
         }
     }
