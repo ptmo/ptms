@@ -544,28 +544,10 @@
                 let metaBox = "";
                 if(parseInt(post.nftId) > 0) {
                     const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                    metaBox = `
-                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                                <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                                <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
-                            </div>
-                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                                <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
-                                <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
-                            </div>
-                        </div>`;
-                    }
+                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;"><span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span></div>`;
+                }
 
-                    imgHtml = `
-                    <div style="margin:10px -15px 0 -15px;">
-                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                            <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
-                            ${metaBox}
-                        </a>
-                    </div>`;
+                imgHtml = `<div style="margin:10px -15px 0 -15px;"><a href="koleksi.html?id=${post.id}"><img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy"></a>${metaBox}</div>`;
 
                 // Fetch metadata (background process)
                 if(parseInt(post.nftId) > 0 && !isCache) {
@@ -813,32 +795,29 @@
     }
 
     async function fetchCardMetadata(postId, tokenURI) {
-        // Cek jika URI kosong, stop
         if (!tokenURI || tokenURI.length < 5) return;
 
         try {
-            // 1. Perbaiki URL IPFS ke Gateway yang cepat
+            // Optimize URL for faster fetching
             const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
             
-            // 2. Ambil data JSON
             const response = await fetch(url);
-            if (!response.ok) throw new Error("Gagal ambil data");
+            if (!response.ok) throw new Error("Fetch failed");
             
             const meta = await response.json();
 
-            // --- BAGIAN INI YANG HILANG TADI (UPDATE UI) ---
+            // --- UPDATE DOM ELEMENTS ---
             
-            // Cari elemen Nama berdasarkan ID postingan dan ubah teksnya
+            // Update Name
             const nameEl = document.getElementById(`meta-name-${postId}`);
             if (nameEl && meta.name) {
-                nameEl.innerText = meta.name; // Hapus "Loading...", ganti nama Wayang
-                nameEl.style.color = "#333";  // Ubah warna jadi hitam (sudah load)
+                nameEl.innerText = meta.name;
+                nameEl.style.color = "#333"; // Change color to indicate loaded
             }
 
-            // Cari elemen Gagrak/Gaya dan ubah teksnya
+            // Update Gagrak (Style)
             const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
             if (gagrakEl && meta.attributes) {
-                // Cari atribut yang tipe-nya "Gaya" atau "Gagrak"
                 const gagrakAttr = meta.attributes.find(attr => attr.trait_type === "Gaya" || attr.trait_type === "Gagrak");
                 if (gagrakAttr) {
                     gagrakEl.innerText = gagrakAttr.value;
@@ -846,12 +825,12 @@
             }
 
         } catch (e) {
-            // Jika error, biarkan atau tulis "Tidak diketahui"
+            // Optional: Handle error state in UI
             const nameEl = document.getElementById(`meta-name-${postId}`);
-            if(nameEl) nameEl.innerText = "Data tidak tersedia";
+            if(nameEl) nameEl.innerText = "Tidak diketahui";
         }
     }
-
+        
     function formatCaption(text) {
             if (!text) return "";
             let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
