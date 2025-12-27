@@ -566,82 +566,7 @@
         });
         }
 
-        // --- RENDER POST DENGAN LAZY LOADING ---
-    function renderPostLoop(postsArray, container, isCache) {
-        let htmlContent = ""; // Tampung HTML di string dulu biar cepat
-
-        [...postsArray].reverse().forEach(post => {
-            const profileLink = `profile.html?addr=${post.author}`;
-            let imgHtml = "";
-            
-            // LOGIKA GAMBAR (LAZY LOAD)
-            if(post.imageURI && post.imageURI.length > 5) {
-                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
-
-                let metaBox = "";
-                if(parseInt(post.nftId) > 0) {
-                    const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;"><span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span></div>`;
-                }
-
-                // PERHATIKAN: src pakai placeholder transparan, URL asli di data-src
-                imgHtml = `
-                <div style="margin:10px -15px 0 -15px; min-height:200px; background:#f0f0f0;">
-                    <a href="koleksi.html?id=${post.id}">
-                        <img data-src="${optUrl}" 
-                             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
-                             class="post-image lazy-img" 
-                             style="width:100%; display:block; min-height:200px; object-fit:cover;" 
-                             loading="lazy"
-                             alt="Loading...">
-                    </a>
-                    ${metaBox}
-                </div>`;
-
-                // Fetch metadata hanya jika perlu (tetap di background)
-                if(parseInt(post.nftId) > 0 && !isCache) fetchCardMetadata(post.id, post.tokenURI);
-            }
-
-            const rCount = parseInt(post.ratingCount);
-            const rScore = parseInt(post.totalRatingScore);
-            const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-            
-            // Susun HTML
-            htmlContent += `
-            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <a href="${profileLink}">
-                        <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
-                    </a>
-                    <div class="post-info">
-                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">${post.author.substring(0,6)}...</a>
-                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
-                    </div>
-                </div>
-                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                ${imgHtml}
-                <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
-                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
-                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
-                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span></button>
-                </div>
-            </div>`;
-            
-            // Jalankan fetch profile di background (cache system)
-            fetchProfileLazy(post.author);
-        });
-
-        // Masukkan HTML ke layar
-        container.innerHTML += htmlContent;
-
-        // PANGGIL FUNGSI LAZY LOAD SETELAH HTML MASUK
-        initLazyLoading();
-    }
-
-    // --- FUNGSI PEMICU GAMBAR (ENGINE) ---
+        // --- FUNGSI PEMICU GAMBAR (ENGINE) ---
     function initLazyLoading() {
         const imageObserver = new IntersectionObserver((entries, observer) => {
             entries.forEach(entry => {
@@ -650,17 +575,28 @@
                     const realSrc = img.getAttribute('data-src');
                     
                     if (realSrc) {
-                        img.src = realSrc; // DOWNLOAD SEKARANG
-                        img.onload = () => img.classList.add('lazy-loaded'); // Efek muncul halus
-                        img.removeAttribute('data-src');
+                        // 1. Download gambar asli
+                        img.src = realSrc;
+                        
+                        // 2. Jika sukses download -> Munculkan pelan-pelan
+                        img.onload = () => {
+                            img.classList.add('lazy-loaded');
+                            img.removeAttribute('data-src'); 
+                        };
+
+                        // 3. Jika gagal download -> Pakai gambar cadangan (biar gak broken icon)
+                        img.onerror = () => {
+                            img.src = "https://via.placeholder.com/500x300?text=Gagal+Memuat";
+                            img.classList.add('lazy-loaded');
+                        };
                     }
                     
-                    observer.unobserve(img); // Stop memantau gambar ini
+                    observer.unobserve(img);
                 }
             });
         });
 
-        // Targetkan semua gambar yang punya kelas .lazy-img
+        // Pantau semua gambar
         document.querySelectorAll('img.lazy-img').forEach(img => {
             imageObserver.observe(img);
         });
@@ -668,24 +604,40 @@
 
     // --- RENDER POST DENGAN LAZY LOADING ---
     function renderPostLoop(postsArray, container, isCache) {
-        let htmlContent = ""; // Tampung HTML di string dulu biar cepat
+        let htmlContent = ""; 
 
-        [...postsArray].reverse().forEach(post => {
+        // Copy array dan balik urutan (Terbaru diatas)
+        const reversedPosts = [...postsArray].reverse();
+
+        reversedPosts.forEach(post => {
             const profileLink = `profile.html?addr=${post.author}`;
             let imgHtml = "";
             
-            // LOGIKA GAMBAR (LAZY LOAD)
+            // --- LOGIKA GAMBAR ---
             if(post.imageURI && post.imageURI.length > 5) {
-                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                // Optimasi URL (Kecilkan size gambar) (Sudah dioptimasi saat simpan di loadFeedLive, tapi kita pastikan lagi atau pakai langsung)
+                // Jika loadFeedLive sudah menyimpan URL wsrv.nl, kita bisa pakai langsung.
+                // Tapi untuk aman (jika cache lama masih pakai ipfs://), kita proses ulang di sini tidak masalah (cepat kok string manipulation).
+                
+                let optUrl = post.imageURI;
+                // Cek apakah URL masih mentah (ipfs://) atau sudah matang
+                if (post.imageURI.startsWith("ipfs://")) {
+                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                     optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                }
 
+                // Badge NFT
                 let metaBox = "";
                 if(parseInt(post.nftId) > 0) {
                     const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;"><span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span></div>`;
+                    metaBox = `
+                    <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                        <span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span>
+                    </div>`;
                 }
 
-                // PERHATIKAN: src pakai placeholder transparan, URL asli di data-src
+                // HTML GAMBAR (Perbaikan SRC Placeholder)
+                // src dibawah ini adalah 1 pixel transparan yang VALID. Browser tidak akan error.
                 imgHtml = `
                 <div style="margin:10px -15px 0 -15px; min-height:200px; background:#f0f0f0;">
                     <a href="koleksi.html?id=${post.id}">
@@ -693,22 +645,24 @@
                              src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
                              class="post-image lazy-img" 
                              style="width:100%; display:block; min-height:200px; object-fit:cover;" 
-                             loading="lazy"
                              alt="Loading...">
                     </a>
                     ${metaBox}
                 </div>`;
 
-                // Fetch metadata hanya jika perlu (tetap di background)
-                if(parseInt(post.nftId) > 0 && !isCache) fetchCardMetadata(post.id, post.tokenURI);
+                // Fetch metadata (background process)
+                if(parseInt(post.nftId) > 0 && !isCache) {
+                    setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 0);
+                }
             }
 
+            // Hitung Rating & Badge
             const rCount = parseInt(post.ratingCount);
             const rScore = parseInt(post.totalRatingScore);
             const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
             const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
             
-            // Susun HTML
+            // Susun HTML Kartu
             htmlContent += `
             <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
                 <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
@@ -716,31 +670,45 @@
                         <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
                     </a>
                     <div class="post-info">
-                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">${post.author.substring(0,6)}...</a>
-                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                            ${post.author.substring(0,6)}...
+                        </a>
+                        <div style="font-size: 11px; color: #999;">
+                            ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
+                        </div>
                     </div>
                 </div>
-                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">
+                    ${formatCaption(post.caption)}
+                </div>
                 ${imgHtml}
                 <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
-                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
-                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
-                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span></button>
+                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666; cursor:pointer;">
+                        <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
+                     </button>
+                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666; cursor:pointer;">
+                        <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
+                     </button>
+                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666; cursor:pointer;">
+                        <i class="fa-solid fa-gift"></i>
+                     </button>
+                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold; cursor:pointer;">
+                        <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
+                     </button>
                 </div>
             </div>`;
             
-            // Jalankan fetch profile di background (cache system)
-            fetchProfileLazy(post.author);
+            // Ambil profil penulis (background)
+            setTimeout(() => fetchProfileLazy(post.author), 0);
         });
 
-        // Masukkan HTML ke layar
+        // Masukkan ke layar
         container.innerHTML += htmlContent;
 
-        // PANGGIL FUNGSI LAZY LOAD SETELAH HTML MASUK
+        // JALANKAN LAZY LOAD (Wajib dipanggil di akhir)
         initLazyLoading();
     }
-
+    
     // --- D. LOGIKA POSTING & NFT (YANG HILANG) ---
     function openNftModal() { document.getElementById('nftModal').showModal(); }
 
