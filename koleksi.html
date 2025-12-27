@@ -635,7 +635,7 @@ function renderMetaTable(attributes) {
                 authorImg.src = data.authorPhoto.replace('ipfs://', 'https://ipfs.io/ipfs/');
             }
 
-            // 6. Owner Section
+                        // 6. Owner Section & Transfer Button
             if(data.ownerAddr) {
                 const ownerSec = document.getElementById("ownerSection");
                 if(ownerSec) ownerSec.style.display = "flex";
@@ -643,14 +643,25 @@ function renderMetaTable(attributes) {
                 const ownerTxt = document.getElementById("detailOwner");
                 if(ownerTxt) ownerTxt.innerText = data.ownerAddr.substring(0,6)+"..."+data.ownerAddr.substring(38);
                 
-                // Tombol Transfer hanya muncul jika kita ownernya
+                // --- PERBAIKAN TOMBOL TRANSFER (ANTI BUG) ---
                 const btnTransfer = document.getElementById("btnTransfer");
-                if(btnTransfer && userAddress && data.ownerAddr.toLowerCase() === userAddress.toLowerCase()) {
-                    btnTransfer.style.display = "flex";
-                } else if(btnTransfer) {
-                    btnTransfer.style.display = "none";
+                if(btnTransfer) {
+                    // Cek 3 Syarat:
+                    // 1. userAddress harus ada (sudah login)
+                    // 2. data.ownerAddr harus ada (bukan null)
+                    // 3. Address sama (case-insensitive)
+                    const isOwner = userAddress && 
+                                    data.ownerAddr && 
+                                    (userAddress.toLowerCase() === data.ownerAddr.toLowerCase());
+
+                    if (isOwner) {
+                        btnTransfer.style.display = "flex"; // Muncul jika pemilik
+                    } else {
+                        btnTransfer.style.display = "none"; // Sembunyi jika bukan
+                    }
                 }
             }
+
 
             // 7. History Info
             const dateStr = new Date(parseInt(data.timestamp) * 1000).toLocaleString('id-ID', { dateStyle: 'full', timeStyle: 'short' });
