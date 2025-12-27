@@ -482,25 +482,36 @@
             }
         }
 
-                // --- FUNGSI LOAD LIVE (DENGAN PERBAIKAN JUDUL) ---
+                    // --- 1. FUNGSI UTAMA: LOAD DATA (VERSI STABIL) ---
         async function loadCollectionLive(id) {
             try {
                 const index = id - 1;
+                
+                // A. AMBIL DATA BLOCKCHAIN (Cepat)
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
+                
+                // Ambil Profil & Owner
+                const profile = await contract.getProfile(post.author);
+                let ownerAddr = null;
+                if (isNFT) {
+                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
+                }
 
-                // Ambil data pendukung secara paralel (biar cepat)
-                const [profile, ownerAddr, meta] = await Promise.all([
-                    contract.getProfile(post.author),
-                    (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
-                    fetchMetadata(post.tokenURI)
-                ]);
+                // B. LOGIKA JUDUL SEMENTARA (Supaya tidak "Tanpa Judul")
+                // Jika metadata belum muncul, kita pakai Caption (kalau pendek) sebagai judul sementara
+                let tempTitle = "Memuat Nama..."; 
+                if (post.caption && post.caption.length < 30) {
+                    tempTitle = post.caption; // Pakai caption jika pendek (misal: "Arjuna")
+                } else if (post.caption) {
+                    tempTitle = "Detail Koleksi"; // Jika caption panjang, pakai ini dulu
+                }
 
-                // Susun Objek Data
-                const freshData = {
+                // C. RENDER UI AWAL (Langsung Tampil)
+                const basicData = {
                     caption: post.caption,
                     imageURI: post.imageURI,
-                    nftId: post.nftId ? post.nftId.toString() : null,
+                    nftId: post.nftId.toString(),
                     postId: post.id.toString(),
                     likeCount: post.likeCount.toString(),
                     commentCount: post.commentCount.toString(),
@@ -511,54 +522,110 @@
                     authorNick: profile.nickname,
                     authorPhoto: profile.fotoProfil,
                     ownerAddr: ownerAddr,
-                    meta: meta,
+                    meta: { name: tempTitle }, // Masukkan judul sementara
                     isNFT: isNFT
                 };
 
-                // Update Cache di HP User
-                const cacheKey = `post_cache_${id}`;
-                localStorage.setItem(cacheKey, JSON.stringify(freshData));
-
-                // Render Ulang Tampilan dengan Data Baru
-                renderUI(freshData);
-                
-                // Pastikan loading hilang & konten muncul
-                const loadState = document.getElementById("loadingState");
-                if(loadState) loadState.style.display = "none";
+                // Tampilkan Layar & Matikan Loading
+                renderUI(basicData); 
+                document.getElementById("loadingState").style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
 
-                // Load Komentar & Update Link Opensea
+                // Background Tasks
                 loadPageComments(index);
-                
-                const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
+                handleTransferLogic(ownerAddr); // Cek tombol transfer
                 const osBtn = document.getElementById("openseaLink");
                 if(osBtn) {
-                    osBtn.href = osUrl;
+                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
                     if(!isNFT) osBtn.style.display = "none";
                 }
 
-            } catch (e) {
-                console.error("Live fetch error", e);
-                // Kalau cache juga kosong, baru tampilkan pesan error
-                const cacheKey = `post_cache_${id}`;
-                if(!localStorage.getItem(cacheKey)) {
-                    document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data. Periksa koneksi.</p>";
+                // D. AMBIL METADATA ASLI (Untuk Nama "Arjuna")
+                if (post.tokenURI && post.tokenURI.length > 5) {
+                    const titleEl = document.getElementById("detailTitle");
+                    
+                    // Beri indikator halus kalau sedang mencari nama asli
+                    if (titleEl.innerText === "Memuat Nama..." || titleEl.innerText === "Detail Koleksi") {
+                        titleEl.style.opacity = "0.7"; 
+                    }
+
+                    // Fetch ke IPFS dengan Gateway Super Cepat
+                    const meta = await fetchMetadata(post.tokenURI);
+                    
+                    if (meta && meta.name) {
+                        // UPDATE JUDUL JADI NAMA ASLI (ARJUNA)
+                        titleEl.innerText = meta.name;
+                        titleEl.style.opacity = "1"; // Kembalikan opacity
+                        titleEl.style.color = "#222";
+                        
+                        // Update Spesifikasi
+                        renderMetaTable(meta.attributes);
+                        
+                        // Simpan ke Cache
+                        basicData.meta = meta;
+                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+                    }
                 }
+
+            } catch (e) {
+                console.error("Error Load Live:", e);
+                // Fail-safe: Matikan loading jika error
+                document.getElementById("loadingState").style.display = "none";
+                document.getElementById("mainContent").style.display = "grid";
             }
         }
 
-        // --- 4. TEKNIK GATEWAY RACING (Pro Level Fetching) ---
-        async function fetchMetadataPro(tokenURI) {
-            if(!tokenURI) return null;
+        // --- 2. FUNGSI FETCH MULTI-GATEWAY (LEBIH KUAT) ---
+        async function fetchMetadata(tokenURI) {
+            if (!tokenURI || tokenURI.length < 5) return null;
+
+            // Bersihkan URI
             const cid = tokenURI.replace("ipfs://", "");
 
-            // Daftar Gateway Cepat
+            // Daftar Gateway (Cloudflare biasanya paling cepat untuk Metadata)
             const gateways = [
+                `https://cloudflare-ipfs.com/ipfs/${cid}`,
                 `https://gateway.pinata.cloud/ipfs/${cid}`,
                 `https://ipfs.io/ipfs/${cid}`,
-                `https://dweb.link/ipfs/${cid}`,
-                `https://cloudflare-ipfs.com/ipfs/${cid}`
+                `https://dweb.link/ipfs/${cid}`
             ];
+
+            // Coba semua gateway satu per satu
+            for (const url of gateways) {
+                try {
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 detik per gateway
+
+                    const res = await fetch(url, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (res.ok) {
+                        return await res.json(); // Berhasil! Kembalikan data
+                    }
+                } catch (e) {
+                    continue; // Gagal, lanjut ke gateway berikutnya
+                }
+            }
+            return null; // Nyerah kalau semua gagal
+        }
+
+        // --- 3. HELPER TOMBOL TRANSFER (PASTIKAN ADA) ---
+        function handleTransferLogic(ownerAddr) {
+            const btnTransfer = document.getElementById("btnTransfer");
+            if (!btnTransfer) return;
+
+            // Ambil user login dengan aman
+            let currentUser = null;
+            if (typeof userAddress !== 'undefined' && userAddress) currentUser = userAddress;
+            else if (window.ethereum && window.ethereum.selectedAddress) currentUser = window.ethereum.selectedAddress;
+
+            // Cek Kepemilikan
+            if (currentUser && ownerAddr && (currentUser.toLowerCase() === ownerAddr.toLowerCase())) {
+                btnTransfer.style.display = "flex";
+            } else {
+                btnTransfer.style.display = "none";
+            }
+        }
 
             // Fungsi fetch dengan timeout mandiri
             const fetchWithTimeout = (url) => {
