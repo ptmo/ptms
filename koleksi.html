@@ -482,7 +482,7 @@
             }
         }
 
-       // --- FUNGSI LOAD LIVE (DENGAN PERBAIKAN JUDUL & GAMBAR CLICKABLE) ---
+       // --- FUNGSI LOAD LIVE (DENGAN KLIK GAMBAR KE RAW WSRV) ---
 async function loadCollectionLive(id) {
     try {
         const index = id - 1;
@@ -522,18 +522,24 @@ async function loadCollectionLive(id) {
             isNFT: isNFT
         };
 
-        // 3. Render UI Awal
+        // 3. Render UI Awal & Pasang Link Gambar
         renderUI(basicData); 
-        
-        // --- TAMBAHAN: Buat Gambar Clickable ke Raw Image URI ---
-        const detailImage = document.getElementById("detailImage"); // Asumsi ID gambar adalah 'detailImage'; sesuaikan jika berbeda
-        if (detailImage && post.imageURI && post.imageURI.length > 5) {
-            detailImage.style.cursor = "pointer"; // Indikasi clickable
-            detailImage.addEventListener("click", () => {
-                window.location.href = post.imageURI; // Redirect ke raw image server (nsvr)
-            });
-        }
 
+        // --- TAMBAHAN KHUSUS: AGAR GAMBAR BISA DIKLIK (RAW WSRV) ---
+        const imgEl = document.getElementById("detailImg");
+        if (imgEl && post.imageURI && post.imageURI.length > 5) {
+            // Konversi Link
+            const rawIpfs = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            // Link High Quality (q=100, Tanpa resize width)
+            const rawViewUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawIpfs)}&q=100&output=webp`;
+            
+            imgEl.style.cursor = "zoom-in"; // Ubah kursor jadi kaca pembesar
+            imgEl.onclick = function() {
+                window.open(rawViewUrl, '_blank'); // Buka di tab baru
+            };
+        }
+        // -----------------------------------------------------------
+        
         // Handle Tombol Transfer
         const btnTransfer = document.getElementById("btnTransfer");
         if (btnTransfer) {
@@ -549,7 +555,7 @@ async function loadCollectionLive(id) {
         loadPageComments(index);
         const osBtn = document.getElementById("openseaLink");
         if(osBtn) {
-            osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/\( {MY_CONTRACT_ADDR}/ \){post.nftId}`;
+            osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${CONFIG.ADDRESS}/${post.nftId}`;
             if(!isNFT) osBtn.style.display = "none";
         }
 
@@ -557,7 +563,6 @@ async function loadCollectionLive(id) {
         if (post.tokenURI && post.tokenURI.length > 5) {
             const titleEl = document.getElementById("detailTitle");
             
-            // Beri indikator loading kecil
             if(titleEl.innerText === "Tanpa Judul" || titleEl.innerText === "Memuat Judul...") {
                 titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
                 titleEl.style.fontSize = "18px";
@@ -567,13 +572,12 @@ async function loadCollectionLive(id) {
             const meta = await fetchMetadata(post.tokenURI);
             
             if (meta) {
-                // --- PERBAIKAN JUDUL: Prioritas Nama dengan Cek Atribut ---
-                let finalTitle = "Arsip Wayang"; // Default
+                // Prioritas Nama: Metadata > Atribut > Caption
+                let finalTitle = "Arsip Wayang"; 
                 
                 if (meta.name && meta.name.trim() !== "") {
-                    finalTitle = meta.name; // Prioritas 1: Nama dari Metadata JSON
+                    finalTitle = meta.name; 
                 } else if (meta.attributes && Array.isArray(meta.attributes)) {
-                    // Prioritas 2: Cari atribut 'Character' atau 'Name' (misalnya untuk "Arjuna")
                     const characterTrait = meta.attributes.find(attr => 
                         attr.trait_type.toLowerCase() === "character" || attr.trait_type.toLowerCase() === "name"
                     );
@@ -581,22 +585,18 @@ async function loadCollectionLive(id) {
                         finalTitle = characterTrait.value;
                     }
                 } else if (post.caption && post.caption.length < 50) {
-                    finalTitle = post.caption; // Prioritas 3: Caption (jika pendek)
+                    finalTitle = post.caption; 
                 }
 
-                // Update Judul di Layar
                 titleEl.innerText = finalTitle;
                 titleEl.style.fontSize = "26px";
                 titleEl.style.color = "#222";
 
-                // Update Spesifikasi
                 renderMetaTable(meta.attributes);
                 
-                // Simpan ke Cache
                 basicData.meta = meta;
                 localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
             } else {
-                // Jika gagal load metadata, kembalikan ke default
                 if(titleEl.innerText.includes("Mengambil")) {
                     titleEl.innerText = "Koleksi Wayang"; 
                     titleEl.style.fontSize = "26px";
@@ -604,7 +604,6 @@ async function loadCollectionLive(id) {
                 }
             }
         } else {
-            // Jika tidak ada tokenURI, gunakan caption sebagai judul (jika pendek)
             const titleEl = document.getElementById("detailTitle");
             if (post.caption && post.caption.length < 30) {
                 titleEl.innerText = post.caption;
