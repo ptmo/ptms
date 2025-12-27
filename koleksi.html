@@ -875,7 +875,296 @@ async function submitSawerDetail() {
         // document.getElementById("sawerModal").showModal();
     }
 }
+
+    function switchTab(mode) {
+            // Ambil Elemen
+            const btnMeta = document.getElementById("tabBtnMeta");
+            const btnHist = document.getElementById("tabBtnHistory");
+            const divMeta = document.getElementById("contentMeta");
+            const divHist = document.getElementById("contentHistory");
+
+            // Style Aktif & Non-Aktif
+            const activeStyle = "border-bottom:3px solid #7385a5; color:#7385a5; padding-bottom:8px; font-weight:bold; cursor:pointer;";
+            const inactiveStyle = "border-bottom:3px solid transparent; color:#999; padding-bottom:8px; cursor:pointer;";
+
+            if(mode === 'meta') {
+                // Aktifkan Metadata
+                btnMeta.style.cssText = activeStyle;
+                btnHist.style.cssText = inactiveStyle;
+                divMeta.style.display = "block";
+                divHist.style.display = "none";
+            } else {
+                // Aktifkan Riwayat
+                btnHist.style.cssText = activeStyle;
+                btnMeta.style.cssText = inactiveStyle;
+                divHist.style.display = "block";
+                divMeta.style.display = "none";
+            }
+    }
+
+    async function shareCollection() {
+            const title = document.getElementById("detailTitle").innerText;
+            const shareData = {
+                title: `Arsip Putramas: ${title}`,
+                text: `Lihat koleksi wayang "${title}" ini di Putramas Museum Digital!`,
+                url: window.location.href 
+            };
+
+            try {
+                // Cek apakah browser mendukung fitur Share Native (HP Android/iOS biasanya support)
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    // Fallback untuk browser PC yang tidak support
+                    await navigator.clipboard.writeText(shareData.url);
+                    showToast("Link berhasil disalin ke clipboard!", "success");
+                }
+            } catch (err) {
+                console.log("Share dibatalkan user");
+            }
+        }
+
+        // --- HELPER LAINNYA ---
+        async function fetchMetadata(tokenURI) {
+            if(!tokenURI || tokenURI.length < 5) return null;
+            try {
+                const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const res = await fetch(url);
+                return await res.json();
+            } catch(e) { return null; }
+        }
+
+        function renderMetaTable(attributes) {
+            if(!attributes) return;
+            const table = document.getElementById("metaTable");
+            let rows = "";
+            attributes.forEach(attr => {
+                if(attr.value && attr.value !== "-") {
+                    let icon = "fa-tag";
+                    if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
+                    if(attr.trait_type.includes("Golongan")) icon = "fa-users";
+                    rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#7385a5;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
+                }
+            });
+            table.innerHTML = rows;
+        }
+
+    async function handleLikeDetail() {
+            if(!currentPostId) return;
+            const btnCount = document.getElementById("countLikeDetail");
+            const btnIcon = document.getElementById("iconLikeDetail");
+            try {
+                btnCount.innerText = parseInt(btnCount.innerText) + 1;
+                btnIcon.classList.replace("fa-regular", "fa-solid");
+                btnIcon.style.color = "#e74c3c";
+                const tx = await contract.likePost(currentPostId - 1);
+                await tx.wait();
+            } catch (e) { btnCount.innerText = parseInt(btnCount.innerText) - 1; } 
+        }
+
+        async function submitCommentDetail() {
+            const text = document.getElementById("commentInputDetail").value;
+            if(!text) return;
+            try {
+                showToast("Mengirim...", "info");
+                const tx = await contract.addComment(currentPostId - 1, text, "");
+                await tx.wait();
+                showToast("Terkirim!", "success");
+                document.getElementById("commentInputDetail").value = "";
+                loadPageComments(currentPostId - 1);
+            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        async function loadPageComments(postIndex) {
+    const container = document.getElementById("pageComments");
+    try {
+        const comments = await contract.getComments(postIndex);
         
-            </script>
+        if(comments.length === 0) { 
+            container.innerHTML = "<p style='color:#999; text-align:center;'>Belum ada diskusi.</p>"; 
+            return; 
+        }
+        
+        container.innerHTML = "";
+        
+        // Gunakan forEach supaya dapat index (i) untuk identifikasi komentar
+        comments.forEach((c, i) => {
+            let nick = c.commenter.substring(0,6)+"...";
+            let avt = "https://via.placeholder.com/30";
+            const timestampId = c.timestamp; // Unik ID based on timestamp
+
+            // Lazy Load Profile
+            contract.getProfile(c.commenter).then(p => {
+               if(p.nickname) {
+                   const el = document.getElementById(`cm-nick-${timestampId}`);
+                   if(el) el.innerText = p.nickname;
+               }
+               if(p.fotoProfil) {
+                   const img = document.getElementById(`cm-avt-${timestampId}`);
+                   if(img) img.src = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+               }
+            });
+
+            // LOGIKA TOMBOL EDIT (Hanya muncul jika user login == pemilik komentar)
+            let editIconHtml = "";
+            if (userAddress && c.commenter.toLowerCase() === userAddress.toLowerCase()) {
+                editIconHtml = `
+                <i class="fa-solid fa-pen-to-square" 
+                   onclick="openEditMode('${i}', '${timestampId}')" 
+                   style="cursor:pointer; color:#999; margin-left:auto; font-size:12px;" 
+                   title="Edit Komentar"></i>`;
+            }
+
+            container.innerHTML += `
+            <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
+                <a href="profile.html?addr=${c.commenter}">
+                    <img id="cm-avt-${timestampId}" src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;">
+                </a>
+                
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; margin-bottom:5px;">
+                        <a href="profile.html?addr=${c.commenter}" id="cm-nick-${timestampId}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none;">${nick}</a>
+                        <span style="font-size:10px; color:#999; margin-left:10px;">${new Date(c.timestamp*1000).toLocaleString()}</span>
+                        ${editIconHtml} 
+                    </div>
+                    <div id="view-txt-${i}" style="font-size:14px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
+
+                    <div id="edit-area-${i}" style="display:none; margin-top:10px;">
+                        <textarea id="input-edit-${i}" class="cp-input" style="width:100%; height:60px; font-size:13px; padding:8px; border:1px solid #ddd; border-radius:5px;">${c.text}</textarea>
+                        
+                        <div style="display:flex; gap:10px; margin-top:5px; justify-content:flex-end;">
+                            <button onclick="closeEditMode('${i}')" style="background:none; border:none; color:#666; font-size:12px; cursor:pointer;">Batal</button>
+                            <button onclick="submitEditComment('${postIndex}', '${i}')" style="background:#7385a5; color:white; border:none; padding:5px 15px; border-radius:15px; font-size:12px; cursor:pointer;">Simpan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+    } catch(e) { console.error(e); }
+        }
+
+        // Membuka Mode Edit
+function openEditMode(commentIndex, timestampId) {
+    // Sembunyikan teks asli
+    document.getElementById(`view-txt-${commentIndex}`).style.display = 'none';
+    // Munculkan area edit
+    document.getElementById(`edit-area-${commentIndex}`).style.display = 'block';
+    // Fokus ke textarea
+    document.getElementById(`input-edit-${commentIndex}`).focus();
+}
+
+// Membatalkan/Menutup Mode Edit
+function closeEditMode(commentIndex) {
+    document.getElementById(`view-txt-${commentIndex}`).style.display = 'block';
+    document.getElementById(`edit-area-${commentIndex}`).style.display = 'none';
+}
+
+// Mengirim Perubahan ke Blockchain
+async function submitEditComment(postIndex, commentIndex) {
+    // Ambil text baru dari inputan
+    const inputElement = document.getElementById(`input-edit-${commentIndex}`);
+    const newText = inputElement.value;
+    
+    if(!newText.trim()) return showToast("Komentar tidak boleh kosong", "error");
+
+    try {
+        showToast("Menyimpan perubahan...", "info");
+        
+        // 1. Kirim ke Blockchain
+        const tx = await contract.editComment(postIndex, commentIndex, newText);
+        await tx.wait(); // Tunggu sampai sukses
+        
+        showToast("Komentar berhasil diedit!", "success");
+        
+        // --- TEKNIK OPTIMISTIC UPDATE (Ubah Layar Langsung) ---
+        
+        // A. Update teks tampilan dengan teks baru
+        const viewElement = document.getElementById(`view-txt-${commentIndex}`);
+        if(viewElement) {
+            viewElement.innerText = newText;
+        }
+
+        // B. Tutup Mode Edit secara manual
+        closeEditMode(commentIndex);
+
+        // --- SELESAI ---
+
+        // (Opsional) Reload background setelah 3 detik untuk memastikan sinkronisasi
+        // Jangan langsung reload supaya user tidak melihat teks "berkedip" kembali ke lama
+        setTimeout(() => {
+            loadPageComments(postIndex);
+        }, 3000);
+        
+    } catch(e) {
+        console.error(e);
+        showToast("Gagal edit: " + (e.reason || e.message || "Error"), "error");
+    }
+}
+
+        function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
+        
+        function setRate(n) {
+    selectedRate = n; // Simpan nilai
+    
+    // Ambil semua elemen bintang
+    const stars = document.querySelectorAll('.star-item');
+    
+    stars.forEach((star, index) => {
+        // Jika index bintang lebih kecil dari nilai n, nyalakan (Gold)
+        // Contoh: Pilih 3. Index 0, 1, 2 akan Gold. Index 3, 4 tetap Abu.
+        if (index < n) {
+            star.style.color = "gold";
+            star.classList.add('active');
+        } else {
+            star.style.color = "#666";
+            star.classList.remove('active');
+        }
+    });
+    
+    showToast(`${n} Bintang Dipilih`, "info");
+    }
+        
+        async function submitRatingDetail() {
+    if(!selectedRate) return showToast("Pilih jumlah bintang dulu!", "error");
+    
+    try {
+        document.getElementById("ratingModal").close();
+        showToast("Mengirim rating...", "info");
+        
+        // Panggil Smart Contract
+        const tx = await contract.ratePost(currentPostId - 1, selectedRate);
+        await tx.wait();
+        
+        showToast("Terima kasih atas penilaian Anda!", "success");
+    } catch(e) {
+        showToast("Gagal kirim rating", "error");
+    }
+        }
+
+        function openTransferModal() { document.getElementById("transferModal").showModal(); }
+        async function submitTransfer() {
+            const target = document.getElementById("transferTarget").value;
+            if(!target) return;
+            try {
+                document.getElementById("transferModal").close();
+                showToast("Memproses Transfer...", "info");
+                const index = currentPostId - 1;
+                const post = await contract.posts(index);
+                const tx = await contract.transferFrom(userAddress, target, post.nftId);
+                await tx.wait();
+                showToast("NFT Berhasil Dikirim!", "success");
+                setTimeout(() => location.reload(), 2000);
+            } catch(e) { showToast("Gagal Transfer", "error"); }
+        }
+
+        function formatCaption(text) {
+        if (!text) return "";
+        let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        clean = clean.replace(urlRegex, (url) => `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`);
+        return clean.replace(/\n/g, "<br>");
+        }
+</script>
 </body>
 </html>
