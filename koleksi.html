@@ -486,28 +486,21 @@
         async function loadCollectionLive(id) {
             try {
                 const index = id - 1;
-                
-                // 1. Ambil Data Dasar
-                let currentUser = null;
-                try {
-                    if (typeof userAddress !== 'undefined' && userAddress) currentUser = userAddress;
-                    else if (signer) currentUser = await signer.getAddress();
-                } catch (err) {}
-
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
-                const profile = await contract.getProfile(post.author);
-                
-                let ownerAddr = null;
-                if (isNFT) {
-                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
-                }
 
-                // 2. Siapkan Data Awal
-                const basicData = {
+                // Ambil data pendukung secara paralel (biar cepat)
+                const [profile, ownerAddr, meta] = await Promise.all([
+                    contract.getProfile(post.author),
+                    (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
+                    fetchMetadata(post.tokenURI)
+                ]);
+
+                // Susun Objek Data
+                const freshData = {
                     caption: post.caption,
                     imageURI: post.imageURI,
-                    nftId: post.nftId.toString(),
+                    nftId: post.nftId ? post.nftId.toString() : null,
                     postId: post.id.toString(),
                     likeCount: post.likeCount.toString(),
                     commentCount: post.commentCount.toString(),
@@ -518,94 +511,41 @@
                     authorNick: profile.nickname,
                     authorPhoto: profile.fotoProfil,
                     ownerAddr: ownerAddr,
-                    meta: null, 
+                    meta: meta,
                     isNFT: isNFT
                 };
 
-                // 3. Render UI Awal
-                renderUI(basicData); 
-                
-                // Handle Tombol Transfer
-                const btnTransfer = document.getElementById("btnTransfer");
-                if (btnTransfer) {
-                    const isOwner = currentUser && ownerAddr && (currentUser.toLowerCase() === ownerAddr.toLowerCase());
-                    btnTransfer.style.display = isOwner ? "flex" : "none";
-                }
+                // Update Cache di HP User
+                const cacheKey = `post_cache_${id}`;
+                localStorage.setItem(cacheKey, JSON.stringify(freshData));
 
-                // Matikan Loading
-                document.getElementById("loadingState").style.display = "none";
+                // Render Ulang Tampilan dengan Data Baru
+                renderUI(freshData);
+                
+                // Pastikan loading hilang & konten muncul
+                const loadState = document.getElementById("loadingState");
+                if(loadState) loadState.style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
 
-                // Load Background Tasks
+                // Load Komentar & Update Link Opensea
                 loadPageComments(index);
+                
+                const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
                 const osBtn = document.getElementById("openseaLink");
                 if(osBtn) {
-                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
+                    osBtn.href = osUrl;
                     if(!isNFT) osBtn.style.display = "none";
                 }
 
-                // 4. LOAD METADATA (DENGAN LOGIKA JUDUL LEBIH PINTAR)
-                if (post.tokenURI && post.tokenURI.length > 5) {
-                    const titleEl = document.getElementById("detailTitle");
-                    
-                    // Beri indikator loading kecil
-                    if(titleEl.innerText === "" || titleEl.innerText === "Memuat Judul...") {
-                        titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
-                        titleEl.style.fontSize = "18px";
-                        titleEl.style.color = "#999";
-                    }
-
-                    const meta = await fetchMetadata(post.tokenURI);
-                    
-                    if (meta) {
-                        // --- PERBAIKAN DI SINI: Prioritas Nama ---
-                        let finalTitle = "Arsip Wayang"; // Default
-                        
-                        if (meta.name && meta.name.trim() !== "") {
-                            finalTitle = meta.name; // Prioritas 1: Nama dari Metadata JSON
-                        } else if (post.caption && post.caption.length < 50) {
-                            finalTitle = post.caption; // Prioritas 2: Caption (jika pendek)
-                        }
-
-                        // Update Judul di Layar
-                        titleEl.innerText = finalTitle;
-                        titleEl.style.fontSize = "26px";
-                        titleEl.style.color = "#222";
-
-                        // Update Spesifikasi
-                        renderMetaTable(meta.attributes);
-                        
-                        // Simpan ke Cache
-                        basicData.meta = meta;
-                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
-                    } else {
-                        // Jika gagal load metadata, kembalikan ke default
-                        if(titleEl.innerText.includes("Mengambil")) {
-                            titleEl.innerText = "Koleksi Wayang"; 
-                            titleEl.style.fontSize = "26px";
-                            titleEl.style.color = "#222";
-                        }
-                    }
-                } else {
-                    // Jika tidak ada tokenURI, gunakan caption sebagai judul (jika pendek)
-                    const titleEl = document.getElementById("detailTitle");
-                    if (post.caption && post.caption.length < 30) {
-                        titleEl.innerText = post.caption;
-                    } else {
-                        titleEl.innerText = "Postingan Wayang";
-                    }
-                }
-
             } catch (e) {
-                console.error("Critical Error:", e);
+                console.error("Live fetch error", e);
+                // Kalau cache juga kosong, baru tampilkan pesan error
                 const cacheKey = `post_cache_${id}`;
                 if(!localStorage.getItem(cacheKey)) {
-                    document.getElementById("loadingState").innerHTML = 
-                        `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
+                    document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data. Periksa koneksi.</p>";
                 }
             }
         }
-        
 
         // --- 4. TEKNIK GATEWAY RACING (Pro Level Fetching) ---
         async function fetchMetadataPro(tokenURI) {
