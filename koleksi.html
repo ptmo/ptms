@@ -912,56 +912,66 @@ async function submitEditComment(postIndex, commentIndex) {
 
     // 3. Fungsi Kirim (Submit) - FIX PARSE ETHER
     async function submitSawerDetail() {
-        const postId = document.getElementById("sawerTargetId").value;
-        let amountStr = document.getElementById("sawerAmount").value; // Ambil sebagai string
+    const postId = document.getElementById("sawerTargetId").value;
+    let amountStr = document.getElementById("sawerAmount").value; 
 
-        // Validasi Dasar
-        if (!postId) return showToast("Error ID Postingan", "error");
-        if (!amountStr) return showToast("Masukkan nominal", "error");
+    // 1. Validasi Input Kosong
+    if (!postId) return showToast("Error ID Postingan", "error");
+    if (!amountStr) return showToast("Masukkan nominal", "error");
 
-        // --- PERBAIKAN UTAMA: Ganti Koma jadi Titik (Mobile Friendly) ---
-        amountStr = amountStr.toString().replace(',', '.');
+    // 2. Ganti Koma jadi Titik (Mobile Friendly)
+    amountStr = amountStr.toString().replace(',', '.');
 
-        // Cek validitas angka sebelum dikirim ke ethers
-        if (isNaN(amountStr) || parseFloat(amountStr) <= 0) {
-            return showToast("Format angka salah", "error");
+    // --- PERBAIKAN DI SINI (VALIDASI FORMAT) ---
+    let weiAmount; // Variabel penampung hasil konversi
+    try {
+        // Coba konversi string ke Wei
+        weiAmount = ethers.utils.parseEther(amountStr);
+        
+        // Cek apakah nilainya <= 0 (lte = less than or equal)
+        if (weiAmount.lte(0)) {
+            return showToast("Nominal harus lebih dari 0", "error");
         }
+    } catch (err) {
+        // Jika parseEther gagal (misal input huruf/simbol aneh), kode lari ke sini
+        console.warn("Format salah:", err);
+        return showToast("Format angka salah! Gunakan titik (.) untuk desimal", "error");
+    }
 
-        try {
-            document.getElementById("sawerModal").close();
-            showToast("Membuka MetaMask...", "info");
-            
-            // Konversi ke Wei (String harus bersih, cth: "0.0001")
-            const weiAmount = ethers.utils.parseEther(amountStr);
-            
-            // Perbaikan Index PostId (Pastikan integer)
-            const targetIndex = parseInt(postId) - 1;
+    // --- EKSEKUSI TRANSAKSI (Hanya jalan jika validasi lolos) ---
+    try {
+        // Tutup modal hanya jika format angka sudah benar
+        document.getElementById("sawerModal").close();
+        showToast("Membuka MetaMask...", "info");
+        
+        // Perbaikan Index PostId (Pastikan integer)
+        const targetIndex = parseInt(postId) - 1;
 
-            // Eksekusi Smart Contract
-            const tx = await contract.sawerPost(targetIndex, { value: weiAmount });
-            
-            showToast("Transaksi dikirim, menunggu konfirmasi...", "info");
-            await tx.wait();
-            showToast("Terima kasih! Saweran terkirim", "success");
-            
-            // Reset form
-            document.getElementById("sawerAmount").value = "";
-            
-        } catch (e) {
-            console.error("Sawer Error:", e);
-            
-            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
-                showToast("Transaksi dibatalkan user", "info");
-            } else {
-                // Tampilkan pesan error yang lebih jelas
-                let msg = e.reason || e.message || "Gagal invalid data";
-                if (msg.includes("invalid BigNumber string")) {
-                    msg = "Format nominal tidak valid (hindari notasi ilmiah)";
-                }
-                showToast("Gagal: " + msg, "error");
+        // Eksekusi Smart Contract (Gunakan weiAmount yang sudah divalidasi di atas)
+        const tx = await contract.sawerPost(targetIndex, { value: weiAmount });
+        
+        showToast("Transaksi dikirim, menunggu konfirmasi...", "info");
+        await tx.wait();
+        showToast("Terima kasih! Saweran terkirim 🎁", "success");
+        
+        // Reset form
+        document.getElementById("sawerAmount").value = "";
+        
+    } catch (e) {
+        console.error("Sawer Error:", e);
+        
+        if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+            showToast("Transaksi dibatalkan user", "info");
+        } else {
+            // Tampilkan pesan error yang lebih jelas
+            let msg = e.reason || e.message || "Gagal invalid data";
+            if (msg.includes("insufficient funds")) {
+                msg = "Saldo ETH tidak cukup (+Gas Fee)";
             }
+            showToast("Gagal: " + msg, "error");
         }
     }
+}
 
         function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
         
