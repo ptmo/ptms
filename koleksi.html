@@ -496,106 +496,69 @@
 
                 // --- FUNGSI LOAD LIVE (VERSI INSTANT RENDER) ---
         async function loadCollectionLive(id) {
-            try {
-                const index = id - 1;
-                
-                // 1. AMBIL DATA UTAMA (Blockchain Cepat < 1 detik)
-                // Kita TIDAK menunggu Metadata IPFS disini
-                const timeout = (ms) => new Promise((_, reject) => setTimeout(() => reject(new Error("Timeout")), ms));
-        // Ubah ini: Tambah Promise.race dengan timeout
-        const post = await Promise.race([timeout(10000), contract.posts(index)]);
-                const isNFT = post.nftId > 0;
-                
-                // Ambil profil author sekalian
-                const profile = await contract.getProfile(post.author);
-                
-                // Cek Owner (Jika NFT) - ini juga cepat
-                let ownerAddr = null;
-                if (isNFT) {
-                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
-                }
+    try {
+        const index = id - 1;
+        const post = await contract.posts(index);
+        const isNFT = post.nftId > 0;
 
-                // 2. SIAPKAN DATA AWAL (Tanpa Metadata)
-                const basicData = {
-                    caption: post.caption,
-                    imageURI: post.imageURI,
-                    nftId: post.nftId.toString(),
-                    postId: post.id.toString(),
-                    likeCount: post.likeCount.toString(),
-                    commentCount: post.commentCount.toString(),
-                    ratingCount: post.ratingCount.toString(),
-                    totalRatingScore: post.totalRatingScore.toString(),
-                    timestamp: post.timestamp.toString(),
-                    authorAddr: post.author,
-                    authorNick: profile.nickname,
-                    authorPhoto: profile.fotoProfil,
-                    ownerAddr: ownerAddr,
-                    meta: null, // Kosongkan dulu biar gak nunggu
-                    isNFT: isNFT
-                };
+        // Ambil data pendukung secara paralel (biar cepat)
+        const [profile, ownerAddr, meta] = await Promise.all([
+            contract.getProfile(post.author),
+            (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
+            fetchMetadata(post.tokenURI)
+        ]);
 
-                // 3. 🔥 AKSI KILAT: TAMPILKAN UI SEKARANG! 🔥
-                // Jangan tunggu apa-apa lagi, langsung matikan loader
-                renderUI(basicData); 
-                document.getElementById("loadingState").style.display = "none";
-                document.getElementById("mainContent").style.display = "grid";
+        // Susun Objek Data
+        const freshData = {
+            caption: post.caption,
+            imageURI: post.imageURI,
+            nftId: post.nftId ? post.nftId.toString() : null,
+            postId: post.id.toString(),
+            likeCount: post.likeCount.toString(),
+            commentCount: post.commentCount.toString(),
+            ratingCount: post.ratingCount.toString(),
+            totalRatingScore: post.totalRatingScore.toString(),
+            timestamp: post.timestamp.toString(),
+            authorAddr: post.author,
+            authorNick: profile.nickname,
+            authorPhoto: profile.fotoProfil,
+            ownerAddr: ownerAddr,
+            meta: meta,
+            isNFT: isNFT
+        };
 
-                // Load komentar & Link Opensea di background
-                loadPageComments(index);
-                const osBtn = document.getElementById("openseaLink");
-                if(osBtn) {
-                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
-                    if(!isNFT) osBtn.style.display = "none";
-                }
+        // Update Cache di HP User
+        const cacheKey = `post_cache_${id}`;
+        localStorage.setItem(cacheKey, JSON.stringify(freshData));
 
-                // 4. BARU LOAD METADATA (BACKGROUND PROCESS)
-                // User sudah bisa lihat gambar & teks, jadi kalau ini lambat user tidak sadar.
-                if (post.tokenURI && post.tokenURI.length > 5) {
-                    
-                    // Beri tanda kecil bahwa kita sedang mencari nama asli
-                    const titleEl = document.getElementById("detailTitle");
-                    if(titleEl.innerText === "Tanpa Judul" || titleEl.innerText === "Memuat Judul...") {
-                        titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
-                        titleEl.style.fontSize = "18px";
-                        titleEl.style.color = "#999";
-                    }
+        // Render Ulang Tampilan dengan Data Baru
+        renderUI(freshData);
+        
+        // Pastikan loading hilang & konten muncul
+        const loadState = document.getElementById("loadingState");
+        if(loadState) loadState.style.display = "none";
+        document.getElementById("mainContent").style.display = "grid";
 
-                    // Fetch dengan Timeout
-                    const meta = await fetchMetadata(post.tokenURI);
-                    
-                    if (meta) {
-                        // UPDATE UI SUSULAN
-                        // Ganti judul loading tadi dengan Nama Asli Wayang
-                        if(meta.name) {
-                            titleEl.innerText = meta.name;
-                            titleEl.style.fontSize = "26px";
-                            titleEl.style.color = "#222";
-                        }
-                        // Isi tabel spesifikasi
-                        renderMetaTable(meta.attributes);
-                        
-                        // Update simpanan cache agar besok-besok instant
-                        basicData.meta = meta;
-                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
-                    } else {
-                        // Jika gagal load metadata, kembalikan ke default cantik
-                        if(titleEl.innerText.includes("Mengambil")) {
-                            titleEl.innerText = "Koleksi Wayang";
-                            titleEl.style.fontSize = "26px";
-                            titleEl.style.color = "#222";
-                        }
-                    }
-                }
+        // Load Komentar & Update Link Opensea
+        loadPageComments(index);
+        
+        const osUrl = `https://testnets.opensea.io/assets/base-sepolia/\( {CONTRACT_ADDRESS}/ \){post.nftId}`;
+        const osBtn = document.getElementById("openseaLink");
+        if(osBtn) {
+            osBtn.href = osUrl;
+            if(!isNFT) osBtn.style.display = "none";
+        }
 
-            } catch (e) {
-    console.error("Error fetch live", e);
-    const cacheKey = `post_cache_${id}`;
-    if (!localStorage.getItem(cacheKey)) {
-        document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data: " + (e.message || "Periksa koneksi/wallet.") + "</p>";
-    } else {
-        showToast("Gagal update data terbaru. Menggunakan cache.", "info");
+    } catch (e) {
+        console.error("Critical Error:", e);
+        // Jika error parah (misal blockchain mati), baru tampilkan pesan error
+        // Cek dulu apakah cache berhasil tampil? Kalau ya, abaikan error ini.
+        const cacheKey = `post_cache_${id}`;
+        if(!localStorage.getItem(cacheKey)) {
+            document.getElementById("loadingState").innerHTML = 
+                `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
+        }
     }
-            }
         }
 
         function renderUI(data) {
