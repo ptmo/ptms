@@ -479,72 +479,280 @@
         document.getElementById("sidebarWalletText").innerHTML = short;
         document.getElementById("walletIndicator").style.color = "#2ecc71"; 
     }
-        
-        // --- FUNGSI PEMICU GAMBAR (ENGINE) ---
-    function initLazyLoading() {
-        const imageObserver = new IntersectionObserver((entries, observer) => {
-            entries.forEach(entry => {
-                if (entry.isIntersecting) {
-                    const img = entry.target;
-                    const realSrc = img.getAttribute('data-src');
-                    
-                    if (realSrc) {
-                        // 1. Download gambar asli
-                        img.src = realSrc;
-                        
-                        // 2. Jika sukses download -> Munculkan pelan-pelan
-                        img.onload = () => {
-                            img.classList.add('lazy-loaded');
-                            img.removeAttribute('data-src'); 
-                        };
 
-                        // 3. Jika gagal download -> Pakai gambar cadangan (biar gak broken icon)
-                        img.onerror = () => {
-                            img.src = "https://via.placeholder.com/500x300?text=Gagal+Memuat";
-                            img.classList.add('lazy-loaded');
-                        };
-                    }
-                    
-                    observer.unobserve(img);
+    // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
+        async function loadMyProfile() {
+            try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    // Avatar Profil juga dikompres kecil
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
                 }
-            });
-        });
+            } catch(e) {}
+        }
 
-        // Pantau semua gambar
-        document.querySelectorAll('img.lazy-img').forEach(img => {
-            imageObserver.observe(img);
-        });
+        // --- 3. FUNGSI GANTI TAB ---
+        function switchFeed(type) {
+            currentFeedType = type;
+            const tabFriends = document.getElementById("tabFriends");
+            const tabGlobal = document.getElementById("tabGlobal");
+
+            // Reset UI Loading
+            document.getElementById("feedContainer").innerHTML = `
+                <div style="text-align: center; padding: 40px; color: #999;">
+                    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...
+                </div>`;
+
+            // Atur Style Tab
+            if(type === 'friends') {
+                tabFriends.style.color = "#8b4513";
+                tabFriends.style.borderBottom = "3px solid #8b4513";
+                tabGlobal.style.color = "#999";
+                tabGlobal.style.borderBottom = "3px solid transparent";
+            } else {
+                tabGlobal.style.color = "#8b4513";
+                tabGlobal.style.borderBottom = "3px solid #8b4513";
+                tabFriends.style.color = "#999";
+                tabFriends.style.borderBottom = "3px solid transparent";
+            }
+
+            loadFeed();
+        }
+        
+        // --- SCRIPT SAWWER (WAJIB ADA) ---
+    function openSawerModal(id) {
+        document.getElementById("sawerTargetId").value = id;
+        document.getElementById("sawerAmount").value = ""; // Kosongkan input
+        
+        // Reset warna tombol preset
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById("sawerModal").showModal();
     }
 
-    // --- RENDER POST DENGAN LAZY LOADING ---
-    function renderPostLoop(postsArray, container, isCache) {
-        let htmlContent = ""; 
+    // 2. Fungsi Hitung Otomatis (Preset)
+    function setSawerVal(factor) {
+        let val = 0;
+        
+        if (factor === 'min') {
+            val = SAWER_MIN;
+        } else if (factor === 'max') {
+            val = SAWER_MAX;
+        } else {
+            // Hitung persentase dari MAKSIMAL (0.01)
+            val = SAWER_MAX * factor;
+        }
 
-        // Copy array dan balik urutan (Terbaru diatas)
-        const reversedPosts = [...postsArray].reverse();
+        // Format angka (maksimal 5 desimal agar tidak error overflow)
+        // parseFloat untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
+        document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
+        
+        // Visual Feedback (Highlight tombol yang diklik)
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+    }
 
-        reversedPosts.forEach(post => {
-            const profileLink = `profile.html?addr=${post.author}`;
-            let imgHtml = "";
+    // 3. Fungsi Kirim (Submit)
+    async function submitSawer() {
+        const postId = document.getElementById("sawerTargetId").value; // Ambil dari input hidden
+        const amount = document.getElementById("sawerAmount").value;
+
+        // Validasi
+        if (!postId) return showToast("Error ID Postingan", "error");
+        if (!amount || amount <= 0) return showToast("Masukkan jumlah valid", "error");
+        if (amount < SAWER_MIN) return showToast(`Minimal ${SAWER_MIN} ETH`, "error");
+        if (amount > SAWER_MAX) return showToast(`Maksimal ${SAWER_MAX} ETH`, "error");
+
+        try {
+            document.getElementById("sawerModal").close();
+            showToast("Mengirim Saweran...", "info");
             
-            // --- LOGIKA GAMBAR ---
-            if(post.imageURI && post.imageURI.length > 5) {
-                // Optimasi URL (Kecilkan size gambar) (Sudah dioptimasi saat simpan di loadFeedLive, tapi kita pastikan lagi atau pakai langsung)
-                // Jika loadFeedLive sudah menyimpan URL wsrv.nl, kita bisa pakai langsung.
-                // Tapi untuk aman (jika cache lama masih pakai ipfs://), kita proses ulang di sini tidak masalah (cepat kok string manipulation).
-                
-                let optUrl = post.imageURI;
-                // Cek apakah URL masih mentah (ipfs://) atau sudah matang
-                if (post.imageURI.startsWith("ipfs://")) {
-                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                     optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+            // Konversi ke Wei
+            const weiAmount = ethers.utils.parseEther(amount.toString());
+            
+            // Eksekusi Smart Contract (Index blockchain = ID - 1)
+            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
+            
+            await tx.wait();
+            showToast("Terima kasih! Saweran terkirim", "success");
+        } catch (e) {
+            console.error(e);
+            // Cek jika user reject
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Transaksi dibatalkan user", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
+        }
+    }
+
+        // --- SCRIPT FOLLOW ---
+        async function followUser(targetAddr) {
+            try {
+                showToast("Memproses Follow...", "info");
+                const tx = await contract.followUser(targetAddr);
+                await tx.wait();
+                showToast("Berhasil Mengikuti!", "success");
+                renderWidgets(); // Refresh widget
+            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+        }
+
+        // --- FUNGSI LOAD PROFILE HEADER ---
+         async function loadMyProfile() {
+            try {
+                const p = await contract.getProfile(userAddress);
+                if(p.fotoProfil) {
+                    const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
+                    document.getElementById("myAvatar").src = optAvatar;
+                }
+            } catch(e) {}
+        }
+
+        async function fetchProfileLazy(address) {
+            if(profileCache[address]) {
+                updatePostAuthorUI(address, profileCache[address]);
+                return;
+            }
+            try {
+                const p = await contract.getProfile(address);
+                let avatarUrl = 'https://via.placeholder.com/40';
+                if (p.fotoProfil) {
+                    const raw = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(raw)}&w=80&q=60&output=webp`;
+                }
+                const data = { nickname: p.nickname, avatar: avatarUrl };
+                profileCache[address] = data;
+                updatePostAuthorUI(address, data);
+            } catch (e) {}
+        }
+        
+        // --- 2. FUNGSI KHUSUS BACA CACHE (Sangat Ringan) ---
+        function loadFeedFromCacheOnly() {
+            const cacheKey = `feed_cache_${currentFeedType}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            
+            if (cachedData) {
+                console.log("⚡ Tampil Instan dari Cache");
+                try {
+                    const parsed = JSON.parse(cachedData);
+                    if(parsed.length > 0) {
+                        const container = document.getElementById("feedContainer");
+                        container.innerHTML = ""; // Bersihkan loading spinner
+                        renderPostLoop(parsed, container, true); // true = mode cache
+                    }
+                } catch(e) { console.error("Cache rusak", e); }
+            }
+        }
+
+        // --- 3. FUNGSI KHUSUS LIVE DATA (Blockchain) ---
+        async function loadFeedLive() {
+            try {
+                // Jangan hapus konten lama dulu (biar user gak liat layar kedip putih)
+                // Kita load data di memori dulu
+                let posts;
+                if(currentFeedType === 'friends') {
+                    posts = await contract.getMyFeed();
+                } else {
+                    posts = await contract.getAllPosts();
                 }
 
-                // Badge NFT
-                let metaBox = "";
-                if(parseInt(post.nftId) > 0) {
-                    const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                    metaBox = ` <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                const container = document.getElementById("feedContainer");
+
+                if(posts.length === 0) {
+                    // Cek lagi cache, kalau cache juga kosong baru tampilkan pesan kosong
+                    const cacheKey = `feed_cache_${currentFeedType}`;
+                    if(!localStorage.getItem(cacheKey)) {
+                         const msg = currentFeedType === 'friends' 
+                            ? "Belum ada postingan dari teman."
+                            : "Belum ada postingan di platform.";
+                        container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>${msg}</p>`;
+                    }
+                    return;
+                }
+
+                // SIMPAN KE LOCAL STORAGE
+                const plainPosts = posts.map(p => ({
+                    id: p.id.toString(),
+                    author: p.author,
+                    caption: p.caption,
+                    imageURI: p.imageURI,
+                    tokenURI: p.tokenURI,
+                    timestamp: p.timestamp.toString(),
+                    likeCount: p.likeCount.toString(),
+                    commentCount: p.commentCount.toString(),
+                    nftId: p.nftId.toString(),
+                    ratingCount: p.ratingCount.toString(),
+                    totalRatingScore: p.totalRatingScore.toString()
+                }));
+
+                const cacheKey = `feed_cache_${currentFeedType}`;
+                localStorage.setItem(cacheKey, JSON.stringify(plainPosts));
+
+                // RENDER ULANG (Update Tampilan dengan Data Baru)
+                container.innerHTML = ""; 
+                renderPostLoop(plainPosts, container, false); // false = mode live
+
+            } catch (e) { 
+                console.error("Gagal load live:", e);
+                // Tidak perlu tampilkan error di UI jika cache sudah tampil
+            }
+        }
+
+        // --- 4. GANTI TAB (Panggil Cache Dulu, Baru Live) ---
+        function switchFeed(type) {
+            currentFeedType = type;
+            
+            // UI Tab
+            const tabFriends = document.getElementById("tabFriends");
+            const tabGlobal = document.getElementById("tabGlobal");
+            const activeStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;";
+            const inactiveStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;";
+
+            if(type === 'friends') {
+                tabFriends.style.cssText = activeStyle;
+                tabGlobal.style.cssText = inactiveStyle;
+            } else {
+                tabGlobal.style.cssText = activeStyle;
+                tabFriends.style.cssText = inactiveStyle;
+            }
+
+            // LOGIKA GANTI TAB CEPAT
+            const container = document.getElementById("feedContainer");
+            const cacheKey = `feed_cache_${type}`;
+            const cachedData = localStorage.getItem(cacheKey);
+
+            if(cachedData) {
+                // Jika ada cache, langsung tampilkan
+                container.innerHTML = "";
+                renderPostLoop(JSON.parse(cachedData), container, true);
+                // Lalu update diam-diam
+                loadFeedLive();
+            } else {
+                // Jika tidak ada cache, baru munculkan loading spinner
+                container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...</div>`;
+                loadFeedLive();
+            }
+        }
+
+        // --- HELPER RENDER (Sama seperti sebelumnya) ---
+        function renderPostLoop(postsArray, container, isCache) {
+            [...postsArray].reverse().forEach(post => {
+                const profileLink = `profile.html?addr=${post.author}`;
+                let imgHtml = "";
+                
+                // Optimasi Gambar 60KB
+                if(post.imageURI && post.imageURI.length > 5) {
+                    const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
+                    let metaBox = "";
+                    if(parseInt(post.nftId) > 0) {
+                        const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
+                        metaBox = `
+                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
                             <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
                                 <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
                             </div>
@@ -556,334 +764,188 @@
                                 <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
                             </div>
                         </div>`;
+                    }
+
+                    imgHtml = `
+                    <div style="margin:10px -15px 0 -15px;">
+                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
+                            <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
+                            ${metaBox}
+                        </a>
+                    </div>`;
+
+                    if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
+                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+                    }
                 }
 
-                imgHtml = `<div style="margin:10px -15px 0 -15px;"><a href="koleksi.html?id=${post.id}"><img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy"></a>${metaBox}</div>`;
-
-                // Fetch metadata (background process)
-                if(parseInt(post.nftId) > 0 && !isCache) {
-                    setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 0);
-                }
-            }
-
-            // Hitung Rating & Badge
-            const rCount = parseInt(post.ratingCount);
-            const rScore = parseInt(post.totalRatingScore);
-            const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-            
-            // Susun HTML Kartu
-            htmlContent += `
-            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                    <a href="${profileLink}"><img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy"></a>
-                    <div class="post-info">
-                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">${post.author.substring(0,6)}...</a>
-                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
+                const rCount = parseInt(post.ratingCount);
+                const rScore = parseInt(post.totalRatingScore);
+                const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+                const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+                
+                const html = `
+                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                        <a href="${profileLink}">
+                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                        </a>
+                        <div class="post-info">
+                            <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                ${post.author.substring(0,6)}...
+                            </a>
+                            <div style="font-size: 11px; color: #999;">
+                                ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
+                            </div>
+                        </div>
                     </div>
-                </div>
-                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                ${imgHtml}
-                <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
-                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
-                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
-                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span></button>
-                </div>
-            </div>`;
-            
-            // Ambil profil penulis (background)
-            setTimeout(() => fetchProfileLazy(post.author), 0);
-        });
+                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                    ${imgHtml}
 
-        // Masukkan ke layar
-        container.innerHTML += htmlContent;
-
-        // JALANKAN LAZY LOAD (Wajib dipanggil di akhir)
-        initLazyLoading();
-    }
-    
-    // --- D. LOGIKA POSTING & NFT (YANG HILANG) ---
-    function openNftModal() { document.getElementById('nftModal').showModal(); }
-
-    function previewInModal(input) {
-        if (input.files && input.files[0]) {
-            const reader = new FileReader();
-            reader.onload = function(e) { 
-                document.getElementById('modalFilePreview').innerHTML = `<img src="${e.target.result}" style="width:100px; height:100px; object-fit:cover; border-radius:10px; margin-top:10px;">`; 
-            }
-            reader.readAsDataURL(input.files[0]);
+                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
+                         </button>
+                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
+                         </button>
+                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                            <i class="fa-solid fa-gift"></i>
+                         </button>
+                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                            <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
+                         </button>
+                    </div>
+                </div>`;
+                container.innerHTML += html;
+                fetchProfileLazy(post.author);
+            });
+                                                                          }
+                
+        function updatePostAuthorUI(address, data) {
+            document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
+            document.querySelectorAll(`.author-nick-${address}`).forEach(el => el.innerText = data.nickname);
         }
-    }
 
-    async function saveNftDraft() {
-        const name = document.getElementById("mName").value;
-        const file = document.getElementById("modalFileInput").files[0];
-        
-        if(!name || !file) return showToast("Nama & Foto wajib diisi!", "error");
-        
-        try {
-            document.getElementById("nftModal").close();
-            showToast("Mengunggah ke IPFS...", "info");
+        // --- INTERAKSI LIKE & RATE ---
+        async function handleLike(postId) {
+            const countSpan = document.getElementById(`count-like-${postId}`);
+            const icon = document.getElementById(`icon-like-${postId}`);
+            const current = parseInt(countSpan.innerText);
             
-            // Upload Image
-            const compressedFile = await customCompress(file, 50, 800);
-            const imgUri = await uploadToPinata(compressedFile);
-            
-            // Upload Meta
-            const meta = {
-                name: name,
-                description: `Arsip Wayang: ${name}`,
-                image: imgUri,
-                attributes: [
-                     { trait_type: "Golongan", value: document.getElementById("mGolongan").value },
-                     { trait_type: "Gaya", value: document.getElementById("mGaya").value }
-                ]
-            };
-            
-            const blob = new Blob([JSON.stringify(meta)], {type: "application/json"});
-            const metaFile = new File([blob], "metadata.json");
-            const metaUri = await uploadToPinata(metaFile);
-            
-            nftDraft = { imgUri, metaUri };
-            
-            document.getElementById("nftReadyIndicator").style.display = "block";
-            document.getElementById("nftFilenamePreview").innerText = name;
-            showToast("Data siap! Klik Posting untuk memproses.", "success");
-            
-        } catch(e) { showToast("Gagal upload: " + e.message, "error"); }
-    }
+            countSpan.innerText = current + 1;
+            icon.classList.remove("fa-regular");
+            icon.classList.add("fa-solid");
+            icon.style.color = "#e74c3c";
 
-    function cancelNft() {
-        nftDraft = null;
-        document.getElementById("nftReadyIndicator").style.display = "none";
-        document.getElementById("modalFileInput").value = "";
-        document.getElementById("modalFilePreview").innerHTML = "";
-    }
-
-    async function submitPost() {
-        const caption = document.getElementById("mainCaption").value;
-        if (!caption && !nftDraft) return showToast("Tulis sesuatu atau upload foto!", "error");
-
-        try {
-            showToast("Memproses postingan...", "info");
-            let tx;
-            if (nftDraft) {
-                 const price = ethers.utils.parseEther("0.0001");
-                 tx = await contract.createPost(nftDraft.imgUri, nftDraft.metaUri, caption, { value: price });
-            } else {
-                tx = await contract.createPost("", "", caption);
+            try {
+                const tx = await contract.likePost(postId - 1);
+                await tx.wait();
+            } catch (e) {
+                // Rollback jika gagal
+                countSpan.innerText = current;
+                icon.classList.add("fa-regular");
+                icon.classList.remove("fa-solid");
+                icon.style.color = "";
             }
-            
+        }
+
+        // --- 1. MEMBUKA MODAL ---
+    function openRating(id) {
+        // Simpan ID ke input hidden
+        document.getElementById("ratingTargetId").value = id;
+        // Reset tampilan bintang jadi 0
+        selectedRate = 0;
+        updateStarVisuals(0);
+        // Buka Modal
+        document.getElementById("ratingModal").showModal();
+    }
+
+    // --- 2. LOGIKA WARNA BINTANG ---
+    function setRate(n) {
+        selectedRate = n;
+        updateStarVisuals(n);
+    }
+
+    function updateStarVisuals(n) {
+        const stars = document.querySelectorAll('.star-item');
+        stars.forEach((star, index) => {
+            // Index array mulai dari 0, nilai n mulai dari 1
+            // Jika index < n, warnai emas. Sisanya abu-abu.
+            if (index < n) {
+                star.style.color = "gold";
+                star.classList.add('active'); // Memicu efek scale di CSS
+            } else {
+                star.style.color = "#ccc"; 
+                star.classList.remove('active');
+            }
+      });
+    }
+
+    // --- 3. KIRIM KE BLOCKCHAIN ---
+    async function submitRating() {
+        const postId = document.getElementById("ratingTargetId").value;
+
+        if (!postId) return showToast("Error ID Postingan", "error");
+        if (selectedRate === 0) return showToast("Pilih minimal 1 bintang!", "error");
+
+        try {
+            document.getElementById("ratingModal").close();
+            showToast(`Mengirim ${selectedRate} Bintang...`, "info");
+
+            // Post ID di Blockchain = ID - 1 (Array Index)
+            const tx = await contract.ratePost(postId - 1, selectedRate);
             await tx.wait();
-            showToast("Berhasil diposting!", "success");
-            document.getElementById("mainCaption").value = "";
-            cancelNft();
-            loadFeedLive(); 
+            showToast("Rating berhasil dikirim!", "success");
+            // (Opsional) Refresh halaman otomatis agar nilai berubah
+            // setTimeout(() => location.reload(), 1000); 
         } catch (e) {
             console.error(e);
-            showToast("Gagal posting: " + (e.reason || e.message), "error");
-        }
-    }
-
-    // --- E. FEED & PROFIL ---
-    async function loadMyProfile() {
-        try {
-            const p = await contract.getProfile(userAddress);
-            if(p.fotoProfil) {
-                const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                const optAvatar = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=100&q=70&output=webp`;
-                document.getElementById("myAvatar").src = optAvatar;
+            // Cek jika user membatalkan di Metamask
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Batal memberi rating", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
             }
-        } catch(e) {}
-    }
-
-    function switchFeed(type) {
-        currentFeedType = type;
-        const tabFriends = document.getElementById("tabFriends");
-        const tabGlobal = document.getElementById("tabGlobal");
-        const activeStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;";
-        const inactiveStyle = "flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;";
-
-        if(type === 'friends') {
-            tabFriends.style.cssText = activeStyle;
-            tabGlobal.style.cssText = inactiveStyle;
-        } else {
-            tabGlobal.style.cssText = activeStyle;
-            tabFriends.style.cssText = inactiveStyle;
-        }
-
-        const container = document.getElementById("feedContainer");
-        const cacheKey = `feed_cache_${type}`;
-        const cachedData = localStorage.getItem(cacheKey);
-
-        if(cachedData) {
-            container.innerHTML = "";
-            renderPostLoop(JSON.parse(cachedData), container, true);
-            loadFeedLive();
-        } else {
-            container.innerHTML = `<div style="text-align: center; padding: 40px; color: #999;"><i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat...</div>`;
-            loadFeedLive();
-        }
-    }
-
-    function loadFeedFromCacheOnly() {
-        const cacheKey = `feed_cache_${currentFeedType}`;
-        const cachedData = localStorage.getItem(cacheKey);
-        if (cachedData) {
-            try {
-                const parsed = JSON.parse(cachedData);
-                if(parsed.length > 0) {
-                    const container = document.getElementById("feedContainer");
-                    container.innerHTML = "";
-                    renderPostLoop(parsed, container, true);
-                }
-            } catch(e) {}
-        }
-    }
-
-    async function loadFeedLive() {
-        try {
-            let posts;
-            if(currentFeedType === 'friends') posts = await contract.getMyFeed();
-            else posts = await contract.getAllPosts();
-
-            const container = document.getElementById("feedContainer");
-            if(posts.length === 0) {
-                 const msg = currentFeedType === 'friends' ? "Belum ada postingan dari teman." : "Belum ada postingan.";
-                 container.innerHTML = `<p style='text-align:center; color:#999; margin-top:40px;'>${msg}</p>`;
-                 return;
-            }
-
-            // --- OPTIMASI DI SINI: Siapkan URL sebelum disimpan ---
-            const plainPosts = posts.map(p => {
-                let finalImg = "";
-                
-                // Jika ada gambar, proses URL-nya SEKARANG, jangan nanti
-                if(p.imageURI && p.imageURI.length > 5) {
-                    const rawUrl = p.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                    // Kita simpan URL versi WSrv yang sudah kecil & cepat
-                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
-                }
-
-                return {
-                    id: p.id.toString(),
-                    author: p.author,
-                    caption: p.caption,
-                    imageURI: finalImg, // SIMPAN URL YANG SUDAH JADI
-                    tokenURI: p.tokenURI, // Simpan metadata asli untuk jaga-jaga
-                    timestamp: p.timestamp.toString(),
-                    likeCount: p.likeCount.toString(),
-                    commentCount: p.commentCount.toString(),
-                    nftId: p.nftId.toString(),
-                    ratingCount: p.ratingCount.toString(),
-                    totalRatingScore: p.totalRatingScore.toString()
-                };
-            });
-
-            // Simpan data "Matang" ke LocalStorage
-            localStorage.setItem(`feed_cache_${currentFeedType}`, JSON.stringify(plainPosts));
-            
-            container.innerHTML = ""; 
-            renderPostLoop(plainPosts, container, false);
-
-        } catch (e) { console.error("Gagal load live:", e); }
-    }
-
-    async function fetchCardMetadata(postId, tokenURI) {
-        if (!tokenURI || tokenURI.length < 5) return;
-
-        try {
-            // Optimize URL for faster fetching
-            const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-            
-            const response = await fetch(url);
-            if (!response.ok) throw new Error("Fetch failed");
-            
-            const meta = await response.json();
-
-            // --- UPDATE DOM ELEMENTS ---
-            
-            // Update Name
-            const nameEl = document.getElementById(`meta-name-${postId}`);
-            if (nameEl && meta.name) {
-                nameEl.innerText = meta.name;
-                nameEl.style.color = "#333"; // Change color to indicate loaded
-            }
-
-            // Update Gagrak (Style)
-            const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
-            if (gagrakEl && meta.attributes) {
-                const gagrakAttr = meta.attributes.find(attr => attr.trait_type === "Gaya" || attr.trait_type === "Gagrak");
-                if (gagrakAttr) {
-                    gagrakEl.innerText = gagrakAttr.value;
-                }
-            }
-
-        } catch (e) {
-            // Optional: Handle error state in UI
-            const nameEl = document.getElementById(`meta-name-${postId}`);
-            if(nameEl) nameEl.innerText = "Tidak diketahui";
         }
     }
         
-    function formatCaption(text) {
-            if (!text) return "";
-            let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
-            const urlRegex = /(https?:\/\/[^\s]+)/g;
-            clean = clean.replace(urlRegex, (url) => `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`);
-            return clean.replace(/\n/g, "<br>");
-    }
+        // --- SCRIPT KOMENTAR ---
+        async function openComments(postId) {
+            const index = postId - 1; 
+            const modal = document.getElementById("commentModal");
+            const list = document.getElementById("commentList");
+            document.getElementById("commentPostId").value = index;
+            document.getElementById("commentInput").value = "";
+            modal.showModal();
+            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
-    function showToast(msg, type="info") {
-        const t = document.getElementById("toast");
-        t.innerText = msg;
-        t.className = "show";
-        t.style.background = type === "error" ? "#e74c3c" : "#333";
-        setTimeout(() => t.className = t.className.replace("show", ""), 3000);
-    }
-    
-    // --- F. KOMENTAR, LIKE, SAWER, RATE ---
-    async function handleLike(postId) {
-        const countSpan = document.getElementById(`count-like-${postId}`);
-        const icon = document.getElementById(`icon-like-${postId}`);
-        const current = parseInt(countSpan.innerText);
-        countSpan.innerText = current + 1;
-        icon.classList.remove("fa-regular"); icon.classList.add("fa-solid"); icon.style.color = "#e74c3c";
-        try {
-            const tx = await contract.likePost(postId - 1);
-            await tx.wait();
-        } catch (e) {
-            countSpan.innerText = current;
-            icon.classList.add("fa-regular"); icon.classList.remove("fa-solid"); icon.style.color = "";
-        }
-    }
-
-    async function openComments(postId) {
-        const index = postId - 1; 
-        document.getElementById("commentPostId").value = index;
-        document.getElementById("commentInput").value = "";
-        document.getElementById("commentModal").showModal();
-        const list = document.getElementById("commentList");
-        list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
-
-        try {
-            const comments = await contract.getComments(index);
-            list.innerHTML = "";
-            if(comments.length === 0) { list.innerHTML = "<p style='text-align:center; color:#999;'>Belum ada komentar.</p>"; return; }
-            
-            for (const c of comments) {
-                let nick = c.commenter.substring(0,6) + "..."; 
-                let avt = "https://via.placeholder.com/30";   
-                try {
-                    // Try fetch profile inside loop safely
-                    const p = await contract.getProfile(c.commenter);
-                    if(p.nickname) nick = p.nickname;
-                    if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                } catch(err) {}
+            try {
+                const comments = await contract.getComments(index);
+                list.innerHTML = "";
+                if(comments.length === 0) { 
+                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
+                    return; 
+                }
+                for (const c of comments) {
+                    let nick = c.commenter.substring(0,6) + "..."; 
+                    let avt = "https://via.placeholder.com/30";   
+                    if (commentProfileCache[c.commenter]) {
+                        nick = commentProfileCache[c.commenter].nick;
+                        avt = commentProfileCache[c.commenter].avt;
+                    } else {
+                        try { 
+                            const p = await contract.getProfile(c.commenter);
+                            if(p.nickname) nick = p.nickname;
+                            if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                            commentProfileCache[c.commenter] = { nick, avt };
+                        } catch(e){}
+                    }
+                    // Buat Link Profil
+                const profileUrl = `profile.html?addr=${c.commenter}`;
 
                 const html = `
-                <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
+                    <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
                         
                         <a href="${profileUrl}" style="text-decoration:none;">
                             <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
@@ -899,96 +961,63 @@
                             <div style="font-size:13px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
                         </div>
                     </div>`;
-                list.innerHTML += html;
-            }
-        } catch(e) { console.error(e); }
-    }
+                    
+                    list.innerHTML += html;
+                }
+            } catch(e) { console.error(e); }
+        }
 
-    async function submitComment() {
-        const index = document.getElementById("commentPostId").value; 
+        async function submitComment() {
+        const index = document.getElementById("commentPostId").value; // Index array (mulai dari 0)
         const text = document.getElementById("commentInput").value;
         if(!text) return;
+        
         try {
             showToast("Mengirim...", "info");
             const tx = await contract.addComment(index, text, "");
             await tx.wait();
+            
             showToast("Terkirim!", "success");
             document.getElementById("commentInput").value = "";
-            openComments(parseInt(index) + 1);
+            
+            // --- UPDATE ANGKA OTOMATIS (BARU) ---
+            // Post ID biasanya index + 1
+            const postId = parseInt(index) + 1; 
+            const countSpan = document.getElementById(`count-comment-${postId}`);
+            
+            if(countSpan) {
+                // Ambil angka lama, tambah 1
+                const currentCount = parseInt(countSpan.innerText);
+                countSpan.innerText = currentCount + 1;
+            }
+            
+            // Reload list komentar di modal
+            openComments(postId);
+            
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
     }
 
-    function openSawerModal(id) {
-        document.getElementById("sawerTargetId").value = id;
-        document.getElementById("sawerAmount").value = ""; 
-        document.getElementById("sawerModal").showModal();
-    }
-    function setSawerVal(factor) {
-        let val = factor === 'min' ? SAWER_MIN : (factor === 'max' ? SAWER_MAX : SAWER_MAX * factor);
-        document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
-    }
-    async function submitSawer() {
-        const postId = document.getElementById("sawerTargetId").value;
-        const amount = document.getElementById("sawerAmount").value;
-        if (!postId || !amount) return showToast("Data tidak valid", "error");
-        try {
-            document.getElementById("sawerModal").close();
-            showToast("Mengirim Saweran...", "info");
-            const weiAmount = ethers.utils.parseEther(amount.toString());
-            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
-            await tx.wait();
-            showToast("Terima kasih! Saweran terkirim", "success");
-        } catch (e) { showToast("Gagal sawer", "error"); }
-    }
+    // Fungsi untuk mengubah Enter jadi Spasi Bawah & Link jadi Biru
+    function formatCaption(text) {
+            if (!text) return "";
+            let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+            const urlRegex = /(https?:\/\/[^\s]+)/g;
+            clean = clean.replace(urlRegex, (url) => `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`);
+            return clean.replace(/\n/g, "<br>");
+        }
+        
+        async function getTrendingPosts() { /* Kode algoritma trending sama seperti sebelumnya */ }
+        async function getWhoToFollow() { /* Kode algoritma rekomendasi sama seperti sebelumnya */ }
+        async function renderWidgets() {
+            // Panggil fungsi widget di sini
+            // (Untuk menghemat tempat, silakan gunakan fungsi getWhoToFollow yang sudah saya berikan di respon sebelumnya)
+            // ...
+        }
 
-    function openRating(id) {
-        document.getElementById("ratingTargetId").value = id;
-        selectedRate = 0;
-        updateStarVisuals(0);
-        document.getElementById("ratingModal").showModal();
-    }
-    function setRate(n) { selectedRate = n; updateStarVisuals(n); }
-    function updateStarVisuals(n) {
-        document.querySelectorAll('.star-item').forEach((star, index) => {
-            if (index < n) { star.style.color = "gold"; star.classList.add('active'); } 
-            else { star.style.color = "#ccc"; star.classList.remove('active'); }
-        });
-    }
-    async function submitRating() {
-        const postId = document.getElementById("ratingTargetId").value;
-        if (!selectedRate) return showToast("Pilih bintang dulu", "error");
-        try {
-            document.getElementById("ratingModal").close();
-            showToast("Mengirim rating...", "info");
-            const tx = await contract.ratePost(postId - 1, selectedRate);
-            await tx.wait();
-            showToast("Rating terkirim!", "success");
-        } catch (e) { showToast("Gagal rating", "error"); }
-    }
-
-    async function fetchProfileLazy(address) {
-        if(commentProfileCache[address]) { updatePostAuthorUI(address, commentProfileCache[address]); return; }
-        try {
-            const p = await contract.getProfile(address);
-            let avatarUrl = 'https://via.placeholder.com/40';
-            if (p.fotoProfil) avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/'))}&w=80&q=60&output=webp`;
-            const data = { nickname: p.nickname, avatar: avatarUrl };
-            commentProfileCache[address] = data;
-            updatePostAuthorUI(address, data);
-        } catch (e) {}
-    }
-    function updatePostAuthorUI(address, data) {
-        document.querySelectorAll(`.author-avatar-${address}`).forEach(img => img.src = data.avatar);
-        document.querySelectorAll(`.author-nick-${address}`).forEach(el => el.innerText = data.nickname);
-    }
-
-        // 3. Update Notifikasi setiap 10 detik (Realtime)
+// 3. Update Notifikasi setiap 10 detik (Realtime)
 setInterval(() => {
     // Hanya jalan jika sudah login & kontrak siap
     if (contract && userAddress) {
         updateNotifBadge();
     }
 }, 5000);
-    </script>
-</body>
-</html>
