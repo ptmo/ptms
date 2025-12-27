@@ -59,7 +59,17 @@
 .star-item.active, 
 .star-item:hover { 
     color: gold; 
-    transform: scale(1.2); /* Efek
+    transform: scale(1.2);
+
+    /* Efek Loading Gambar */
+.lazy-img {
+    opacity: 0;
+    transition: opacity 0.5s ease-in;
+    background-color: #f0f0f0; /* Warna abu-abu sebelum gambar muncul */
+}
+.lazy-loaded {
+    opacity: 1;
+}
     </style>
 </head>
 <body>
@@ -151,10 +161,7 @@
                 </div>
             </div>
 
-            <div id="feedContainer">
-                <div style="text-align: center; padding: 40px; color: #999;">
-                    <i class="fa-solid fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat Blockchain...
-                </div>
+            <div id="feedContainer" style="padding-top: 10px;">
             </div>
         </div>
     </div>
@@ -320,6 +327,8 @@
     let nftDraft = null; 
     let contract, signer, provider, userAddress;
     const commentProfileCache = {};
+    const memoryProfileCache = {}; // Cache sementara (RAM)
+    const pendingRequests = new Set();
     
     // ABI LENGKAP
     const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"followed","type":"address"}],"name":"Followed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"nftId","type":"uint256"},{"indexed":false,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"}],"name":"Sawer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"unfollowed","type":"address"}],"name":"Unfollowed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"blocker","type":"address"},{"indexed":true,"internalType":"address","name":"blocked","type":"address"}],"name":"UserBlocked","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"blockUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imgURI","type":"string"},{"internalType":"string","name":"_metaURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"followUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followerList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followingList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getFollowCounts","outputs":[{"internalType":"uint256","name":"followersCount","type":"uint256"},{"internalType":"uint256","name":"followingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyFeed","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficialWayangNusantara.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"hasBlocked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"ownerAddr","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"isFollowing","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"mintPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"sawerPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"unfollowUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
@@ -485,6 +494,252 @@
 
         } catch (e) { console.warn("Sesi Error:", e); }
     });
+
+    // --- SISTEM CACHE PROFIL PINTAR (Hemat Kuota & Cepat) ---
+    async function fetchProfileLazy(address) {
+        // 1. Cek Memory (RAM) dulu - Paling Cepat
+        if(memoryProfileCache[address]) { 
+            updatePostAuthorUI(address, memoryProfileCache[address]); 
+            return; 
+        }
+
+        // 2. Cek Penyimpanan HP (LocalStorage) - Agar refresh tetap cepat
+        const storageKey = "cache_user_" + address.toLowerCase();
+        const storedData = localStorage.getItem(storageKey);
+        
+        if (storedData) {
+            try {
+                const data = JSON.parse(storedData);
+                memoryProfileCache[address] = data; // Simpan ke RAM
+                updatePostAuthorUI(address, data);
+                return; // Stop, tidak perlu ke blockchain
+            } catch(e) {}
+        }
+
+        // 3. Cek apakah sedang diproses? (Mencegah request dobel saat scrolling)
+        if (pendingRequests.has(address)) return;
+        pendingRequests.add(address);
+
+        // 4. Jika tidak ada di mana-mana, baru tanya Blockchain
+        try {
+            // Pastikan kontrak sudah siap, kalau belum skip dulu
+            if (!contract) return; 
+
+            const p = await contract.getProfile(address);
+            
+            let avatarUrl = 'https://via.placeholder.com/40';
+            // Optimasi gambar pakai WSrv agar kecil & cepat
+            if (p.fotoProfil) {
+                const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=80&q=60&output=webp`;
+            }
+
+            const data = { 
+                nickname: p.nickname || address.substring(0,6)+"...", 
+                avatar: avatarUrl 
+            };
+
+            // Simpan ke semua Cache
+            memoryProfileCache[address] = data;
+            localStorage.setItem(storageKey, JSON.stringify(data)); // Simpan permanen
+
+            updatePostAuthorUI(address, data);
+
+        } catch (e) {
+            // console.warn("Gagal load profil:", address);
+        } finally {
+            pendingRequests.delete(address); // Lepas kunci antrian
+        }
+    }
+
+        function updatePostAuthorUI(address, data) {
+        // Update Foto
+        const imgs = document.querySelectorAll(`.author-avatar-${address}`);
+        imgs.forEach(img => {
+            if (img.src !== data.avatar) img.src = data.avatar;
+        });
+
+        // Update Nama
+        const nicks = document.querySelectorAll(`.author-nick-${address}`);
+        nicks.forEach(el => {
+            if (el.innerText !== data.nickname) el.innerText = data.nickname;
+        });
+        }
+
+        // --- RENDER POST DENGAN LAZY LOADING ---
+    function renderPostLoop(postsArray, container, isCache) {
+        let htmlContent = ""; // Tampung HTML di string dulu biar cepat
+
+        [...postsArray].reverse().forEach(post => {
+            const profileLink = `profile.html?addr=${post.author}`;
+            let imgHtml = "";
+            
+            // LOGIKA GAMBAR (LAZY LOAD)
+            if(post.imageURI && post.imageURI.length > 5) {
+                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
+                let metaBox = "";
+                if(parseInt(post.nftId) > 0) {
+                    const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
+                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;"><span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span></div>`;
+                }
+
+                // PERHATIKAN: src pakai placeholder transparan, URL asli di data-src
+                imgHtml = `
+                <div style="margin:10px -15px 0 -15px; min-height:200px; background:#f0f0f0;">
+                    <a href="koleksi.html?id=${post.id}">
+                        <img data-src="${optUrl}" 
+                             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
+                             class="post-image lazy-img" 
+                             style="width:100%; display:block; min-height:200px; object-fit:cover;" 
+                             loading="lazy"
+                             alt="Loading...">
+                    </a>
+                    ${metaBox}
+                </div>`;
+
+                // Fetch metadata hanya jika perlu (tetap di background)
+                if(parseInt(post.nftId) > 0 && !isCache) fetchCardMetadata(post.id, post.tokenURI);
+            }
+
+            const rCount = parseInt(post.ratingCount);
+            const rScore = parseInt(post.totalRatingScore);
+            const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+            
+            // Susun HTML
+            htmlContent += `
+            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <a href="${profileLink}">
+                        <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                    </a>
+                    <div class="post-info">
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">${post.author.substring(0,6)}...</a>
+                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
+                    </div>
+                </div>
+                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                ${imgHtml}
+                <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
+                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
+                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
+                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span></button>
+                </div>
+            </div>`;
+            
+            // Jalankan fetch profile di background (cache system)
+            fetchProfileLazy(post.author);
+        });
+
+        // Masukkan HTML ke layar
+        container.innerHTML += htmlContent;
+
+        // PANGGIL FUNGSI LAZY LOAD SETELAH HTML MASUK
+        initLazyLoading();
+    }
+
+    // --- FUNGSI PEMICU GAMBAR (ENGINE) ---
+    function initLazyLoading() {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    const realSrc = img.getAttribute('data-src');
+                    
+                    if (realSrc) {
+                        img.src = realSrc; // DOWNLOAD SEKARANG
+                        img.onload = () => img.classList.add('lazy-loaded'); // Efek muncul halus
+                        img.removeAttribute('data-src');
+                    }
+                    
+                    observer.unobserve(img); // Stop memantau gambar ini
+                }
+            });
+        });
+
+        // Targetkan semua gambar yang punya kelas .lazy-img
+        document.querySelectorAll('img.lazy-img').forEach(img => {
+            imageObserver.observe(img);
+        });
+    }
+
+    // --- RENDER POST DENGAN LAZY LOADING ---
+    function renderPostLoop(postsArray, container, isCache) {
+        let htmlContent = ""; // Tampung HTML di string dulu biar cepat
+
+        [...postsArray].reverse().forEach(post => {
+            const profileLink = `profile.html?addr=${post.author}`;
+            let imgHtml = "";
+            
+            // LOGIKA GAMBAR (LAZY LOAD)
+            if(post.imageURI && post.imageURI.length > 5) {
+                const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
+                let metaBox = "";
+                if(parseInt(post.nftId) > 0) {
+                    const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
+                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;"><span><i class="fa-solid fa-mask"></i> <strong>Arsip NFT</strong> oleh ${shortWallet}</span></div>`;
+                }
+
+                // PERHATIKAN: src pakai placeholder transparan, URL asli di data-src
+                imgHtml = `
+                <div style="margin:10px -15px 0 -15px; min-height:200px; background:#f0f0f0;">
+                    <a href="koleksi.html?id=${post.id}">
+                        <img data-src="${optUrl}" 
+                             src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
+                             class="post-image lazy-img" 
+                             style="width:100%; display:block; min-height:200px; object-fit:cover;" 
+                             loading="lazy"
+                             alt="Loading...">
+                    </a>
+                    ${metaBox}
+                </div>`;
+
+                // Fetch metadata hanya jika perlu (tetap di background)
+                if(parseInt(post.nftId) > 0 && !isCache) fetchCardMetadata(post.id, post.tokenURI);
+            }
+
+            const rCount = parseInt(post.ratingCount);
+            const rScore = parseInt(post.totalRatingScore);
+            const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+            
+            // Susun HTML
+            htmlContent += `
+            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                    <a href="${profileLink}">
+                        <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                    </a>
+                    <div class="post-info">
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">${post.author.substring(0,6)}...</a>
+                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
+                    </div>
+                </div>
+                <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
+                ${imgHtml}
+                <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                     <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span></button>
+                     <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span></button>
+                     <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
+                     <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span></button>
+                </div>
+            </div>`;
+            
+            // Jalankan fetch profile di background (cache system)
+            fetchProfileLazy(post.author);
+        });
+
+        // Masukkan HTML ke layar
+        container.innerHTML += htmlContent;
+
+        // PANGGIL FUNGSI LAZY LOAD SETELAH HTML MASUK
+        initLazyLoading();
+    }
 
     // --- D. LOGIKA POSTING & NFT (YANG HILANG) ---
     function openNftModal() { document.getElementById('nftModal').showModal(); }
