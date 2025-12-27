@@ -812,13 +812,44 @@
         } catch (e) { console.error("Gagal load live:", e); }
     }
 
-    async function fetchCardMetadata(id, uri) {
+    async function fetchCardMetadata(postId, tokenURI) {
+        // Cek jika URI kosong, stop
+        if (!tokenURI || tokenURI.length < 5) return;
+
         try {
-            const url = uri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-            const res = await fetch(url);
-            const meta = await res.json();
-            // Update nama file jika ada
-        } catch(e) {}
+            // 1. Perbaiki URL IPFS ke Gateway yang cepat
+            const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            
+            // 2. Ambil data JSON
+            const response = await fetch(url);
+            if (!response.ok) throw new Error("Gagal ambil data");
+            
+            const meta = await response.json();
+
+            // --- BAGIAN INI YANG HILANG TADI (UPDATE UI) ---
+            
+            // Cari elemen Nama berdasarkan ID postingan dan ubah teksnya
+            const nameEl = document.getElementById(`meta-name-${postId}`);
+            if (nameEl && meta.name) {
+                nameEl.innerText = meta.name; // Hapus "Loading...", ganti nama Wayang
+                nameEl.style.color = "#333";  // Ubah warna jadi hitam (sudah load)
+            }
+
+            // Cari elemen Gagrak/Gaya dan ubah teksnya
+            const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
+            if (gagrakEl && meta.attributes) {
+                // Cari atribut yang tipe-nya "Gaya" atau "Gagrak"
+                const gagrakAttr = meta.attributes.find(attr => attr.trait_type === "Gaya" || attr.trait_type === "Gagrak");
+                if (gagrakAttr) {
+                    gagrakEl.innerText = gagrakAttr.value;
+                }
+            }
+
+        } catch (e) {
+            // Jika error, biarkan atau tulis "Tidak diketahui"
+            const nameEl = document.getElementById(`meta-name-${postId}`);
+            if(nameEl) nameEl.innerText = "Data tidak tersedia";
+        }
     }
 
     function formatCaption(text) {
