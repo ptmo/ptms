@@ -494,89 +494,129 @@
             }
         }
 
-                // --- FUNGSI LOAD LIVE (VERSI INSTANT RENDER) ---
+                // --- FUNGSI LOAD LIVE (PERBAIKAN OWNER CHECK) ---
         async function loadCollectionLive(id) {
-    try {
-        const index = id - 1;
-        const post = await contract.posts(index);
-        const isNFT = post.nftId > 0;
+            try {
+                const index = id - 1;
+                
+                // 1. Ambil Alamat Wallet Aktif (Safe Check)
+                let currentUser = null;
+                try {
+                    // Coba ambil dari global, kalau null ambil dari signer
+                    if (typeof userAddress !== 'undefined' && userAddress) {
+                        currentUser = userAddress;
+                    } else if (signer) {
+                        currentUser = await signer.getAddress();
+                    }
+                } catch (err) {
+                    console.warn("Wallet belum terhubung/terbaca");
+                }
 
-        // Ambil data pendukung secara paralel (biar cepat)
-        const [profile, ownerAddr, meta] = await Promise.all([
-            contract.getProfile(post.author),
-            (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
-            fetchMetadata(post.tokenURI)
-        ]);
+                // 2. Ambil Data Postingan
+                const post = await contract.posts(index);
+                const isNFT = post.nftId > 0;
 
-        // Susun Objek Data
-        const freshData = {
-            caption: post.caption,
-            imageURI: post.imageURI,
-            nftId: post.nftId ? post.nftId.toString() : null,
-            postId: post.id.toString(),
-            likeCount: post.likeCount.toString(),
-            commentCount: post.commentCount.toString(),
-            ratingCount: post.ratingCount.toString(),
-            totalRatingScore: post.totalRatingScore.toString(),
-            timestamp: post.timestamp.toString(),
-            authorAddr: post.author,
-            authorNick: profile.nickname,
-            authorPhoto: profile.fotoProfil,
-            ownerAddr: ownerAddr,
-            meta: meta,
-            isNFT: isNFT
-        };
+                const profile = await contract.getProfile(post.author);
+                
+                let ownerAddr = null;
+                if (isNFT) {
+                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
+                }
 
-        // Update Cache di HP User
-        const cacheKey = `post_cache_${id}`;
-        localStorage.setItem(cacheKey, JSON.stringify(freshData));
+                // 3. Render Data Dasar
+                const basicData = {
+                    caption: post.caption,
+                    imageURI: post.imageURI,
+                    nftId: post.nftId.toString(),
+                    postId: post.id.toString(),
+                    likeCount: post.likeCount.toString(),
+                    commentCount: post.commentCount.toString(),
+                    ratingCount: post.ratingCount.toString(),
+                    totalRatingScore: post.totalRatingScore.toString(),
+                    timestamp: post.timestamp.toString(),
+                    authorAddr: post.author,
+                    authorNick: profile.nickname,
+                    authorPhoto: profile.fotoProfil,
+                    ownerAddr: ownerAddr,
+                    meta: null, 
+                    isNFT: isNFT
+                };
 
-        // Render Ulang Tampilan dengan Data Baru
-        renderUI(freshData);
+                // --- BAGIAN KRUSIAL: Render UI & Owner Check ---
+                
+                // A. Render Gambar/Teks/Badge
+                renderUI(basicData); 
+                
+                // B. Handle Tombol Transfer (Anti Error)
+                const btnTransfer = document.getElementById("btnTransfer");
+                if (btnTransfer) {
+                    // Cek apakah:
+                    // 1. currentUser ada (sudah login)
+                    // 2. ownerAddr ada (ini item NFT)
+                    // 3. Alamat sama (case-insensitive)
+                    const isOwner = currentUser && ownerAddr && 
+                                    (currentUser.toLowerCase() === ownerAddr.toLowerCase());
+
+                    if (isOwner) {
+                        btnTransfer.style.display = "flex"; 
+                    } else {
+                        btnTransfer.style.display = "none";
+                    }
+                }
+
+                // C. Matikan Loading
+                const loadState = document.getElementById("loadingState");
+                if(loadState) loadState.style.display = "none";
+                document.getElementById("mainContent").style.display = "grid";
+
+                // 4. Load Sisanya (Komentar & Metadata)
+                loadPageComments(index);
+                const osBtn = document.getElementById("openseaLink");
+                if(osBtn) {
+                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
+                    if(!isNFT) osBtn.style.display = "none";
+                }
+
+                if (post.tokenURI && post.tokenURI.length > 5) {
+                    const titleEl = document.getElementById("detailTitle");
+                    if(titleEl.innerText === "Tanpa Judul" || titleEl.innerText === "Memuat Judul...") {
+                        titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
+                        titleEl.style.fontSize = "18px";
+                        titleEl.style.color = "#999";
+                    }
+
+                    const meta = await fetchMetadata(post.tokenURI);
+                    
+                    if (meta) {
+                        if(meta.name) {
+                            titleEl.innerText = meta.name;
+                            titleEl.style.fontSize = "26px";
+                            titleEl.style.color = "#222";
+                        }
+                        renderMetaTable(meta.attributes);
+                        
+                        basicData.meta = meta;
+                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+                    } else {
+                        if(titleEl.innerText.includes("Mengambil")) {
+                            titleEl.innerText = "Koleksi Wayang";
+                            titleEl.style.fontSize = "26px";
+                            titleEl.style.color = "#222";
+                        }
+                    }
+                }
+
+            } catch (e) {
+                console.error("Critical Error:", e);
+                const cacheKey = `post_cache_${id}`;
+                if(!localStorage.getItem(cacheKey)) {
+                    document.getElementById("loadingState").innerHTML = 
+                        `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
+                }
+            }
+        }
+
         
-        // Pastikan loading hilang & konten muncul
-        const loadState = document.getElementById("loadingState");
-        if(loadState) loadState.style.display = "none";
-        document.getElementById("mainContent").style.display = "grid";
-
-        // Load Komentar & Update Link Opensea
-        loadPageComments(index);
-        
-        const osUrl = `https://testnets.opensea.io/assets/base-sepolia/\( {CONTRACT_ADDRESS}/ \){post.nftId}`;
-        const osBtn = document.getElementById("openseaLink");
-        if(osBtn) {
-            osBtn.href = osUrl;
-            if(!isNFT) osBtn.style.display = "none";
-        }
-
-    } catch (e) {
-        console.error("Critical Error:", e);
-        // Jika error parah (misal blockchain mati), baru tampilkan pesan error
-        // Cek dulu apakah cache berhasil tampil? Kalau ya, abaikan error ini.
-        const cacheKey = `post_cache_${id}`;
-        if(!localStorage.getItem(cacheKey)) {
-            document.getElementById("loadingState").innerHTML = 
-                `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
-        }
-    }
-        }
-
-        // Tambahkan fungsi ini di bawah renderUI atau di atasnya
-function renderMetaTable(attributes) {
-    if(!attributes) return;
-    const table = document.getElementById("metaTable");
-    let rows = "";
-    attributes.forEach(attr => {
-        if(attr.value && attr.value !== "-") {
-            let icon = "fa-tag";
-            if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
-            if(attr.trait_type.includes("Golongan")) icon = "fa-users";
-            rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#7385a5;"></i> \( {attr.trait_type}</td><td class="meta-val"> \){attr.value}</td></tr>`;
-        }
-    });
-    table.innerHTML = rows;
-}
-
         function renderUI(data) {
             // 1. Gambar Utama (Optimized)
             if(data.imageURI && data.imageURI.length > 5) {
