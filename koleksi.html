@@ -488,21 +488,24 @@
         async function loadCollectionLive(id) {
             try {
                 const index = id - 1;
+                
+                // 1. AMBIL DATA CEPAT (Blockchain Saja)
+                // Kita tidak menunggu Metadata IPFS di sini agar UI langsung muncul
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
 
-                // Ambil data pendukung secara paralel (biar cepat)
-                const [profile, ownerAddr, meta] = await Promise.all([
-                    contract.getProfile(post.author),
-                    (isNFT ? contract.ownerOf(post.nftId) : Promise.resolve(null)),
-                    fetchMetadata(post.tokenURI)
-                ]);
+                const profile = await contract.getProfile(post.author);
+                
+                let ownerAddr = null;
+                if (isNFT) {
+                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
+                }
 
-                // Susun Objek Data
-                const freshData = {
+                // 2. TAMPILKAN UI SEGERA (Walau Metadata belum ada)
+                const basicData = {
                     caption: post.caption,
                     imageURI: post.imageURI,
-                    nftId: post.nftId ? post.nftId.toString() : null,
+                    nftId: post.nftId.toString(),
                     postId: post.id.toString(),
                     likeCount: post.likeCount.toString(),
                     commentCount: post.commentCount.toString(),
@@ -513,38 +516,52 @@
                     authorNick: profile.nickname,
                     authorPhoto: profile.fotoProfil,
                     ownerAddr: ownerAddr,
-                    meta: meta,
+                    meta: null, // Biarkan kosong dulu
                     isNFT: isNFT
                 };
 
-                // Update Cache di HP User
-                const cacheKey = `post_cache_${id}`;
-                localStorage.setItem(cacheKey, JSON.stringify(freshData));
-
-                // Render Ulang Tampilan dengan Data Baru
-                renderUI(freshData);
-                
-                // Pastikan loading hilang & konten muncul
-                const loadState = document.getElementById("loadingState");
-                if(loadState) loadState.style.display = "none";
+                // Render & Matikan Loading
+                renderUI(basicData);
+                document.getElementById("loadingState").style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
 
-                // Load Komentar & Update Link Opensea
+                // Load komentar di background
                 loadPageComments(index);
-                
-                const osUrl = `https://testnets.opensea.io/assets/base-sepolia/${CONTRACT_ADDRESS}/${post.nftId}`;
-                const osBtn = document.getElementById("openseaLink");
-                if(osBtn) {
-                    osBtn.href = osUrl;
-                    if(!isNFT) osBtn.style.display = "none";
+
+                // 3. BARU AMBIL METADATA (Latar Belakang)
+                // Jika ini lambat/gagal, user tidak peduli karena gambar & teks sudah muncul
+                if (post.tokenURI && post.tokenURI.length > 5) {
+                    console.log("⏳ Mengambil data detail NFT...");
+                    
+                    // Beri indikator kecil di judul bahwa sedang loading data tambahan
+                    const titleEl = document.getElementById("detailTitle");
+                    if(titleEl.innerText === "Tanpa Judul") {
+                        titleEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Mengambil Judul...`;
+                    }
+
+                    const meta = await fetchMetadata(post.tokenURI);
+                    
+                    if (meta) {
+                        // Update UI jika berhasil
+                        if(meta.name) document.getElementById("detailTitle").innerText = meta.name;
+                        renderMetaTable(meta.attributes);
+                        
+                        // Simpan cache lengkap
+                        basicData.meta = meta;
+                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+                    } else {
+                        // Jika gagal, kembalikan ke default
+                        if(titleEl.innerText.includes("Mengambil")) titleEl.innerText = "Wayang Nusantara";
+                    }
                 }
 
             } catch (e) {
-                console.error("Live fetch error", e);
-                // Kalau cache juga kosong, baru tampilkan pesan error
+                console.error("Error:", e);
+                // Matikan loading jika error fatal di blockchain
                 const cacheKey = `post_cache_${id}`;
                 if(!localStorage.getItem(cacheKey)) {
-                    document.getElementById("loadingState").innerHTML = "<p style='color:red'>Gagal memuat data. Periksa koneksi.</p>";
+                    document.getElementById("loadingState").innerHTML = 
+                        `<div style="margin-top:20px;">Gagal memuat.<br><button onclick="location.reload()" style="margin-top:10px; padding:5px 10px;">Coba Lagi</button></div>`;
                 }
             }
         }
@@ -687,26 +704,31 @@
         // --- HELPER LAINNYA ---
         async function fetchMetadata(tokenURI) {
             if(!tokenURI || tokenURI.length < 5) return null;
-            try {
-                const url = tokenURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
-                const res = await fetch(url);
-                return await res.json();
-            } catch(e) { return null; }
-        }
+            
+            // Coba beberapa jalur (Gateway) jika satu macet
+            const gateways = [
+                "https://gateway.pinata.cloud/ipfs/",
+                "https://ipfs.io/ipfs/",
+                "https://dweb.link/ipfs/"
+            ];
 
-        function renderMetaTable(attributes) {
-            if(!attributes) return;
-            const table = document.getElementById("metaTable");
-            let rows = "";
-            attributes.forEach(attr => {
-                if(attr.value && attr.value !== "-") {
-                    let icon = "fa-tag";
-                    if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
-                    if(attr.trait_type.includes("Golongan")) icon = "fa-users";
-                    rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#7385a5;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
+            const cid = tokenURI.replace("ipfs://", "");
+
+            for (const gateway of gateways) {
+                try {
+                    // Batas waktu 3 detik per gateway agar tidak menunggu selamanya
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+
+                    const res = await fetch(gateway + cid, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+
+                    if (res.ok) return await res.json();
+                } catch (e) {
+                    continue; // Coba gateway berikutnya
                 }
-            });
-            table.innerHTML = rows;
+            }
+            return null; // Nyerah jika semua gagal
         }
 
         // --- INTERAKSI (Like, Komen, dll) ---
