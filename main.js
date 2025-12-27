@@ -19,7 +19,7 @@ let state = {
     userAddress: null,
     contract: null
 };
-
+let pendingNftData = null;
 // ==========================================
 // 2. INISIALISASI & LISTENER
 // ==========================================
