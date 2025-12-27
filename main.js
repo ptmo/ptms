@@ -23,15 +23,48 @@ let state = {
 // ==========================================
 // 2. INISIALISASI & LISTENER
 // ==========================================
+// Tambahkan ini di atas, sebelum initApp()
+async function runPageSpecificLogic() {
+    const path = window.location.pathname;
+    const params = new URLSearchParams(window.location.search);
+
+    console.log("📂 Routing ke:", path);
+
+    // A. LOGIKA PROFILE (untuk profile.html)
+    if (path.includes("profile.html")) {
+        // Cek apakah lihat profil sendiri atau orang lain
+        const targetAddr = params.get('addr') || state.userAddress;
+        if (typeof loadProfile === "function") await loadProfile(targetAddr);
+    } 
+    // B. LOGIKA RESULT (PENCARIAN, untuk result.html)
+    else if (path.includes("result.html")) {
+        const query = params.get('q');
+        if (typeof performSearch === "function" && query) await performSearch(query);
+        else if (typeof loadResults === "function") await loadResults();
+    }
+    // C. LOGIKA NOTIFICATIONS (untuk notifications.html)
+    else if (path.includes("notifications.html")) {
+        if (typeof loadNotifications === "function") await loadNotifications();
+    }
+    // D. LOGIKA HOME (DEFAULT, untuk home.html atau root)
+    else if (path.includes("home.html") || path === "/") {
+        if (typeof loadFeed === "function") await loadFeed();
+    }
+
+    // Update Global UI (Badge notifikasi, dll.)
+    if (typeof updateNotifBadge === "function") updateNotifBadge();
+}
+
+// Kemudian, initApp tetap seperti yang Anda miliki
 async function initApp() {
     console.log("🚀 Memulai Aplikasi...");
-    
+
     // Pasang telinga (listener) dulu sebelum melakukan apa-apa
     setupWalletListeners();
 
     // Coba pulihkan sesi secara diam-diam
     const sessionActive = await checkSession();
-     if (!sessionActive) {
+    if (!sessionActive) {
         // Fallback ke provider baca-saja jika tidak ada sesi/wallet
         console.log("📡 Menggunakan provider baca-saja (wallet tidak terhubung)");
         state.provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
