@@ -9,66 +9,46 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
     <style>
-        .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
-        .comment-avatar { width: 30px; height: 30px; border-radius: 50%; object-fit: cover; }
-        .comment-content { flex: 1; font-size: 13px; }
-        .comment-author { font-weight: bold; font-size: 12px; color: #7385a5; }
-        .comment-time { font-size: 10px; color: #999; }
-        
-        .post-image { cursor: zoom-in; transition: opacity 0.2s; }
-        .post-image:hover { opacity: 0.9; }
+    /* 1. RESET & LAYOUT */
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: sans-serif; background: #f0f2f5; padding-bottom: 80px; /* Space untuk menu bawah */ }
 
-        dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
-        #commentModal[open] { display: flex; flex-direction: column; }
+    .layout-wrapper { 
+        display: grid; 
+        grid-template-columns: 280px 1fr; /* PC: Sidebar 280px + Konten */
+        gap: 25px; 
+        max-width: 1200px; 
+        margin: 20px auto;
+        padding: 0 15px;
+    }
 
-        /* Badge Notifikasi */
-        .menu-item { position: relative; }
-        .nav-badge {
-            background-color: #e74c3c; color: white;
-            font-size: 10px; font-weight: bold;
-            min-width: 18px; height: 18px; border-radius: 50%;
-            display: none; align-items: center; justify-content: center;
-            position: absolute; border: 2px solid #fff; z-index: 10;
-        }
-        .mobile-nav .nav-badge { top: 0px; right: 25%; }
-        .sidebar-left .nav-badge { top: 8px; right: 10px; }
+    /* 2. MENU BAWAH (MOBILE NAV) - FIX POSITION */
+    .mobile-nav {
+        display: none; /* Sembunyi di PC */
+        position: fixed; /* WAJIB: Agar menempel di layar bawah */
+        bottom: 0; left: 0; width: 100%;
+        background: white; border-top: 1px solid #eee;
+        z-index: 9999;
+        justify-content: space-around; align-items: center;
+        padding: 10px 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    }
+    .mobile-nav .menu-item { font-size: 20px; color: #ccc; text-decoration: none; position: relative; padding: 5px 15px; }
+    .mobile-nav .menu-item.active { color: #7385a5; }
 
-        /* Responsive Layout (Grid) - DIPERBARUI: 2 Kolom (Sidebar Kiri + Feed Lebar) */
-        .layout-wrapper { 
-            display: grid; 
-            /* Ubah jadi 2 kolom: Kiri (300px) dan Kanan (Sisa/Flexible) */
-            grid-template-columns: 300px 1fr; 
-            gap: 25px; 
-            max-width: 1200px; 
-            margin: 20px auto;
-            padding: 0 15px;
-        }
+    /* 3. RESPONSIVE (HP) */
+    @media (max-width: 900px) {
+        .layout-wrapper { grid-template-columns: 1fr; } /* 1 Kolom */
+        .sidebar-left { display: none !important; } /* Sidebar Hilang */
+        .mobile-nav { display: flex !important; } /* Menu Bawah Muncul */
+    }
 
-        @media (max-width: 900px) {
-            .layout-wrapper { grid-template-columns: 1fr !important; }
-            .sidebar-left { display: none !important; } /* Sidebar kanan sudah dihapus */
-        }
-
-        /* Wrapper agar bintang sejajar */
-.star-wrapper {
-    display: flex;
-    gap: 15px;
-    direction: ltr; /* Pastikan urutan kiri-ke-kanan */
-}
-
-/* Warna Dasar Bintang (Abu-abu #666) */
-.star-item {
-    color: #666; 
-    transition: color 0.2s, transform 0.2s;
-    cursor: pointer;
-}
-
-/* Warna Saat Hover atau Aktif (Gold) */
-.star-item.active, 
-.star-item:hover { 
-    color: gold; 
-    transform: scale(1.2); /* Efek membesar sedikit */
-}
+    /* 4. LAIN-LAIN */
+    .nav-badge { background: #e74c3c; color: white; font-size: 9px; min-width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; position: absolute; top: -5px; right: 5px; }
+    .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
+    .post-image { cursor: zoom-in; width: 100%; display: block; min-height: 200px; background: #f0f0f0; }
+    .star-item.active { color: gold; transform: scale(1.2); }
+    .star-item { color: #ccc; transition: 0.2s; cursor: pointer; }
     </style>
 </head>
 <body>
@@ -304,16 +284,16 @@
     </div>
     
     <div class="mobile-nav">
-        <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
-        <a href="notifications.html" class="menu-item">
-            <i class="fa-solid fa-bell"></i>
-            <span class="nav-badge" id="badgeMobile">0</span> 
-        </a>
-        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i></a>
-        <a href="#" id="navWalletBtn" onclick="handleWalletClick()" class="menu-item">
-            <i class="fa-solid fa-wallet"></i>
-        </a>
-    </div>
+    <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
+    <a href="notifications.html" class="menu-item">
+        <i class="fa-solid fa-bell"></i>
+        <span class="nav-badge" id="badgeMobile">0</span> 
+    </a>
+    <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i></a>
+    <a href="#" id="navWalletBtn" onclick="handleWalletClick()" class="menu-item">
+        <i class="fa-solid fa-wallet"></i>
+    </a>
+</div>
 
     <div id="toast"></div>
 
@@ -321,23 +301,73 @@
     <script src="ipfs_helper.js"></script>
 
     <script>
-        // --- 1. STARTUP SUPER CEPAT (EVENT LISTENER BARU) ---
-        document.addEventListener("DOMContentLoaded", async () => {
-            // A. LANGSUNG TAMPILKAN CACHE (Tanpa menunggu Wallet/Gambar)
-            // User langsung melihat konten dalam < 0.5 detik
-            loadFeedFromCacheOnly(); 
+        // --- A. DEFINISI FUNGSI INIT (PENTING: Agar tidak error) ---
+    async function initApp() {
+        console.log("🚀 Aplikasi Siap.");
+        // Render dummy widget agar tidak kosong
+        if(document.getElementById("trendingWidget")) document.getElementById("trendingWidget").innerHTML = "<p style='font-size:12px; color:#999; padding:10px;'>Segera Hadir</p>";
+        if(document.getElementById("recomWidget")) document.getElementById("recomWidget").innerHTML = "<p style='font-size:12px; color:#999; padding:10px;'>Segera Hadir</p>";
+    }
 
-            // B. PROSES BACKGROUND (Koneksi Wallet & Data Baru)
-            await initApp(); 
+    // --- B. EVENT LISTENER STARTUP ---
+    document.addEventListener("DOMContentLoaded", async () => {
+        // Load cache dulu biar cepat
+        if(typeof loadFeedFromCacheOnly === 'function') loadFeedFromCacheOnly(); 
+        await initApp(); 
+    });
+
+    // --- C. LOGIKA KONEKSI WALLET (ROBUST) ---
+    window.addEventListener('load', async () => {
+        const sessionRaw = localStorage.getItem("putramas_session");
+        
+        // 1. Jika belum login, stop (biarkan user lihat mode tamu/cache)
+        if (!sessionRaw) return;
+
+        try {
+            const session = JSON.parse(sessionRaw);
+            if (Date.now() > session.expiry) { localStorage.removeItem("putramas_session"); return; }
+            if (!window.ethereum) return;
+
+            // 2. Init Provider
+            provider = new ethers.providers.Web3Provider(window.ethereum);
             
-            if(userAddress) {
-                document.getElementById("walletDisplay").innerText = userAddress;
-                loadMyProfile(); // Load profil header
-                
-                // C. SETELAH WALLET SIAP, AMBIL DATA FRESH
-                loadFeedLive(); 
+            // 3. Cek Status Wallet (Silent)
+            const accounts = await provider.listAccounts();
+            if (accounts.length === 0) return; // Wallet terkunci/belum connect -> Stop
+
+            // 4. Cek Network
+            const { chainId } = await provider.getNetwork();
+            if (chainId !== BASE_SEPOLIA_ID) return; // Salah network -> Stop
+
+            // 5. Setup Signer & Contract
+            signer = provider.getSigner();
+            const currentAddr = await signer.getAddress();
+
+            // Validasi Akun (Anti Ghost Account)
+            if (currentAddr.toLowerCase() !== session.address.toLowerCase()) {
+                console.warn("Akun beda, reset sesi.");
+                localStorage.removeItem("putramas_session");
+                return;
             }
-        });
+
+            // 6. Init Global Vars
+            contract = new ethers.Contract(MY_CONTRACT_ADDR, CONTRACT_ABI, signer);
+            window.contract = contract;
+            window.userAddress = currentAddr;
+            userAddress = currentAddr;
+
+            console.log("✅ Koneksi Kembali: " + currentAddr);
+            
+            // 7. Update UI & Load Data Baru
+            isWalletConnected = true;
+            updateWalletUI(currentAddr);
+            if(typeof loadMyProfile === 'function') loadMyProfile();
+            if(typeof loadFeedLive === 'function') loadFeedLive();
+
+        } catch (e) {
+            console.warn("Sesi Error:", e);
+        }
+    });
 
         // --- 2. LOAD PROFIL HEADER (Kiri Atas) ---
         async function loadMyProfile() {
