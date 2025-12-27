@@ -15,7 +15,7 @@ let provider = null;
 let signer = null;
 let contract = null;
 let userAddress = null;
-
+let pendingNftData = null;
 const walletState = {
     ready: false,
     restoring: false,
