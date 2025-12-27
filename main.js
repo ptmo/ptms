@@ -30,7 +30,15 @@ async function initApp() {
     setupWalletListeners();
 
     // Coba pulihkan sesi secara diam-diam
-    await checkSession();
+    const sessionActive = await checkSession();
+     if (!sessionActive) {
+        // Fallback ke provider baca-saja jika tidak ada sesi/wallet
+        console.log("📡 Menggunakan provider baca-saja (wallet tidak terhubung)");
+        state.provider = new ethers.providers.JsonRpcProvider(CONFIG.RPC_URL);
+        state.contract = new ethers.Contract(CONFIG.ADDRESS, CONTRACT_ABI, state.provider);
+    }
+    // Lanjutkan logika halaman
+    await runPageSpecificLogic();
 }
 
 function setupWalletListeners() {
