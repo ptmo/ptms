@@ -444,7 +444,7 @@
 
     <script src="main.js"></script>
     
-    <script>
+        <script>
         // --- KONFIGURASI GLOBAL ---
         let currentPostId = null; 
         let selectedRate = 0;
@@ -482,32 +482,30 @@
             }
         }
 
-                    // --- 1. FUNGSI UTAMA: LOAD DATA (VERSI STABIL) ---
+        // --- 3. SMART LIVE LOADER (The Advanced Part) ---
         async function loadCollectionLive(id) {
             try {
+                console.log("🔄 [Live] Memulai sinkronisasi blockchain...");
                 const index = id - 1;
                 
-                // A. AMBIL DATA BLOCKCHAIN (Cepat)
+                // A. Safe Wallet Check (Anti Crash)
+                let currentUser = null;
+                try {
+                    if (window.userAddress) currentUser = window.userAddress;
+                    else if (window.signer) currentUser = await window.signer.getAddress();
+                } catch (err) { console.warn("Mode Tamu (Wallet disconnect)"); }
+
+                // B. Fetch Data Blockchain Utama (Parallel Request biar cepat)
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
-                
-                // Ambil Profil & Owner
-                const profile = await contract.getProfile(post.author);
-                let ownerAddr = null;
-                if (isNFT) {
-                    try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
-                }
 
-                // B. LOGIKA JUDUL SEMENTARA (Supaya tidak "Tanpa Judul")
-                // Jika metadata belum muncul, kita pakai Caption (kalau pendek) sebagai judul sementara
-                let tempTitle = "Memuat Nama..."; 
-                if (post.caption && post.caption.length < 30) {
-                    tempTitle = post.caption; // Pakai caption jika pendek (misal: "Arjuna")
-                } else if (post.caption) {
-                    tempTitle = "Detail Koleksi"; // Jika caption panjang, pakai ini dulu
-                }
+                // Promise.all untuk data on-chain ringan
+                const [profile, ownerAddr] = await Promise.all([
+                    contract.getProfile(post.author),
+                    isNFT ? contract.ownerOf(post.nftId).catch(()=>null) : null
+                ]);
 
-                // C. RENDER UI AWAL (Langsung Tampil)
+                // C. Susun Data Sementara (Tanpa Metadata IPFS)
                 const basicData = {
                     caption: post.caption,
                     imageURI: post.imageURI,
@@ -522,110 +520,68 @@
                     authorNick: profile.nickname,
                     authorPhoto: profile.fotoProfil,
                     ownerAddr: ownerAddr,
-                    meta: { name: tempTitle }, // Masukkan judul sementara
+                    meta: null, // Placeholder
                     isNFT: isNFT
                 };
 
-                // Tampilkan Layar & Matikan Loading
-                renderUI(basicData); 
-                document.getElementById("loadingState").style.display = "none";
-                document.getElementById("mainContent").style.display = "grid";
+                // D. UPDATE UI SEKARANG! (Jangan tunggu IPFS)
+                renderUI(basicData);
+                handleTransferButton(currentUser, ownerAddr); // Cek tombol transfer
+                stopLoading();
 
-                // Background Tasks
+                // E. Background Tasks (Komentar & Link)
                 loadPageComments(index);
-                handleTransferLogic(ownerAddr); // Cek tombol transfer
-                const osBtn = document.getElementById("openseaLink");
-                if(osBtn) {
-                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
-                    if(!isNFT) osBtn.style.display = "none";
-                }
+                updateOpenseaLink(post.nftId, isNFT);
 
-                // D. AMBIL METADATA ASLI (Untuk Nama "Arjuna")
+                // F. SMART METADATA FETCHING (RACING MODE)
                 if (post.tokenURI && post.tokenURI.length > 5) {
-                    const titleEl = document.getElementById("detailTitle");
+                    // Cek apakah metadata sudah ada di cache dan sama?
+                    const cacheKey = `post_cache_${id}`;
+                    const cached = localStorage.getItem(cacheKey) ? JSON.parse(localStorage.getItem(cacheKey)) : null;
                     
-                    // Beri indikator halus kalau sedang mencari nama asli
-                    if (titleEl.innerText === "Memuat Nama..." || titleEl.innerText === "Detail Koleksi") {
-                        titleEl.style.opacity = "0.7"; 
-                    }
-
-                    // Fetch ke IPFS dengan Gateway Super Cepat
-                    const meta = await fetchMetadata(post.tokenURI);
-                    
-                    if (meta && meta.name) {
-                        // UPDATE JUDUL JADI NAMA ASLI (ARJUNA)
-                        titleEl.innerText = meta.name;
-                        titleEl.style.opacity = "1"; // Kembalikan opacity
-                        titleEl.style.color = "#222";
+                    // Jika cache belum punya metadata, kita cari
+                    if (!cached || !cached.meta) {
+                        setLoadingStatus("Mengambil Detail NFT...");
+                        const meta = await fetchMetadataPro(post.tokenURI);
                         
-                        // Update Spesifikasi
-                        renderMetaTable(meta.attributes);
-                        
-                        // Simpan ke Cache
-                        basicData.meta = meta;
-                        localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+                        if (meta) {
+                            console.log("✅ [IPFS] Metadata ditemukan:", meta.name);
+                            // Update UI Bagian Judul & Spek Saja
+                            updateMetaUI(meta);
+                            
+                            // Simpan ke Cache
+                            basicData.meta = meta;
+                            localStorage.setItem(cacheKey, JSON.stringify(basicData));
+                        }
                     }
                 }
 
             } catch (e) {
-                console.error("Error Load Live:", e);
-                // Fail-safe: Matikan loading jika error
-                document.getElementById("loadingState").style.display = "none";
-                document.getElementById("mainContent").style.display = "grid";
-            }
-        }
-
-        // --- 2. FUNGSI FETCH MULTI-GATEWAY (LEBIH KUAT) ---
-        async function fetchMetadata(tokenURI) {
-            if (!tokenURI || tokenURI.length < 5) return null;
-
-            // Bersihkan URI
-            const cid = tokenURI.replace("ipfs://", "");
-
-            // Daftar Gateway (Cloudflare biasanya paling cepat untuk Metadata)
-            const gateways = [
-                `https://cloudflare-ipfs.com/ipfs/${cid}`,
-                `https://gateway.pinata.cloud/ipfs/${cid}`,
-                `https://ipfs.io/ipfs/${cid}`,
-                `https://dweb.link/ipfs/${cid}`
-            ];
-
-            // Coba semua gateway satu per satu
-            for (const url of gateways) {
-                try {
-                    const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 2000); // 2 detik per gateway
-
-                    const res = await fetch(url, { signal: controller.signal });
-                    clearTimeout(timeoutId);
-
-                    if (res.ok) {
-                        return await res.json(); // Berhasil! Kembalikan data
-                    }
-                } catch (e) {
-                    continue; // Gagal, lanjut ke gateway berikutnya
+                console.error("❌ [Error] Gagal load live:", e);
+                // Jika cache kosong dan live gagal, baru tampilkan error
+                const cacheKey = `post_cache_${id}`;
+                if(!localStorage.getItem(cacheKey)) {
+                    document.getElementById("loadingState").innerHTML = 
+                        `<div style="margin-top:20px; color:#e74c3c;">
+                            <i class="fa-solid fa-triangle-exclamation"></i> Gagal memuat data.<br>
+                            <button onclick="location.reload()" class="btn-primary" style="margin-top:10px;">Coba Lagi</button>
+                        </div>`;
                 }
             }
-            return null; // Nyerah kalau semua gagal
         }
 
-        // --- 3. HELPER TOMBOL TRANSFER (PASTIKAN ADA) ---
-        function handleTransferLogic(ownerAddr) {
-            const btnTransfer = document.getElementById("btnTransfer");
-            if (!btnTransfer) return;
+        // --- 4. TEKNIK GATEWAY RACING (Pro Level Fetching) ---
+        async function fetchMetadataPro(tokenURI) {
+            if(!tokenURI) return null;
+            const cid = tokenURI.replace("ipfs://", "");
 
-            // Ambil user login dengan aman
-            let currentUser = null;
-            if (typeof userAddress !== 'undefined' && userAddress) currentUser = userAddress;
-            else if (window.ethereum && window.ethereum.selectedAddress) currentUser = window.ethereum.selectedAddress;
-
-            // Cek Kepemilikan
-            if (currentUser && ownerAddr && (currentUser.toLowerCase() === ownerAddr.toLowerCase())) {
-                btnTransfer.style.display = "flex";
-            } else {
-                btnTransfer.style.display = "none";
-            }
-        }
+            // Daftar Gateway Cepat
+            const gateways = [
+                `https://gateway.pinata.cloud/ipfs/${cid}`,
+                `https://ipfs.io/ipfs/${cid}`,
+                `https://dweb.link/ipfs/${cid}`,
+                `https://cloudflare-ipfs.com/ipfs/${cid}`
+            ];
 
             // Fungsi fetch dengan timeout mandiri
             const fetchWithTimeout = (url) => {
@@ -767,6 +723,6 @@
         // Paste fungsi SwitchTab, Share, Like, Comment dll yang lama di sini...
         // (Pastikan fungsi loadPageComments, handleLikeDetail, dll tetap ada di file Anda)
         
-    </script>
+            </script>
 </body>
 </html>
