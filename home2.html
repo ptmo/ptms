@@ -997,6 +997,43 @@
         } catch(e) { showToast("Gagal: " + e.message, "error"); }
     }
 
+    // --- FUNGSI AMBIL DATA NFT (Fix Loading Stuck) ---
+    async function fetchCardMetadata(postId, tokenURI) {
+        // Validasi URL
+        if (!tokenURI || tokenURI.length < 5) return;
+
+        try {
+            // 1. Gunakan Gateway Pinata (Lebih cepat dari ipfs:// biasa)
+            const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            
+            // 2. Ambil Data
+            const response = await fetch(url);
+            const meta = await response.json();
+
+            // --- PERBAIKAN UTAMA DI SINI (Update Tampilan) ---
+            
+            // Ganti teks "Loading..." dengan Nama Wayang
+            const nameEl = document.getElementById(`meta-name-${postId}`);
+            if (nameEl && meta.name) {
+                nameEl.innerText = meta.name;
+                nameEl.style.color = "#333"; // Ubah warna jadi hitam tegas
+            }
+
+            // Ganti teks "-" dengan Gagrak (jika ada)
+            const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
+            if (gagrakEl && meta.attributes) {
+                // Cari atribut "Gaya" atau "Gagrak"
+                const attr = meta.attributes.find(a => a.trait_type === "Gaya" || a.trait_type === "Gagrak");
+                if (attr) gagrakEl.innerText = attr.value;
+            }
+
+        } catch (e) {
+            // Jika gagal, tulis info
+            const nameEl = document.getElementById(`meta-name-${postId}`);
+            if(nameEl) nameEl.innerText = "Data tidak tersedia";
+        }
+        }
+
     // Fungsi untuk mengubah Enter jadi Spasi Bawah & Link jadi Biru
     function formatCaption(text) {
             if (!text) return "";
