@@ -484,24 +484,26 @@
             }
         }
 
-        // --- 3. FUNGSI LOAD LIVE (Blockchain) ---
+                // --- FUNGSI LOAD LIVE (VERSI INSTANT RENDER) ---
         async function loadCollectionLive(id) {
             try {
                 const index = id - 1;
                 
-                // 1. AMBIL DATA CEPAT (Blockchain Saja)
-                // Kita tidak menunggu Metadata IPFS di sini agar UI langsung muncul
+                // 1. AMBIL DATA UTAMA (Blockchain Cepat < 1 detik)
+                // Kita TIDAK menunggu Metadata IPFS disini
                 const post = await contract.posts(index);
                 const isNFT = post.nftId > 0;
-
+                
+                // Ambil profil author sekalian
                 const profile = await contract.getProfile(post.author);
                 
+                // Cek Owner (Jika NFT) - ini juga cepat
                 let ownerAddr = null;
                 if (isNFT) {
                     try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
                 }
 
-                // 2. TAMPILKAN UI SEGERA (Walau Metadata belum ada)
+                // 2. SIAPKAN DATA AWAL (Tanpa Metadata)
                 const basicData = {
                     caption: post.caption,
                     imageURI: post.imageURI,
@@ -516,52 +518,71 @@
                     authorNick: profile.nickname,
                     authorPhoto: profile.fotoProfil,
                     ownerAddr: ownerAddr,
-                    meta: null, // Biarkan kosong dulu
+                    meta: null, // Kosongkan dulu biar gak nunggu
                     isNFT: isNFT
                 };
 
-                // Render & Matikan Loading
-                renderUI(basicData);
+                // 3. 🔥 AKSI KILAT: TAMPILKAN UI SEKARANG! 🔥
+                // Jangan tunggu apa-apa lagi, langsung matikan loader
+                renderUI(basicData); 
                 document.getElementById("loadingState").style.display = "none";
                 document.getElementById("mainContent").style.display = "grid";
 
-                // Load komentar di background
+                // Load komentar & Link Opensea di background
                 loadPageComments(index);
+                const osBtn = document.getElementById("openseaLink");
+                if(osBtn) {
+                    osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${post.nftId}`;
+                    if(!isNFT) osBtn.style.display = "none";
+                }
 
-                // 3. BARU AMBIL METADATA (Latar Belakang)
-                // Jika ini lambat/gagal, user tidak peduli karena gambar & teks sudah muncul
+                // 4. BARU LOAD METADATA (BACKGROUND PROCESS)
+                // User sudah bisa lihat gambar & teks, jadi kalau ini lambat user tidak sadar.
                 if (post.tokenURI && post.tokenURI.length > 5) {
-                    console.log("⏳ Mengambil data detail NFT...");
                     
-                    // Beri indikator kecil di judul bahwa sedang loading data tambahan
+                    // Beri tanda kecil bahwa kita sedang mencari nama asli
                     const titleEl = document.getElementById("detailTitle");
-                    if(titleEl.innerText === "Tanpa Judul") {
-                        titleEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Mengambil Judul...`;
+                    if(titleEl.innerText === "Tanpa Judul" || titleEl.innerText === "Memuat Judul...") {
+                        titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
+                        titleEl.style.fontSize = "18px";
+                        titleEl.style.color = "#999";
                     }
 
+                    // Fetch dengan Timeout
                     const meta = await fetchMetadata(post.tokenURI);
                     
                     if (meta) {
-                        // Update UI jika berhasil
-                        if(meta.name) document.getElementById("detailTitle").innerText = meta.name;
+                        // UPDATE UI SUSULAN
+                        // Ganti judul loading tadi dengan Nama Asli Wayang
+                        if(meta.name) {
+                            titleEl.innerText = meta.name;
+                            titleEl.style.fontSize = "26px";
+                            titleEl.style.color = "#222";
+                        }
+                        // Isi tabel spesifikasi
                         renderMetaTable(meta.attributes);
                         
-                        // Simpan cache lengkap
+                        // Update simpanan cache agar besok-besok instant
                         basicData.meta = meta;
                         localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
                     } else {
-                        // Jika gagal, kembalikan ke default
-                        if(titleEl.innerText.includes("Mengambil")) titleEl.innerText = "Wayang Nusantara";
+                        // Jika gagal load metadata, kembalikan ke default cantik
+                        if(titleEl.innerText.includes("Mengambil")) {
+                            titleEl.innerText = "Koleksi Wayang";
+                            titleEl.style.fontSize = "26px";
+                            titleEl.style.color = "#222";
+                        }
                     }
                 }
 
             } catch (e) {
-                console.error("Error:", e);
-                // Matikan loading jika error fatal di blockchain
+                console.error("Critical Error:", e);
+                // Jika error parah (misal blockchain mati), baru tampilkan pesan error
+                // Cek dulu apakah cache berhasil tampil? Kalau ya, abaikan error ini.
                 const cacheKey = `post_cache_${id}`;
                 if(!localStorage.getItem(cacheKey)) {
                     document.getElementById("loadingState").innerHTML = 
-                        `<div style="margin-top:20px;">Gagal memuat.<br><button onclick="location.reload()" style="margin-top:10px; padding:5px 10px;">Coba Lagi</button></div>`;
+                        `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
                 }
             }
         }
