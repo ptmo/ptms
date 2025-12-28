@@ -1073,87 +1073,169 @@ window.disconnect = function() {
 
         // --- HELPER RENDER (Sama seperti sebelumnya) ---
         function renderPostLoop(postsArray, container, isCache) {
-            [...postsArray].reverse().forEach(post => {
-                const profileLink = `profile.html?addr=${post.author}`;
-                let imgHtml = "";
-                
-                // Optimasi Gambar 60KB
-                if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+    [...postsArray].reverse().forEach(post => {
+        const profileLink = `profile.html?addr=${post.author}`;
+        let imgHtml = "";
+        
+        // --- LOGIKA 1: Tombol Edit (Hanya Muncul untuk Pemilik Postingan) ---
+        let editPostIcon = "";
+        // Pastikan userAddress ada dan cocok dengan author
+        if (typeof userAddress !== 'undefined' && userAddress && post.author.toLowerCase() === userAddress.toLowerCase()) {
+            editPostIcon = `
+            <i class="fa-solid fa-pen-to-square" 
+               onclick="openPostEdit('${post.id}')" 
+               style="cursor:pointer; color:#999; font-size:14px; margin-left:auto;" 
+               title="Edit Postingan"></i>`;
+        }
 
-                    let metaBox = "";
-                    if(parseInt(post.nftId) > 0) {
-                        const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                        metaBox = `
-                        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                                <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
-                            </div>
-                            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                                <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
-                            </div>
-                            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                                <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
-                                <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
-                            </div>
-                        </div>`;
-                    }
+        // Optimasi Gambar
+        if(post.imageURI && post.imageURI.length > 5) {
+            const rawUrl = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
-                    imgHtml = `
-                    <div style="margin:10px -15px 0 -15px;">
-                        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                            <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
-                            ${metaBox}
-                        </a>
-                    </div>`;
-
-                    if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
-                        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
-                    }
-                }
-
-                const rCount = parseInt(post.ratingCount);
-                const rScore = parseInt(post.totalRatingScore);
-                const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
-                const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
-                
-                const html = `
-                <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
-                    <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
-                        <a href="${profileLink}">
-                            <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
-                        </a>
-                        <div class="post-info">
-                            <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                ${post.author.substring(0,6)}...
-                            </a>
-                            <div style="font-size: 11px; color: #999;">
-                                ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
-                            </div>
-                        </div>
+            let metaBox = "";
+            if(parseInt(post.nftId) > 0) {
+                const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
+                metaBox = `
+                <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+                        <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
                     </div>
-                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
-                    ${imgHtml}
-
-                    <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
-                         <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
-                         </button>
-                         <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
-                         </button>
-                         <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
-                            <i class="fa-solid fa-gift"></i>
-                         </button>
-                         <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
-                            <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
-                         </button>
+                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                        <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
+                    </div>
+                    <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
+                        <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
                     </div>
                 </div>`;
-                container.innerHTML += html;
-                fetchProfileLazy(post.author);
-            });
+            }
+
+            imgHtml = `
+            <div style="margin:10px -15px 0 -15px;">
+                <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
+                    <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
+                    ${metaBox}
+                </a>
+            </div>`;
+
+            if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
+                setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+            }
+        }
+
+        const rCount = parseInt(post.ratingCount);
+        const rScore = parseInt(post.totalRatingScore);
+        const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+        const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+        
+        const html = `
+        <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+            <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
+                <a href="${profileLink}">
+                    <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                </a>
+                
+                <div class="post-info" style="flex:1;"> 
+                    <div style="display:flex; justify-content:space-between; align-items:center;">
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                            ${post.author.substring(0,6)}...
+                        </a>
+                        ${editPostIcon} 
+                    </div>
+                    <div style="font-size: 11px; color: #999;">
+                        ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
+                    </div>
+                </div>
+            </div>
+
+            <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">
+                
+                <div id="post-view-txt-${post.id}">${formatCaption(post.caption)}</div>
+
+                <div id="post-edit-area-${post.id}" style="display:none; margin-top:10px;">
+                    <textarea id="post-input-edit-${post.id}" class="cp-input" style="width:100%; height:80px; font-size:14px; padding:10px; border:1px solid #ddd; border-radius:10px; font-family:sans-serif;">${post.caption}</textarea>
+                    
+                    <div style="display:flex; gap:10px; margin-top:8px; justify-content:flex-end;">
+                        <button onclick="cancelPostEdit('${post.id}')" style="background:none; border:none; color:#666; font-size:13px; cursor:pointer;">Batal</button>
+                        <button onclick="submitPostEdit('${post.id}')" style="background:#7385a5; color:white; border:none; padding:8px 20px; border-radius:20px; font-size:13px; cursor:pointer; font-weight:bold;">Simpan</button>
+                    </div>
+                </div>
+
+            </div>
+            
+            ${imgHtml}
+
+            <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
+                 <button class="action-btn" onclick="handleLike(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                    <i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> <span id="count-like-${post.id}">${post.likeCount}</span>
+                 </button>
+                 <button class="action-btn" onclick="openComments(${post.id})" style="background:none; border:none; cursor:pointer; color:#666; display:flex; gap:5px; align-items:center;">
+                    <i class="fa-regular fa-comment"></i> <span id="count-comment-${post.id}">${post.commentCount}</span>
+                 </button>
+                 <button class="action-btn" onclick="openSawerModal(${post.id})" style="background:none; border:none; cursor:pointer; color:#666;" title="Sawer">
+                    <i class="fa-solid fa-gift"></i>
+                 </button>
+                 <button class="action-btn" onclick="openRating(${post.id})" style="background:none; border:none; cursor:default; color:gold; display:flex; gap:5px; align-items:center;">
+                    <i class="fa-solid fa-star"></i> <span id="score-rating-${post.id}">${avgRating}</span>
+                 </button>
+            </div>
+        </div>`;
+        container.innerHTML += html;
+        fetchProfileLazy(post.author);
+    });
+  }
+
+        // --- LOGIKA EDIT POSTINGAN ---
+
+// 1. Buka Mode Edit
+function openPostEdit(postId) {
+    document.getElementById(`post-view-txt-${postId}`).style.display = 'none';
+    document.getElementById(`post-edit-area-${postId}`).style.display = 'block';
+    document.getElementById(`post-input-edit-${postId}`).focus();
+}
+
+// 2. Batalkan Edit
+function cancelPostEdit(postId) {
+    document.getElementById(`post-view-txt-${postId}`).style.display = 'block';
+    document.getElementById(`post-edit-area-${postId}`).style.display = 'none';
+}
+
+// 3. Simpan Perubahan ke Blockchain
+async function submitPostEdit(postId) {
+    const inputEl = document.getElementById(`post-input-edit-${postId}`);
+    const newText = inputEl.value;
+
+    if (!newText.trim()) return showToast("Postingan tidak boleh kosong", "error");
+
+    try {
+        // Tutup area edit (Optimistic UI)
+        cancelPostEdit(postId);
+        
+        // Tampilkan loading di teks asli
+        const viewEl = document.getElementById(`post-view-txt-${postId}`);
+        const oldText = viewEl.innerHTML;
+        viewEl.innerHTML = `<span style="color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Menyimpan ke blockchain...</span>`;
+
+        showToast("Konfirmasi transaksi...", "info");
+
+        // PANGGIL SMART CONTRACT
+        // Pastikan smart contract Anda punya fungsi: editPost(uint256 _id, string _newCaption)
+        const tx = await contract.editPost(postId, newText);
+        await tx.wait();
+
+        showToast("Postingan berhasil diedit!", "success");
+        
+        // Update Tampilan Akhir
+        viewEl.innerHTML = formatCaption(newText);
+        
+    } catch (e) {
+        console.error(e);
+        showToast("Gagal edit: " + (e.reason || e.message), "error");
+        // Kembalikan teks jika gagal
+        document.getElementById(`post-view-txt-${postId}`).innerText = inputEl.value; 
+    }
+}
                                                                           }
                 
         function updatePostAuthorUI(address, data) {
