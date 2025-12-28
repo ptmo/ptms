@@ -237,6 +237,53 @@
     from { opacity: 0; transform: scale(0.9); }
     to { opacity: 1; transform: scale(1); }
 }
+
+        /* --- BADGE GAYA / LOKASI (POJOK KIRI ATAS) --- */
+.geo-badge {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    z-index: 10; /* Di atas gambar */
+    
+    /* Efek Kaca Buram (Frosted Glass) */
+    background: rgba(255, 255, 255, 0.85);
+    backdrop-filter: blur(8px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    
+    /* Bentuk Kapsul */
+    padding: 8px 16px;
+    border-radius: 50px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    
+    /* Flexbox untuk ikon & teks */
+    display: none; /* Sembunyi dulu sampai data ada */
+    align-items: center;
+    gap: 8px;
+    
+    /* Animasi Muncul */
+    transition: all 0.3s ease;
+    animation: slideDown 0.5s ease-out;
+}
+
+.geo-badge i {
+    color: #7385a5; /* Warna Brand */
+    font-size: 14px;
+}
+
+.geo-badge span {
+    font-family: sans-serif;
+    font-weight: 700;
+    color: #444;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+        
     </style>
 </head>
 <body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
@@ -254,11 +301,18 @@
     </div>
 
     <div id="mainContent" class="collection-wrapper" style="display:none;">
-        
-        <div class="art-stage">
-            <img id="detailImg" src="" class="art-image" alt="Karya">
-        </div>
 
+                <div class="art-stage">
+            
+            <div id="originBadge" class="geo-badge">
+                <i class="fa-solid fa-globe-asia"></i>
+                <span id="originText">Nusantara</span>
+            </div>
+
+            <img id="detailImg" src="" class="art-image" alt="Karya">
+            
+                </div>
+        
         <div class="art-info">
             
             <div style="margin-bottom:20px;">
@@ -596,6 +650,26 @@ async function loadCollectionLive(id) {
                 
                 basicData.meta = meta;
                 localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+
+                if (meta.attributes) {
+                    // Cari atribut yang namanya mengandung "Gaya", "Gagrak", atau "Asal"
+                    const gayaAttr = meta.attributes.find(attr => 
+                        attr.trait_type.toLowerCase().includes("gaya") || 
+                        attr.trait_type.toLowerCase().includes("gagrak") ||
+                        attr.trait_type.toLowerCase().includes("origin")
+                    );
+
+                    const badgeEl = document.getElementById("originBadge");
+                    const textEl = document.getElementById("originText");
+
+                    if (gayaAttr && gayaAttr.value && gayaAttr.value !== "-") {
+                        textEl.innerText = gayaAttr.value; // Contoh: "CIREBON"
+                        badgeEl.style.display = "flex";    // Munculkan Badge
+                    } else {
+                        badgeEl.style.display = "none";    // Sembunyikan jika tidak ada data
+                    }
+                }
+                
             } else {
                 if(titleEl.innerText.includes("Mengambil")) {
                     titleEl.innerText = "Koleksi Wayang"; 
