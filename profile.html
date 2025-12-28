@@ -501,15 +501,31 @@
         </div>
     </div>
 
-    <dialog id="editModal" style="border:none; border-radius:10px; padding:20px; width:90%; max-width:400px; box-shadow:0 0 20px rgba(0,0,0,0.3);">
-        <h3 style="margin-top:0;">Edit Profil</h3>
-        <input type="text" id="editBio" class="cp-input" style="width:100%; margin-bottom:10px;" placeholder="Bio Baru">
-        <input type="text" id="editLoc" class="cp-input" style="width:100%; margin-bottom:10px;" placeholder="Lokasi Baru">
-        <label style="font-size:12px;">Foto Baru (Opsional)</label>
-        <input type="file" id="editFoto" class="cp-input">
+    <dialog id="editModal" style="border:none; border-radius:15px; padding:25px; width:90%; max-width:400px; box-shadow:0 10px 40px rgba(0,0,0,0.3);">
+        <h3 style="margin-top:0; color:#333;">Edit Profil</h3>
+        
+        <div style="margin-bottom:15px;">
+            <label style="font-size:12px; font-weight:bold; color:#7385a5;">Foto Sampul / Header</label>
+            <div style="border:2px dashed #ddd; padding:10px; border-radius:10px; text-align:center; cursor:pointer;" onclick="document.getElementById('editHeaderFile').click()">
+                <span id="headerFileName" style="font-size:12px; color:#999;">Klik ganti sampul...</span>
+            </div>
+            <input type="file" id="editHeaderFile" hidden accept="image/*" onchange="document.getElementById('headerFileName').innerText = this.files[0].name">
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <label style="font-size:12px; font-weight:bold; color:#7385a5;">Foto Profil</label>
+            <div style="border:2px dashed #ddd; padding:10px; border-radius:10px; text-align:center; cursor:pointer;" onclick="document.getElementById('editFoto').click()">
+                <span id="avatarFileName" style="font-size:12px; color:#999;">Klik ganti avatar...</span>
+            </div>
+            <input type="file" id="editFoto" hidden accept="image/*" onchange="document.getElementById('avatarFileName').innerText = this.files[0].name">
+        </div>
+
+        <input type="text" id="editBio" class="cp-input" style="width:100%; margin-bottom:10px;" placeholder="Bio Singkat">
+        <input type="text" id="editLoc" class="cp-input" style="width:100%; margin-bottom:10px;" placeholder="Lokasi (Cth: Jakarta)">
+        
         <div style="display:flex; justify-content:flex-end; gap:10px; margin-top:15px;">
-            <button onclick="document.getElementById('editModal').close()" style="background:none; border:none; cursor:pointer;">Batal</button>
-            <button onclick="submitEditProfile()" class="btn-primary">Simpan</button>
+            <button onclick="document.getElementById('editModal').close()" style="background:none; border:1px solid #ddd; padding:8px 15px; border-radius:8px; cursor:pointer;">Batal</button>
+            <button onclick="submitEditProfile()" class="btn-primary" style="padding:8px 20px; border-radius:8px;">Simpan</button>
         </div>
     </dialog>
 
@@ -954,19 +970,41 @@ window.disconnect = function() {
         const ownerNick = data.nickname || "Tanpa Nama";
         const ownerWallet = addr.substring(0,6) + "..." + addr.substring(38);
         
+        // 1. Parsing Avatar
         let ownerAvatar = "https://via.placeholder.com/100";
         if(data.fotoProfil && data.fotoProfil.length > 5) {
             const rawAvatar = data.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
             ownerAvatar = `https://wsrv.nl/?url=${encodeURIComponent(rawAvatar)}&w=150&q=70&output=webp`;
         }
 
+        // 2. Parsing Lokasi & Header (LOGIKA BARU)
+        let displayLoc = "-";
+        let displayHeader = "https://images.unsplash.com/photo-1605634352182-e64409384bb2?q=80&w=800&auto=format&fit=crop"; // Default Default
+        
+        if (data.lokasi) {
+            const parts = data.lokasi.split('|||'); // Pecah string
+            displayLoc = parts[0] || "-"; // Bagian depan adalah Teks Lokasi
+            
+            if (parts[1] && parts[1].length > 5) {
+                // Bagian belakang adalah URL Header
+                const rawHeader = parts[1].replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                displayHeader = `https://wsrv.nl/?url=${encodeURIComponent(rawHeader)}&w=800&q=60&output=webp`;
+            }
+        }
+
+        // 3. Update DOM
         document.getElementById("pNick").innerText = ownerNick;
         document.getElementById("pBio").innerText = data.bio || "-";
-        document.getElementById("pLoc").innerText = data.lokasi || "-";
+        document.getElementById("pLoc").innerText = displayLoc; // Tampilkan Lokasi Saja (tanpa URL)
         document.getElementById("pWallet").innerText = ownerWallet;
         document.getElementById("pAvatar").src = ownerAvatar;
+        
+        // Update Gambar Header (Pastikan ada elemen img di dalam div header)
+        // Cari gambar pertama di dalam .card (karena kita tidak kasih ID khusus ke img header tadi)
+        const cardHeaderImg = document.querySelector(".card img"); 
+        if(cardHeaderImg) cardHeaderImg.src = displayHeader;
     }
-
+        
     // --- 3. HELPER RENDER POSTS ---
     function renderPostsUI(postsArray, addr) {
         const container = document.getElementById("profileFeed");
@@ -1283,58 +1321,77 @@ window.disconnect = function() {
     // --- EDIT & KOMENTAR & SAWER ---
     function openEditModal() { document.getElementById('editModal').showModal(); }
     async function submitEditProfile() {
-    // 1. Ambil Data Input
-    const bio = document.getElementById("editBio").value;
-    const loc = document.getElementById("editLoc").value;
-    const fileAsli = document.getElementById("editFoto").files[0]; // File Mentah
+        // 1. Ambil Input
+        const bio = document.getElementById("editBio").value;
+        const locText = document.getElementById("editLoc").value; 
+        const fileAvatar = document.getElementById("editFoto").files[0];
+        const fileHeader = document.getElementById("editHeaderFile").files[0];
 
-    // Cek jika tidak ada yang diisi
-    if(!bio && !loc && !fileAsli) return showToast("Tidak ada perubahan", "info");
+        // Validasi
+        if(!bio && !locText && !fileAvatar && !fileHeader) return showToast("Tidak ada perubahan", "info");
 
-    try {
-        // 2. Ambil data profil lama dari blockchain (untuk backup jika field kosong)
-        const p = await contract.getProfile(userAddress);
-        let imgUri = p.fotoProfil; // Default pakai foto lama
-
-        // --- LOGIKA BARU: KOMPRESI & UPLOAD ---
-        if (fileAsli) { 
-            // A. Kompresi Paksa
-            showToast("Mengompres Gambar (Max 35KB)...", "info");
+        try {
+            // 2. Ambil Data Lama
+            const p = await contract.getProfile(userAddress);
+            let finalAvatar = p.fotoProfil;
             
-            // Parameter: (File, Target 35KB, Lebar 400px)
-            // Menggunakan helper 'customCompress' yang sudah kita buat sebelumnya
-            const fileSiap = await customCompress(fileAsli, 35, 400); 
+            // Pisahkan Lokasi & Header Lama
+            let oldLocData = p.lokasi.split('|||');
+            let finalLocText = locText || oldLocData[0] || ""; 
+            let finalHeaderUrl = oldLocData[1] || ""; 
 
-            // B. Upload ke Pinata
-            showToast("Mengupload ke IPFS...", "info");
-            // Menggunakan helper 'uploadToPinata'
-            imgUri = await uploadToPinata(fileSiap); 
+            showToast("Memproses data...", "info");
+
+            // 3. Upload Avatar (Tetap ke IPFS/Pinata agar terdesentralisasi - Opsional)
+            if (fileAvatar) { 
+                showToast("Mengunggah Avatar...", "info");
+                const compressed = await customCompress(fileAvatar, 35, 400); 
+                finalAvatar = await uploadToPinata(compressed); 
+            }
+
+            // 4. Upload Header (SEKARANG KE IMGBB)
+            if (fileHeader) {
+                showToast("Mengunggah Header ke ImgBB...", "info");
+                // Kompres sedikit agar upload cepat (Max 200KB)
+                const compressedHeader = await customCompress(fileHeader, 200, 1000);
+                
+                // --- PAKAI FUNGSI BARU INI ---
+                finalHeaderUrl = await uploadToImgBB(compressedHeader);
+            }
+
+            // 5. Gabungkan Data (Piggybacking)
+            let combinedLocation = finalLocText;
+            if (finalHeaderUrl) {
+                combinedLocation = finalLocText + "|||" + finalHeaderUrl;
+            }
+
+            // 6. Kirim ke Blockchain
+            showToast("Konfirmasi Wallet...", "info");
+            
+            const tx = await contract.updateProfile(
+                p.nickname, 
+                finalAvatar, 
+                bio || p.bio, 
+                combinedLocation 
+            );
+            
+            showToast("Sedang Mining...", "info");
+            await tx.wait();
+            
+            showToast("Profil Berhasil Diupdate!", "success");
+            
+            // Hapus cache agar perubahan terlihat
+            const cacheKey = `profile_v1_${userAddress.toLowerCase()}`;
+            localStorage.removeItem(cacheKey);
+            
+            setTimeout(() => window.location.reload(), 1000);
+
+        } catch(e) { 
+            console.error(e);
+            showToast("Gagal: " + (e.reason || e.message), "error"); 
         }
-        // -------------------------------------
-
-        // 3. Kirim ke Blockchain
-        showToast("Konfirmasi Wallet...", "info");
+        }
         
-        // Logika: Jika input kosong, pakai data lama (p.bio / p.lokasi)
-        const tx = await contract.updateProfile(
-            p.nickname, 
-            imgUri, 
-            bio || p.bio, 
-            loc || p.lokasi
-        );
-        
-        showToast("Sedang Mining...", "info");
-        await tx.wait();
-        
-        showToast("Update Profil Sukses!", "success");
-        setTimeout(() => location.reload(), 2000);
-
-    } catch(e) { 
-        console.error(e);
-        showToast("Gagal update: " + (e.reason || e.message), "error"); 
-    }
-    }
-
     function openNickModal() {
         document.getElementById("freeCount").innerText = myChangeCount;
         const btn = document.getElementById("btnSaveNick");
@@ -1603,7 +1660,34 @@ async function submitEditComment(postIndex, commentIndex) {
             }
         }
     }
+        
+      // --- FUNGSI UPLOAD KE IMGBB (WEB2 STORAGE) ---
+async function uploadToImgBB(file) {
+    // 1. GANTI INI DENGAN API KEY ANDA DARI api.imgbb.com
+    const API_KEY = "a78304c07b3a970950fd369b425441da"; 
+    
+    const formData = new FormData();
+    formData.append("image", file);
 
+    try {
+        const res = await fetch(`https://api.imgbb.com/1/upload?key=${API_KEY}`, {
+            method: "POST",
+            body: formData
+        });
+        
+        const data = await res.json();
+        
+        if (data.success) {
+            return data.data.url; // Mengembalikan URL langsung (https://i.ibb.co/...)
+        } else {
+            throw new Error("Gagal upload ke ImgBB");
+        }
+    } catch (e) {
+        console.error("ImgBB Error:", e);
+        throw e;
+    }
+}
+        
         function formatCaption(text) {
         if (!text) return "";
         let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
