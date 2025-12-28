@@ -981,15 +981,23 @@ window.disconnect = function() {
         });
     }
 
-    // --- UPDATE FUNGSI RENDER HEADER ---
+    // --- 2. HELPER RENDER HEADER (FIX BROKEN AVATAR) ---
     function renderHeaderUI(data, addr) {
         const ownerNick = data.nickname || "Tanpa Nama";
         const ownerWallet = addr.substring(0,6) + "..." + addr.substring(38);
         
         // 1. Parsing Avatar (Foto Profil)
-        let ownerAvatar = "https://via.placeholder.com/100";
-        if(data.fotoProfil && data.fotoProfil.length > 5) {
-            const rawAvatar = data.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        // Default avatar jika data kosong atau error
+        let ownerAvatar = "https://via.placeholder.com/100"; 
+
+        if (data.fotoProfil && data.fotoProfil.length > 5) {
+            // Cek apakah link IPFS atau link biasa (ImgBB, dll)
+            let rawAvatar = data.fotoProfil;
+            if (rawAvatar.startsWith('ipfs://')) {
+                rawAvatar = rawAvatar.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            }
+            
+            // Gunakan wsrv.nl untuk optimasi & cache gambar
             ownerAvatar = `https://wsrv.nl/?url=${encodeURIComponent(rawAvatar)}&w=150&q=70&output=webp`;
         }
 
@@ -1015,13 +1023,25 @@ window.disconnect = function() {
         document.getElementById("pLoc").innerText = displayLoc;
         document.getElementById("pWallet").innerText = ownerWallet;
         
-        // Update Foto Profil
-        document.getElementById("pAvatar").src = ownerAvatar;
+        // Update Foto Profil dengan Error Handling
+        const avatarEl = document.getElementById("pAvatar");
+        if(avatarEl) {
+            avatarEl.src = ownerAvatar;
+            // Jika gambar gagal dimuat (broken link), ganti ke placeholder
+            avatarEl.onerror = function() { 
+                this.src = "https://via.placeholder.com/100?text=No+Img"; 
+            };
+        }
         
-        // --- FIX UTAMA DI SINI: Update Gambar Header ---
+        // Update Gambar Header
         const headerImg = document.getElementById("headerImage"); 
-        if(headerImg) headerImg.src = displayHeader;
+        if(headerImg) {
+            headerImg.src = displayHeader;
+            headerImg.onerror = function() {
+                this.src = "https://images.unsplash.com/photo-1605634352182-e64409384bb2?q=80&w=800&auto=format&fit=crop";
             }
+        }
+    }
         
     // --- 3. HELPER RENDER POSTS ---
     function renderPostsUI(postsArray, addr) {
