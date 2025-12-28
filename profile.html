@@ -883,43 +883,21 @@ window.disconnect = function() {
 
     // --- 5. HELPER RENDER FEED ---
 function renderPostsUI(postsArray, addr) {
-    const container = document.getElementById("profileFeed");
-    // Safety Check 1: Pastikan container ada
-    if (!container) return;
-    
-    container.innerHTML = "";
+        const container = document.getElementById("profileFeed");
+        container.innerHTML = "";
 
-    if(!postsArray || postsArray.length === 0) {
-        container.innerHTML = "<p style='text-align:center; color:#999; margin-top:30px;'>Belum ada postingan.</p>";
-        return;
-    }
-    
-    // Safety Check 2: Ambil Data Header dengan Aman (Agar tidak error jika loading lambat)
-    const nickEl = document.getElementById("pNick");
-    const currentOwnerNick = nickEl ? nickEl.innerText : "User";
+        if(postsArray.length === 0) {
+            container.innerHTML = "<p style='text-align:center; color:#999; margin-top:30px;'>Belum ada postingan.</p>";
+            return;
+        }
+        
+        // Ambil Nickname pemilik profil (dari DOM yang sudah terisi)
+        const currentOwnerNick = document.getElementById("pNick").innerText;
 
-    const avatarEl = document.getElementById("pAvatar");
-    const headerAvatarSrc = avatarEl ? avatarEl.src : "https://via.placeholder.com/40";
-
-    // Loop Data
-    [...postsArray].reverse().forEach(post => {
-        try {
+        // Loop Data (Reverse)
+        [...postsArray].reverse().forEach(post => {
             const profileLink = `profile.html?addr=${post.author}`;
             
-            // --- LOGIKA EDIT (User Login == Pemilik Post) ---
-            let editPostIcon = "";
-            const currentUser = window.userAddress || (typeof userAddress !== 'undefined' ? userAddress : null);
-            
-            if (currentUser && post.author && currentUser.toLowerCase() === post.author.toLowerCase()) {
-                editPostIcon = `
-                <div style="margin-left:auto;">
-                    <i class="fa-solid fa-pen-to-square" 
-                       onclick="openPostEdit('${post.id}')" 
-                       style="cursor:pointer; color:#999; font-size:14px;" 
-                       title="Edit Postingan"></i>
-                </div>`;
-            }
-
             // --- LOGIKA GAMBAR ---
             let imgHtml = "";
             if(post.imageURI && post.imageURI.length > 5) {
@@ -927,6 +905,7 @@ function renderPostsUI(postsArray, addr) {
                 const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
                 let metaBox = "";
+                // Cek NFT ID (ParseInt karena dari JSON string)
                 if(parseInt(post.nftId) > 0) {
                     metaBox = `
                     <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
@@ -951,15 +930,20 @@ function renderPostsUI(postsArray, addr) {
                     </a>
                 </div>`;
                 
+                // Fetch Metadata (Hanya jika belum ada di cache DOM/Memory)
                 if(parseInt(post.nftId) > 0 && post.tokenURI) {
                     setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
                 }
             }
 
+            // Hitung Rating
             const rCount = parseInt(post.ratingCount);
             const rScore = parseInt(post.totalRatingScore);
             const avgRating = rCount > 0 ? (rScore/rCount).toFixed(1) : '0.0';
             const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+
+            // Ambil Avatar Header (sudah dirender sebelumnya)
+            const headerAvatarSrc = document.getElementById("pAvatar").src;
 
             const html = `
                 <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
@@ -967,32 +951,17 @@ function renderPostsUI(postsArray, addr) {
                         <a href="${profileLink}">
                             <img src="${headerAvatarSrc}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
                         </a>
-                        
-                        <div class="post-info" style="flex:1;">
-                            <div style="display:flex; justify-content:space-between; align-items:center;">
-                                <a href="${profileLink}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                                    ${currentOwnerNick}
-                                </a>
-                                ${editPostIcon}
-                            </div>
+                        <div class="post-info">
+                            <a href="${profileLink}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                                ${currentOwnerNick}
+                            </a>
                             <div style="font-size: 11px; color: #999;">
                                 ${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}
                             </div>
                         </div>
                     </div>
 
-                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">
-                        <div id="post-view-txt-${post.id}">${formatCaption(post.caption)}</div>
-                        
-                        <div id="post-edit-area-${post.id}" style="display:none; margin-top:10px;">
-                            <textarea id="post-input-edit-${post.id}" class="cp-input" style="width:100%; height:80px; font-size:14px; padding:10px; border:1px solid #ddd; border-radius:10px; font-family:sans-serif;">${post.caption}</textarea>
-                            <div style="display:flex; gap:10px; margin-top:8px; justify-content:flex-end;">
-                                <button onclick="cancelPostEdit('${post.id}')" style="background:none; border:none; color:#666; font-size:13px; cursor:pointer;">Batal</button>
-                                <button onclick="submitPostEdit('${post.id}')" style="background:#7385a5; color:white; border:none; padding:8px 20px; border-radius:20px; font-size:13px; cursor:pointer; font-weight:bold;">Simpan</button>
-                            </div>
-                        </div>
-                    </div>
-
+                    <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">${formatCaption(post.caption)}</div>
                     ${imgHtml}
 
                     <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around; align-items:center;">
@@ -1013,14 +982,8 @@ function renderPostsUI(postsArray, addr) {
                             </button>
                     </div>
                 </div>`;
-            
-            // GUNAKAN INI AGAR LEBIH STABIL DIBANDING innerHTML +=
-            container.insertAdjacentHTML('beforeend', html);
-
-        } catch (e) {
-            console.error("Error render post:", e);
-        }
-    });
+            container.innerHTML += html;
+        });
 }
 
     // --- LOGIKA EDIT POSTINGAN ---
