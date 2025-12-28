@@ -350,53 +350,91 @@ function showToast(msg, type="info") {
     setTimeout(() => t.className = t.className.replace("show", ""), 3000);
                                   }
 
-// --- LOGIKA BADGE NOTIFIKASI (LOCAL STORAGE) ---
-
-// Panggil ini di window.onload atau initApp
+// --- 1. FUNGSI BADGE (DIPERBAIKI TIMESTAMPNYA) ---
 async function updateNotifBadge() {
-    if(!contract || !userAddress) return;
+    // Cek koneksi dasar
+    if (!contract || !userAddress) return;
 
     try {
-        // 1. Ambil semua notifikasi dari Blockchain
+        // A. Ambil Notifikasi dari Blockchain
         const notifs = await contract.getMyNotifications();
         
-        // 2. Ambil waktu terakhir user buka halaman notif dari LocalStorage
-        // Default 0 jika belum pernah buka
-        const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+        // B. Ambil waktu terakhir cek (Pastikan konversi aman)
+        let lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+        lastCheck = parseInt(lastCheck); 
 
-        // 3. Hitung notifikasi yang timestamp-nya LEBIH BARU dari lastCheck
-        // Solidity timestamp dalam detik, JS Date.now() dalam ms. Kita pakai detik.
-        const unreadCount = notifs.filter(n => n.timestamp > lastCheck).length;
+        // C. Perbaikan Logika Timestamp (Detik vs Milidetik)
+        // Jika lastCheck terlalu besar (indikasi milidetik), kita bagi 1000
+        if (lastCheck > 1000000000000) { 
+            lastCheck = Math.floor(lastCheck / 1000);
+        }
 
-        // 4. Update UI Badge
+        // D. Filter: Hanya ambil yang waktunya DI ATAS lastCheck
+        const unreadCount = notifs.filter(n => parseInt(n.timestamp) > lastCheck).length;
+
+        // E. Update Semua Badge di UI
         const badges = document.querySelectorAll('.nav-badge');
         badges.forEach(badge => {
             if (unreadCount > 0) {
                 badge.style.display = 'flex';
+                // Tampilkan 99+ jika kebanyakan, biar rapi
                 badge.innerText = unreadCount > 99 ? '99+' : unreadCount;
+                
+                // Efek denyut (Pulse) agar user sadar ada notif baru
+                badge.classList.add("pulse-animation");
             } else {
                 badge.style.display = 'none';
+                badge.classList.remove("pulse-animation");
             }
         });
 
     } catch (e) {
-        console.log("Badge error (Silent):", e);
+        // Error silent agar tidak mengganggu UX
+        console.warn("Badge Sync Skip:", e.message);
     }
 }
 
+// --- 2. FUNGSI REAL-TIME LISTENER (AGAR INSTANT) ---
+// Panggil fungsi ini SEKALI saja saat initApp()
+function setupRealtimeListener() {
+    if (!contract || !userAddress) return;
+
+    // Dengarkan Event: Sawer
+    // Filter event agar hanya bereaksi jika 'to' (penerima) adalah kita
+    const filterSawer = contract.filters.Sawer(null, userAddress);
+    contract.on(filterSawer, () => {
+        showToast("🔔 Ada Saweran Masuk!", "success");
+        updateNotifBadge(); // Refresh badge langsung
+    });
+
+    // Dengarkan Event: Interaksi (Like/Komen)
+    // Asumsi kontrak Anda punya event NewInteraction(from, to, action)
+    const filterInteract = contract.filters.NewInteraction(null, userAddress);
+    contract.on(filterInteract, (from, to, action) => {
+        // Jangan notif jika interaksi sendiri
+        if (from.toLowerCase() !== userAddress.toLowerCase()) {
+            showToast(`🔔 Notifikasi Baru: ${action}`, "info");
+            updateNotifBadge();
+        }
+    });
+
+    console.log("✅ Real-time Listener Aktif");
+}
+
+
 // ==========================================
-// 1. FUNGSI SUBMIT POSTING (UTAMA)
+// 1. FUNGSI SUBMIT POSTING (UTAMA - DIPERBAIKI)
 // ==========================================
 async function submitPost() {
-    const caption = document.getElementById("mainCaption").value;
+    const captionInput = document.getElementById("mainCaption");
+    const caption = captionInput.value;
 
     // SKENARIO A: POSTING NFT (WAYANG)
     if (pendingNftData) {
         try {
             showToast("1/3 Upload Gambar ke IPFS...", "info");
             
-            // 1. Upload Gambar (File sudah dikompres saat saveNftDraft)
-            // Menggunakan fungsi dari ipfs_helper.js
+            // 1. Upload Gambar ke Pinata
             const imgCid = await uploadToPinata(pendingNftData.file);
             
             // 2. Buat JSON Metadata
@@ -404,7 +442,7 @@ async function submitPost() {
             const metadata = {
                 name: pendingNftData.name,
                 description: caption,
-                image: imgCid,
+                image: `ipfs://${imgCid}`, // Simpan URI lengkap di metadata
                 attributes: [
                     { trait_type: "Golongan", value: pendingNftData.attributes.golongan },
                     { trait_type: "Gaya", value: pendingNftData.attributes.gaya },
@@ -418,17 +456,20 @@ async function submitPost() {
             };
 
             // 3. Upload JSON Metadata
-            // JSON tidak perlu dikompres, langsung upload
             const blob = new Blob([JSON.stringify(metadata)], { type: 'application/json' });
             const metaFile = new File([blob], "metadata.json");
             const metaCid = await uploadToPinata(metaFile);
 
-            // 4. Kirim ke Blockchain (Bayar 0.0001 ETH)
+            // 4. Kirim ke Blockchain
             showToast("3/3 Konfirmasi Wallet (0.0001 ETH)...", "info");
             
+            // Format URI untuk kontrak
+            const finalImgUri = `ipfs://${imgCid}`;
+            const finalMetaUri = `ipfs://${metaCid}`;
+
             const tx = await contract.createPost(
-                imgCid, 
-                metaCid, 
+                finalImgUri, 
+                finalMetaUri, 
                 caption, 
                 { value: ethers.utils.parseEther("0.0001") }
             );
@@ -438,28 +479,34 @@ async function submitPost() {
             
             // Bersihkan
             cancelNft();
-            document.getElementById("mainCaption").value = "";
+            captionInput.value = "";
             setTimeout(() => location.reload(), 2000); 
 
         } catch (e) {
             console.error(e);
-            showToast("Gagal: " + (e.reason || e.message), "error");
+            if (e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Transaksi dibatalkan user.", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
         }
     } 
 
     // SKENARIO B: POSTING TEKS BIASA (GRATIS)
     else {
-        if(!caption) return showToast("Tulis sesuatu dulu!", "error");
+        if(!caption.trim()) return showToast("Tulis sesuatu dulu!", "error");
 
         try {
             showToast("Mengirim status...", "info");
+            // Kirim string kosong untuk imgURI dan tokenURI
             const tx = await contract.createPost("", "", caption); 
             await tx.wait();
 
             showToast("Berhasil Posting!", "success");
-            document.getElementById("mainCaption").value = "";
+            captionInput.value = "";
             setTimeout(() => location.reload(), 2000);
         } catch(e) {
+            console.error(e);
             showToast("Gagal: " + (e.reason || e.message), "error");
         }
     }
@@ -484,11 +531,9 @@ function previewInModal(input) {
 // 3. FUNGSI SIMPAN DRAFT (KOMPRESI DISINI)
 // ==========================================
 async function saveNftDraft() {
-    // A. Ambil Elemen Input Utama
     const nameInput = document.getElementById("mName");
     const fileInput = document.getElementById("modalFileInput");
     
-    // B. Validasi (Wajib diisi)
     if (!nameInput.value.trim()) {
         return showToast("Nama Tokoh Wayang wajib diisi!", "error");
     }
@@ -496,30 +541,21 @@ async function saveNftDraft() {
         return showToast("Foto Fisik Wayang wajib dipilih!", "error");
     }
 
-    // --- LOGIKA KOMPRESI HELPER ---
     let finalFile = fileInput.files[0];
-    
     showToast("Memproses gambar (Target 500KB)...", "info");
 
     try {
-        // Panggil customCompress dari ipfs_helper.js
-        // Target: 500 KB
-        // Dimensi: 1500 px (Agar tetap tajam untuk NFT Wayang)
+        // Asumsi fungsi customCompress sudah ada di ipfs_helper.js
         finalFile = await customCompress(finalFile, 500, 1500);
-        
         console.log(`✅ Gambar Siap NFT: ${(finalFile.size / 1024).toFixed(2)} KB`);
     } catch (e) {
         console.error(e);
         return showToast("Gagal memproses gambar.", "error");
     }
-    // -----------------------------
 
-    // C. Ambil Nilai dari Dropdown
     const golongan = document.getElementById("mGolongan").value;
     const gaya = document.getElementById("mGaya").value;
 
-    // D. Simpan ke Variabel Global (pendingNftData)
-    // NOTE: Kita simpan 'finalFile' yang SUDAH dikompresi
     pendingNftData = {
         name: nameInput.value,
         file: finalFile, 
@@ -535,7 +571,6 @@ async function saveNftDraft() {
         }
     };
 
-    // E. Update Tampilan Utama
     document.getElementById("nftModal").close(); 
     
     const indicator = document.getElementById("nftReadyIndicator");
@@ -553,23 +588,19 @@ async function saveNftDraft() {
 function cancelNft() {
     pendingNftData = null;
 
-    // Sembunyikan Indikator
     const indicator = document.getElementById("nftReadyIndicator");
     if (indicator) indicator.style.display = "none";
 
-    // Reset Input File & Nama
     document.getElementById("modalFileInput").value = "";
     document.getElementById("modalFilePreview").innerText = "";
     document.getElementById("mName").value = "";
-
-    // Reset Dropdown
     document.getElementById("mGolongan").selectedIndex = 0;
     document.getElementById("mGaya").selectedIndex = 0;
 
-    // Reset Input Teks Lainnya
     const textIds = ['mBahan', 'mGapit', 'mPenatah', 'mPenyungging', 'mTahun', 'mKolektor'];
     textIds.forEach(id => {
-        document.getElementById(id).value = "";
+        const el = document.getElementById(id);
+        if(el) el.value = "";
     });
 
     showToast("Mode Arsip Dibatalkan.", "info");
@@ -577,17 +608,15 @@ function cancelNft() {
 
 // --- FUNGSI HELPER FETCH METADATA ---
 async function fetchCardMetadata(postId, tokenUri) {
-    if (!tokenUri) return;
+    if (!tokenUri || tokenUri.length < 5) return; // Validasi tambahan
     try {
         const url = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
         const res = await fetch(url);
         const meta = await res.json();
 
-        // 1. Update Nama
         const nameEl = document.getElementById(`meta-name-${postId}`);
         if(nameEl) nameEl.innerText = meta.name || "Tanpa Nama";
 
-        // 2. Update Gagrak
         const gagrakEl = document.getElementById(`meta-gagrak-${postId}`);
         if(gagrakEl && meta.attributes) {
             const attr = meta.attributes.find(a => 
@@ -597,7 +626,7 @@ async function fetchCardMetadata(postId, tokenUri) {
             else gagrakEl.innerText = "-";
         }
     } catch (e) {
-        console.warn(`Gagal load metadata post ${postId}`);
+        console.warn(`Gagal load metadata post ${postId}`, e);
     }
 }
 
