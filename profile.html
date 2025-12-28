@@ -986,57 +986,6 @@ function renderPostsUI(postsArray, addr) {
         });
 }
 
-    // --- LOGIKA EDIT POSTINGAN ---
-
-// 1. Buka Mode Edit
-function openPostEdit(postId) {
-    document.getElementById(`post-view-txt-${postId}`).style.display = 'none';
-    document.getElementById(`post-edit-area-${postId}`).style.display = 'block';
-    document.getElementById(`post-input-edit-${postId}`).focus();
-}
-
-// 2. Batalkan Edit
-function cancelPostEdit(postId) {
-    document.getElementById(`post-view-txt-${postId}`).style.display = 'block';
-    document.getElementById(`post-edit-area-${postId}`).style.display = 'none';
-}
-
-// 3. Simpan Perubahan ke Blockchain
-async function submitPostEdit(postId) {
-    const inputEl = document.getElementById(`post-input-edit-${postId}`);
-    const newText = inputEl.value;
-
-    if (!newText.trim()) return showToast("Postingan tidak boleh kosong", "error");
-
-    try {
-        // Tutup area edit (Optimistic UI)
-        cancelPostEdit(postId);
-        
-        // Tampilkan loading di teks asli
-        const viewEl = document.getElementById(`post-view-txt-${postId}`);
-        const oldText = viewEl.innerHTML;
-        viewEl.innerHTML = `<span style="color:#999;"><i class="fa-solid fa-spinner fa-spin"></i> Menyimpan ke blockchain...</span>`;
-
-        showToast("Konfirmasi transaksi...", "info");
-
-        // PANGGIL SMART CONTRACT
-        // Pastikan smart contract Anda punya fungsi: editPost(uint256 _id, string _newCaption)
-        const tx = await contract.editPost(postId, newText);
-        await tx.wait();
-
-        showToast("Postingan berhasil diedit!", "success");
-        
-        // Update Tampilan Akhir
-        viewEl.innerHTML = formatCaption(newText);
-        
-    } catch (e) {
-        console.error(e);
-        showToast("Gagal edit: " + (e.reason || e.message), "error");
-        // Kembalikan teks jika gagal
-        document.getElementById(`post-view-txt-${postId}`).innerText = inputEl.value; 
-    }                      
-}
-
     // --- 2. HELPER RENDER HEADER (FIX BROKEN AVATAR) ---
     function renderHeaderUI(data, addr) {
         const ownerNick = data.nickname || "Tanpa Nama";
