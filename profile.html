@@ -153,8 +153,10 @@
 
     <input type="file" id="coverInput" accept="image/*" style="display:none;" onchange="processCoverImage(this)">
 
-</div>
+    <h4 style="margin: 20px 0 10px; color: #7385a5;">Postingan</h4>
+    <div id="profileFeed"></div>
 
+        </div>
             <h4 style="margin: 20px 0 10px; color: #7385a5;">Postingan</h4>
             <div id="profileFeed"></div>
         </div>
@@ -518,11 +520,34 @@
             ownerAvatar = `https://wsrv.nl/?url=${encodeURIComponent(rawAvatar)}&w=150&q=70&output=webp`;
         }
 
+        // LOGIKA BARU: PISAHKAN BIO DAN SAMPUL (||BG||)
+        let bioText = data.bio || "-";
+        let coverLink = "https://via.placeholder.com/1200x400/7385a5/ffffff?text=Wayang+Nusantara"; // Default Cover
+
+        if (bioText && bioText.includes("||BG||")) {
+            const parts = bioText.split("||BG||");
+            bioText = parts[0].trim();   // Ambil teks bio asli
+            coverLink = parts[1].trim(); // Ambil link gambar sampul
+        }
+
+        // Render ke HTML
         document.getElementById("pNick").innerText = ownerNick;
-        document.getElementById("pBio").innerText = data.bio || "-";
+        document.getElementById("pBio").innerText = bioText; // Bio bersih
         document.getElementById("pLoc").innerText = data.lokasi || "-";
         document.getElementById("pWallet").innerText = ownerWallet;
         document.getElementById("pAvatar").src = ownerAvatar;
+        
+        // Render Sampul
+        const coverEl = document.getElementById("userCoverImg");
+        if(coverEl) coverEl.src = coverLink;
+
+        // Tampilkan Tombol Ganti Sampul (Hanya jika profil sendiri)
+        const btnEditCover = document.getElementById("btnEditCover");
+        if(userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
+            if(btnEditCover) btnEditCover.style.display = "block";
+        } else {
+            if(btnEditCover) btnEditCover.style.display = "none";
+        }
     }
 
     // --- 3. HELPER RENDER POSTS ---
