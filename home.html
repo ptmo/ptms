@@ -582,77 +582,46 @@ function setSawerVal(factor) {
     }
 }
 
-// 3. FUNGSI KIRIM SAWER (Integrasi Blockchain)
-async function submitSawerDetail() {
-    const amountStr = document.getElementById("sawerAmount").value;
-    const postId = document.getElementById("sawerTargetId").value;
-
-    // --- VALIDASI INPUT ---
-    if (!amountStr) {
-        return showToast("Masukkan nominal saweran!", "error");
-    }
-
-    // Ganti koma dengan titik (untuk user yang pakai keyboard Indonesia)
-    const cleanAmount = amountStr.replace(',', '.');
-    const amountFloat = parseFloat(cleanAmount);
-
-    if (isNaN(amountFloat) || amountFloat <= 0) {
-        return showToast("Nominal tidak valid", "error");
-    }
-
-    if (amountFloat < SAWER_MIN) {
-        return showToast(`Minimal sawer ${SAWER_MIN} ETH`, "error");
-    }
+// --- 1. FUNGSI MEMBUKA MODAL (YANG HILANG) ---
+function openSawerModalDetail(postId) {
+    // A. Simpan ID Postingan ke input tersembunyi
+    const hiddenInput = document.getElementById("sawerTargetId");
+    if(hiddenInput) hiddenInput.value = postId;
     
-    if (amountFloat > SAWER_MAX) {
-        return showToast(`Maksimal sawer ${SAWER_MAX} ETH`, "error");
+    // B. Bersihkan input nominal biar rapi
+    const amountInput = document.getElementById("sawerAmount");
+    if(amountInput) amountInput.value = ""; 
+    
+    // C. Munculkan Modal
+    const modal = document.getElementById("sawerModal");
+    if(modal) {
+        modal.showModal(); // Perintah asli browser untuk membuka <dialog>
+    } else {
+        console.error("Modal sawerModal tidak ditemukan di HTML!");
+    }
+}
+
+// --- 2. FUNGSI TOMBOL PRESET (Min, 25%, Max, dll) ---
+function setSawerVal(factor) {
+    let val = 0;
+    
+    // Ambil Konstanta (Pastikan variabel ini sudah ada di bagian atas script Anda)
+    // Jika belum ada, uncomment baris di bawah ini:
+    // const SAWER_MIN = 0.00002;
+    // const SAWER_MAX = 0.01;
+
+    if (factor === 'min') {
+        val = SAWER_MIN;
+    } else if (factor === 'max') {
+        val = SAWER_MAX;
+    } else {
+        // Hitung persentase dari nilai Max
+        val = SAWER_MAX * factor;
     }
 
-    // --- EKSEKUSI TRANSAKSI ---
-    try {
-        // Tutup modal agar user fokus ke MetaMask
-        document.getElementById("sawerModal").close();
-        showToast("Membuka Dompet...", "info");
-
-        // Konversi ke Wei (Satuan Blockchain)
-        const weiAmount = ethers.utils.parseEther(cleanAmount.toString());
-        
-        // Sesuaikan index (ID di URL biasanya 1, di Array Contract biasanya 0)
-        // Asumsi: currentPostId = ID Blockchain (1, 2, 3...) -> Array Index (0, 1, 2...)
-        const targetIndex = parseInt(postId) - 1;
-
-        // Panggil Smart Contract
-        // Pastikan variabel 'contract' sudah didefinisikan di main.js Anda
-        if (!contract) throw new Error("Koneksi kontrak belum siap");
-
-        const tx = await contract.sawerPost(targetIndex, { value: weiAmount });
-        
-        showToast("Transaksi dikirim, menunggu konfirmasi...", "info");
-        
-        // Tunggu transaksi selesai
-        await tx.wait();
-        
-        showToast("Terima kasih! Saweran berhasil dikirim 🎁", "success");
-        
-        // Reset form
-        document.getElementById("sawerAmount").value = "";
-
-    } catch (e) {
-        console.error("Sawer Error:", e);
-        
-        // Handle jika user menolak transaksi di MetaMask
-        if (e.code === 'ACTION_REJECTED' || e.code === 4001) {
-            showToast("Transaksi dibatalkan user", "info");
-        } else {
-            // Tampilkan error lain (misal saldo kurang)
-            let msg = "Gagal mengirim saweran";
-            if(e.message.includes("insufficient funds")) msg = "Saldo ETH tidak mencukupi";
-            showToast(msg, "error");
-        }
-        
-        // Jika gagal, buka modal lagi agar user bisa coba lagi (opsional)
-        // document.getElementById("sawerModal").showModal();
-    }
+    // Tampilkan di input (Maksimal 5 desimal)
+    const input = document.getElementById("sawerAmount");
+    if(input) input.value = parseFloat(val.toFixed(5));
 }
 
         // --- SCRIPT FOLLOW ---
