@@ -49,6 +49,100 @@
     /* Layout Mobile Responsif */
     .notif-text { font-size: 14px; line-height: 1.4; flex: 1; }
     .notif-time { font-size: 11px; color: #999; margin-top: 3px; }
+
+    /* --- STATUS DOT (Indikator Hijau) --- */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71; /* Warna Hijau Sukses */
+    border-radius: 50%;
+    position: absolute;
+    display: none; /* Default sembunyi */
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.8);
+}
+
+/* Posisi Dot di Mobile (Pojok ikon) */
+.mobile-nav .menu-item .status-dot {
+    top: 8px;
+    right: 30%;
+}
+
+/* Posisi Dot di PC Sidebar */
+.sidebar-left .menu-item .status-dot {
+    top: 15px;
+    right: 15px;
+}
+
+/* --- ANIMASI KELAP KELIP DI MODAL --- */
+.pulse-indicator {
+    width: 15px;
+    height: 15px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+
+/* Style Wallet Address di Modal (Agar terlihat bisa diklik) */
+.wallet-address-box {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed #ccc;
+    font-family: monospace;
+    color: #555;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.wallet-address-box:hover {
+    background: #eef2f7;
+    border-color: #7385a5;
+    color: #333;
+}
+
+    /* --- CSS TOAST NOTIFICATION --- */
+#toast {
+    visibility: hidden; /* Default sembunyi */
+    min-width: 250px;
+    margin-left: -125px; /* Setengah dari width agar di tengah */
+    background-color: #333;
+    color: #fff;
+    text-align: center;
+    border-radius: 50px;
+    padding: 16px;
+    position: fixed;
+    z-index: 9999; /* Paling atas */
+    left: 50%;
+    bottom: 30px;
+    font-size: 14px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+    display: flex; align-items: center; justify-content: center; gap: 10px;
+}
+
+/* Class saat muncul */
+#toast.show {
+    visibility: visible;
+    animation: fadein 0.5s, fadeout 0.5s 2.5s;
+}
+
+/* Animasi Masuk & Keluar */
+@keyframes fadein {
+    from {bottom: 0; opacity: 0;}
+    to {bottom: 30px; opacity: 1;}
+}
+@keyframes fadeout {
+    from {bottom: 30px; opacity: 1;}
+    to {bottom: 0; opacity: 0;}
+}
     
 </style>
 </head>
@@ -56,16 +150,22 @@
 
     <div class="layout-wrapper">
         <div class="sidebar-left">
-            <div class="menu-card">
-                <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
-                <a href="notifications.html" class="menu-item active">
-                    <i class="fa-solid fa-bell"></i> Notifikasi
-                    <span class="nav-badge" id="badgeSidebar">0</span> 
-                </a>
-                <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
-                <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
-                <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
-            </div>
+    <div class="menu-card">
+        <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
+        <a href="notifications.html" class="menu-item">
+            <i class="fa-solid fa-bell"></i> Notifikasi
+            <span class="nav-badge" id="badgeSidebar">0</span> 
+        </a>
+        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
+        
+        <a href="#" onclick="openWalletInfo()" class="menu-item" style="position: relative; justify-content: space-between;">
+            <span><i class="fa-solid fa-wallet"></i> Wallet</span>
+            <span id="walletDotPC" class="status-dot"></span>
+        </a>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
+        <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+    </div>
         </div>
 
         <div class="main-feed">
@@ -77,13 +177,49 @@
     </div>
 
     <div class="mobile-nav">
-        <a href="home.html" class="menu-item"><i class="fa-solid fa-house" style="font-size: 18px;"></i></a>
-        <a href="notifications.html" class="menu-item active" style="flex-direction: column; gap: 2px; font-size: 10px;">
-            <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
-            <span class="nav-badge" id="badgeMobile">0</span> 
-        </a>
-        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user" style="font-size: 18px;"></i></a>
+    <a href="home.html" class="menu-item"><i class="fa-solid fa-house" style="font-size: 18px;"></i></a>
+    <a href="notifications.html" class="menu-item">
+        <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
+        <span class="nav-badge" id="badgeMobile">0</span> 
+    </a>
+    <a href="profile.html" class="menu-item"><i class="fa-solid fa-user" style="font-size: 18px;"></i></a>
+    
+    <a href="#" onclick="openWalletInfo()" class="menu-item" style="position: relative;">
+        <i class="fa-solid fa-wallet" style="font-size: 18px;"></i>
+        <span id="walletDotMobile" class="status-dot"></span>
+    </a>
     </div>
+
+    <dialog id="walletModal" class="premium-modal" style="width: 300px;">
+    <div style="text-align: center; margin-top: 10px;">
+        <div class="pulse-indicator"></div>
+        <p style="font-size: 12px; color: #2ecc71; margin: 0; font-weight: bold;">Terhubung ke Jaringan</p>
+    </div>
+
+    <h3 style="text-align: center; color: #7385a5; margin: 15px 0;">Info Wallet</h3>
+
+    <label style="font-size: 11px; color: #999;">Alamat (Klik untuk salin)</label>
+    <div class="wallet-address-box" onclick="copyWalletAddress()">
+        <span id="infoWalletAddr">0x...</span>
+        <i class="fa-regular fa-copy"></i>
+    </div>
+
+    <div style="text-align: center; margin: 15px 0;">
+        <span style="font-size: 12px; color: #666;">Saldo ETH:</span><br>
+        <strong id="infoWalletBal" style="font-size: 24px; color: #333;">0.0000</strong>
+    </div>
+
+    <div style="margin-top: 20px;">
+        <button onclick="disconnect()" class="btn-action btn-cancel" style="width: 100%; border-color: #e74c3c; color: #e74c3c;">
+            <i class="fa-solid fa-power-off"></i> Keluar
+        </button>
+        <button onclick="document.getElementById('walletModal').close()" style="width: 100%; margin-top: 10px; background: none; border: none; cursor: pointer; color: #999; font-size: 12px;">
+            Tutup
+        </button>
+    </div>
+    </dialog>
+
+    <div id="toast"></div>
 
     <script src="main.js"></script>
     <script>
@@ -91,12 +227,103 @@
         const profileCache = {};
 
         window.onload = async () => {
-            await initApp();
-            if(userAddress) {
-                await loadNotifs();
-                markAsReadLocal(); 
-            }
-        };
+    await initApp();
+    if(userAddress) {
+        await loadNotifs();     // Muat list notif
+        markAsReadLocal();      // Hapus badge merah (Reset counter)
+        onWalletConnected();    // Nyalakan dot hijau wallet
+    }
+};
+
+        // --- LOGIKA INDIKATOR WALLET ---
+
+// 1. Panggil fungsi ini saat initApp berhasil (User login)
+async function onWalletConnected() {
+    // Munculkan Dot Hijau
+    document.getElementById("walletDotMobile").style.display = "block";
+    document.getElementById("walletDotPC").style.display = "block";
+
+    // Munculkan Toast Hijau (Hanya sekali saat sesi dimulai)
+    if (!sessionStorage.getItem("walletToastShown")) {
+        showToast("Jaringan berhasil terhubung", "success");
+        sessionStorage.setItem("walletToastShown", "true");
+    }
+}
+
+// 2. Fungsi Membuka Popup Info
+async function openWalletInfo() {
+    if (!userAddress) return showToast("Dompet belum terhubung", "error");
+
+    // Isi Alamat
+    document.getElementById("infoWalletAddr").innerText = userAddress.substring(0, 10) + "..." + userAddress.substring(38);
+    
+    // Ambil Saldo Terbaru
+    try {
+        const balance = await provider.getBalance(userAddress);
+        const ethBal = ethers.utils.formatEther(balance);
+        document.getElementById("infoWalletBal").innerText = parseFloat(ethBal).toFixed(4);
+    } catch (e) {
+        document.getElementById("infoWalletBal").innerText = "Error";
+    }
+
+    // Buka Modal
+    document.getElementById("walletModal").showModal();
+}
+
+// 3. Fungsi Copy Address
+function copyWalletAddress() {
+    if (userAddress) {
+        navigator.clipboard.writeText(userAddress);
+        showToast("Alamat disalin!", "success");
+    }
+}
+
+// 4. Update fungsi Disconnect (Agar dot hilang saat logout)
+const originalDisconnect = window.disconnect; // Simpan fungsi lama jika ada
+window.disconnect = function() {
+    // Sembunyikan Dot
+    document.getElementById("walletDotMobile").style.display = "none";
+    document.getElementById("walletDotPC").style.display = "none";
+    sessionStorage.removeItem("walletToastShown"); // Reset toast session
+    
+    // Panggil fungsi disconnect asli Anda
+    if (originalDisconnect) originalDisconnect();
+    
+    // Atau reload halaman
+    localStorage.clear();
+    window.location.href = "index.html";
+};
+        
+        // --- FUNGSI SHOW TOAST ---
+function showToast(message, type = "info") {
+    const x = document.getElementById("toast");
+    if (!x) return;
+
+    // Tentukan Ikon & Warna Berdasarkan Tipe
+    let icon = "";
+    let bgColor = "#333"; // Default Hitam
+
+    if (type === "success") {
+        bgColor = "#2ecc71"; // Hijau
+        icon = '<i class="fa-solid fa-check-circle"></i>';
+    } else if (type === "error") {
+        bgColor = "#e74c3c"; // Merah
+        icon = '<i class="fa-solid fa-circle-exclamation"></i>';
+    } else {
+        bgColor = "#3498db"; // Biru (Info)
+        icon = '<i class="fa-solid fa-circle-info"></i>';
+    }
+
+    // Set Konten & Warna
+    x.innerHTML = `${icon} <span>${message}</span>`;
+    x.style.backgroundColor = bgColor;
+    
+    // Trigger Animasi
+    x.className = "show";
+    
+    // Hilangkan setelah 3 detik
+    setTimeout(function(){ x.className = x.className.replace("show", ""); }, 3000);
+}
 
         function markAsReadLocal() {
             const now = Math.floor(Date.now() / 1000);
