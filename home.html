@@ -70,8 +70,8 @@
     transform: scale(1.2); /* Efek membesar sedikit */
 }
 
-        /* --- MODAL SAWER PREMIUM --- */
-.premium-modal {
+    /* --- MODAL SAWER PREMIUM --- */
+.sawerModal {
     border: none;
     padding: 25px;
     border-radius: 20px; /* Sudut lebih bulat (Modern) */
@@ -84,7 +84,7 @@
 }
 
 /* Efek Backdrop (Latar belakang gelap blur) */
-.premium-modal::backdrop {
+.sawerModal::backdrop {
     background: rgba(15, 23, 42, 0.6);
     backdrop-filter: blur(4px);
 }
@@ -396,10 +396,9 @@
         </div>
     </dialog>
 
-    <dialog id="sawerModal" class="premium-modal">
-    
-    <h3 class="sawer-title">Sawer Kurator</h3>
-    <p class="sawer-desc">Dukung pelestari budaya dengan ETH.</p>
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5); width: 300px;">
+    <h3 style="margin-top:0; text-align:center; color:#7385a5;">Sawer Kurator</h3>
+    <p style="text-align:center; font-size:12px; color:#666;">Dukung pelestari budaya dengan ETH.</p>
     
     <input type="hidden" id="sawerTargetId">
 
@@ -424,14 +423,9 @@
     </div>
 
     <div class="action-row">
-        <button onclick="document.getElementById('sawerModal').close()" class="btn-action btn-cancel">
-            Batal
-        </button>
-        <button onclick="submitSawerDetail()" class="btn-action btn-submit">
-            Kirim
-        </button>
+        <button onclick="document.getElementById('sawerModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:10px;">Batal</button>
+        <button onclick="submitSawer()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; cursor:pointer; border-radius:10px;">Kirim</button>
     </div>
-
     </dialog>
     
     <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
@@ -539,90 +533,72 @@
             loadFeed();
         }
         
-        function openSawerModalDetail() {
-    // Pastikan ID Postingan ada (menggunakan variabel global currentPostId dari logic halaman Anda)
-    // Jika belum ada, kita set default atau ambil dari parameter
-    if (typeof currentPostId === 'undefined' || currentPostId === null) {
-        console.error("ID Postingan tidak ditemukan");
-        return;
+        // 1. Fungsi Membuka Modal
+    function openSawerModal(id) {
+        document.getElementById("sawerTargetId").value = id;
+        document.getElementById("sawerAmount").value = ""; // Kosongkan input
+        
+        // Reset warna tombol preset
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+        
+        document.getElementById("sawerModal").showModal();
     }
 
-    document.getElementById("sawerTargetId").value = currentPostId;
-    document.getElementById("sawerAmount").value = ""; // Reset input
-    
-    // Reset tampilan tombol preset (hapus warna aktif)
-    document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-    
-    // Buka Modal
-    document.getElementById("sawerModal").showModal();
-}
+    // 2. Fungsi Hitung Otomatis (Preset)
+    function setSawerVal(factor) {
+        let val = 0;
+        
+        if (factor === 'min') {
+            val = SAWER_MIN;
+        } else if (factor === 'max') {
+            val = SAWER_MAX;
+        } else {
+            // Hitung persentase dari MAKSIMAL (0.01)
+            val = SAWER_MAX * factor;
+        }
 
-// 2. FUNGSI HITUNG PRESET (Min, 25%, 50%, dll)
-function setSawerVal(factor) {
-    let val = 0;
-    
-    if (factor === 'min') {
-        val = SAWER_MIN;
-    } else if (factor === 'max') {
-        val = SAWER_MAX;
-    } else {
-        // Hitung persentase dari SAWER_MAX
-        val = SAWER_MAX * factor;
-    }
-
-    // Format angka agar tidak terlalu panjang (max 5 desimal)
-    // parseFloat digunakan untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
-    document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
-    
-    // Visual Feedback: Highlight tombol yang diklik
-    // Hapus kelas 'active' dari semua tombol, lalu tambahkan ke tombol yang diklik
-    document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
-    if(event && event.target) {
+        // Format angka (maksimal 5 desimal agar tidak error overflow)
+        // parseFloat untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
+        document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
+        
+        // Visual Feedback (Highlight tombol yang diklik)
+        document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
         event.target.classList.add('active');
     }
-}
 
-// --- 1. FUNGSI MEMBUKA MODAL (YANG HILANG) ---
-function openSawerModalDetail(postId) {
-    // A. Simpan ID Postingan ke input tersembunyi
-    const hiddenInput = document.getElementById("sawerTargetId");
-    if(hiddenInput) hiddenInput.value = postId;
-    
-    // B. Bersihkan input nominal biar rapi
-    const amountInput = document.getElementById("sawerAmount");
-    if(amountInput) amountInput.value = ""; 
-    
-    // C. Munculkan Modal
-    const modal = document.getElementById("sawerModal");
-    if(modal) {
-        modal.showModal(); // Perintah asli browser untuk membuka <dialog>
-    } else {
-        console.error("Modal sawerModal tidak ditemukan di HTML!");
+    // 3. Fungsi Kirim (Submit)
+    async function submitSawer() {
+        const postId = document.getElementById("sawerTargetId").value; // Ambil dari input hidden
+        const amount = document.getElementById("sawerAmount").value;
+
+        // Validasi
+        if (!postId) return showToast("Error ID Postingan", "error");
+        if (!amount || amount <= 0) return showToast("Masukkan jumlah valid", "error");
+        if (amount < SAWER_MIN) return showToast(`Minimal ${SAWER_MIN} ETH`, "error");
+        if (amount > SAWER_MAX) return showToast(`Maksimal ${SAWER_MAX} ETH`, "error");
+
+        try {
+            document.getElementById("sawerModal").close();
+            showToast("Mengirim Saweran...", "info");
+            
+            // Konversi ke Wei
+            const weiAmount = ethers.utils.parseEther(amount.toString());
+            
+            // Eksekusi Smart Contract (Index blockchain = ID - 1)
+            const tx = await contract.sawerPost(postId - 1, { value: weiAmount });
+            
+            await tx.wait();
+            showToast("Terima kasih! Saweran terkirim 🎁", "success");
+        } catch (e) {
+            console.error(e);
+            // Cek jika user reject
+            if(e.code === 'ACTION_REJECTED' || e.code === 4001) {
+                showToast("Transaksi dibatalkan user", "info");
+            } else {
+                showToast("Gagal: " + (e.reason || e.message), "error");
+            }
+        }
     }
-}
-
-// --- 2. FUNGSI TOMBOL PRESET (Min, 25%, Max, dll) ---
-function setSawerVal(factor) {
-    let val = 0;
-    
-    // Ambil Konstanta (Pastikan variabel ini sudah ada di bagian atas script Anda)
-    // Jika belum ada, uncomment baris di bawah ini:
-    // const SAWER_MIN = 0.00002;
-    // const SAWER_MAX = 0.01;
-
-    if (factor === 'min') {
-        val = SAWER_MIN;
-    } else if (factor === 'max') {
-        val = SAWER_MAX;
-    } else {
-        // Hitung persentase dari nilai Max
-        val = SAWER_MAX * factor;
-    }
-
-    // Tampilkan di input (Maksimal 5 desimal)
-    const input = document.getElementById("sawerAmount");
-    if(input) input.value = parseFloat(val.toFixed(5));
-}
 
         // --- SCRIPT FOLLOW ---
         async function followUser(targetAddr) {
