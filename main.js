@@ -327,14 +327,26 @@ async function checkSession() {
 }
 
 function handleLogout() {
+    // 1. Hapus session login saja
     localStorage.removeItem("putramas_session");
+    
+    // 2. JANGAN hapus "lastNotifCheck" agar notif lama tidak muncul lagi
+    
+    // 3. Reset State internal
     state = { provider: null, signer: null, userAddress: null, contract: null };
-    window.location.href = "index.html";
+    
+    // 4. Reset UI (Opsional tapi bagus untuk kebersihan)
+    const badges = document.querySelectorAll('.nav-badge');
+    badges.forEach(badge => badge.style.display = 'none');
+    
+    // 5. Tendang ke halaman login
+    window.location.href = "index";
 }
 
 function disconnect() {
     handleLogout();
 }
+
 
 // --- UTILS ---
 function showToast(msg, type="info") {
