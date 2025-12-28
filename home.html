@@ -1244,62 +1244,153 @@ window.disconnect = function() {
         }
     }
         
-        // --- SCRIPT KOMENTAR ---
-        async function openComments(postId) {
-            const index = postId - 1; 
-            const modal = document.getElementById("commentModal");
-            const list = document.getElementById("commentList");
-            document.getElementById("commentPostId").value = index;
-            document.getElementById("commentInput").value = "";
-            modal.showModal();
-            list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
+        // --- SCRIPT KOMENTAR DENGAN FITUR EDIT ---
+async function openComments(postId) {
+    const index = postId - 1; 
+    const modal = document.getElementById("commentModal");
+    const list = document.getElementById("commentList");
+    document.getElementById("commentPostId").value = index;
+    document.getElementById("commentInput").value = "";
+    modal.showModal();
+    list.innerHTML = "<p style='text-align:center; padding:20px;'><i class='fa-solid fa-spinner fa-spin'></i> Memuat...</p>";
 
-            try {
-                const comments = await contract.getComments(index);
-                list.innerHTML = "";
-                if(comments.length === 0) { 
-                    list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
-                    return; 
-                }
-                for (const c of comments) {
-                    let nick = c.commenter.substring(0,6) + "..."; 
-                    let avt = "https://via.placeholder.com/30";   
-                    if (commentProfileCache[c.commenter]) {
-                        nick = commentProfileCache[c.commenter].nick;
-                        avt = commentProfileCache[c.commenter].avt;
-                    } else {
-                        try { 
-                            const p = await contract.getProfile(c.commenter);
-                            if(p.nickname) nick = p.nickname;
-                            if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                            commentProfileCache[c.commenter] = { nick, avt };
-                        } catch(e){}
-                    }
-                    // Buat Link Profil
-                const profileUrl = `profile.html?addr=${c.commenter}`;
-
-                const html = `
-                    <div class="comment-item" style="border-bottom:1px solid #eee; padding:10px; display:flex; gap:10px; align-items: flex-start;">
-                        
-                        <a href="${profileUrl}" style="text-decoration:none;">
-                            <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
-                        </a>
-
-                        <div style="flex:1;">
-                            <div style="font-weight:bold; font-size:13px;">
-                                <a href="${profileUrl}" style="text-decoration:none; color:#2c3e50;">
-                                    ${nick}
-                                </a>
-                            </div>
-                            <div style="font-size:10px; color:#999; margin-top:3px;">${new Date(c.timestamp * 1000).toLocaleString()}</div>
-                            <div style="font-size:13px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
-                        </div>
-                    </div>`;
-                    
-                    list.innerHTML += html;
-                }
-            } catch(e) { console.error(e); }
+    try {
+        const comments = await contract.getComments(index);
+        list.innerHTML = "";
+        if(comments.length === 0) { 
+            list.innerHTML = "<p style='text-align:center; color:#999; margin-top:20px;'>Belum ada komentar.</p>"; 
+            return; 
         }
+
+        // Loop dengan index 'i' untuk identifikasi komentar
+        for (let i = 0; i < comments.length; i++) {
+            const c = comments[i];
+            let nick = c.commenter.substring(0,6) + "..."; 
+            let avt = "https://via.placeholder.com/30";   
+            
+            // Cache profil
+            if (commentProfileCache[c.commenter]) {
+                nick = commentProfileCache[c.commenter].nick;
+                avt = commentProfileCache[c.commenter].avt;
+            } else {
+                try { 
+                    const p = await contract.getProfile(c.commenter);
+                    if(p.nickname) nick = p.nickname;
+                    if(p.fotoProfil) avt = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                    commentProfileCache[c.commenter] = { nick, avt };
+                } catch(e){}
+            }
+
+            const profileUrl = `profile.html?addr=${c.commenter}`;
+
+            // --- LOGIKA TOMBOL EDIT (Hanya muncul jika user login == pemilik komentar) ---
+            let editIconHtml = "";
+            if (userAddress && c.commenter.toLowerCase() === userAddress.toLowerCase()) {
+                editIconHtml = `
+                <i class="fa-solid fa-pen-to-square" 
+                   onclick="openEditMode('${i}')" 
+                   style="cursor:pointer; color:#999; font-size:14px; margin-left:auto;" 
+                   title="Edit Komentar"></i>`;
+            }
+
+            const html = `
+                <div class="comment-item" style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:10px; align-items: flex-start;">
+                    
+                    <a href="${profileUrl}" style="text-decoration:none;">
+                        <img src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover; border:1px solid #eee;">
+                    </a>
+
+                    <div style="flex:1;">
+                        <div style="display:flex; align-items:center; margin-bottom:5px;">
+                            <a href="${profileUrl}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none; margin-right:10px;">
+                                ${nick}
+                            </a>
+                            <span style="font-size:10px; color:#999;">${new Date(c.timestamp * 1000).toLocaleString()}</span>
+                            ${editIconHtml} </div>
+
+                        <div id="view-txt-${i}" style="font-size:13px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
+
+                        <div id="edit-area-${i}" style="display:none; margin-top:10px;">
+                            <textarea id="input-edit-${i}" class="cp-input" style="width:100%; height:60px; font-size:13px; padding:8px; border:1px solid #ddd; border-radius:5px; font-family:sans-serif;">${c.text}</textarea>
+                            
+                            <div style="display:flex; gap:10px; margin-top:8px; justify-content:flex-end;">
+                                <button onclick="closeEditMode('${i}')" style="background:none; border:none; color:#666; font-size:12px; cursor:pointer;">Batal</button>
+                                <button onclick="submitEditComment('${index}', '${i}')" style="background:#7385a5; color:white; border:none; padding:6px 15px; border-radius:15px; font-size:12px; cursor:pointer; font-weight:bold;">Simpan</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>`;
+            
+            list.innerHTML += html;
+        }
+    } catch(e) { console.error(e); }
+  }
+        // --- LOGIKA EDIT KOMENTAR ---
+
+// 1. Buka Mode Edit
+function openEditMode(commentIndex) {
+    // Sembunyikan teks asli
+    const viewTxt = document.getElementById(`view-txt-${commentIndex}`);
+    if(viewTxt) viewTxt.style.display = 'none';
+    
+    // Munculkan area edit
+    const editArea = document.getElementById(`edit-area-${commentIndex}`);
+    if(editArea) editArea.style.display = 'block';
+    
+    // Fokus ke textarea agar user langsung bisa ngetik
+    const inputField = document.getElementById(`input-edit-${commentIndex}`);
+    if(inputField) inputField.focus();
+}
+
+// 2. Tutup/Batal Edit
+function closeEditMode(commentIndex) {
+    const viewTxt = document.getElementById(`view-txt-${commentIndex}`);
+    if(viewTxt) viewTxt.style.display = 'block';
+    
+    const editArea = document.getElementById(`edit-area-${commentIndex}`);
+    if(editArea) editArea.style.display = 'none';
+}
+
+// 3. Simpan Perubahan ke Blockchain
+async function submitEditComment(postIndex, commentIndex) {
+    const inputElement = document.getElementById(`input-edit-${commentIndex}`);
+    const newText = inputElement.value;
+    
+    if(!newText.trim()) return showToast("Komentar tidak boleh kosong", "error");
+
+    try {
+        // Tutup area edit dulu biar rapi (Optimistic UI)
+        closeEditMode(commentIndex);
+        
+        // Tampilkan loading di teks lama
+        const viewElement = document.getElementById(`view-txt-${commentIndex}`);
+        const oldText = viewElement.innerText; // Simpan teks lama jaga-jaga kalau gagal
+        viewElement.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Menyimpan...`;
+        viewElement.style.color = "#999";
+
+        showToast("Menyimpan ke blockchain...", "info");
+        
+        // Eksekusi Smart Contract
+        // Pastikan smart contract Anda punya fungsi 'editComment(uint postIndex, uint commentIndex, string newText)'
+        const tx = await contract.editComment(postIndex, commentIndex, newText);
+        await tx.wait(); 
+        
+        showToast("Berhasil diedit!", "success");
+        
+        // Update Tampilan Akhir
+        viewElement.innerHTML = formatCaption(newText);
+        viewElement.style.color = "#333";
+        
+    } catch(e) {
+        console.error(e);
+        showToast("Gagal edit: " + (e.reason || "Error"), "error");
+        
+        // Kembalikan tampilan jika gagal
+        const viewElement = document.getElementById(`view-txt-${commentIndex}`);
+        viewElement.innerText = oldText; // Balikin teks lama
+        viewElement.style.color = "#333";
+    }
+}
 
         async function submitComment() {
         const index = document.getElementById("commentPostId").value; // Index array (mulai dari 0)
