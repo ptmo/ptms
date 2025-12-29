@@ -1087,20 +1087,23 @@ window.disconnect = function() {
                title="Edit Postingan"></i>`;
         }
 
-        // --- LOGIKA GAMBAR (SESUAI PERMINTAAN) ---
+        // --- PERBAIKAN LOGIKA GAMBAR (REGEX PEMBERSIH) ---
         if(post.imageURI && post.imageURI.length > 5) {
             
-            // 1. Default: Anggap URL biasa (bukan IPFS)
-            let optUrl = post.imageURI;
-            let rawUrl = post.imageURI; // Disimpan untuk cadangan/fallback
+            // Default: Asumsikan URL biasa
+            let rawUrl = post.imageURI; 
 
-            // 2. Cek apakah IPFS? Jika ya, Format sesuai snippet Anda
-            if (post.imageURI.startsWith("ipfs://")) {
-                 rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-                 optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+            // Cek apakah mengandung kata "ipfs" di awal?
+            // Regex /^ipfs?:/ akan mendeteksi "ipfs:" atau "ipfs:/" atau "ipfs://"
+            if (post.imageURI.match(/^ipfs?:/)) {
+                 // Pakai Regex untuk mengganti segala variasi "ipfs://", "ipfs:/", "ipfs:" 
+                 // Menjadi link gateway Pinata yang bersih.
+                 rawUrl = post.imageURI.replace(/^ipfs?:\/\/?/, 'https://gateway.pinata.cloud/ipfs/');
             }
 
-            // 3. Kotak Metadata NFT
+            // Optimasi Gambar via wsrv.nl
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+
             let metaBox = "";
             if(parseInt(post.nftId) > 0) {
                 const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
@@ -1119,8 +1122,6 @@ window.disconnect = function() {
                 </div>`;
             }
 
-            // 4. Render HTML Gambar
-            // Note: Saya tambahkan 'onerror' ke rawUrl agar jika wsrv.nl belum siap, gambar tetap muncul dari Pinata
             imgHtml = `
             <div style="margin:10px -15px 0 -15px;">
                 <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
@@ -1133,9 +1134,7 @@ window.disconnect = function() {
                 </a>
             </div>`;
 
-            // 5. Panggil Metadata Fetcher (Jika NFT)
             if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
-                // Delay sedikit agar tidak blocking render UI
                 setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
             }
         }
@@ -1204,9 +1203,11 @@ window.disconnect = function() {
 
         async function fetchCardMetadata(postId, tokenURI) {
     let url = tokenURI;
-    // Gunakan logika yang sama dengan gambar agar konsisten
-    if (tokenURI.startsWith("ipfs://")) {
-         url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+    
+    // GANTI LOGIKA REPLACE BIASA DENGAN REGEX
+    // Ini menangani "ipfs://", "ipfs:/", atau "ipfs:"
+    if (tokenURI.match(/^ipfs?:/)) {
+         url = tokenURI.replace(/^ipfs?:\/\/?/, 'https://gateway.pinata.cloud/ipfs/');
     }
 
     try {
@@ -1219,7 +1220,6 @@ window.disconnect = function() {
         const elName = document.getElementById(`meta-name-${postId}`);
         const elGagrak = document.getElementById(`meta-gagrak-${postId}`);
         
-        // Ambil atribut (Trait)
         const getTrait = (name) => {
              const t = data.attributes?.find(a => a.trait_type === name);
              return t ? t.value : "-";
