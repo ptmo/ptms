@@ -824,7 +824,51 @@ window.disconnect = function() {
     }
 
     try {
-        // A. Ambil Data Profil (Identitas)
+        // --- [LOGIKA BARU 1] CEK APAKAH SAYA DIBLOKIR OLEH DIA? ---
+        // Jika saya diblokir, tampilan harus BLANK total sebelum data asli dimuat.
+        if (userAddress && userAddress.toLowerCase() !== addr.toLowerCase()) {
+            // Cek Smart Contract: hasBlocked(PemilikProfil, Saya)
+            const amIBlockedByHim = await contract.hasBlocked(addr, userAddress);
+
+            if (amIBlockedByHim) {
+                // === MODE KIAMAT: BERSIHKAN SEMUA TAMPILAN ===
+                
+                // 1. Reset Header & Avatar jadi Polos/Blank
+                document.getElementById("pNick").innerText = "Pengguna Tidak Tersedia";
+                document.getElementById("pBio").innerText = "-";
+                document.getElementById("pLoc").innerText = "-";
+                
+                // Set gambar ke placeholder abu-abu
+                const blankAvatar = "https://via.placeholder.com/150/cccccc/ffffff?text=X";
+                const blankHeader = "https://via.placeholder.com/800x200/dddddd/ffffff?text=Restricted";
+                
+                if(document.getElementById("pAvatar")) document.getElementById("pAvatar").src = blankAvatar;
+                if(document.getElementById("headerImage")) document.getElementById("headerImage").src = blankHeader;
+
+                // 2. Nol-kan Statistik
+                document.getElementById("statPost").innerText = "0";
+                document.getElementById("statFollower").innerText = "0";
+                document.getElementById("statFollowing").innerText = "0";
+
+                // 3. Hilangkan Tombol Aksi
+                if(document.getElementById("actionButtons")) document.getElementById("actionButtons").innerHTML = "";
+
+                // 4. Tampilkan Pesan Error Besar di Tengah Feed
+                document.getElementById("profileFeed").innerHTML = `
+                    <div style="display:flex; flex-direction:column; align-items:center; justify-content:center; height:300px; text-align:center; color:#999;">
+                        <i class="fa-solid fa-circle-xmark" style="font-size:50px; margin-bottom:15px; color:#bdc3c7;"></i>
+                        <h3 style="margin:0; color:#7f8c8d;">Profil Tidak Tersedia</h3>
+                        <p style="font-size:13px; margin-top:5px;">Informasi pengguna ini tidak dapat ditampilkan.</p>
+                    </div>
+                `;
+
+                // BERHENTI DISINI (Return). Jangan jalankan kode di bawahnya.
+                return; 
+            }
+        }
+        // -----------------------------------------------------------
+
+        // A. Ambil Data Profil (Identitas) - KODE LAMA ANDA
         const p = await contract.getProfile(addr);
         
         // Buat Simple Profile Object untuk Render Header
@@ -838,7 +882,7 @@ window.disconnect = function() {
         // Render Header DULUAN (Supaya nama & foto muncul walau diblokir)
         renderHeaderUI(simpleProfile, addr);
 
-        // --- [LOGIKA BARU] CEK STATUS BLOKIR ---
+        // --- [LOGIKA BARU 2] CEK STATUS BLOKIR (APAKAH SAYA MEMBLOKIR DIA?) ---
         // Kita cek: Apakah SAYA (userAddress) memblokir DIA (addr)?
         if (userAddress && userAddress.toLowerCase() !== addr.toLowerCase()) {
             // Panggil mapping hasBlocked dari Smart Contract
@@ -878,7 +922,7 @@ window.disconnect = function() {
         }
         // ---------------------------------------
 
-        // B. Jika TIDAK Diblokir, Lanjut Ambil Postingan
+        // B. Jika TIDAK Diblokir, Lanjut Ambil Postingan - KODE LAMA ANDA
         const posts = await contract.getUserPosts(addr);
         
         // Update Data Statistik
@@ -923,7 +967,7 @@ window.disconnect = function() {
             // showToast("Gagal memuat profil.", "error"); // Opsional
         }
     }
-}
+        }
     
     // --- 5. HELPER RENDER FEED ---
     function renderFeedUI(postsArray, addr) {
