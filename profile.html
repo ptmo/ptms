@@ -818,69 +818,113 @@ window.disconnect = function() {
 
     // --- 3. LOAD DARI BLOCKCHAIN (LIVE UPDATE) ---
     async function loadProfileLive(addr) {
-        if (!addr || !ethers.utils.isAddress(addr)) {
-            document.getElementById("pNick").innerText = "User Tidak Ditemukan";
-            return;
+    if (!addr || !ethers.utils.isAddress(addr)) {
+        document.getElementById("pNick").innerText = "User Tidak Ditemukan";
+        return;
+    }
+
+    try {
+        // A. Ambil Data Profil (Identitas)
+        const p = await contract.getProfile(addr);
+        
+        // Buat Simple Profile Object untuk Render Header
+        const simpleProfile = {
+            nickname: p.nickname,
+            fotoProfil: p.fotoProfil,
+            bio: p.bio,
+            lokasi: p.lokasi
+        };
+
+        // Render Header DULUAN (Supaya nama & foto muncul walau diblokir)
+        renderHeaderUI(simpleProfile, addr);
+
+        // --- [LOGIKA BARU] CEK STATUS BLOKIR ---
+        // Kita cek: Apakah SAYA (userAddress) memblokir DIA (addr)?
+        if (userAddress && userAddress.toLowerCase() !== addr.toLowerCase()) {
+            // Panggil mapping hasBlocked dari Smart Contract
+            const amIBlockingHim = await contract.hasBlocked(userAddress, addr);
+            
+            if (amIBlockingHim) {
+                // 1. Tampilkan Tombol "Buka Blokir"
+                const actionContainer = document.getElementById("actionButtons"); // Pastikan ID ini ada di HTML pembungkus tombol
+                if(actionContainer) {
+                    actionContainer.innerHTML = `
+                        <button onclick="toggleBlock('${addr}')" style="background: #333; color: white; border: 1px solid #555; padding: 8px 20px; border-radius: 20px; font-size: 14px; cursor: pointer;">
+                            <i class="fa-solid fa-lock-open"></i> Buka Blokir
+                        </button>
+                    `;
+                }
+
+                // 2. Kosongkan Statistik (Privasi)
+                document.getElementById("statPost").innerText = "-";
+                document.getElementById("statFollower").innerText = "-";
+                document.getElementById("statFollowing").innerText = "-";
+
+                // 3. Tampilkan Pesan "Diblokir" di Area Feed
+                document.getElementById("profileFeed").innerHTML = `
+                    <div style="text-align:center; padding: 50px 20px; background:#fafafa; border-radius:15px; margin-top:20px; border:1px dashed #ccc;">
+                        <i class="fa-solid fa-ban" style="font-size:40px; color:#e74c3c; margin-bottom:15px;"></i>
+                        <h3 style="color:#333; margin:0 0 5px 0;">Pengguna Diblokir</h3>
+                        <p style="color:#777; font-size:13px; margin:0;">
+                            Anda telah memblokir pengguna ini.<br>
+                            <span style="font-size:11px; color:#999;">Buka blokir untuk melihat postingan mereka.</span>
+                        </p>
+                    </div>
+                `;
+                
+                // BERHENTI DISINI. Jangan load postingan/follow data.
+                return; 
+            }
+        }
+        // ---------------------------------------
+
+        // B. Jika TIDAK Diblokir, Lanjut Ambil Postingan
+        const posts = await contract.getUserPosts(addr);
+        
+        // Update Data Statistik
+        document.getElementById("statPost").innerText = posts.length;
+        if (userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
+            if(p.nameChangeCount) myChangeCount = p.nameChangeCount.toNumber();
         }
 
-        try {
-            // A. Ambil Data
-            const p = await contract.getProfile(addr);
-            const posts = await contract.getUserPosts(addr);
-            
-            // B. Update Data Global
-            document.getElementById("statPost").innerText = posts.length;
-            if (userAddress && addr.toLowerCase() === userAddress.toLowerCase()) {
-                if(p.nameChangeCount) myChangeCount = p.nameChangeCount.toNumber();
-            }
+        // C. Siapkan Data untuk Cache
+        const simplePosts = posts.map(post => ({
+            id: post.id.toString(),
+            author: post.author,
+            imageURI: post.imageURI,
+            tokenURI: post.tokenURI,
+            caption: post.caption,
+            timestamp: post.timestamp.toString(),
+            likeCount: post.likeCount.toString(),
+            commentCount: post.commentCount.toString(),
+            ratingCount: post.ratingCount.toString(),
+            totalRatingScore: post.totalRatingScore.toString(),
+            nftId: post.nftId.toString()
+        }));
 
-            // C. Siapkan Data untuk Cache (Serialize BigNumber ke String)
-            const simpleProfile = {
-                nickname: p.nickname,
-                fotoProfil: p.fotoProfil,
-                bio: p.bio,
-                lokasi: p.lokasi
-            };
+        // D. Simpan Cache
+        const cacheKey = `profile_v1_${addr.toLowerCase()}`;
+        localStorage.setItem(cacheKey, JSON.stringify({
+            profile: simpleProfile,
+            posts: simplePosts
+        }));
 
-            const simplePosts = posts.map(post => ({
-                id: post.id.toString(),
-                author: post.author,
-                imageURI: post.imageURI,
-                tokenURI: post.tokenURI,
-                caption: post.caption,
-                timestamp: post.timestamp.toString(),
-                likeCount: post.likeCount.toString(),
-                commentCount: post.commentCount.toString(),
-                ratingCount: post.ratingCount.toString(),
-                totalRatingScore: post.totalRatingScore.toString(),
-                nftId: post.nftId.toString()
-            }));
+        // E. Render Feed Postingan
+        renderFeedUI(simplePosts, addr);
+        
+        // F. Load Follow Data (Tombol Follow/Edit)
+        loadFollowData(addr);
 
-            // D. Simpan Cache
-            const cacheKey = `profile_v1_${addr.toLowerCase()}`;
-            localStorage.setItem(cacheKey, JSON.stringify({
-                profile: simpleProfile,
-                posts: simplePosts
-            }));
-
-            // E. Render Ulang UI dengan Data Fresh
-            renderHeaderUI(simpleProfile, addr);
-            renderFeedUI(simplePosts, addr);
-            
-            // F. Load Follow Data (Selalu Live)
-            loadFollowData(addr);
-
-        } catch (e) {
-            console.error("Live Load Error:", e);
-            // Jika cache tidak ada, tampilkan error
-            const cacheKey = `profile_v1_${addr.toLowerCase()}`;
-            if(!localStorage.getItem(cacheKey)) {
-                showToast("Gagal memuat profil.", "error");
-            }
+    } catch (e) {
+        console.error("Live Load Error:", e);
+        // Fallback ke cache jika error
+        const cacheKey = `profile_v1_${addr.toLowerCase()}`;
+        if(!localStorage.getItem(cacheKey)) {
+            // showToast("Gagal memuat profil.", "error"); // Opsional
         }
     }
+}
     
-
     // --- 5. HELPER RENDER FEED ---
     function renderFeedUI(postsArray, addr) {
     const container = document.getElementById("profileFeed");
@@ -1292,13 +1336,37 @@ async function submitPostEdit(postId) {
     
     // Fungsi Blokir
     async function toggleBlock(targetAddr) {
-        if(!confirm("Blokir user ini?")) return;
-        try {
+    try {
+        // Cek status saat ini
+        const isBlocked = await contract.hasBlocked(userAddress, targetAddr);
+
+        if (isBlocked) {
+            // UNBLOCK
+            if(!confirm("Buka blokir pengguna ini?")) return;
+            showToast("Membuka blokir...", "info");
+            
+            // Panggil fungsi unblockUser di Smart Contract
+            const tx = await contract.unblockUser(targetAddr);
+            await tx.wait();
+            showToast("Blokir dibuka!", "success");
+        } else {
+            // BLOCK
+            if(!confirm("Yakin ingin memblokir? Mereka akan di-unfollow otomatis.")) return;
+            showToast("Memblokir...", "info");
+            
+            // Panggil fungsi blockUser di Smart Contract
             const tx = await contract.blockUser(targetAddr);
             await tx.wait();
-            showToast("User Diblokir", "success");
-            window.location.href = "home.html";
-        } catch(e) { showToast("Gagal blokir", "error"); }
+            showToast("Pengguna diblokir.", "success");
+        }
+        
+        // Reload halaman agar tampilan diperbarui
+        setTimeout(() => location.reload(), 1000);
+
+    } catch (e) {
+        console.error(e);
+        showToast("Gagal: " + (e.reason || e.message), "error");
+    }
     }
 
     // --- INTERAKSI LAIN ---
