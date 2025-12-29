@@ -1089,7 +1089,8 @@ window.disconnect = function() {
 
         // --- PERBAIKAN LOGIKA GAMBAR (REGEX PEMBERSIH) ---
          if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                    const rawUrl = normalizeIpfsUrl(post.imageURI);
+                    if (!rawUrl) return;
                     const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
             let metaBox = "";
@@ -1188,6 +1189,27 @@ window.disconnect = function() {
         fetchProfileLazy(post.author);
     });
 }
+
+        function normalizeIpfsUrl(uri) {
+    if (!uri) return null;
+
+    // Sudah URL HTTP
+    if (uri.startsWith("http")) {
+        const match = uri.match(/ipfs\/([a-zA-Z0-9]+)$/);
+        if (match && match[1]) {
+            return `https://ipfs.io/ipfs/${match[1]}`;
+        }
+        return uri;
+    }
+
+    // ipfs://CID atau ipfs://ipfs/CID
+    if (uri.startsWith("ipfs://")) {
+        const clean = uri.replace("ipfs://", "").replace("ipfs/", "");
+        return `https://ipfs.io/ipfs/${clean}`;
+    }
+
+    return null;
+        }
         
         // --- LOGIKA EDIT POSTINGAN ---
 
