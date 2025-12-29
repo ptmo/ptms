@@ -1088,45 +1088,46 @@ window.disconnect = function() {
         }
 
         // --- PERBAIKAN LOGIKA GAMBAR (REGEX PEMBERSIH) ---
-         if(post.imageURI && post.imageURI.length > 5) {
-                    const rawUrl = normalizeIpfsUrl(post.imageURI);
-                    if (!rawUrl) return;
-                    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+         if (post.imageURI && post.imageURI.length > 5) {
+    // Clean all leading 'ipfs://' prefixes (handles duplicates or variations)
+    let cid = post.imageURI.replace(/^(ipfs:\/\/?)+/gi, '');
+    const rawUrl = `https://ipfs.io/ipfs/${cid}`;
+    const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
-            let metaBox = "";
-            if(parseInt(post.nftId) > 0) {
-                const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
-                metaBox = `
-                <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
-                        <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
-                    </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                        <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
-                    </div>
-                    <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
-                        <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
-                        <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
-                    </div>
-                </div>`;
-            }
+    let metaBox = "";
+    if (parseInt(post.nftId) > 0) {
+        const shortWallet = post.author.substring(0, 6) + "..." + post.author.substring(38);
+        metaBox = `
+        <div class="nft-citation" style="background:#f8f9fa; padding:12px; border:1px solid #eee; border-top:none; border-radius:0 0 10px 10px; font-size:12px; color:#444; margin-top:-4px; position:relative; z-index:2;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
+                <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
+            </div>
+            <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
+                <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
+            </div>
+            <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
+                <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-\( {post.author}"> \){shortWallet}</span></span>
+                <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
+            </div>
+        </div>`;
+    }
 
-            imgHtml = `
-            <div style="margin:10px -15px 0 -15px;">
-                <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                    <img src="${optUrl}" 
-                         class="post-image" 
-                         style="width:100%; display:block; min-height:200px; background:#f0f0f0;" 
-                         loading="lazy"
-                         onerror="this.onerror=null; this.src='${rawUrl}';">
-                    ${metaBox}
-                </a>
-            </div>`;
+    imgHtml = `
+    <div style="margin:10px -15px 0 -15px;">
+        <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
+            <img src="${optUrl}"
+                 class="post-image"
+                 style="width:100%; display:block; min-height:200px; background:#f0f0f0;"
+                 loading="lazy"
+                 onerror="this.onerror=null; this.src='${rawUrl}';">
+            ${metaBox}
+        </a>
+    </div>`;
 
-            if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
-                setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
-            }
-        }
+    if (parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
+        setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
+    }
+         }
         
         const rCount = parseInt(post.ratingCount);
         const rScore = parseInt(post.totalRatingScore);
@@ -1190,27 +1191,6 @@ window.disconnect = function() {
     });
 }
 
-        function normalizeIpfsUrl(uri) {
-    if (!uri) return null;
-
-    // Sudah URL HTTP
-    if (uri.startsWith("http")) {
-        const match = uri.match(/ipfs\/([a-zA-Z0-9]+)$/);
-        if (match && match[1]) {
-            return `https://cloudflare-ipfs.com/ipfs/${match[1]}`;
-        }
-        return uri;
-    }
-
-    // ipfs://CID atau ipfs://ipfs/CID
-    if (uri.startsWith("ipfs://")) {
-        const clean = uri.replace("ipfs://", "").replace("ipfs/", "");
-        return `https://cloudflare-ipfs.com/ipfs/${clean}`;
-    }
-
-    return null;
-        }
-        
         // --- LOGIKA EDIT POSTINGAN ---
 
 // 1. Buka Mode Edit
