@@ -883,25 +883,31 @@ window.disconnect = function() {
 
     // --- 5. HELPER RENDER FEED ---
     function renderPostLoop(postsArray, container, isCache) {
+    // Safety check container
+    if (!container) return;
+
+    // Bersihkan container hanya jika bukan append/lazy load (opsional, tergantung logic Anda)
+    // container.innerHTML = ""; 
+
     [...postsArray].reverse().forEach(post => {
         const profileLink = `profile.html?addr=${post.author}`;
         let imgHtml = "";
         
-        // --- LOGIKA EDIT: Cek apakah user login adalah pemilik postingan ---
+        // --- LOGIKA EDIT: Cek User Login vs Pemilik Post ---
         let editIconHtml = "";
-        // Pastikan variabel global 'userAddress' sudah tersedia dari wallet
-        if (typeof userAddress !== 'undefined' && userAddress && post.author.toLowerCase() === userAddress.toLowerCase()) {
+        const currentUser = window.userAddress || (typeof userAddress !== 'undefined' ? userAddress : null);
+
+        if (currentUser && post.author && currentUser.toLowerCase() === post.author.toLowerCase()) {
             editIconHtml = `
             <i class="fa-solid fa-pen-to-square" 
                onclick="openPostEdit('${post.id}')" 
                style="cursor:pointer; color:#999; font-size:14px; margin-left:auto;" 
                title="Edit Postingan"></i>`;
         }
-        // ------------------------------------------------------------------
 
-        // Optimasi Gambar 60KB
+        // Optimasi Gambar
         if(post.imageURI && post.imageURI.length > 5) {
-            const rawUrl = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
             const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
             let metaBox = "";
@@ -912,12 +918,8 @@ window.disconnect = function() {
                     <div style="display:flex; justify-content:space-between; margin-bottom:6px; align-items:center;">
                         <span><i class="fa-solid fa-mask" style="color:#8b4513; margin-right:5px;"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="color:#8b4513; font-weight:bold;">Loading...</span></span>
                     </div>
-                    <div style="display:flex; justify-content:space-between; margin-bottom:8px; align-items:center;">
-                        <span><i class="fa-solid fa-palette" style="color:#7385a5; margin-right:5px;"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></span>
-                    </div>
                     <div style="border-top:1px dashed #ddd; padding-top:8px; display:flex; justify-content:space-between; align-items:center;">
                         <span><i class="fa-solid fa-user-tie" style="color:#555; margin-right:5px;"></i> <strong>Kolektor:</strong> <span class="author-nick-${post.author}">${shortWallet}</span></span>
-                        <span style="font-size:10px; color:#8b4513; font-style:italic;">Detail <i class="fa-solid fa-chevron-right" style="font-size:9px;"></i></span>
                     </div>
                 </div>`;
             }
@@ -940,17 +942,21 @@ window.disconnect = function() {
         const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
         const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
         
+        // Ambil Data Header User dari DOM (Karena ini di profile.html)
+        const pAvatar = document.getElementById("pAvatar") ? document.getElementById("pAvatar").src : "https://via.placeholder.com/40";
+        const pNick = document.getElementById("pNick") ? document.getElementById("pNick").innerText : post.author.substring(0,6)+"...";
+
         const html = `
         <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
             <div class="post-header" style="display: flex; align-items: center; gap: 10px; margin-bottom: 10px;">
                 <a href="${profileLink}">
-                    <img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
+                    <img src="${pAvatar}" class="user-avatar" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;" loading="lazy">
                 </a>
                 
-                <div class="post-info" style="flex: 1;">
+                <div class="post-info" style="flex:1;">
                     <div style="display:flex; justify-content:space-between; align-items:center;">
-                        <a href="${profileLink}" class="author-nick-${post.author}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
-                            ${post.author.substring(0,6)}...
+                        <a href="${profileLink}" style="text-decoration: none; color: #333; font-weight: bold; font-size: 14px;">
+                            ${pNick}
                         </a>
                         ${editIconHtml}
                     </div>
@@ -961,7 +967,6 @@ window.disconnect = function() {
             </div>
 
             <div class="post-caption" style="margin-bottom:10px; font-size:14px; line-height:1.5;">
-                
                 <div id="post-view-${post.id}">
                     ${formatCaption(post.caption)}
                 </div>
@@ -974,7 +979,6 @@ window.disconnect = function() {
                         <button onclick="submitPostEdit('${post.id}')" style="background:#7385a5; color:white; border:none; padding:5px 15px; border-radius:15px; cursor:pointer; font-size:12px;">Simpan</button>
                     </div>
                 </div>
-
             </div>
 
             ${imgHtml}
@@ -994,11 +998,14 @@ window.disconnect = function() {
                  </button>
             </div>
         </div>`;
-        container.innerHTML += html;
-        fetchProfileLazy(post.author);
+        
+        // Gunakan insertAdjacentHTML untuk performa lebih baik di dalam loop
+        container.insertAdjacentHTML('beforeend', html);
+        
+        if (typeof fetchProfileLazy === 'function') fetchProfileLazy(post.author);
     });
-    }
-    
+                                                                                                                                                                                }
+
     // --- 2. HELPER RENDER HEADER ---
     function renderHeaderUI(data, addr) {
         const ownerNick = data.nickname || "Tanpa Nama";
