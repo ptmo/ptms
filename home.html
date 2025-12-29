@@ -1087,16 +1087,14 @@ window.disconnect = function() {
                title="Edit Postingan"></i>`;
         }
 
-        // --- PERBAIKAN GAMBAR (INSTANT LOAD STRATEGY) ---
+        // --- PERBAIKAN LOGIKA GAMBAR (ROBUST) ---
         if(post.imageURI && post.imageURI.length > 5) {
-            // STRATEGI: Gunakan Gateway Publik Tercepat (Cloudflare/Dweb) untuk Read
-            // Gateway Pinata bagus untuk upload, tapi untuk read publik sering kena limit.
-            // dweb.link biasanya langsung bisa baca file detik itu juga.
-            const pinataUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
-            const fastUrl   = post.imageURI.replace('ipfs://', 'https://dweb.link/ipfs/');
+            // 1. Bersihkan URL menggunakan fungsi helper (Pasti Rapi)
+            const mainUrl   = cleanIpfsUrl(post.imageURI);   // Pakai dweb.link
+            const backupUrl = getBackupUrl(post.imageURI);   // Pakai Pinata (Cadangan)
 
-            // Optimasi pakai wsrv, tapi sumbernya ambil dari dweb.link (lebih stabil buat public fetch)
-            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(fastUrl)}&w=500&q=60&output=webp`;
+            // 2. Optimasi Gambar (wsrv.nl membaca dari dweb.link)
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(mainUrl)}&w=500&q=60&output=webp`;
 
             let metaBox = "";
             if(parseInt(post.nftId) > 0) {
@@ -1116,10 +1114,8 @@ window.disconnect = function() {
                 </div>`;
             }
 
-            // ONERROR CANGGIH:
-            // 1. Coba load versi optimasi (wsrv)
-            // 2. Jika gagal, load direct fastUrl (dweb.link)
-            // 3. Jika gagal juga, load direct pinataUrl (sumber asli)
+            // 3. RENDER GAMBAR (Dengan Fallback Anti-Broken)
+            // Urutan Load: WSRV (Optimasi) -> MainURL (Dweb) -> BackupURL (Pinata)
             imgHtml = `
             <div style="margin:10px -15px 0 -15px;">
                 <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
@@ -1127,7 +1123,7 @@ window.disconnect = function() {
                          class="post-image" 
                          style="width:100%; display:block; min-height:200px; background:#f0f0f0;" 
                          loading="lazy"
-                         onerror="this.onerror=null; this.src='${fastUrl}'; setTimeout(() => { this.src='${pinataUrl}' }, 2000);"> 
+                         onerror="this.onerror=null; this.src='${mainUrl}'; setTimeout(()=>{ this.src='${backupUrl}' }, 3000);"> 
                     ${metaBox}
                 </a>
             </div>`;
@@ -1200,45 +1196,62 @@ window.disconnect = function() {
     });
 }
 
-        // --- FUNGSI LOAD METADATA SUPER CEPAT ---
-async function fetchCardMetadata(postId, tokenURI) {
-    // Trik: Pakai 2 Gateway sekaligus. Siapa cepat dia dapat.
-    // dweb.link = Cloudflare (Sangat cepat untuk read)
-    // gateway.pinata.cloud = Pinata (Source asli)
+        // --- FUNGSI PEMBERSIH URL PINTAR ---
+// Fungsi ini memperbaiki segala jenis format IPFS yang error
+function cleanIpfsUrl(uri) {
+    if (!uri) return "";
     
-    const url1 = tokenURI.replace('ipfs://', 'https://dweb.link/ipfs/');
-    const url2 = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+    // 1. Hapus awalan "ipfs://" atau "ipfs:/" atau "ipfs:" jika ada
+    // Regex ini membuang semua variasi awalan ipfs yang aneh
+    const cid = uri.replace(/^ipfs?:\/\/?/, '');
 
-    try {
-        // Coba fetch dari Cloudflare dulu (biasanya instan)
-        let response = await fetch(url1);
-        
-        // Kalau Cloudflare gagal, coba Pinata
-        if (!response.ok) {
-            response = await fetch(url2);
-        }
-
-        if(response.ok) {
-            const data = await response.json();
-            
-            // Update UI dengan Data
-            const elName = document.getElementById(`meta-name-${postId}`);
-            const elGagrak = document.getElementById(`meta-gagrak-${postId}`);
-            
-            if(elName) elName.innerText = data.name || "Tanpa Nama";
-            if(elGagrak) elGagrak.innerText = getAttributeValue(data.attributes, "Gagrak") || "-";
-        }
-    } catch (e) {
-        console.error("Gagal load metadata:", e);
-        // Biarkan tetap "Loading..." atau ganti jadi "-" jika mau
-    }
+    // 2. Kembalikan URL bersih menggunakan Gateway Publik Tercepat (Cloudflare/Dweb)
+    // Cloudflare jauh lebih cepat mendeteksi file baru dibanding Pinata
+    return `https://dweb.link/ipfs/${cid}`;
 }
 
-// Helper untuk ambil value dari attributes array OpenSea standard
-function getAttributeValue(attributes, traitType) {
-    if(!attributes) return null;
-    const attr = attributes.find(a => a.trait_type === traitType);
-    return attr ? attr.value : null;
+// Fungsi cadangan jika Dweb gagal (untuk error handling)
+function getBackupUrl(uri) {
+    const cid = uri.replace(/^ipfs?:\/\/?/, '');
+    return `https://gateway.pinata.cloud/ipfs/${cid}`;
+}
+
+async function fetchCardMetadata(postId, tokenURI) {
+    // Gunakan fungsi pembersih yang sama agar URL valid
+    const url = cleanIpfsUrl(tokenURI); 
+
+    try {
+        const response = await fetch(url);
+        if(!response.ok) throw new Error("Gagal fetch");
+        
+        const data = await response.json();
+        
+        // Update UI
+        const elName = document.getElementById(`meta-name-${postId}`);
+        const elGagrak = document.getElementById(`meta-gagrak-${postId}`);
+        
+        // Helper kecil untuk ambil attribut NFT
+        const getTrait = (name) => {
+             const t = data.attributes?.find(a => a.trait_type === name);
+             return t ? t.value : "-";
+        };
+
+        if(elName) elName.innerText = data.name || "Tanpa Nama";
+        if(elGagrak) elGagrak.innerText = getTrait("Gagrak");
+
+    } catch (e) {
+        // Jika gagal pakai Dweb, coba backup Pinata
+        try {
+            const backup = getBackupUrl(tokenURI);
+            const res2 = await fetch(backup);
+            const data2 = await res2.json();
+             // Update UI (Copy logic atas)
+             if(document.getElementById(`meta-name-${postId}`)) 
+                document.getElementById(`meta-name-${postId}`).innerText = data2.name;
+        } catch(err2) {
+            console.log("Metadata gagal load");
+        }
+    }
 }
         
         // --- LOGIKA EDIT POSTINGAN ---
