@@ -1276,44 +1276,60 @@ async function submitPostEdit(postId) {
 
     // --- FITUR FOLLOW SYSTEM (DINAMIS) ---
     async function loadFollowData(targetAddr) {
-        try {
-            // 1. Ambil Statistik
-            const stats = await contract.getFollowCounts(targetAddr);
-            document.getElementById("statFollower").innerText = stats[0].toString();
-            document.getElementById("statFollowing").innerText = stats[1].toString();
+    try {
+        // 1. Ambil Statistik
+        const stats = await contract.getFollowCounts(targetAddr);
+        document.getElementById("statFollower").innerText = stats[0].toString();
+        document.getElementById("statFollowing").innerText = stats[1].toString();
 
-            // 2. Render Tombol Aksi
-            const btnContainer = document.getElementById("actionButtons");
-            btnContainer.innerHTML = ""; // Bersihkan tombol lama
+        // 2. Render Tombol Aksi
+        const btnContainer = document.getElementById("actionButtons");
+        btnContainer.innerHTML = ""; // Bersihkan tombol lama
+        
+        // Pastikan container menggunakan Flexbox agar tombol sejajar
+        btnContainer.style.display = "flex";
+        btnContainer.style.gap = "10px";
 
-            // SKENARIO A: PROFIL SENDIRI -> Tampilkan Edit & Ganti Nama
-            if (userAddress && targetAddr.toLowerCase() === userAddress.toLowerCase()) {
+        // SKENARIO A: PROFIL SENDIRI
+        if (userAddress && targetAddr.toLowerCase() === userAddress.toLowerCase()) {
+            btnContainer.innerHTML = `
+                <button class="btn-primary" style="background: #eee; color: #333; flex: 1;" onclick="openEditModal()">Edit Profil</button>
+                <button class="btn-primary" style="background: #e74c3c; flex: 1;" onclick="openNickModal()">Ganti Nama</button>
+            `;
+        } 
+        // SKENARIO B: PROFIL ORANG LAIN
+        else {
+            const isFollowing = await contract.isFollowing(userAddress, targetAddr);
+            
+            // Tombol Blokir (Reusable) - Muncul di kanan
+            const btnBlock = `
+                <button onclick="toggleBlock('${targetAddr}')" class="btn-primary" style="background: #ffebee; color: #c0392b; border: 1px solid #ffcdd2; width: 50px; display: flex; align-items: center; justify-content: center;" title="Blokir Pengguna">
+                    <i class="fa-solid fa-ban"></i>
+                </button>
+            `;
+
+            if (isFollowing) {
+                // KONDISI 1: SUDAH FOLLOW -> [ Mengikuti (Abu) ] [ Blokir ]
                 btnContainer.innerHTML = `
-                    <button class="btn-primary" style="background: #eee; color: #333;" onclick="openEditModal()">Edit Profil</button>
-                    <button class="btn-primary" style="background: #e74c3c;" onclick="openNickModal()">Ganti Nama</button>
+                    <button onclick="toggleFollow('${targetAddr}', false)" class="btn-primary" style="background: #7385a5; color: #fff; border: 1px solid #999; flex: 1;">
+                        <i class="fa-solid fa-user-check"></i> Mengikuti
+                    </button>
+                    ${btnBlock}
                 `;
-            } 
-            // SKENARIO B: PROFIL ORANG LAIN -> Tampilkan Follow/Unfollow
-            else {
-                const isFollowing = await contract.isFollowing(userAddress, targetAddr);
-                if (isFollowing) {
-                    btnContainer.innerHTML = `
-                        <button onclick="toggleFollow('${targetAddr}', false)" class="btn-primary" style="background: #7385a5; color: #fff; border: 1px solid #999;">
-                            <i class="fa-solid fa-user-check"></i> Mengikuti
-                        </button>
-                        <button onclick="toggleBlock('${targetAddr}')" class="btn-primary" style="background: #e74c3c; color: white;">
-                            <i class="fa-solid fa-ban"></i> Blokir
-                        </button>
-                    `;
-                } else {
-                    btnContainer.innerHTML = `
-                        <button onclick="toggleFollow('${targetAddr}', true)" class="btn-primary" style="background: #3498db;">
-                            <i class="fa-solid fa-user-plus"></i> Ikuti
-                        </button>
-                    `;
-                }
+            } else {
+                // KONDISI 2: BELUM FOLLOW -> [ + Ikuti (Biru) ] [ Blokir ]
+                // (Disini saya tambahkan btnBlock agar muncul di samping kanan tombol Ikuti)
+                btnContainer.innerHTML = `
+                    <button onclick="toggleFollow('${targetAddr}', true)" class="btn-primary" style="background: #3498db; flex: 1;">
+                        <i class="fa-solid fa-user-plus"></i> Ikuti
+                    </button>
+                    ${btnBlock}
+                `;
             }
-        } catch (e) { console.error("Gagal load follow data:", e); }
+        }
+    } catch (e) { 
+        console.error("Gagal load follow data:", e); 
+    }
     }
 
     // Fungsi Follow/Unfollow
