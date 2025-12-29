@@ -294,7 +294,7 @@ async function submitPost() {
             const metaCid = await uploadToPinata(metaFile);
 
             // 4. Kirim ke Blockchain (Bayar 0.0001 ETH)
-            showToast("3/3 Konfirmasi Wallet (0.0001 ETH)...", "info");
+            showToast("3/3 Tunggu & Konfirmasi Wallet...", "info");
             
             const tx = await contract.createPost(
                 imgCid, 
