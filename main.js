@@ -417,39 +417,11 @@ async function saveNftDraft() {
     showToast("Data Tersimpan! Klik KIRIM untuk upload.", "success");
 }
 
-// ==========================================
-// 4. FUNGSI BATAL / RESET FORM
-// ==========================================
-function cancelNft() {
-    pendingNftData = null;
-
-    // Sembunyikan Indikator
-    const indicator = document.getElementById("nftReadyIndicator");
-    if (indicator) indicator.style.display = "none";
-
-    // Reset Input File & Nama
-    document.getElementById("modalFileInput").value = "";
-    document.getElementById("modalFilePreview").innerText = "";
-    document.getElementById("mName").value = "";
-
-    // Reset Dropdown
-    document.getElementById("mGolongan").selectedIndex = 0;
-    document.getElementById("mGaya").selectedIndex = 0;
-
-    // Reset Input Teks Lainnya
-    const textIds = ['mBahan', 'mGapit', 'mPenatah', 'mPenyungging', 'mTahun', 'mKolektor'];
-    textIds.forEach(id => {
-        document.getElementById(id).value = "";
-    });
-
-    showToast("Mode Arsip Dibatalkan.", "info");
-}
-
 // --- FUNGSI HELPER FETCH METADATA ---
 async function fetchCardMetadata(postId, tokenUri) {
     if (!tokenUri) return;
     try {
-        const url = tokenUri.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+        const url = tokenUri.replace('ipfs://', 'https://ipfs.io/ipfs/');
         const res = await fetch(url);
         const meta = await res.json();
 
