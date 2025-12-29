@@ -401,14 +401,39 @@ async function saveNftDraft() {
     // A. Ambil Elemen Input Utama
     const nameInput = document.getElementById("mName");
     const fileInput = document.getElementById("modalFileInput");
+    const golonganInput = document.getElementById("mGolongan");
+    const gayaInput = document.getElementById("mGaya");
+    const bahanInput = document.getElementById("mBahan");
+    const gapitInput = document.getElementById("mGapit");
+    const penatahInput = document.getElementById("mPenatah");
+    const penyunggingInput = document.getElementById("mPenyungging");
+    const tahunInput = document.getElementById("mTahun");
+    const kolektorInput = document.getElementById("mKolektor");
     
-    // B. Validasi (Wajib diisi)
+    // 1. Validasi Nama
     if (!nameInput.value.trim()) {
         return showToast("Nama Tokoh Wayang wajib diisi!", "error");
     }
+
+    // 2. Validasi Foto
     if (!fileInput.files || !fileInput.files[0]) {
         return showToast("Foto Fisik Wayang wajib dipilih!", "error");
     }
+
+    // 3. Validasi Dropdown
+    if (!golonganInput.value) {
+        return showToast("Golongan Wayang wajib dipilih!", "error");
+    }
+    if (!gayaInput.value) {
+        return showToast("Gaya (Gagrak) wajib dipilih!", "error");
+    }
+
+    if (!bahanInput.value.trim()) return showToast("Bahan Wayang wajib diisi!", "error");
+    if (!gapitInput.value.trim()) return showToast("Jenis Gapit wajib diisi!", "error");
+    if (!penatahInput.value.trim()) return showToast("Nama Penatah wajib diisi!", "error");
+    if (!penyunggingInput.value.trim()) return showToast("Nama Penyungging wajib diisi!", "error");
+    if (!tahunInput.value.trim()) return showToast("Tahun Pembuatan wajib diisi!", "error");
+    if (!kolektorInput.value.trim()) return showToast("Nama Kolektor wajib diisi!", "error");
 
     // --- LOGIKA KOMPRESI HELPER ---
     let finalFile = fileInput.files[0];
