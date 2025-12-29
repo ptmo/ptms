@@ -1021,6 +1021,47 @@ window.disconnect = function() {
         container.insertAdjacentHTML('beforeend', html);
     });
     }
+
+    // --- LOGIKA TOMBOL EDIT ---
+
+function openPostEdit(postId) {
+    document.getElementById(`post-view-${postId}`).style.display = 'none';
+    document.getElementById(`post-edit-box-${postId}`).style.display = 'block';
+}
+
+function cancelPostEdit(postId) {
+    document.getElementById(`post-view-${postId}`).style.display = 'block';
+    document.getElementById(`post-edit-box-${postId}`).style.display = 'none';
+}
+
+async function submitPostEdit(postId) {
+    const inputVal = document.getElementById(`post-input-${postId}`).value;
+    if (!inputVal.trim()) return alert("Konten tidak boleh kosong!");
+
+    try {
+        const btn = event.target;
+        btn.innerText = "...";
+        btn.disabled = true;
+
+        // Panggil Smart Contract
+        const tx = await contract.editPost(postId, inputVal);
+        await tx.wait();
+
+        // Update Tampilan
+        document.getElementById(`post-view-${postId}`).innerHTML = formatCaption(inputVal);
+        cancelPostEdit(postId);
+        alert("Berhasil diedit!");
+
+    } catch (e) {
+        console.error(e);
+        alert("Gagal: " + (e.reason || e.message));
+    } finally {
+        if(event && event.target) {
+            event.target.innerText = "Simpan";
+            event.target.disabled = false;
+        }
+    }
+}
     
     // --- 2. HELPER RENDER HEADER ---
     function renderHeaderUI(data, addr) {
