@@ -1087,14 +1087,14 @@ window.disconnect = function() {
                title="Edit Postingan"></i>`;
         }
 
-        // --- PERBAIKAN LOGIKA GAMBAR (ROBUST) ---
+        // --- PERBAIKAN UTAMA DISINI ---
         if(post.imageURI && post.imageURI.length > 5) {
-            // 1. Bersihkan URL menggunakan fungsi helper (Pasti Rapi)
-            const mainUrl   = cleanIpfsUrl(post.imageURI);   // Pakai dweb.link
-            const backupUrl = getBackupUrl(post.imageURI);   // Pakai Pinata (Cadangan)
-
-            // 2. Optimasi Gambar (wsrv.nl membaca dari dweb.link)
-            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(mainUrl)}&w=500&q=60&output=webp`;
+            // 1. GANTI GATEWAY: Jangan pakai ipfs.io, pakai gateway pinata atau dweb
+            // Ini akan membuat gambar terbaca jauh lebih cepat
+            const rawUrl = post.imageURI.replace('ipfs/', 'https://gateway.pinata.cloud/');
+            
+            // 2. Optimasi Gambar (Tetap pakai wsrv.nl tapi sumbernya sudah cepat)
+            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
             let metaBox = "";
             if(parseInt(post.nftId) > 0) {
@@ -1114,8 +1114,7 @@ window.disconnect = function() {
                 </div>`;
             }
 
-            // 3. RENDER GAMBAR (Dengan Fallback Anti-Broken)
-            // Urutan Load: WSRV (Optimasi) -> MainURL (Dweb) -> BackupURL (Pinata)
+            // 3. TAMBAHKAN ONERROR: Jika wsrv.nl gagal, langsung pakai rawUrl
             imgHtml = `
             <div style="margin:10px -15px 0 -15px;">
                 <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
@@ -1123,13 +1122,13 @@ window.disconnect = function() {
                          class="post-image" 
                          style="width:100%; display:block; min-height:200px; background:#f0f0f0;" 
                          loading="lazy"
-                         onerror="this.onerror=null; this.src='${mainUrl}'; setTimeout(()=>{ this.src='${backupUrl}' }, 3000);"> 
+                         onerror="this.onerror=null; this.src='${rawUrl}';"> 
                     ${metaBox}
                 </a>
             </div>`;
 
             if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
-                // Panggil metadata fetcher
+                // Pastikan fungsi fetchCardMetadata juga menggunakan gateway cepat!
                 setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
             }
         }
@@ -1194,64 +1193,6 @@ window.disconnect = function() {
         container.innerHTML += html;
         fetchProfileLazy(post.author);
     });
-}
-
-        // --- FUNGSI PEMBERSIH URL PINTAR ---
-// Fungsi ini memperbaiki segala jenis format IPFS yang error
-function cleanIpfsUrl(uri) {
-    if (!uri) return "";
-    
-    // 1. Hapus awalan "ipfs://" atau "ipfs:/" atau "ipfs:" jika ada
-    // Regex ini membuang semua variasi awalan ipfs yang aneh
-    const cid = uri.replace(/^ipfs?:\/\/?/, '');
-
-    // 2. Kembalikan URL bersih menggunakan Gateway Publik Tercepat (Cloudflare/Dweb)
-    // Cloudflare jauh lebih cepat mendeteksi file baru dibanding Pinata
-    return `https://dweb.link/ipfs/${cid}`;
-}
-
-// Fungsi cadangan jika Dweb gagal (untuk error handling)
-function getBackupUrl(uri) {
-    const cid = uri.replace(/^ipfs?:\/\/?/, '');
-    return `https://gateway.pinata.cloud/ipfs/${cid}`;
-}
-
-async function fetchCardMetadata(postId, tokenURI) {
-    // Gunakan fungsi pembersih yang sama agar URL valid
-    const url = cleanIpfsUrl(tokenURI); 
-
-    try {
-        const response = await fetch(url);
-        if(!response.ok) throw new Error("Gagal fetch");
-        
-        const data = await response.json();
-        
-        // Update UI
-        const elName = document.getElementById(`meta-name-${postId}`);
-        const elGagrak = document.getElementById(`meta-gagrak-${postId}`);
-        
-        // Helper kecil untuk ambil attribut NFT
-        const getTrait = (name) => {
-             const t = data.attributes?.find(a => a.trait_type === name);
-             return t ? t.value : "-";
-        };
-
-        if(elName) elName.innerText = data.name || "Tanpa Nama";
-        if(elGagrak) elGagrak.innerText = getTrait("Gagrak");
-
-    } catch (e) {
-        // Jika gagal pakai Dweb, coba backup Pinata
-        try {
-            const backup = getBackupUrl(tokenURI);
-            const res2 = await fetch(backup);
-            const data2 = await res2.json();
-             // Update UI (Copy logic atas)
-             if(document.getElementById(`meta-name-${postId}`)) 
-                document.getElementById(`meta-name-${postId}`).innerText = data2.name;
-        } catch(err2) {
-            console.log("Metadata gagal load");
-        }
-    }
 }
         
         // --- LOGIKA EDIT POSTINGAN ---
