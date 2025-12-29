@@ -1087,15 +1087,12 @@ window.disconnect = function() {
                title="Edit Postingan"></i>`;
         }
 
-        // --- PERBAIKAN UTAMA DISINI ---
         if(post.imageURI && post.imageURI.length > 5) {
-            // 1. GANTI GATEWAY: Jangan pakai ipfs.io, pakai gateway pinata atau dweb
-            // Ini akan membuat gambar terbaca jauh lebih cepat
-            const rawUrl = post.imageURI.replace('https://gateway.pinata.cloud/ipfs/');
-            
-            // 2. Optimasi Gambar (Tetap pakai wsrv.nl tapi sumbernya sudah cepat)
-            const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
-
+                let optUrl = post.imageURI;
+                if (post.imageURI.startsWith("ipfs://")) {
+                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                     optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                }
             let metaBox = "";
             if(parseInt(post.nftId) > 0) {
                 const shortWallet = post.author.substring(0,6) + "..." + post.author.substring(38);
