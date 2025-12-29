@@ -1072,14 +1072,13 @@ window.disconnect = function() {
         }
 
         // --- HELPER RENDER (Sama seperti sebelumnya) ---
-function renderPostLoop(postsArray, container, isCache) {
+        function renderPostLoop(postsArray, container, isCache) {
     [...postsArray].reverse().forEach(post => {
         const profileLink = `profile.html?addr=${post.author}`;
         let imgHtml = "";
         
-        // --- LOGIKA 1: Tombol Edit (Hanya Muncul untuk Pemilik Postingan) ---
+        // --- LOGIKA 1: Tombol Edit ---
         let editPostIcon = "";
-        // Pastikan userAddress ada dan cocok dengan author
         if (typeof userAddress !== 'undefined' && userAddress && post.author.toLowerCase() === userAddress.toLowerCase()) {
             editPostIcon = `
             <i class="fa-solid fa-pen-to-square" 
@@ -1088,9 +1087,13 @@ function renderPostLoop(postsArray, container, isCache) {
                title="Edit Postingan"></i>`;
         }
 
-        // Optimasi Gambar
+        // --- PERBAIKAN UTAMA DISINI ---
         if(post.imageURI && post.imageURI.length > 5) {
-            const rawUrl = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            // 1. GANTI GATEWAY: Jangan pakai ipfs.io, pakai gateway pinata atau dweb
+            // Ini akan membuat gambar terbaca jauh lebih cepat
+            const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            
+            // 2. Optimasi Gambar (Tetap pakai wsrv.nl tapi sumbernya sudah cepat)
             const optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
 
             let metaBox = "";
@@ -1111,19 +1114,25 @@ function renderPostLoop(postsArray, container, isCache) {
                 </div>`;
             }
 
+            // 3. TAMBAHKAN ONERROR: Jika wsrv.nl gagal, langsung pakai rawUrl
             imgHtml = `
             <div style="margin:10px -15px 0 -15px;">
                 <a href="koleksi.html?id=${post.id}" style="text-decoration:none; display:block;">
-                    <img src="${optUrl}" class="post-image" style="width:100%; display:block; min-height:200px; background:#f0f0f0;" loading="lazy">
+                    <img src="${optUrl}" 
+                         class="post-image" 
+                         style="width:100%; display:block; min-height:200px; background:#f0f0f0;" 
+                         loading="lazy"
+                         onerror="this.onerror=null; this.src='${rawUrl}';"> 
                     ${metaBox}
                 </a>
             </div>`;
 
             if(parseInt(post.nftId) > 0 && post.tokenURI && !isCache) {
+                // Pastikan fungsi fetchCardMetadata juga menggunakan gateway cepat!
                 setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 100);
             }
         }
-
+        
         const rCount = parseInt(post.ratingCount);
         const rScore = parseInt(post.totalRatingScore);
         const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
