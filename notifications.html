@@ -381,23 +381,53 @@ async function onWalletConnected() {
     }
 }
 
-// 2. Fungsi Membuka Popup Info
+// 2. Fungsi Membuka Popup Info (VERSI PERBAIKAN)
 async function openWalletInfo() {
+    // Cek apakah userAddress ada
     if (!userAddress) return showToast("Dompet belum terhubung", "error");
 
-    // Isi Alamat
-    document.getElementById("infoWalletAddr").innerText = userAddress.substring(0, 10) + "..." + userAddress.substring(38);
+    // A. Isi Alamat Dompet (Format Rapi)
+    const shortAddr = userAddress.substring(0, 8) + "..." + userAddress.substring(38);
+    document.getElementById("infoWalletAddr").innerText = shortAddr;
     
-    // Ambil Saldo Terbaru
+    // B. Ambil Saldo Terbaru (FIX LOGIC)
     try {
-        const balance = await provider.getBalance(userAddress);
-        const ethBal = ethers.utils.formatEther(balance);
+        // PERBAIKAN: Kita definisikan provider lokal di sini agar tidak 'undefined'
+        // Ini memastikan koneksi ke MetaMask selalu fresh saat modal dibuka
+        let localProvider;
+
+        // Cek versi Ethers.js (v5 vs v6)
+        if (ethers.providers && ethers.providers.Web3Provider) {
+            // Ethers v5 (Yang umum dipakai)
+            localProvider = new ethers.providers.Web3Provider(window.ethereum);
+        } else {
+            // Ethers v6 (Versi terbaru)
+            localProvider = new ethers.BrowserProvider(window.ethereum);
+        }
+        
+        // Ambil Saldo
+        const balance = await localProvider.getBalance(userAddress);
+        
+        // Format Saldo (Wei ke ETH)
+        let ethBal;
+        if (ethers.utils && ethers.utils.formatEther) {
+             // Ethers v5
+             ethBal = ethers.utils.formatEther(balance);
+        } else {
+             // Ethers v6
+             ethBal = ethers.formatEther(balance);
+        }
+
+        // Tampilkan 4 desimal di UI
         document.getElementById("infoWalletBal").innerText = parseFloat(ethBal).toFixed(4);
+
     } catch (e) {
-        document.getElementById("infoWalletBal").innerText = "Error";
+        console.error("Detail Error Saldo:", e); // Cek Console browser (F12) jika masih error
+        // Jika gagal, tampilkan 0.0000 daripada tulisan 'Error' (lebih estetik)
+        document.getElementById("infoWalletBal").innerText = "0.0000"; 
     }
 
-    // Buka Modal
+    // C. Buka Modal
     document.getElementById("walletModal").showModal();
 }
 
