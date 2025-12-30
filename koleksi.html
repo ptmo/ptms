@@ -688,6 +688,37 @@
         font-size: 30px;
     }
 }
+
+        /* --- CSS RESPONSIVE KEYBOARD --- */
+@media (max-width: 768px) {
+    
+    /* Kelas ini akan ditambahkan lewat JS saat keyboard muncul */
+    .sedang-ngetik {
+        position: fixed !important;
+        bottom: 0 !important;
+        left: 0 !important;
+        width: 100% !important;
+        max-width: 100% !important;
+        
+        /* Ubah gaya agar terlihat seperti Chat Bar native */
+        margin: 0 !important;
+        border-radius: 0 !important;
+        border-top: 1px solid #ccc !important;
+        border-left: none !important;
+        border-right: none !important;
+        border-bottom: none !important;
+        
+        padding: 10px 15px !important;
+        background: #fff !important;
+        z-index: 99999 !important;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
+    }
+
+    /* Sembunyikan judul "Diskusi Kurator" saat mengetik biar hemat tempat */
+    .sedang-ngetik .hide-on-type {
+        display: none !important;
+    }
+}
     </style>
 </head>
 <body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
@@ -833,23 +864,27 @@
         </div>
     </div>
 
-    <div style="max-width: 800px; margin: 0 auto 50px auto; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border:1px solid #eee;">
-        <h3 style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:15px; color:#333;">Diskusi Kurator</h3>
+    <div id="diskusiWrapper" style="max-width: 800px; margin: 0 auto 50px auto; padding: 25px; background: white; border-radius: 15px; box-shadow: 0 5px 20px rgba(0,0,0,0.05); border:1px solid #eee;">
+    
+    <h3 class="hide-on-type" style="margin-top:0; border-bottom:1px solid #eee; padding-bottom:15px; color:#333;">Diskusi Kurator</h3>
+    
+    <div style="display:flex; gap:10px; margin-bottom:5px; align-items: flex-end;">
+        <textarea 
+            id="commentInputDetail" 
+            class="cp-input" 
+            placeholder="Tulis pendapat Anda..." 
+            onfocus="modeMengetik(true)"
+            onblur="setTimeout(() => modeMengetik(false), 200)"
+            style="flex:1; padding:12px; border:1px solid #ddd; border-radius:10px; height:80px; resize:none; font-family:sans-serif;"></textarea>
         
-        <div style="display:flex; gap:10px; margin-bottom:25px; align-items: flex-end;">
-            <textarea 
-                id="commentInputDetail" 
-                class="cp-input" 
-                placeholder="Tulis pendapat Anda..." 
-                style="flex:1; padding:12px; border:1px solid #ddd; border-radius:10px; height:80px; resize:none; font-family:sans-serif;"></textarea>
-            
-            <button 
-                onclick="submitCommentDetail()" 
-                class="btn-primary" 
-                style="background:#7385a5; color:white; border:none; padding:0 25px; border-radius:10px; cursor:pointer; height:50px; margin-bottom:5px;">
-                Kirim
-            </button>
-        </div>
+        <button 
+            onclick="submitCommentDetail()" 
+            class="btn-primary" 
+            style="background:#7385a5; color:white; border:none; padding:0 25px; border-radius:10px; cursor:pointer; height:50px;">
+            Kirim
+        </button>
+    </div>
+    </div>
 
         <div id="pageComments">Memuat komentar...</div>
     </div>
@@ -1824,6 +1859,18 @@ window.onclick = function(event) {
     const modal = document.getElementById("imageZoomModal");
     if (event.target === modal) {
         modal.style.display = "none";
+    }
+}
+
+function modeMengetik(aktif) {
+    // Hanya jalankan di HP
+    if (window.innerWidth < 768) {
+        const wrapper = document.getElementById('diskusiWrapper');
+        if (aktif) {
+            wrapper.classList.add('sedang-ngetik');
+        } else {
+            wrapper.classList.remove('sedang-ngetik');
+        }
     }
 }
 </script>
