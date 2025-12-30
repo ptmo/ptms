@@ -1618,18 +1618,57 @@ async function submitSawerDetail() {
         }
 
     async function handleLikeDetail() {
-            if(!currentPostId) return;
-            const btnCount = document.getElementById("countLikeDetail");
-            const btnIcon = document.getElementById("iconLikeDetail");
-            try {
-                btnCount.innerText = parseInt(btnCount.innerText) + 1;
-                btnIcon.classList.replace("fa-regular", "fa-solid");
-                btnIcon.style.color = "#e74c3c";
-                const tx = await contract.likePost(currentPostId - 1);
-                await tx.wait();
-            } catch (e) { btnCount.innerText = parseInt(btnCount.innerText) - 1; } 
-        }
+    // 1. Validasi ID
+    if (!currentPostId) return;
 
+    // 2. Ambil Elemen
+    const btnCount = document.getElementById("countLikeDetail");
+    const btnIcon = document.getElementById("iconLikeDetail");
+    const current = parseInt(btnCount.innerText);
+
+    // 3. CEK STATUS: Apakah user sudah like sebelumnya? (Lihat dari ikon)
+    if (btnIcon.classList.contains("fa-solid")) {
+        return showToast("Anda sudah menyukai postingan ini!", "warning");
+    }
+
+    // 4. OPTIMISTIC UI UPDATE (Ubah tampilan dulu biar terasa cepat)
+    btnCount.innerText = current + 1;
+    btnIcon.classList.remove("fa-regular");
+    btnIcon.classList.add("fa-solid");
+    btnIcon.style.color = "#e74c3c"; // Merah
+
+    try {
+        // 5. Tampilkan Toast Proses
+        showToast("Menyukai...", "info");
+
+        // 6. Kirim Transaksi (currentPostId - 1 karena array mulai dari 0)
+        const tx = await contract.likePost(currentPostId - 1);
+        
+        // 7. Tunggu Konfirmasi
+        await tx.wait();
+        
+        // 8. Toast Berhasil
+        showToast("Berhasil menyukai postingan!", "success");
+
+    } catch (e) {
+        // 9. ROLLBACK (Jika Gagal)
+        // Kembalikan angka dan warna ikon seperti semula
+        console.error(e);
+        btnCount.innerText = current;
+        btnIcon.classList.add("fa-regular");
+        btnIcon.classList.remove("fa-solid");
+        btnIcon.style.color = ""; // Reset warna (biasanya abu-abu/hitam)
+
+        // Deteksi error spesifik
+        if (e.message.includes("already liked")) {
+             showToast("Anda sudah menyukai postingan ini (Data Blockchain).", "warning");
+        } else if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+             showToast("Like dibatalkan user.", "warning");
+        } else {
+             showToast("Gagal Like: " + (e.reason || "Gangguan Jaringan"), "error");
+        }
+    }
+    }
         async function submitCommentDetail() {
     const inputEl = document.getElementById("commentInputDetail");
     const text = inputEl.value.trim(); // Pakai trim() biar spasi doang gak masuk
