@@ -1631,16 +1631,46 @@ async function submitSawerDetail() {
         }
 
         async function submitCommentDetail() {
-            const text = document.getElementById("commentInputDetail").value;
-            if(!text) return;
-            try {
-                showToast("Mengirim...", "info");
-                const tx = await contract.addComment(currentPostId - 1, text, "");
-                await tx.wait();
-                showToast("Terkirim!", "success");
-                document.getElementById("commentInputDetail").value = "";
-                loadPageComments(currentPostId - 1);
-            } catch(e) { showToast("Gagal: " + e.message, "error"); }
+    const inputEl = document.getElementById("commentInputDetail");
+    const text = inputEl.value.trim(); // Pakai trim() biar spasi doang gak masuk
+    
+    // Validasi input kosong
+    if(!text) return showToast("Tulis sesuatu dulu...", "warning");
+    
+    try {
+        showToast("Mengirim ke Blockchain...", "info");
+        
+        // 1. Kirim Transaksi
+        // Pastikan logic ID (currentPostId - 1) ini konsisten dengan smart contract Anda
+        const tx = await contract.addComment(currentPostId - 1, text, "");
+        
+        // UX TIP: Bersihkan input langsung biar user tau tombol sudah ditekan
+        inputEl.value = ""; 
+
+        // 2. Tunggu Konfirmasi
+        await tx.wait();
+        showToast("Terkirim! Memuat data...", "success");
+
+        // 3. Panggil Ulang Data Komentar (WAJIB AWAIT)
+        // Kita kasih delay sedikiit (500ms) untuk memastikan node RPC sudah update
+        setTimeout(async () => {
+            await loadPageComments(currentPostId - 1);
+            
+            // 4. FITUR AUTO SCROLL (PENTING!)
+            // Ini yang bikin komentar baru langsung terlihat
+            const container = document.getElementById("pageComments");
+            if(container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 1000); // Delay 1 detik agar aman
+
+    } catch(e) { 
+        console.error(e);
+        showToast("Gagal: " + (e.reason || e.message), "error"); 
+    }
         }
 
         async function loadPageComments(postIndex) {
