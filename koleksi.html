@@ -588,6 +588,105 @@
     from { opacity: 0; backdrop-filter: blur(0px); }
     to { opacity: 1; backdrop-filter: blur(4px); }
     }
+
+        /* --- CSS TOMBOL ZOOM --- */
+.zoom-btn {
+    position: absolute;
+    bottom: 15px; /* Jarak dari bawah */
+    right: 15px;  /* Jarak dari kanan */
+    
+    background: rgba(255, 255, 255, 0.8); /* Latar putih transparan */
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%; /* Bentuk bulat */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 18px;
+    color: #8b4513; /* Warna ikon */
+    transition: all 0.3s ease;
+    z-index: 10; /* Pastikan di atas gambar */
+}
+
+.zoom-btn:hover {
+    background: #8b4513;
+    color: white;
+    transform: scale(1.1);
+}
+
+
+/* --- CSS MODAL FULL SCREEN --- */
+/* Latar Belakang Gelap */
+.zoom-modal {
+    display: none; /* Tersembunyi secara default */
+    position: fixed; 
+    z-index: 9999; /* Paling depan */
+    padding-top: 50px; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.9); /* Hitam pekat transparan */
+    
+    /* Center gambar secara fleksibel */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Gambar di dalam Modal */
+.zoom-modal-content {
+    margin: auto;
+    display: block;
+    /* Gambar menyesuaikan layar tapi tidak melebihi ukuran asli */
+    max-width: 95%;
+    max-height: 90vh; 
+    object-fit: contain;
+    border-radius: 5px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.1);
+    animation: zoomAnim 0.3s; /* Efek muncul */
+}
+
+/* Tombol Close (X) */
+.close-zoom {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+    z-index: 10001;
+}
+.close-zoom:hover, .close-zoom:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Animasi Zoom In saat muncul */
+@keyframes zoomAnim {
+    from {transform:scale(0.8); opacity:0}
+    to {transform:scale(1); opacity:1}
+}
+
+/* Penyesuaian untuk HP */
+@media only screen and (max-width: 700px){
+    .zoom-modal-content {
+        width: 100%; /* Full lebar di HP */
+    }
+    .close-zoom {
+        top: 10px;
+        right: 20px;
+        font-size: 30px;
+    }
+}
     </style>
 </head>
 <body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
@@ -625,17 +724,22 @@
     </div>
 
     <div id="mainContent" class="collection-wrapper" style="display:none;">
-
                 <div class="art-stage">
-            
             <div id="originBadge" class="geo-badge">
                 <i class="fa-solid fa-globe-asia"></i>
                 <span id="originText">Nusantara</span>
             </div>
-
-            <img id="detailImg" src="" class="art-image" alt="Karya">
-            
+           <button class="zoom-btn" onclick="openZoomModal()" title="Perbesar Gambar">
+            <i class="fa-solid fa-magnifying-glass-plus"></i>
+           </button>
+            <img id="detailImg" src="" class="art-image">
                 </div>
+
+        <div id="imageZoomModal" class="zoom-modal">
+    <span class="close-zoom" onclick="closeZoomModal()">&times;</span>
+    <img class="zoom-modal-content" id="fullScreenImage">
+    <div id="zoomCaption"></div>
+        </div>
         
         <div class="art-info">
             
@@ -1687,6 +1791,40 @@ window.disconnect = function() {
     localStorage.clear();
     window.location.href = "index.html";
 };
+
+// --- FUNGSI ZOOM GAMBAR FULL SCREEN ---
+
+// 1. Buka Modal
+function openZoomModal() {
+    const modal = document.getElementById("imageZoomModal");
+    const modalImg = document.getElementById("fullScreenImage");
+    const smallImg = document.getElementById("detailImg");
+    // const captionText = document.getElementById("zoomCaption"); // Opsional
+
+    // AMBIL URL ASLI dari atribut yang kita simpan tadi
+    const originalSrc = smallImg.getAttribute('data-original-src');
+
+    // Set source gambar modal ke URL ASLI
+    // Fallback ke src biasa jika data-original-src belum siap
+    modalImg.src = originalSrc || smallImg.src; 
+    
+    // Tampilkan modal dengan flex agar centering bekerja
+    modal.style.display = "flex"; 
+    // captionText.innerHTML = smallImg.alt; // Opsional
+}
+
+// 2. Tutup Modal
+function closeZoomModal() {
+    document.getElementById("imageZoomModal").style.display = "none";
+}
+
+// 3. Tutup Modal saat klik di luar gambar (area hitam)
+window.onclick = function(event) {
+    const modal = document.getElementById("imageZoomModal");
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+}
 </script>
 </body>
 </html>
