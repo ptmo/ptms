@@ -1476,18 +1476,54 @@ async function submitPostEdit(postId) {
 
     // --- INTERAKSI LAIN ---
     async function handleLike(postId) {
-        const countSpan = document.getElementById(`count-like-${postId}`);
-        const icon = document.getElementById(`icon-like-${postId}`);
-        const current = parseInt(countSpan.innerText);
-        countSpan.innerText = current + 1;
-        icon.classList.remove("fa-regular"); icon.classList.add("fa-solid"); icon.style.color = "#e74c3c";
-        try {
-            const tx = await contract.likePost(postId - 1);
-            await tx.wait();
-        } catch (e) {
-            countSpan.innerText = current; 
-            icon.classList.add("fa-regular"); icon.classList.remove("fa-solid"); icon.style.color = "";
+    // 1. Ambil Elemen
+    const countSpan = document.getElementById(`count-like-${postId}`);
+    const icon = document.getElementById(`icon-like-${postId}`);
+    const current = parseInt(countSpan.innerText);
+
+    // 2. CEK STATUS: Apakah user sudah like sebelumnya? (Lihat dari ikon)
+    // Jika ikon sudah 'fa-solid' (merah), berarti sudah dilike.
+    if (icon.classList.contains("fa-solid")) {
+        return showToast("Anda sudah menyukai postingan ini!", "warning");
+    }
+
+    // 3. OPTIMISTIC UI UPDATE (Ubah tampilan dulu biar terasa cepat)
+    countSpan.innerText = current + 1;
+    icon.classList.remove("fa-regular");
+    icon.classList.add("fa-solid");
+    icon.style.color = "#e74c3c"; // Merah
+
+    try {
+        // 4. Tampilkan Toast Proses
+        showToast("Mengirim Like ke Blockchain...", "info");
+
+        // 5. Kirim Transaksi (postId - 1 karena di array solidity mulai dari 0)
+        const tx = await contract.likePost(postId - 1);
+        
+        // 6. Tunggu Konfirmasi
+        await tx.wait();
+        
+        // 7. Toast Berhasil
+        showToast("Berhasil menyukai postingan!", "success");
+
+    } catch (e) {
+        // 8. ROLLBACK (Jika Gagal)
+        // Kembalikan angka dan warna ikon seperti semula
+        console.error(e);
+        countSpan.innerText = current;
+        icon.classList.add("fa-regular");
+        icon.classList.remove("fa-solid");
+        icon.style.color = ""; // Reset warna
+
+        // Deteksi error spesifik (opsional)
+        if (e.message.includes("already liked")) {
+             showToast("Anda sudah menyukai postingan ini (Data Blockchain).", "warning");
+        } else if (e.code === 4001) {
+             showToast("Like dibatalkan user.", "warning");
+        } else {
+             showToast("Gagal Like: " + (e.reason || "Gangguan Jaringan"), "error");
         }
+    }
     }
 
     // --- 1. MEMBUKA MODAL ---
