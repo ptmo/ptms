@@ -1309,52 +1309,55 @@ async function submitPostEdit(postId) {
 
         // --- INTERAKSI LIKE & RATE ---
         async function handleLike(postId) {
-    // 1. Ambil Elemen
+    // 1. Ambil Elemen UI
     const countSpan = document.getElementById(`count-like-${postId}`);
     const icon = document.getElementById(`icon-like-${postId}`);
     const current = parseInt(countSpan.innerText);
 
-    // 2. CEK STATUS: Apakah user sudah like sebelumnya? (Lihat dari ikon)
-    // Jika ikon sudah 'fa-solid' (merah), berarti sudah dilike.
+    // 2. CEK VISUAL: Jika sudah merah, stop (biar user gak spam klik)
     if (icon.classList.contains("fa-solid")) {
-        return showToast("Anda sudah menyukai postingan ini!", "warning");
+        return showToast("Anda sudah menyukai postingan ini", "warning");
     }
 
-    // 3. OPTIMISTIC UI UPDATE (Ubah tampilan dulu biar terasa cepat)
+    // 3. OPTIMISTIC UI: Ubah dulu biar user merasa aplikasinya cepat
     countSpan.innerText = current + 1;
     icon.classList.remove("fa-regular");
     icon.classList.add("fa-solid");
-    icon.style.color = "#e74c3c"; // Merah
+    icon.style.color = "#e74c3c"; // Merah Cinta
 
     try {
-        // 4. Tampilkan Toast Proses
-        showToast("Menyukai...", "info");
+        // 4. Toast Loading (Opsional, bisa dihapus kalau ingin silent)
+        // showToast("Menyukai...", "info");
 
-        // 5. Kirim Transaksi (postId - 1 karena di array solidity mulai dari 0)
+        // 5. Kirim Transaksi
         const tx = await contract.likePost(postId - 1);
-        
-        // 6. Tunggu Konfirmasi
         await tx.wait();
         
-        // 7. Toast Berhasil
         showToast("Berhasil menyukai postingan!", "success");
 
     } catch (e) {
-        // 8. ROLLBACK (Jika Gagal)
-        // Kembalikan angka dan warna ikon seperti semula
-        console.error(e);
+        // 6. ROLLBACK: Kembalikan tampilan ke awal karena gagal
+        console.error("Gagal Like:", e); // Cek console untuk debug
+        
         countSpan.innerText = current;
         icon.classList.add("fa-regular");
         icon.classList.remove("fa-solid");
         icon.style.color = ""; // Reset warna
 
-        // Deteksi error spesifik (opsional)
-        if (e.message.includes("already liked")) {
+        // 7. FILTER PESAN ERROR (Agar tidak menyeramkan)
+        const errMsg = (e.message || e.reason || "").toLowerCase();
+
+        // Cek apakah pesan error mengandung kata "sudah like"
+        if (errMsg.includes("sudah like") || errMsg.includes("execution reverted")) {
+             // Tampilkan pesan ramah dengan tipe 'warning' (biasanya kuning)
              showToast("Anda sudah menyukai postingan ini", "warning");
-        } else if (e.code === 4001) {
-             showToast("Like dibatalkan user.", "warning");
-        } else {
-             showToast("Gagal Like: " + (e.reason || "Gangguan Jaringan"), "error");
+        } 
+        else if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+             showToast("Batal menyukai.", "info");
+        } 
+        else {
+             // Error lain yang benar-benar error (jaringan/saldo habis)
+             showToast("Gagal: Gangguan jaringan", "error");
         }
     }
         }
