@@ -689,35 +689,28 @@
     }
 }
 
-        /* --- CSS RESPONSIVE KEYBOARD --- */
-@media (max-width: 768px) {
+        /* --- CSS FIX KEYBOARD --- */
+.sedang-ngetik {
+    position: fixed !important;
+    left: 0 !important;
+    width: 100% !important;
     
-    /* Kelas ini akan ditambahkan lewat JS saat keyboard muncul */
-    .sedang-ngetik {
-        position: fixed !important;
-        bottom: 0 !important;
-        left: 0 !important;
-        width: 100% !important;
-        max-width: 100% !important;
-        
-        /* Ubah gaya agar terlihat seperti Chat Bar native */
-        margin: 0 !important;
-        border-radius: 0 !important;
-        border-top: 1px solid #ccc !important;
-        border-left: none !important;
-        border-right: none !important;
-        border-bottom: none !important;
-        
-        padding: 10px 15px !important;
-        background: #fff !important;
-        z-index: 99999 !important;
-        box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
-    }
+    /* Ubah gaya agar terlihat solid */
+    background: #fff !important;
+    z-index: 999999 !important; /* Paling depan */
+    box-shadow: 0 -4px 15px rgba(0,0,0,0.15) !important;
+    padding: 10px !important;
+    border-top: 1px solid #ddd !important;
+    
+    /* Hapus margin/border radius bawaan */
+    margin: 0 !important;
+    border-radius: 0 !important;
+}
 
-    /* Sembunyikan judul "Diskusi Kurator" saat mengetik biar hemat tempat */
-    .sedang-ngetik .hide-on-type {
-        display: none !important;
-    }
+/* Sembunyikan elemen lain saat fokus */
+.sedang-ngetik .hide-on-type,
+.sedang-ngetik h3 {
+    display: none !important;
 }
     </style>
 </head>
@@ -1862,15 +1855,44 @@ window.onclick = function(event) {
     }
 }
 
+// --- SCRIPT KEYBOARD STICKY (Visual Viewport API) ---
 function modeMengetik(aktif) {
-    // Hanya jalankan di HP
-    if (window.innerWidth < 768) {
-        const wrapper = document.getElementById('diskusiWrapper');
-        if (aktif) {
-            wrapper.classList.add('sedang-ngetik');
+    // Hanya jalan di HP
+    if (window.innerWidth >= 768) return;
+
+    const wrapper = document.getElementById('diskusiWrapper');
+    
+    if (aktif) {
+        wrapper.classList.add('sedang-ngetik');
+        
+        // TEKNIK KUNCI: Hitung posisi keyboard real-time
+        if (window.visualViewport) {
+            function updatePosition() {
+                // Tinggi layout viewport - tinggi visual viewport = tinggi keyboard
+                // Kita taruh elemen di bagian bawah visual viewport
+                const offset = window.visualViewport.height; 
+                // Karena position fixed relatif terhadap layout viewport,
+                // kita set 'bottom' dinamis agar pas di atas keyboard
+                wrapper.style.bottom = (window.innerHeight - offset) + "px";
+                // Atau pakai top
+                // wrapper.style.top = (window.visualViewport.offsetTop + window.visualViewport.height - wrapper.offsetHeight) + "px";
+            }
+
+            window.visualViewport.addEventListener('resize', updatePosition);
+            window.visualViewport.addEventListener('scroll', updatePosition);
+            updatePosition(); // Panggil sekali di awal
         } else {
-            wrapper.classList.remove('sedang-ngetik');
+            // Fallback untuk browser lama
+            wrapper.style.bottom = "0px";
         }
+        
+    } else {
+        wrapper.classList.remove('sedang-ngetik');
+        wrapper.style.bottom = ""; // Reset inline style
+        
+        // Hapus event listener agar tidak berat
+        // (Opsional, tapi bagus untuk performa)
+       // window.visualViewport.removeEventListener
     }
 }
 </script>
