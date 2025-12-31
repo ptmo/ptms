@@ -487,7 +487,7 @@ Koleksi Wayang Kulit
         const id = params.get('id');
 
         if (!id) {
-            document.getElementById("loading").innerHTML = "<span style='color:red'>Error: ID Tidak Ditemukan</span>";
+            document.getElementById("loading").innerHTML = "<span style='color:red'>Error: ID Tidak Ditemukan di URL</span>";
             return;
         }
 
@@ -496,7 +496,7 @@ Koleksi Wayang Kulit
              connectWallet();
         }
 
-        // DETEKSI TIPE ID (G-xxx = Publik, Angka = NFT)
+        // DETEKSI TIPE ID
         if (id.startsWith("G-")) {
             await loadPublicDetail(id);
             // Sembunyikan fitur sosial untuk publik
@@ -523,11 +523,11 @@ Koleksi Wayang Kulit
 
         } catch (err) {
             console.error("NFT Error:", err);
-            document.getElementById("loading").innerText = "Gagal memuat NFT.";
+            document.getElementById("loading").innerText = "Gagal memuat NFT (ID Salah?).";
         }
     }
 
-    // --- 3. LOAD PUBLIK (KOMUNITAS) ---
+    // --- 3. LOAD PUBLIK (FIXED: Direct Mapping Access) ---
     async function loadPublicDetail(rawId) {
         try {
             const realId = rawId.replace("G-", ""); 
@@ -535,13 +535,18 @@ Koleksi Wayang Kulit
             const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
             
-            // Ambil Data
-            const item = await contract.getGalleryItemById(realId);
+            // PERBAIKAN: Panggil mapping langsung (galleryItems), bukan fungsi getGalleryItemById
+            const item = await contract.galleryItems(realId);
             
-            // Parsing Deskripsi (Dengan Error Handling)
+            // Cek apakah item ada (ID tidak boleh 0 jika sukses)
+            if(item.id.toString() == "0") {
+                throw new Error("Item tidak ditemukan di Blockchain.");
+            }
+
+            // Parsing Deskripsi
             const parsed = parseDescriptionSafe(item.description);
             
-            // Mapping URL Gambar (Handle jika sudah https atau masih ipfs)
+            // Fix URL Gambar
             let finalImg = item.imageURI;
             if(finalImg.startsWith("ipfs://")) {
                 finalImg = finalImg.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
@@ -558,32 +563,35 @@ Koleksi Wayang Kulit
 
         } catch (err) {
             console.error("Public Error:", err);
-            // Tampilkan error detail di layar biar ketahuan
-            document.getElementById("loading").innerHTML = `Gagal memuat Galeri.<br><small>${err.message}</small>`;
+            // Tampilkan pesan error yang lebih jelas
+            document.getElementById("loading").innerHTML = `
+                <div style="color:#e74c3c; font-weight:bold;">Gagal memuat Galeri Publik</div>
+                <div style="font-size:11px; color:#666; margin-top:5px;">${err.message || err.reason}</div>
+            `;
         }
     }
 
     // --- 4. RENDER TAMPILAN (UNIVERSAL) ---
     function renderDetail(id, meta, isPublic) {
-        // Helper
+        // Helper Atribut
         const getAttr = (key) => {
             if (!meta.attributes) return "-";
-            // Normalisasi pencarian (case insensitive dikit)
             const attr = meta.attributes.find(a => a.trait_type.toLowerCase() === key.toLowerCase());
             return attr ? attr.value : "-";
         };
 
         // GAMBAR
         const imgEl = document.getElementById("displayImg");
-        imgEl.src = meta.image; // Langsung pasang URL
+        imgEl.src = meta.image; 
         
         imgEl.onload = () => { imgEl.style.opacity = 1; };
         imgEl.onerror = () => { 
-            // Fallback Gateway jika Pinata lemot/blokir
+            // Fallback Gateway
             if(meta.image.includes("pinata.cloud")) {
                 imgEl.src = meta.image.replace("gateway.pinata.cloud", "ipfs.io");
             } else {
                 imgEl.src = "https://via.placeholder.com/400?text=Gambar+Rusak";
+                imgEl.style.opacity = 1;
             }
         };
 
@@ -591,12 +599,11 @@ Koleksi Wayang Kulit
         document.getElementById("displayId").innerText = id;
         document.getElementById("displayName").innerText = meta.name;
         
-        // Deskripsi (Potong [Detail Wayang] jika masih nyangkut)
+        // Bersihkan Deskripsi dari tag [Detail Wayang]
         let cleanDesc = meta.description.split("[Detail Wayang]")[0];
         document.getElementById("displayDesc").innerText = cleanDesc;
 
         // DATA ATRIBUT
-        // Kita cari variasi penulisan key
         document.getElementById("displayGaya").innerText = getAttr("Gaya");
         document.getElementById("displayGolongan").innerText = getAttr("Golongan");
         document.getElementById("displayWanda").innerText = getAttr("Wanda");
@@ -623,13 +630,11 @@ Koleksi Wayang Kulit
         let attrs = [];
 
         try {
-            if (fullText.includes("[Detail Wayang]")) {
+            if (fullText && fullText.includes("[Detail Wayang]")) {
                 const parts = fullText.split("[Detail Wayang]");
                 desc = parts[0].trim();
                 const rawInfo = parts[1];
 
-                // Teknik Regex Global: Mencari pola "Key: Value"
-                // Ini bekerja walau tidak ada enter (baris baru)
                 const regex = /(Golongan|Gaya|Wanda|Material|Kulit|Penatah|Pembuat|Penyungging|Tahun|Kolektor|Ayah|Ibu|Negara|Pusaka)\s*:\s*([^:]+?)(?=\s*(?:Golongan|Gaya|Wanda|Material|Kulit|Penatah|Pembuat|Penyungging|Tahun|Kolektor|Ayah|Ibu|Negara|Pusaka|$))/gi;
                 
                 let match;
@@ -637,15 +642,14 @@ Koleksi Wayang Kulit
                     let key = match[1].trim();
                     let val = match[2].trim();
                     
-                    // Standarisasi Key
                     if(key === "Kulit") key = "Material Kulit";
                     if(key === "Penatah") key = "Pembuat";
 
                     attrs.push({ trait_type: key, value: val });
                 }
             } 
-            // Fallback jika format lama (tanpa [Detail Wayang])
             else {
+                // Fallback Regex Sederhana
                  const patterns = [
                     { k: "Gaya", r: /Gaya:\s*(.*?)(?:\n|$)/ },
                     { k: "Golongan", r: /Golongan:\s*(.*?)(?:\n|$)/ },
@@ -657,7 +661,6 @@ Koleksi Wayang Kulit
             }
         } catch (e) {
             console.warn("Parsing Warning:", e);
-            // Jangan throw error, return data seadanya biar halaman tetap muncul
         }
 
         return { desc: desc, attributes: attrs };
@@ -720,7 +723,7 @@ Koleksi Wayang Kulit
 
     async function kirimLike() {
         const id = new URLSearchParams(window.location.search).get('id');
-        if (id.startsWith("G-")) return showToast("Fitur Like belum tersedia untuk Publik", 'info');
+        if (id.startsWith("G-")) return showToast("Like belum tersedia untuk Publik", 'info');
         
         try {
             if(!signer) await connectWallet();
@@ -735,7 +738,7 @@ Koleksi Wayang Kulit
 
     async function kirimUlasan() {
         const id = new URLSearchParams(window.location.search).get('id');
-        if (id.startsWith("G-")) return showToast("Fitur Review belum tersedia untuk Publik", 'info');
+        if (id.startsWith("G-")) return showToast("Review belum tersedia untuk Publik", 'info');
         
         const bintang = document.getElementById("selectedStar").value;
         const tag = document.getElementById("selectedTag").value;
