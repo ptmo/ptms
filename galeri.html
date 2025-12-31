@@ -618,6 +618,7 @@ Koleksi Wayang Kulit
     let provider, signer;
     let contractReader;
     let currentTab = 'official':
+    let searchIndex = [];
     let publicSearchIndex = [];
     let isSearchReady = false;
     let searchRequestId = 0;
@@ -642,7 +643,7 @@ Koleksi Wayang Kulit
         searchIndex = JSON.parse(cachedData);
         isSearchReady = true; // Langsung siap!
         console.log("✅ Index dimuat dari Cache HP (Instant).");
-        document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
+        document.getElementById("searchInput").placeholder = `🔍 Pencarian...`;
     }
     }
 
@@ -650,7 +651,7 @@ Koleksi Wayang Kulit
     console.log("🔄 Update Index dari Blockchain...");
     
     // Jangan reset searchIndex dulu kalau sudah ada data dari Cache
-    // searchIndex = []; <--- HAPUS INI
+    //  <--- HAPUS INI
 
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
@@ -697,62 +698,60 @@ Koleksi Wayang Kulit
         const query = document.getElementById("searchInput").value.toLowerCase();
         const container = document.getElementById("containerGaleri");
 
-        // Jika search kosong, kembalikan ke tampilan Tab saat ini
-        if (query === "") {
+        searchRequestId++; 
+        const currentRequestId = searchRequestId;
+
+        // Jika search kosong, kembalikan ke tampilan default
+        if (query.length === 0) {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
-            
-            // Reload sesuai tab yang aktif
-            if(currentTab === 'public') loadPublicGallery();
-            else loadOfficialGallery(currentCategory);
+            loadGaleri();
             return;
         }
 
-        // Mode Search: Sembunyikan Tab & Filter Kategori
+        // Mode Search Aktif
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
-        
-        container.innerHTML = `<p style="text-align:center; width:100%;">🔍 Mencari "${query}" di seluruh arsip...</p>`;
 
-        // 1. Cari di Data PUBLIK
-        // Filter berdasarkan Nama, Gaya, atau Deskripsi
-        const publicResults = globalPublicItems.filter(item => 
-            item.nama.toLowerCase().includes(query) || 
-            item.gaya.toLowerCase().includes(query) || 
-            (item.description && item.description.includes(query))
+        // --- SEARCH LOGIC: PUBLIK ---
+        if (currentTab === 'public') {
+            container.innerHTML = "";
+            
+            // Filter dari memori (publicSearchIndex)
+            const results = publicSearchIndex.filter(item => 
+                item.title.toLowerCase().includes(query) || 
+                item.description.toLowerCase().includes(query)
+            );
+
+            if (results.length === 0) {
+                container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Galeri Publik nihil.</p></div>`;
+            } else {
+                // Tampilkan hasil (Reverse agar yang baru diatas)
+                await renderPublicGallery([...results].reverse(), container);
+            }
+            return;
+        }
+
+        // --- SEARCH LOGIC: OFFICIAL (NFT) ---
+        if (!isSearchReady) {
+            container.innerHTML = `<p style="text-align:center;">Sedang menyiapkan data pencarian...</p>`;
+            return;
+        }
+
+        const results = searchIndex.filter(w => 
+            w.nama.includes(query) || 
+            w.gaya.includes(query) || 
+            w.id === query
         );
 
-        // 2. Cari di Data OFFICIAL (NFT)
-        // Filter berdasarkan Nama, Gaya, atau Golongan (dari searchIndex yg sudah diload di awal)
-        const officialResults = searchIndex.filter(item => 
-            item.nama.includes(query) || 
-            item.gaya.includes(query) || 
-            item.golongan.toLowerCase().includes(query)
-        ).map(item => ({
-            // Format ulang agar strukturnya sama dengan data Publik
-            id: item.id,
-            nama: item.nama, // Huruf besar sesuai aslinya
-            gaya: item.gaya, // Huruf besar sesuai aslinya
-            badge: "👑 Official",
-            isOfficial: true, // Penanda khusus
-            img: "https://via.placeholder.com/300?text=Memuat...", // Placeholder dulu
-            likes: "-", 
-            rating: "-"
-        }));
-
-        // 3. GABUNGKAN HASIL (Official + Publik)
-        const combinedResults = [...officialResults, ...publicResults];
-
-        if (combinedResults.length === 0) {
-            container.innerHTML = `
-                <div class="nf-box">
-                    <h3 style="color:#7385a5;">Tidak Ditemukan</h3>
-                    <p>Kata kunci "${query}" tidak ada di Koleksi Official maupun Galeri Nusantara.</p>
-                </div>`;
-        } else {
-            // Render hasil gabungan
-            renderCards(combinedResults);
+        if (results.length === 0) {
+            container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Koleksi Official nihil.</p></div>`;
+            return;
         }
+
+        container.innerHTML = ""; 
+        const limitedIds = results.slice(0, 20).map(r => r.id);
+        await renderCards(limitedIds, container, true, currentRequestId);
     }
 
     // --- GANTI FUNGSI switchTab LAMA DENGAN INI ---
@@ -1034,44 +1033,6 @@ function generateCardHTML(w, badge) {
             </div>
         </a>`;
 }
-
-// --- HELPER: AMBIL GAMBAR OFFICIAL SECARA ASYNC ---
-    async function fetchOfficialImage(id) {
-        const imgEl = document.getElementById(`thumb-${id}`);
-        if(!imgEl) return;
-
-        // Cek Cache Lokal Dulu (Supaya hemat kuota/request)
-        const cacheKey = `wayang_thumb_${id}`;
-        const cachedUrl = localStorage.getItem(cacheKey);
-        if(cachedUrl) {
-            imgEl.src = cachedUrl;
-            return;
-        }
-
-        try {
-            // Ambil TokenURI dari Smart Contract
-            const uri = await contractReader.tokenURI(id);
-            const httpUri = uri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-            
-            // Ambil Metadata JSON
-            const res = await axios.get(httpUri);
-            let rawImg = res.data.image;
-            
-            if(rawImg.startsWith("ipfs://")) {
-                rawImg = rawImg.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
-            }
-
-            // Optimasi Gambar Kecil (Thumbnail) agar ringan
-            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg)}&w=300&q=60&output=webp`;
-            
-            // Simpan ke Cache & Tampilkan
-            localStorage.setItem(cacheKey, optimizedUrl);
-            imgEl.src = optimizedUrl;
-
-        } catch(e) {
-            console.warn(`Gagal load thumb #${id}`);
-        }
-    }
 
 // --- OPTIMIZED IMAGE LOADER DENGAN SPINNER ---
 async function fetchOptimizedImage(metaUrl, id) {
