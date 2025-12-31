@@ -1,0 +1,567 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Notifikasi | Putramas Social</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    
+<style>
+    /* Style Badge Notifikasi */
+    .menu-item { position: relative; }
+
+    .nav-badge {
+        background-color: #e74c3c;
+        color: white;
+        font-size: 10px;
+        font-weight: bold;
+        min-width: 18px;
+        height: 18px;
+        border-radius: 50%;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        position: absolute;
+        border: 2px solid #fff;
+        z-index: 10;
+    }
+
+    .mobile-nav .nav-badge { top: 0px; right: 25%; }
+    .sidebar-left .nav-badge { top: 8px; right: 10px; }
+
+    /* STYLE BARU UNTUK KARTU NOTIFIKASI */
+    .notif-card {
+        display: flex; 
+        align-items: center; 
+        gap: 15px; 
+        padding: 15px;
+        text-decoration: none; /* Hilangkan garis bawah link */
+        color: inherit; /* Warna teks ikut parent */
+        transition: background 0.2s;
+        border-bottom: 1px solid #eee; /* Garis pemisah */
+    }
+    .notif-card:hover {
+        background-color: #f9f9f9; /* Efek hover */
+    }
+    
+    /* Layout Mobile Responsif */
+    .notif-text { font-size: 14px; line-height: 1.4; flex: 1; }
+    .notif-time { font-size: 11px; color: #999; margin-top: 3px; }
+
+    /* --- STATUS DOT (Indikator Hijau) --- */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71; /* Warna Hijau Sukses */
+    border-radius: 50%;
+    position: absolute;
+    display: none; /* Default sembunyi */
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.8);
+}
+
+/* Posisi Dot di Mobile (Pojok ikon) */
+.mobile-nav .menu-item .status-dot {
+    top: 8px;
+    right: 30%;
+}
+
+/* Posisi Dot di PC Sidebar */
+.sidebar-left .menu-item .status-dot {
+    top: 15px;
+    right: 15px;
+}
+
+/* --- ANIMASI KELAP KELIP DI MODAL --- */
+.pulse-indicator {
+    width: 15px;
+    height: 15px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+
+/* --- CONTAINER MODAL UTAMA --- */
+.wallet-modal-modern {
+    border: none;
+    padding: 25px;
+    border-radius: 24px;
+    background: #ffffff;
+    width: 300px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    font-family: 'Segoe UI', sans-serif;
+    
+    /* FIX POSISI: Biar benar-benar di tengah layar HP */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0; /* Reset margin bawaan browser */
+    z-index: 9999; /* Pastikan paling atas */
+
+    /* FIX TAMPILAN: Default sembunyi */
+    display: none; 
+}
+
+/* HANYA MUNCUL SAAT DI-OPEN OLEH JS */
+.wallet-modal-modern[open] {
+    display: flex; /* Baru jadi flex kalau dibuka */
+    flex-direction: column;
+    align-items: center;
+    animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wallet-modal-modern::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+}
+
+/* --- TOMBOL CLOSE POJOK --- */
+.btn-close-corner {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    transition: 0.2s;
+}
+.btn-close-corner:hover { color: #333; transform: scale(1.1); }
+
+/* --- 1. STATUS PILL (KAPSUL) --- */
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e6fffa; /* Hijau mint sangat muda */
+    padding: 6px 14px;
+    border-radius: 20px;
+    color: #27ae60;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    border: 1px solid #b2f5ea;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+/* --- 2. SALDO (HERO) --- */
+.wallet-balance-section {
+    text-align: center;
+    margin-bottom: 25px;
+}
+.wallet-balance-section .label {
+    font-size: 12px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+.wallet-balance-section .amount {
+    font-size: 32px; /* Angka Besar */
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -1px;
+}
+.wallet-balance-section .currency {
+    font-size: 16px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* --- 3. ALAMAT (CARD) --- */
+.address-container {
+    width: 100%;
+    background: #f8fafc; /* Abu kebiruan sangat muda */
+    border-radius: 16px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    border: 1px solid transparent;
+}
+.address-container:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+}
+.address-container:active { transform: translateY(0); }
+
+.addr-label {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+.addr-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+.copy-hint {
+    font-size: 9px;
+    color: #7385a5;
+    margin-top: 4px;
+    opacity: 0;
+    transition: 0.2s;
+}
+.address-container:hover .copy-hint { opacity: 1; }
+
+/* --- 4. TOMBOL LOGOUT --- */
+.btn-disconnect {
+    margin-top: 25px;
+    width: 100%;
+    padding: 12px;
+    background: #fee2e2; /* Merah sangat muda */
+    color: #ef4444;       /* Merah teks */
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+.btn-disconnect:hover {
+    background: #fecaca;
+}
+
+/* Animasi Premium: Blur -> Clear & Pop-Up */
+@keyframes premiumShow {
+    from {
+        opacity: 0;
+        filter: blur(12px); /* Blur awal yang kuat */
+        transform: translate(-50%, -40%) scale(0.85); /* Muncul dari bawah sedikit & kecil */
+    }
+    to {
+        opacity: 1;
+        filter: blur(0);    /* Menjadi tajam */
+        transform: translate(-50%, -50%) scale(1); /* Posisi center sempurna */
+    }
+}
+
+/* Animasi Backdrop (Latar Belakang Blur) */
+@keyframes backdropFade {
+    from { opacity: 0; backdrop-filter: blur(0px); }
+    to { opacity: 1; backdrop-filter: blur(4px); }
+}
+
+</style>
+</head>
+<body>
+
+    <div class="layout-wrapper">
+        <div class="sidebar-left">
+    <div class="menu-card">
+        <a href="home.html" class="menu-item"><i class="fa-solid fa-house"></i> Beranda</a>
+        <a href="notifications.html" class="menu-item">
+            <i class="fa-solid fa-bell"></i> Notifikasi
+            <span class="nav-badge" id="badgeSidebar">0</span> 
+        </a>
+        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
+        
+        <a href="#" onclick="openWalletInfo()" class="menu-item" style="position: relative; justify-content: space-between;">
+            <span><i class="fa-solid fa-wallet"></i> Wallet</span>
+            <span id="walletDotPC" class="status-dot"></span>
+        </a>
+
+        <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
+        <a href="#" onclick="disconnect()" class="menu-item" style="color: #e74c3c;"><i class="fa-solid fa-right-from-bracket"></i> Keluar</a>
+    </div>
+        </div>
+
+        <div class="main-feed">
+            <h3 style="margin: 0 0 20px 0; color: #7385a5;">Aktivitas Terbaru</h3>
+            <div id="notifContainer">
+                <div class="card" style="padding: 20px; text-align: center; color: #999;">Memuat...</div>
+            </div>
+        </div>
+    </div>
+
+    <div class="mobile-nav">
+    <a href="home.html" class="menu-item"><i class="fa-solid fa-house" style="font-size: 18px;"></i></a>
+    <a href="notifications.html" class="menu-item">
+        <i class="fa-solid fa-bell" style="font-size: 18px;"></i>
+        <span class="nav-badge" id="badgeMobile">0</span> 
+    </a>
+    <a href="profile.html" class="menu-item"><i class="fa-solid fa-user" style="font-size: 18px;"></i></a>
+    
+    <a href="#" onclick="openWalletInfo()" class="menu-item" style="position: relative;">
+        <i class="fa-solid fa-wallet" style="font-size: 18px;"></i>
+        <span id="walletDotMobile" class="status-dot"></span>
+    </a>
+    </div>
+
+    <dialog id="walletModal" class="wallet-modal-modern">
+    <button onclick="document.getElementById('walletModal').close()" class="btn-close-corner">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <div class="status-pill">
+        <div class="pulse-dot"></div>
+        <span>Jaringan Terhubung</span>
+    </div>
+
+    <div class="wallet-balance-section">
+        <div class="label">Total Saldo</div>
+        <div class="amount">
+            <span id="infoWalletBal">0.0000</span> <span class="currency">ETH</span>
+        </div>
+    </div>
+
+    <div class="address-container" onclick="copyWalletAddress()">
+        <div class="addr-label">Alamat Dompet</div>
+        <div class="addr-box">
+            <span id="infoWalletAddr">0x...</span>
+            <i class="fa-regular fa-copy"></i>
+        </div>
+        <div class="copy-hint">Ketuk untuk menyalin</div>
+    </div>
+
+    <button onclick="disconnect()" class="btn-disconnect">
+        <i class="fa-solid fa-power-off"></i> Putuskan Koneksi
+    </button>
+    </dialog>
+
+    <div id="toast"></div>
+
+    <script src="main.js"></script>
+    <script>
+        // Cache sederhana untuk profil biar loading cepat
+        const profileCache = {};
+
+        window.onload = async () => {
+    await initApp();
+    if(userAddress) {
+        await loadNotifs();     // Muat list notif
+        markAsReadLocal();      // Hapus badge merah (Reset counter)
+        onWalletConnected();    // Nyalakan dot hijau wallet
+    }
+};
+        
+
+        // --- LOGIKA INDIKATOR WALLET ---
+
+// 1. Panggil fungsi ini saat initApp berhasil (User login)
+async function onWalletConnected() {
+    // Munculkan Dot Hijau
+    document.getElementById("walletDotMobile").style.display = "block";
+    document.getElementById("walletDotPC").style.display = "block";
+
+    // Munculkan Toast Hijau (Hanya sekali saat sesi dimulai)
+    if (!sessionStorage.getItem("walletToastShown")) {
+        showToast("Jaringan berhasil terhubung", "success");
+        sessionStorage.setItem("walletToastShown", "true");
+    }
+}
+
+// 2. Fungsi Membuka Popup Info (VERSI PERBAIKAN)
+async function openWalletInfo() {
+    // Cek apakah userAddress ada
+    if (!userAddress) return showToast("Dompet belum terhubung", "error");
+
+    // A. Isi Alamat Dompet (Format Rapi)
+    const shortAddr = userAddress.substring(0, 8) + "..." + userAddress.substring(38);
+    document.getElementById("infoWalletAddr").innerText = shortAddr;
+    
+    // B. Ambil Saldo Terbaru (FIX LOGIC)
+    try {
+        // PERBAIKAN: Kita definisikan provider lokal di sini agar tidak 'undefined'
+        // Ini memastikan koneksi ke MetaMask selalu fresh saat modal dibuka
+        let localProvider;
+
+        // Cek versi Ethers.js (v5 vs v6)
+        if (ethers.providers && ethers.providers.Web3Provider) {
+            // Ethers v5 (Yang umum dipakai)
+            localProvider = new ethers.providers.Web3Provider(window.ethereum);
+        } else {
+            // Ethers v6 (Versi terbaru)
+            localProvider = new ethers.BrowserProvider(window.ethereum);
+        }
+        
+        // Ambil Saldo
+        const balance = await localProvider.getBalance(userAddress);
+        
+        // Format Saldo (Wei ke ETH)
+        let ethBal;
+        if (ethers.utils && ethers.utils.formatEther) {
+             // Ethers v5
+             ethBal = ethers.utils.formatEther(balance);
+        } else {
+             // Ethers v6
+             ethBal = ethers.formatEther(balance);
+        }
+
+        // Tampilkan 4 desimal di UI
+        document.getElementById("infoWalletBal").innerText = parseFloat(ethBal).toFixed(4);
+
+    } catch (e) {
+        console.error("Detail Error Saldo:", e); // Cek Console browser (F12) jika masih error
+        // Jika gagal, tampilkan 0.0000 daripada tulisan 'Error' (lebih estetik)
+        document.getElementById("infoWalletBal").innerText = "0.0000"; 
+    }
+
+    // C. Buka Modal
+    document.getElementById("walletModal").showModal();
+}
+
+// 3. Fungsi Copy Address
+function copyWalletAddress() {
+    if (userAddress) {
+        navigator.clipboard.writeText(userAddress);
+        showToast("Alamat disalin!", "success");
+    }
+}
+
+// 4. Update fungsi Disconnect (Agar dot hilang saat logout)
+const originalDisconnect = window.disconnect; // Simpan fungsi lama jika ada
+window.disconnect = function() {
+    // Sembunyikan Dot
+    document.getElementById("walletDotMobile").style.display = "none";
+    document.getElementById("walletDotPC").style.display = "none";
+    sessionStorage.removeItem("walletToastShown"); // Reset toast session
+    
+    // Panggil fungsi disconnect asli Anda
+    if (originalDisconnect) originalDisconnect();
+    
+    // Atau reload halaman
+    localStorage.clear();
+    window.location.href = "index.html";
+};
+
+        function markAsReadLocal() {
+            const now = Math.floor(Date.now() / 1000);
+            localStorage.setItem("lastNotifCheck", now);
+            const badges = document.querySelectorAll('.nav-badge');
+            badges.forEach(b => b.style.display = 'none');
+        }
+
+        async function loadNotifs() {
+            try {
+                // Gunakan EXTENDED_ABI di main.js atau pastikan getMyNotifications ada di ABI
+                const notifs = await contract.getMyNotifications();
+                const container = document.getElementById("notifContainer");
+                container.innerHTML = "";
+
+                if(notifs.length === 0) {
+                    container.innerHTML = `<div class="card" style="padding: 20px; text-align: center; color: #999;">Belum ada notifikasi.</div>`;
+                    return;
+                }
+
+                const lastCheck = localStorage.getItem("lastNotifCheck") || 0;
+
+                // Loop menggunakan for..of agar bisa AWAIT (Fetch profil satu-satu)
+                // Reverse agar yang baru paling atas
+                for (const n of [...notifs].reverse()) {
+                    
+                    // 1. Ambil Data Profil (Nickname & Foto)
+                    let nick = n.actor.substring(0,6) + "...";
+                    let avatar = "https://via.placeholder.com/40"; // Default
+
+                    // Cek Cache dulu
+                    if(profileCache[n.actor]) {
+                        nick = profileCache[n.actor].nick;
+                        avatar = profileCache[n.actor].avatar;
+                    } else {
+                        // Fetch Blockchain
+                        try {
+                            const p = await contract.getProfile(n.actor);
+                            if(p.nickname) nick = p.nickname;
+                            if(p.fotoProfil) {
+                                // Direct Link Pinata (Anti Broken Image)
+                                avatar = p.fotoProfil.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                            }
+                            // Simpan ke cache
+                            profileCache[n.actor] = { nick, avatar };
+                        } catch(err) { console.log("Skip profil", n.actor); }
+                    }
+
+                    // 2. Tentukan Ikon & Teks
+                    let iconHtml = '<i class="fa-solid fa-circle-info"></i>';
+                    let text = 'berinteraksi';
+                    let color = '#7385a5';
+
+                    if(n.actionType === "LIKE") {
+                        iconHtml = '<i class="fa-solid fa-heart" style="color: #e74c3c;"></i>'; 
+                        text = 'menyukai postingan Anda'; 
+                    } else if (n.actionType === "COMMENT") {
+                        iconHtml = '<i class="fa-solid fa-comment" style="color: #3498db;"></i>'; 
+                        text = 'mengomentari postingan Anda'; 
+                    } else if (n.actionType === "RATE") {
+                        iconHtml = '<i class="fa-solid fa-star" style="color: gold;"></i>'; 
+                        text = 'memberi bintang'; 
+                    } else if (n.actionType === "SAWER") {
+                        iconHtml = '<i class="fa-solid fa-gift" style="color: #27ae60;"></i>'; 
+                        text = 'menyawer Anda! 💸'; 
+                    } else if (n.actionType === "FOLLOW") {
+                        iconHtml = '<i class="fa-solid fa-user-plus" style="color: #9b59b6;"></i>'; 
+                        text = 'mulai mengikuti Anda'; 
+                    }
+
+                    // 3. Highlight Baru
+                    const isNew = n.timestamp > lastCheck;
+                    const bgStyle = isNew ? "background-color: #f0f8ff; border: 2px solid #7385a5;" : "background-color: #fff;";
+                    const badgeNew = isNew ? `<span style="background:#e74c3c; color:white; padding:1px 4px; border-radius:3px; font-size:9px; vertical-align:middle; margin-left:5px;">BARU</span>` : "";
+
+                    // 4. Link Navigasi (Membuka detail postingan)
+                    // Jika FOLLOW, buka profil orang itu. Jika POST, buka koleksi.html
+                    let targetLink = `koleksi.html?id=${n.postId}`;
+                    if(n.actionType === "FOLLOW") targetLink = `profile.html?addr=${n.actor}`;
+
+                    // 5. Render HTML
+                    const html = `
+                    <a href="${targetLink}" class="card notif-card" style="${bgStyle}">
+                        <img src="${avatar}" 
+                             onerror="this.onerror=null; this.src='https://via.placeholder.com/40';"
+                             style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover; border: 1px solid #eee;">
+                        
+                        <div class="notif-text">
+                            <span style="font-weight:bold; color:#2c3e50;">${nick}</span>
+                            <span style="color:#555;">${text}</span> ${badgeNew}
+                            <div class="notif-time">
+                                <i class="fa-regular fa-clock"></i> ${new Date(n.timestamp * 1000).toLocaleString()}
+                            </div>
+                        </div>
+
+                        <div style="font-size: 18px; opacity: 0.8; margin-left: auto;">
+                            ${iconHtml}
+                        </div>
+                    </a>`;
+                    
+                    container.innerHTML += html;
+                }
+
+            } catch (e) {
+                console.error(e);
+                document.getElementById("notifContainer").innerHTML = "<p style='text-align:center; color:red;'>Gagal memuat notifikasi.</p>";
+            }
+        }
+    </script>
+</body>
+</html>

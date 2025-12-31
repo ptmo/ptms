@@ -1,0 +1,273 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daftar Profil | Wayang Nusantara</title>
+    
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+</head>
+<body style="background: #f0f2f5; display: flex; align-items: center; justify-content: center; min-height: 100vh;">
+
+    <div id="connectBtnContainer" style="display: none; position: fixed; top: 20px; right: 20px; z-index: 9999;">
+        <button onclick="manualConnect()" style="
+            background: #e74c3c; color: white; border: none; border-radius: 50px; 
+            padding: 10px 20px; font-weight: bold; box-shadow: 0 4px 15px rgba(231, 76, 60, 0.4);
+            display: flex; align-items: center; gap: 8px; cursor: pointer; animation: pulse 2s infinite;">
+            <i class="fa-solid fa-plug"></i> Konek Wallet
+        </button>
+    </div>
+
+    <style>
+        @keyframes pulse { 0% { transform: scale(1); } 50% { transform: scale(1.05); } 100% { transform: scale(1); } }
+    </style>
+
+    <div class="card" style="width: 100%; max-width: 500px; padding: 30px;">
+        <div style="text-align: center; margin-bottom: 20px;">
+            <h2 style="color: #7385a5; margin: 0;">Selamat Datang!</h2>
+            <p style="color: #666; font-size: 14px;">Lengkapi profil untuk berinteraksi di Wayang Nusantara.</p>
+        </div>
+
+        <div style="display: flex; flex-direction: column; gap: 15px;">
+            
+            <div style="text-align: center;">
+                <img id="previewAvatar" src="https://via.placeholder.com/100" style="width: 100px; height: 100px; border-radius: 50%; object-fit: cover; border: 4px solid #f0f2f5; margin-bottom: 10px; box-shadow: 0 2px 5px rgba(0,0,0,0.1);">
+                <br>
+                <label for="fotoInput" style="color: #7385a5; font-weight: bold; cursor: pointer; font-size: 13px; background: #eef2f8; padding: 5px 15px; border-radius: 20px;">
+                    <i class="fa-solid fa-camera"></i> Upload Foto
+                </label>
+                <input type="file" id="fotoInput" hidden accept="image/*" onchange="previewImage(this)">
+            </div>
+
+            <div>
+                <label style="font-size: 12px; font-weight: bold; color: #666;">Nickname (Tanpa Angka)</label>
+                <input type="text" id="regNick" class="cp-input" style="width: 100%; border: 1px solid #ddd;" placeholder="Contoh: Arjuna">
+            </div>
+
+            <div>
+                <label style="font-size: 12px; font-weight: bold; color: #666;">Bio Singkat</label>
+                <input type="text" id="regBio" class="cp-input" style="width: 100%; border: 1px solid #ddd;" placeholder="Seniman Wayang dari Cirebon">
+            </div>
+
+            <div>
+                <label style="font-size: 12px; font-weight: bold; color: #666;">Lokasi</label>
+                <input type="text" id="regLoc" class="cp-input" style="width: 100%; border: 1px solid #ddd;" placeholder="Indonesia">
+            </div>
+
+            <button id="btnDaftar" onclick="submitRegister()" class="btn-primary" style="margin-top: 10px; width: 100%; padding: 12px;">
+                Daftar Sekarang
+            </button>
+            
+            <div id="loadingText" style="text-align: center; font-size: 13px; color: #888; display: none;">
+                <i class="fa-solid fa-circle-notch fa-spin"></i> Sedang memproses transaksi...
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="ipfs_helper.js"></script>
+
+    <script>
+        // --- 1. KONFIGURASI MANDIRI ---
+        const CONTRACT_ADDRESS = "0x0753d3a9f7cb7eD9De233a319d4AD9fF60A434B2"; 
+        const BASE_SEPOLIA_ID = 84532;
+        const BASE_SEPOLIA_HEX = "0x14a34";
+
+        // ⚠️ PASTE ABI LENGKAP DISINI AGAR REGISTRASI LANCAR ⚠️
+        const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imageURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficial.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficial.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficial.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficial.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+        // Variabel Global
+        let provider, signer, contract, userAddress;
+
+        // --- 2. STARTUP & KONEKSI OTOMATIS ---
+        window.addEventListener('load', async () => {
+            const btnConnect = document.getElementById("connectBtnContainer");
+
+            if (!window.ethereum) {
+                alert("Metamask tidak terdeteksi!");
+                return;
+            }
+
+            try {
+                // A. Init Provider
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                
+                // B. Request Account (Wajib agar Signer Aktif)
+                await provider.send("eth_requestAccounts", []);
+
+                // C. Cek Network (Wajib Base Sepolia)
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== BASE_SEPOLIA_ID) {
+                    await switchBaseSepolia();
+                    // Reload provider setelah switch network
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                }
+
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                // D. Init Kontrak
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                console.log("✅ Siap Register:", userAddress);
+
+                // Sembunyikan Tombol Konek
+                if(btnConnect) btnConnect.style.display = "none";
+
+                // E. CEK STATUS: Jika sudah daftar, lempar ke Home
+                checkIfRegistered(userAddress);
+
+            } catch (err) {
+                console.warn("Koneksi putus:", err);
+                if(btnConnect) btnConnect.style.display = "block"; // Munculkan tombol merah
+                showToast("Koneksi Wallet terputus, silakan hubungkan ulang.", "error");
+            }
+        });
+
+        // --- 3. LOGIKA CEK STATUS ---
+        async function checkIfRegistered(address) {
+            try {
+                const profile = await contract.users(address);
+                if (profile.isRegistered === true) {
+                    console.log("User sudah terdaftar, redirecting...");
+                    window.location.replace("home.html");
+                }
+            } catch (e) {
+                console.error("Gagal cek status user:", e);
+            }
+        }
+
+        // --- 4. FUNGSI REGISTRASI ---
+        async function submitRegister() {
+            const nick = document.getElementById("regNick").value;
+            const bio = document.getElementById("regBio").value;
+            const loc = document.getElementById("regLoc").value;
+            const fileAsli = document.getElementById("fotoInput").files[0];
+            const btn = document.getElementById("btnDaftar");
+            const loading = document.getElementById("loadingText");
+
+            // Validasi Input
+            if (/\d/.test(nick)) return showToast("Nickname tidak boleh mengandung angka!", "error");
+            if (nick.length < 3) return showToast("Nickname minimal 3 huruf!", "error");
+            if (!fileAsli) return showToast("Wajib upload foto profil!", "error");
+            
+            // Validasi Koneksi
+            if (!contract) {
+                showToast("Wallet terputus! Klik tombol merah di atas.", "error");
+                document.getElementById("connectBtnContainer").style.display = "block";
+                return;
+            }
+
+            try {
+                // UI Loading
+                btn.disabled = true;
+                btn.style.opacity = "0.7";
+                loading.style.display = "block";
+
+                // STEP 1: Kompresi Gambar (35KB)
+                loading.innerHTML = '<i class="fa-solid fa-compress"></i> Mengompres gambar (35KB)...';
+                // Pastikan ipfs_helper.js sudah dimuat
+                const fileSiap = await customCompress(fileAsli, 35, 400);
+
+                // STEP 2: Upload IPFS
+                loading.innerHTML = '<i class="fa-solid fa-cloud-arrow-up"></i> Upload ke Pinata...';
+                const imgUri = await uploadToPinata(fileSiap); 
+
+                // STEP 3: Transaksi Blockchain
+                loading.innerHTML = '<i class="fa-solid fa-signature"></i> Konfirmasi di Wallet...';
+                const tx = await contract.registerProfile(nick, imgUri, bio, loc);
+                
+                loading.innerHTML = '<i class="fa-solid fa-hammer"></i> Menunggu konfirmasi Blockchain...';
+                await tx.wait();
+
+                // STEP 4: Simpan Sesi & Redirect
+                const session = {
+                    address: userAddress,
+                    expiry: Date.now() + (30 * 24 * 60 * 60 * 1000)
+                };
+                localStorage.setItem("putramas_session", JSON.stringify(session));
+
+                showToast("🎉 Registrasi Berhasil!", "success");
+                setTimeout(() => window.location.href = "home.html", 2000);
+
+            } catch (e) {
+                console.error(e);
+                let msg = e.reason || e.message || "Terjadi kesalahan";
+                if(msg.includes("user rejected")) msg = "Transaksi dibatalkan user.";
+                showToast("Gagal: " + msg, "error");
+                
+                // Reset Tombol
+                btn.disabled = false;
+                btn.style.opacity = "1";
+                loading.style.display = "none";
+            }
+        }
+
+        // --- 5. FUNGSI PENDUKUNG ---
+        
+        async function manualConnect() {
+            try {
+                if (!window.ethereum) return alert("Metamask tidak ditemukan!");
+                
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== BASE_SEPOLIA_ID) await switchBaseSepolia();
+                
+                window.location.reload(); // Refresh untuk init ulang
+            } catch (e) {
+                alert("Gagal konek: " + e.message);
+            }
+        }
+
+        async function switchBaseSepolia() {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_SEPOLIA_HEX }],
+                });
+            } catch (error) {
+                if (error.code === 4902) {
+                    await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{
+                            chainId: BASE_SEPOLIA_HEX,
+                            chainName: 'Base Sepolia',
+                            rpcUrls: ['https://sepolia.base.org'],
+                            nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                            blockExplorerUrls: ['https://sepolia.basescan.org']
+                        }],
+                    });
+                } else {
+                    throw error;
+                }
+            }
+        }
+
+        function previewImage(input) {
+            if (input.files && input.files[0]) {
+                const reader = new FileReader();
+                reader.onload = function(e) { document.getElementById('previewAvatar').src = e.target.result; }
+                reader.readAsDataURL(input.files[0]);
+            }
+        }
+
+        function showToast(msg, type="info") {
+            const t = document.getElementById("toast");
+            if(t) {
+                t.innerText = msg;
+                t.className = "show";
+                t.style.background = type === "error" ? "#e74c3c" : "#333";
+                setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+            } else {
+                alert(msg);
+            }
+        }
+    </script>
+</body>
+</html>

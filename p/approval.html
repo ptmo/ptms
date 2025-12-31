@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruang Kurasi Admin (Manual)</title>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+
+    <style>
+        
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', sans-serif; background: #2c3e50; padding: 20px; color: #fff; margin: 0; }
+        
+        .container { max-width: 700px; margin: 0 auto; }
+        h1 { text-align: center; color: #f1c40f; margin-bottom: 20px; border-bottom: 1px solid #7f8c8d; padding-bottom: 15px; }
+        
+        .connect-box { text-align: center; margin-bottom: 30px; }
+        button { padding: 12px 25px; border: none; border-radius: 5px; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.3s; }
+        #btn-connect { background: #e67e22; color: white; }
+        
+        .input-area { background: white; padding: 20px; border-radius: 8px; color: #333; margin-bottom: 20px; }
+        label { display: block; font-weight: bold; margin-bottom: 10px; color: #2c3e50; }
+        input { width: 100%; padding: 12px; border: 2px solid #bdc3c7; border-radius: 5px; font-size: 14px; }
+        .btn-check { width: 100%; background: #3498db; color: white; margin-top: 15px; }
+        .btn-check:hover { background: #2980b9; }
+
+        .preview-card { 
+            background: white; border-radius: 8px; overflow: hidden; 
+            box-shadow: 0 5px 15px rgba(0,0,0,0.3); display: none; color: #333; 
+        }
+        .preview-img { width: 100%; height: 300px; object-fit: contain; background: #ecf0f1; border-bottom: 1px solid #eee; }
+        .preview-body { padding: 20px; }
+        .preview-body h3 { margin: 0 0 10px 0; color: #2c3e50; font-size: 22px; }
+        
+        .meta-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 14px; }
+        .meta-label { color: #7f8c8d; font-weight: bold; }
+        .meta-val { font-weight: bold; color: #2c3e50; }
+        
+        .creator-box { background: #f9f9f9; padding: 10px; border-radius: 5px; margin-top: 15px; font-size: 12px; border: 1px solid #eee; }
+        .creator-addr { font-family: monospace; color: #e74c3c; font-weight: bold; word-break: break-all; }
+
+        .btn-mint { width: 100%; background: #27ae60; color: white; margin-top: 20px; font-size: 16px; }
+        .btn-mint:hover { background: #2ecc71; }
+        .btn-mint:disabled { background: #95a5a6; cursor: not-allowed; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <h1>Cek Pengajuan Karya</h1>
+    
+    <div class="connect-box">
+        <button id="btn-connect" onclick="connectWallet()">1. Koneksi Admin</button>
+    </div>
+
+    <div class="input-area">
+        <label>Masukkan Kode IPFS (CID) dari User:</label>
+        <input type="text" id="ipfsInput" placeholder="Contoh: ipfs://QmXyZ123abc...">
+        <button class="btn-check" onclick="cekData()">2. CEK DATA & PREVIEW</button>
+    </div>
+
+    <div id="previewArea" class="preview-card">
+        <img id="pImg" class="preview-img" src="">
+        <div class="preview-body">
+            <h3 id="pNama">Nama Wayang</h3>
+            
+            <div class="meta-row">
+                <span class="meta-label">Golongan:</span>
+                <span class="meta-val" id="pGol">-</span>
+            </div>
+            <div class="meta-row">
+                <span class="meta-label">Gaya:</span>
+                <span class="meta-val" id="pGaya">-</span>
+            </div>
+
+            <div class="creator-box">
+                Pemilik Asli (Creator):<br>
+                <span class="creator-addr" id="pCreator">-</span>
+            </div>
+            
+            <button class="btn-mint" id="btnMint" onclick="mintSekarang()">3. ACC & MINT SEKARANG</button>
+        </div>
+    </div>
+</div>
+
+<script>
+
+    const CONTRACT_ADDRESS = "0x5dfe8311e98b0443C471A10e26198b72355Ca713";
+    
+    const CONTRACT_ABI = ["function arsipWayang(address, string, string, string, string) public returns (uint256)"];
+    
+    let signer;
+    let pendingData = null; 
+
+    async function connectWallet() {
+        if(!window.ethereum) return alert("Metamask required");
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            signer = provider.getSigner();
+            const addr = await signer.getAddress();
+            
+            document.getElementById("btn-connect").innerText = "Admin Ready: " + addr.substring(0,6) + "...";
+            document.getElementById("btn-connect").style.background = "#27ae60";
+            document.getElementById("btn-connect").disabled = true;
+        } catch(err) {
+            alert("Gagal koneksi: " + err.message);
+        }
+    }
+
+    async function cekData() {
+        let inputRaw = document.getElementById("ipfsInput").value.trim();
+        if(!inputRaw) return alert("Masukkan kode IPFS dulu!");
+        let cleanCID = inputRaw.replace("ipfs://", "");
+        cleanCID = cleanCID.split(" ")[0];
+
+        try {
+            const httpUri = `https://gateway.pinata.cloud/ipfs/${cleanCID}`;
+            
+            console.log("Mengambil data dari:", httpUri);
+            const res = await axios.get(httpUri);
+            const meta = res.data;
+            
+            if (!meta.name || !meta.attributes) {
+                throw new Error("Ini sepertinya CID Gambar, bukan Metadata! Harap masukkan CID dari file JSON.");
+            }
+
+            const getAttr = (k) => {
+                const f = meta.attributes.find(a => a.trait_type === k);
+                return f ? f.value : "-";
+            };
+
+            document.getElementById("previewArea").style.display = "block";
+            const imgLink = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+            document.getElementById("pImg").src = imgLink;
+            
+            document.getElementById("pNama").innerText = meta.name;
+            document.getElementById("pGol").innerText = getAttr("Golongan");
+            document.getElementById("pGaya").innerText = getAttr("Gaya");
+            
+            const creator = getAttr("Creator");
+            document.getElementById("pCreator").innerText = creator;
+
+            pendingData = {
+                uri: `ipfs://${cleanCID}`, 
+                nama: meta.name,
+                golongan: getAttr("Golongan"),
+                gaya: getAttr("Gaya"),
+                creator: creator
+            };
+
+            const btnMint = document.getElementById("btnMint");
+            btnMint.innerText = "3. ACC & MINT SEKARANG";
+            btnMint.disabled = false;
+
+        } catch (err) {
+            console.error(err);
+            alert("GAGAL: " + err.message);
+            document.getElementById("previewArea").style.display = "none";
+        }
+    }
+
+    async function mintSekarang() {
+        if(!signer) return alert("Admin belum connect wallet!");
+        if(!pendingData) return alert("Data belum dimuat!");
+
+        try {
+            const btn = document.getElementById("btnMint");
+            btn.innerText = "⏳ Sedang Memproses...";
+            btn.disabled = true;
+
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+            const tx = await contract.arsipWayang(
+                pendingData.creator, 
+                pendingData.uri,
+                pendingData.nama,
+                pendingData.golongan,
+                pendingData.gaya
+            );
+
+            await tx.wait();
+            
+            alert(`SUKSES MINTING!\nNFT dikirim ke: ${pendingData.creator}`);
+            location.reload(); 
+
+        } catch (err) {
+            console.error(err);
+            alert("Gagal Minting: " + (err.reason || err.message));
+            
+            document.getElementById("btnMint").innerText = "3. ACC & MINT SEKARANG";
+            document.getElementById("btnMint").disabled = false;
+        }
+    }
+
+</script>
+</body>
+</html>

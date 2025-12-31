@@ -1,0 +1,610 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Beranda | Putramas Social</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <style>
+    /* 1. RESET & LAYOUT */
+    * { box-sizing: border-box; }
+    body { margin: 0; font-family: sans-serif; background: #f0f2f5; padding-bottom: 80px; }
+
+    .layout-wrapper { 
+        display: grid; 
+        grid-template-columns: 280px 1fr; 
+        gap: 25px; 
+        max-width: 1200px; 
+        margin: 20px auto;
+        padding: 0 15px;
+        align-items: start;
+    }
+
+    /* 2. MOBILE NAV & UTILS */
+    .mobile-nav {
+        display: none; 
+        position: fixed; 
+        bottom: 0; left: 0; width: 100%;
+        background: white; border-top: 1px solid #eee;
+        z-index: 9999;
+        justify-content: space-around; align-items: center;
+        padding: 10px 0;
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+    }
+    .mobile-nav .menu-item { font-size: 20px; color: #ccc; text-decoration: none; position: relative; padding: 5px 15px; display: flex; flex-direction: column; align-items: center; }
+    .mobile-nav .menu-item.active { color: #7385a5; }
+
+    @media (max-width: 900px) {
+        .layout-wrapper { grid-template-columns: 1fr; }
+        .sidebar-left { display: none !important; }
+        .mobile-nav { display: flex !important; }
+    }
+
+    .nav-badge { background: #e74c3c; color: white; font-size: 9px; min-width: 16px; height: 16px; border-radius: 50%; display: none; align-items: center; justify-content: center; position: absolute; top: -5px; right: 5px; }
+    .comment-item { border-bottom: 1px solid #eee; padding: 10px 0; display: flex; gap: 10px; }
+    .post-image { cursor: zoom-in; width: 100%; display: block; min-height: 200px; background: #f0f0f0; object-fit: cover; }
+    .star-item.active { color: gold; transform: scale(1.2); }
+    .star-item { color: #ccc; transition: 0.2s; cursor: pointer; }
+
+    /* LAZY LOAD CSS (PENTING) */
+    .lazy-img {
+        opacity: 0;
+        transition: opacity 0.5s ease-in;
+        background-color: #f0f0f0; 
+    }
+    .lazy-loaded {
+        opacity: 1;
+    }
+    
+    dialog::backdrop { background: rgba(0,0,0,0.5); backdrop-filter: blur(2px); }
+    </style>
+</head>
+<body>
+
+    <div id="walletPopupOverlay" style="display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); z-index: 10000; justify-content: center; align-items: center;">
+        <div style="background: white; width: 300px; padding: 20px; border-radius: 15px; text-align: center; box-shadow: 0 4px 20px rgba(0,0,0,0.2); position: relative;">
+            <h3 style="margin: 0 0 15px 0; color: #333;">Dompet Terhubung</h3>
+            <div style="width: 60px; height: 60px; background: #eef2f8; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 15px;">
+                <i class="fa-solid fa-wallet" style="font-size: 24px; color: #7385a5;"></i>
+            </div>
+            <p style="font-size: 12px; color: #888; margin-bottom: 5px;">Alamat Dompet:</p>
+            <div style="background: #f5f5f5; padding: 8px; border-radius: 8px; font-family: monospace; font-size: 13px; color: #333; word-break: break-all; margin-bottom: 20px;">
+                <span id="popupAddressText">0x...</span>
+            </div>
+            <div style="display: flex; gap: 10px;">
+                <button onclick="copyAddress()" style="flex: 1; padding: 10px; border: 1px solid #ddd; background: white; border-radius: 8px; cursor: pointer;"><i class="fa-regular fa-copy"></i> Salin</button>
+                <button onclick="performDisconnect()" style="flex: 1; padding: 10px; border: none; background: #ffebee; color: #d32f2f; border-radius: 8px; cursor: pointer; font-weight: bold;">Putuskan</button>
+            </div>
+            <button onclick="closeWalletPopup()" style="position: absolute; top: 10px; right: 10px; background: none; border: none; font-size: 18px; cursor: pointer; color: #999;">&times;</button>
+        </div>
+    </div>
+
+    <div class="layout-wrapper">
+        <div class="sidebar-left">
+            <div class="menu-card">
+                <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i> Beranda</a>
+                <a href="notifications.html" class="menu-item">
+                    <i class="fa-solid fa-bell"></i> Notifikasi
+                    <span class="nav-badge" id="badgeSidebar">0</span> 
+                </a>
+                <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i> Profil</a>
+                <hr style="border: 0; border-top: 1px solid #eee; margin: 5px 0; width: 100%;">
+                
+                <a href="#" id="sidebarWalletBtn" onclick="handleWalletClick()" class="menu-item" style="justify-content: space-between;">
+                    <span><i class="fa-solid fa-wallet"></i> <span id="sidebarWalletText">Connect</span></span>
+                    <i class="fa-solid fa-circle" id="walletIndicator" style="font-size: 8px; color: #ccc;"></i>
+                </a>
+            </div>
+
+            <div class="menu-card" style="margin-top: 20px;">
+                <h4 style="margin-top:0; color:#7385a5;">🔥 Sedang Populer</h4>
+                <div id="trendingWidget"><p style="font-size:12px; color:#999;">Memuat...</p></div>
+            </div>
+
+            <div class="menu-card" style="margin-top: 20px;">
+                <h4 style="margin-top:0; color:#7385a5;">✨ Siapa yang diikuti</h4>
+                <div id="recomWidget"><p style="font-size:12px; color:#999;">Mencari...</p></div>
+            </div>
+        </div> 
+
+        <div class="main-feed">
+            <div class="card" style="padding: 5px 15px; margin-bottom: 20px; position: sticky; top: 10px; z-index: 99; box-shadow: 0 5px 15px rgba(0,0,0,0.05);">            
+                <form onsubmit="event.preventDefault(); window.location.href = 'result.html?q=' + document.getElementById('searchInput').value;" 
+                      style="display: flex; gap: 10px; align-items: center; margin: 0; width: 100%;">
+                    <button type="submit" style="background: none; border: none; padding: 0; cursor: pointer; color: #999;">
+                        <i class="fa-solid fa-magnifying-glass"></i>
+                    </button>
+                    <input type="search" id="searchInput" class="cp-input" placeholder="Pencarian..." style="border: none; background: transparent; flex: 1; outline: none; height:35px;">
+                </form>
+            </div>
+
+            <div style="display: flex; margin-bottom: 20px; border-bottom: 2px solid #eee;">
+                <div id="tabFriends" onclick="switchFeed('friends')" style="flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #8b4513; border-bottom: 3px solid #8b4513;">
+                 <i class="fa-solid fa-user-group"></i> Mengikuti
+                </div>
+                <div id="tabGlobal" onclick="switchFeed('global')" style="flex: 1; text-align: center; padding: 15px; cursor: pointer; font-weight: bold; color: #999; border-bottom: 3px solid transparent;">
+                 <i class="fa-solid fa-earth-asia"></i> Jelajah
+                </div>
+            </div>
+
+            <div class="card create-post-box" style="margin-bottom: 20px;">
+                <div class="cp-header">
+                    <img src="https://via.placeholder.com/40" class="user-avatar" id="myAvatar">
+                    <textarea id="mainCaption" class="cp-input" placeholder="Ceritakan wayang ini"></textarea>
+                </div>
+
+                <div id="nftReadyIndicator" style="display:none; background:#f0fff4; border:1px solid #48bb78; padding:10px; margin:10px 15px; border-radius:8px; font-size:12px; color:#2f855a;">
+                    <i class="fa-solid fa-check-circle"></i> 
+                    <strong>Data Arsip Siap!</strong> <span id="nftFilenamePreview"></span>
+                    <button onclick="cancelNft()" style="float:right; background:none; border:none; color:#c53030; cursor:pointer;">Batal</button>
+                </div>
+
+                <div class="cp-actions">
+                    <button onclick="openNftModal()" class="btn-upload" style="background:none; border:none; cursor:pointer; color:#8b4513; font-weight:bold; display:flex; align-items:center; gap:5px;">
+                        <i class="fa-solid fa-scroll"></i> Arsipkan Wayang
+                    </button>
+                    <span style="font-size:10px; color:#999; margin-right:auto; margin-left:5px;">(0.0001 ETH)</span>
+                    <button id="btnPost" class="btn-primary" onclick="submitPost()">Posting</button>
+                </div>
+            </div>
+
+            <div id="feedContainer" style="padding-top: 10px;"></div>
+        </div>
+    </div>
+
+    <dialog id="commentModal" style="border:none; border-radius:15px; padding:0; box-shadow:0 0 50px rgba(0,0,0,0.5); width: 90%; max-width: 500px; height: 70vh;">
+        <div style="padding: 15px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; align-items: center;">
+            <h3 style="margin:0; color:#7385a5;">Komentar</h3>
+            <span onclick="document.getElementById('commentModal').close()" style="cursor:pointer; font-size:20px;">&times;</span>
+        </div>
+        <div id="commentList" style="flex: 1; overflow-y: auto; padding: 15px;">
+            <p style="text-align:center; color:#999;">Memuat komentar...</p>
+        </div>
+        <div style="padding: 15px; border-top: 1px solid #eee; background: #f9f9f9; display: flex; gap: 10px; align-items: flex-end;">
+            <textarea id="commentInput" class="cp-input" placeholder="Tulis komentar..." style="flex: 1; height: 50px; padding: 10px; resize: none; border: 1px solid #ddd; border-radius: 10px;"></textarea>
+            <input type="hidden" id="commentPostId">        
+            <button onclick="submitComment()" class="btn-primary" style="height: 50px; width: 50px; border-radius: 10px;"><i class="fa-solid fa-paper-plane"></i></button>
+        </div>
+    </dialog>
+
+    <dialog id="nftModal" style="border:none; border-radius:10px; padding:20px; width:95%; max-width:500px; box-shadow:0 0 50px rgba(0,0,0,0.5); margin:auto;">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px; border-bottom:1px solid #eee; padding-bottom:10px;">
+            <h3 style="margin:0; color:#8b4513;"><i class="fa-solid fa-scroll"></i> Arsip Wayang (NFT)</h3>
+            <span onclick="document.getElementById('nftModal').close()" style="cursor:pointer; font-size:20px;">&times;</span>
+        </div>
+        <div style="overflow-y:auto; max-height:60vh; padding-right:5px;">
+            <div style="margin-bottom: 15px;">
+                <label style="font-size:12px; font-weight:bold; color:#8b4513;">Nama Tokoh <span style="color:red">*</span></label>
+                <input type="text" id="mName" class="cp-input" style="width:100%; font-size:14px; font-weight:bold;">
+            </div>
+            <div style="background:#fffaf0; padding:15px; border-radius:8px; text-align:center; border:2px dashed #d4af37; margin-bottom:15px;">
+                <label for="modalFileInput" style="cursor:pointer; display:block;">
+                    <i class="fa-solid fa-camera" style="font-size:24px; color:#8b4513;"></i><br>
+                    <span style="font-size:12px; color:#666;">Pilih Foto Fisik Wayang</span>
+                </label>
+                <input type="file" id="modalFileInput" style="display:none;" onchange="previewInModal(this)">
+                <div id="modalFilePreview"></div>
+            </div>
+            <label style="font-size:12px; font-weight:bold; color:#555;">Detail Atribut</label>
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:10px;">
+                <select id="mGolongan" class="cp-input" style="height:38px;"><option value="Dewa">Dewa</option><option value="Satria">Satria</option><option value="Punakawan">Punakawan</option><option value="Raksasa">Raksasa</option></select>
+                <select id="mGaya" class="cp-input" style="height:38px;"><option value="Surakarta">Surakarta</option><option value="Yogyakarta">Yogyakarta</option><option value="Cirebon">Cirebon</option><option value="Bali">Bali</option></select>
+                <input type="text" id="mBahan" class="cp-input" placeholder="Bahan">
+                <input type="text" id="mGapit" class="cp-input" placeholder="Gapit">
+                <input type="text" id="mTahun" class="cp-input" placeholder="Tahun">
+                <input type="text" id="mKolektor" class="cp-input" placeholder="Kolektor">
+            </div>
+        </div>
+        <div style="margin-top:20px;">
+            <button onclick="saveNftDraft()" class="btn-primary" style="width:100%; background:#8b4513; border:none; padding:12px; font-weight:bold;">Simpan Data Arsip</button>
+        </div>
+    </dialog>
+
+    <dialog id="sawerModal" style="border:none; padding:20px; border-radius:10px; box-shadow:0 0 20px rgba(0,0,0,0.5); width: 300px;">
+        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Sawer Kurator</h3>
+        <input type="hidden" id="sawerTargetId">
+        <div class="preset-row">
+            <button class="btn-preset" onclick="setSawerVal('min')">Min</button>
+            <button class="btn-preset" onclick="setSawerVal(0.25)">25%</button>
+            <button class="btn-preset" onclick="setSawerVal(0.50)">50%</button>
+            <button class="btn-preset" onclick="setSawerVal(0.75)">75%</button>
+            <button class="btn-preset" onclick="setSawerVal('max')">Max</button>
+        </div>
+        <input type="number" id="sawerAmount" class="cp-input" placeholder="0.0001" step="0.00001" style="width:100%; margin:10px 0; text-align:center;">
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('sawerModal').close()" style="flex:1; border:1px solid #ccc; background:none; border-radius:10px;">Batal</button>
+            <button onclick="submitSawer()" style="flex:1; background:#7385a5; color:white; border:none; border-radius:10px;">Kirim</button>
+        </div>
+    </dialog>
+    
+    <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
+        <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Bintang</h3>
+        <input type="hidden" id="ratingTargetId">
+        <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
+            <div class="star-wrapper">
+                <i class="fa-solid fa-star star-item" onclick="setRate(1)"></i>
+                <i class="fa-solid fa-star star-item" onclick="setRate(2)"></i>
+                <i class="fa-solid fa-star star-item" onclick="setRate(3)"></i>
+                <i class="fa-solid fa-star star-item" onclick="setRate(4)"></i>
+                <i class="fa-solid fa-star star-item" onclick="setRate(5)"></i>
+            </div>
+        </div>
+        <button onclick="submitRating()" style="width:100%; background:#7385a5; border:none; padding:10px; color:white; border-radius:10px;">Kirim</button>
+    </dialog>
+    
+    <div class="mobile-nav">
+        <a href="home.html" class="menu-item active"><i class="fa-solid fa-house"></i></a>
+        <a href="notifications.html" class="menu-item"><i class="fa-solid fa-bell"></i><span class="nav-badge" id="badgeMobile">0</span></a>
+        <a href="profile.html" class="menu-item"><i class="fa-solid fa-user"></i></a>
+        <a href="#" id="navWalletBtn" onclick="handleWalletClick()" class="menu-item"><i class="fa-solid fa-wallet"></i></a>
+    </div>
+
+    <div id="toast"></div>
+
+    <script src="ipfs_helper.js"></script>
+    <script>
+    const CONTRACT_ADDRESS = "0x0753d3a9f7cb7eD9De233a319d4AD9fF60A434B2"; 
+    const BASE_SEPOLIA_ID = 84532;
+    const BASE_SEPOLIA_HEX = "0x14a34";
+    const SAWER_MIN = 0.00002;
+    const SAWER_MAX = 0.01;
+    
+    let currentFeedType = 'global'; 
+    let selectedRate = 0;
+    let nftDraft = null; 
+    let contract, signer, provider, userAddress;
+    const commentProfileCache = {};
+    const memoryProfileCache = {}; 
+    const pendingRequests = new Set();
+    
+    // ABI (Diperpendek untuk ringkas, tapi WAJIB LENGKAP di kode asli Anda)
+    // GUNAKAN ABI LENGKAP YANG ANDA MILIKI DI SINI
+    const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"followed","type":"address"}],"name":"Followed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"string","name":"action","type":"string"}],"name":"NewInteraction","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":true,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"nftId","type":"uint256"},{"indexed":false,"internalType":"address","name":"author","type":"address"}],"name":"NewPost","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"string","name":"newName","type":"string"},{"indexed":false,"internalType":"bool","name":"isPaid","type":"bool"}],"name":"NicknameChanged","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"uint256","name":"postId","type":"uint256"}],"name":"Sawer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"follower","type":"address"},{"indexed":true,"internalType":"address","name":"unfollowed","type":"address"}],"name":"Unfollowed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"blocker","type":"address"},{"indexed":true,"internalType":"address","name":"blocked","type":"address"}],"name":"UserBlocked","type":"event"},{"inputs":[],"name":"MAX_FREE_CHANGES","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"string","name":"_text","type":"string"},{"internalType":"string","name":"_imageURI","type":"string"}],"name":"addComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"blockUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_newNickname","type":"string"}],"name":"changeNickname","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"string","name":"_imgURI","type":"string"},{"internalType":"string","name":"_metaURI","type":"string"},{"internalType":"string","name":"_caption","type":"string"}],"name":"createPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"dislikePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"},{"internalType":"uint256","name":"_commentIndex","type":"uint256"},{"internalType":"string","name":"_newText","type":"string"}],"name":"editComment","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"followUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followerList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"followingList","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getAllPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_postIndex","type":"uint256"}],"name":"getComments","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Comment[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getFollowCounts","outputs":[{"internalType":"uint256","name":"followersCount","type":"uint256"},{"internalType":"uint256","name":"followingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyFeed","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"getMyNotifications","outputs":[{"components":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"internalType":"struct PutramasOfficialWayangNusantara.Notification[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getProfile","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"}],"name":"getProfileById","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.UserProfile","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getUserPosts","outputs":[{"components":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"internalType":"struct PutramasOfficialWayangNusantara.Post[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"hasBlocked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasDisliked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"idToWallet","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"ownerAddr","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"address","name":"","type":"address"}],"name":"isFollowing","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"likePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"mintPrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"nicknamePrice","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"owner","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"postComments","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"address","name":"commenter","type":"address"},{"internalType":"string","name":"text","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"posts","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"uint256","name":"nftId","type":"uint256"},{"internalType":"address","name":"author","type":"address"},{"internalType":"string","name":"tokenURI","type":"string"},{"internalType":"string","name":"imageURI","type":"string"},{"internalType":"string","name":"caption","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"uint256","name":"likeCount","type":"uint256"},{"internalType":"uint256","name":"dislikeCount","type":"uint256"},{"internalType":"uint256","name":"commentCount","type":"uint256"},{"internalType":"uint256","name":"totalRatingScore","type":"uint256"},{"internalType":"uint256","name":"ratingCount","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"}],"name":"ratePost","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"registerProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_index","type":"uint256"}],"name":"sawerPost","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newPrice","type":"uint256"}],"name":"setNicknamePrice","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"tokenCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_target","type":"address"}],"name":"unfollowUser","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateBioAndPhoto","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_nickname","type":"string"},{"internalType":"string","name":"_foto","type":"string"},{"internalType":"string","name":"_bio","type":"string"},{"internalType":"string","name":"_lokasi","type":"string"}],"name":"updateProfile","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"userCounter","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"userNotifications","outputs":[{"internalType":"address","name":"actor","type":"address"},{"internalType":"string","name":"actionType","type":"string"},{"internalType":"uint256","name":"postId","type":"uint256"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isRead","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"userRating","outputs":[{"internalType":"uint8","name":"","type":"uint8"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"users","outputs":[{"internalType":"uint256","name":"id","type":"uint256"},{"internalType":"string","name":"nickname","type":"string"},{"internalType":"string","name":"fotoProfil","type":"string"},{"internalType":"string","name":"bio","type":"string"},{"internalType":"string","name":"lokasi","type":"string"},{"internalType":"address","name":"wallet","type":"address"},{"internalType":"bool","name":"isRegistered","type":"bool"},{"internalType":"uint256","name":"nameChangeCount","type":"uint256"}],"stateMutability":"view","type":"function"}];
+        
+    // --- 1. STARTUP INSTAN ---
+    document.addEventListener("DOMContentLoaded", () => {
+        const cacheKey = `feed_cache_${currentFeedType}`;
+        const cachedData = localStorage.getItem(cacheKey);
+        const container = document.getElementById("feedContainer");
+
+        if (cachedData) {
+            try {
+                const parsed = JSON.parse(cachedData);
+                if(parsed.length > 0) {
+                    renderPostLoop(parsed, container, true); 
+                    console.log("⚡ Tampil dari Cache");
+                } else {
+                    container.innerHTML = "<p style='text-align:center; color:#999; margin-top:40px;'>Belum ada data tersimpan.</p>";
+                }
+            } catch(e) {
+                container.innerHTML = "<p style='text-align:center; color:#999;'>Data rusak.</p>";
+            }
+        } else {
+            container.innerHTML = "<p style='text-align:center; color:#999; margin-top:40px;'>Belum ada data cache. Refresh nanti.</p>";
+        }
+
+        // Init Background
+        initApp().then(() => {
+            if(typeof CONTRACT_ABI !== 'undefined' && signer) {
+                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            }
+            console.log("✅ Ready (Bg Mode)");
+        }).catch(e => console.warn("Init skip:", e));
+    });
+
+    // --- 2. INIT APP ---
+    async function initApp() {
+        if(document.getElementById("trendingWidget")) document.getElementById("trendingWidget").innerHTML = "<p style='font-size:12px; color:#999; padding:10px;'>Segera Hadir</p>";
+        if(document.getElementById("recomWidget")) document.getElementById("recomWidget").innerHTML = "<p style='font-size:12px; color:#999; padding:10px;'>Segera Hadir</p>";
+
+        const sessionRaw = localStorage.getItem("putramas_session");
+        if (sessionRaw) {
+            try {
+                const session = JSON.parse(sessionRaw);
+                if (Date.now() > session.expiry) { localStorage.removeItem("putramas_session"); return; }
+                
+                if (window.ethereum) {
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                    const accounts = await provider.listAccounts();
+                    if (accounts.length > 0) {
+                        const { chainId } = await provider.getNetwork();
+                        if (chainId === BASE_SEPOLIA_ID) {
+                            signer = provider.getSigner();
+                            userAddress = await signer.getAddress();
+                            
+                            if (userAddress.toLowerCase() === session.address.toLowerCase()) {
+                                contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+                                updateWalletUI(userAddress);
+                                loadMyProfile();
+                            }
+                        }
+                    }
+                }
+            } catch(e) { console.warn("Sesi Error:", e); }
+        }
+    }
+
+    // --- 3. WALLET LOGIC ---
+    async function handleWalletClick() {
+        if (userAddress) {
+            document.getElementById("popupAddressText").innerText = userAddress;
+            document.getElementById("walletPopupOverlay").style.display = "flex";
+            return;
+        }
+        if (!window.ethereum) return alert("Install Metamask!");
+        try {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            try {
+                await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_HEX }] });
+            } catch (err) {
+                if (err.code === 4902) {
+                     await window.ethereum.request({
+                        method: 'wallet_addEthereumChain',
+                        params: [{ chainId: BASE_SEPOLIA_HEX, chainName: 'Base Sepolia', rpcUrls: ['https://sepolia.base.org'], nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 }, blockExplorerUrls: ['https://sepolia.basescan.org'] }]
+                    });
+                }
+            }
+            const signer = provider.getSigner();
+            const address = await signer.getAddress();
+            const sessionData = { address: address, expiry: Date.now() + (30 * 24 * 60 * 60 * 1000) };
+            localStorage.setItem("putramas_session", JSON.stringify(sessionData));
+            window.location.reload();
+        } catch(e) { console.error(e); }
+    }
+
+    function closeWalletPopup() { document.getElementById("walletPopupOverlay").style.display = "none"; }
+    function copyAddress() { navigator.clipboard.writeText(userAddress).then(() => showToast("Disalin!", "success")); }
+    function performDisconnect() { localStorage.removeItem("putramas_session"); window.location.reload(); }
+    function updateWalletUI(addr) {
+        document.getElementById("sidebarWalletText").innerHTML = addr.substring(0,6) + "...";
+        document.getElementById("walletIndicator").style.color = "#2ecc71"; 
+    }
+
+    // --- 4. LAZY LOAD ENGINE (FIX BROKEN IMG) ---
+    function initLazyLoading() {
+        const imageObserver = new IntersectionObserver((entries, observer) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    const img = entry.target;
+                    const realSrc = img.getAttribute('data-src');
+                    if (realSrc) {
+                        img.src = realSrc;
+                        img.onload = () => { img.classList.add('lazy-loaded'); img.removeAttribute('data-src'); };
+                        img.onerror = () => { img.src = "https://via.placeholder.com/500x300?text=Gagal"; img.classList.add('lazy-loaded'); };
+                    }
+                    observer.unobserve(img);
+                }
+            });
+        });
+        document.querySelectorAll('img.lazy-img').forEach(img => imageObserver.observe(img));
+    }
+
+    // --- 5. RENDER POST (FIX DUPLICATE & METADATA STUCK) ---
+    function renderPostLoop(postsArray, container, isCache) {
+        let htmlContent = ""; 
+        const reversedPosts = [...postsArray].reverse();
+
+        reversedPosts.forEach(post => {
+            const profileLink = `profile.html?addr=${post.author}`;
+            let imgHtml = "";
+            
+            if(post.imageURI && post.imageURI.length > 5) {
+                let optUrl = post.imageURI;
+                if (post.imageURI.startsWith("ipfs://")) {
+                     const rawUrl = post.imageURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                     optUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=500&q=60&output=webp`;
+                }
+
+                let metaBox = "";
+                if(parseInt(post.nftId) > 0) {
+                    metaBox = `<div class="nft-citation" style="background:#f8f9fa; padding:10px; font-size:12px; margin-top:-4px;">
+                        <div><i class="fa-solid fa-mask"></i> <strong>Nama:</strong> <span id="meta-name-${post.id}" style="font-weight:bold;">Loading...</span></div>
+                        <div><i class="fa-solid fa-palette"></i> <strong>Gagrak:</strong> <span id="meta-gagrak-${post.id}">-</span></div>
+                    </div>`;
+                }
+
+                imgHtml = `<div style="margin:10px -15px 0 -15px; min-height:200px; background:#f0f0f0;">
+                    <a href="koleksi.html?id=${post.id}">
+                        <img data-src="${optUrl}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" class="post-image lazy-img" style="width:100%; min-height:200px; object-fit:cover;">
+                    </a>${metaBox}
+                </div>`;
+
+                if(parseInt(post.nftId) > 0 && !isCache) setTimeout(() => fetchCardMetadata(post.id, post.tokenURI), 0);
+            }
+
+            const rCount = parseInt(post.ratingCount);
+            const rScore = parseInt(post.totalRatingScore);
+            const avgRating = rCount > 0 ? (rScore / rCount).toFixed(1) : "0.0";
+            const nftBadge = parseInt(post.nftId) > 0 ? `<span style="background:#d4af37; color:white; padding:2px 6px; border-radius:4px; font-size:10px; margin-left:5px;">NFT #${post.nftId}</span>` : "";
+            
+            htmlContent += `
+            <div class="card" id="post-${post.id}" style="padding: 15px; margin-bottom: 20px;">
+                <div class="post-header" style="display: flex; gap: 10px; align-items: center; margin-bottom: 10px;">
+                    <a href="${profileLink}"><img src="https://via.placeholder.com/40" class="user-avatar author-avatar-${post.author}" style="width: 40px; height: 40px; border-radius: 50%; object-fit: cover;"></a>
+                    <div>
+                        <a href="${profileLink}" class="author-nick-${post.author}" style="font-weight: bold; color: #333; text-decoration: none;">${post.author.substring(0,6)}...</a>
+                        <div style="font-size: 11px; color: #999;">${new Date(parseInt(post.timestamp) * 1000).toLocaleString()} ${nftBadge}</div>
+                    </div>
+                </div>
+                <div style="margin-bottom:10px; font-size:14px;">${formatCaption(post.caption)}</div>
+                ${imgHtml}
+                <div class="post-actions" style="border-top:1px solid #eee; padding-top:10px; margin-top:5px; display:flex; justify-content:space-around;">
+                     <button onclick="handleLike(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-heart" id="icon-like-${post.id}"></i> ${post.likeCount}</button>
+                     <button onclick="openComments(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-regular fa-comment"></i> ${post.commentCount}</button>
+                     <button onclick="openSawerModal(${post.id})" style="background:none; border:none; color:#666;"><i class="fa-solid fa-gift"></i></button>
+                     <button onclick="openRating(${post.id})" style="background:none; border:none; color:gold;"><i class="fa-solid fa-star"></i> ${avgRating}</button>
+                </div>
+            </div>`;
+            setTimeout(() => fetchProfileLazy(post.author), 0);
+        });
+
+        container.innerHTML = htmlContent;
+        initLazyLoading();
+    }
+
+    // --- 6. METADATA FETCH (FIX LOADING TEXT) ---
+    async function fetchCardMetadata(postId, tokenURI) {
+        if (!tokenURI || tokenURI.length < 5) return;
+        const nameId = `meta-name-${postId}`;
+        const gagrakId = `meta-gagrak-${postId}`;
+
+        try {
+            const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+            const response = await fetch(url);
+            const meta = await response.json();
+
+            const nameEl = document.getElementById(nameId);
+            if (nameEl && meta.name) {
+                nameEl.innerText = meta.name;
+                nameEl.style.color = "#333";
+            }
+            const gagrakEl = document.getElementById(gagrakId);
+            if (gagrakEl && meta.attributes) {
+                const attr = meta.attributes.find(a => a.trait_type === "Gaya" || a.trait_type === "Gagrak");
+                if (attr) gagrakEl.innerText = attr.value;
+            }
+        } catch (e) {
+            const nameEl = document.getElementById(nameId);
+            if(nameEl) nameEl.innerText = "Data tidak tersedia";
+        }
+    }
+
+    // --- 7. UTILS & ACTIONS ---
+    async function fetchProfileLazy(address) {
+        if(memoryProfileCache[address]) { updatePostAuthorUI(address, memoryProfileCache[address]); return; }
+        const storageKey = "cache_user_" + address.toLowerCase();
+        const storedData = localStorage.getItem(storageKey);
+        if (storedData) {
+            try {
+                const data = JSON.parse(storedData);
+                memoryProfileCache[address] = data;
+                updatePostAuthorUI(address, data);
+                return;
+            } catch(e) {}
+        }
+        if (pendingRequests.has(address)) return;
+        pendingRequests.add(address);
+
+        try {
+            if (!contract) return; 
+            const p = await contract.getProfile(address);
+            let avatarUrl = 'https://via.placeholder.com/40';
+            if (p.fotoProfil) {
+                const cleanUrl = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                avatarUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=80&q=60&output=webp`;
+            }
+            const data = { nickname: p.nickname || address.substring(0,6)+"...", avatar: avatarUrl };
+            memoryProfileCache[address] = data;
+            localStorage.setItem(storageKey, JSON.stringify(data)); 
+            updatePostAuthorUI(address, data);
+        } catch (e) {} finally { pendingRequests.delete(address); }
+    }
+
+    function updatePostAuthorUI(address, data) {
+        document.querySelectorAll(`.author-avatar-${address}`).forEach(img => { if (img.src !== data.avatar) img.src = data.avatar; });
+        document.querySelectorAll(`.author-nick-${address}`).forEach(el => { if (el.innerText !== data.nickname) el.innerText = data.nickname; });
+    }
+
+    function formatCaption(text) { if (!text) return ""; return text.replace(/\n/g, "<br>"); }
+    function showToast(msg, type="info") {
+        const t = document.getElementById("toast"); t.innerText = msg; t.className = "show";
+        t.style.background = type === "error" ? "#e74c3c" : "#333";
+        setTimeout(() => t.className = t.className.replace("show", ""), 3000);
+    }
+
+    // --- INTERAKSI (Like, Komen, dll) ---
+    async function handleLike(postId) {
+        const icon = document.getElementById(`icon-like-${postId}`);
+        icon.classList.remove("fa-regular"); icon.classList.add("fa-solid"); icon.style.color = "#e74c3c";
+        try { await contract.likePost(postId - 1); } catch (e) { icon.classList.add("fa-regular"); icon.classList.remove("fa-solid"); icon.style.color = ""; }
+    }
+
+    async function openComments(postId) {
+        document.getElementById("commentPostId").value = postId - 1;
+        document.getElementById("commentInput").value = "";
+        document.getElementById("commentModal").showModal();
+        // Load comments logic here if needed
+    }
+
+    async function submitComment() {
+        const index = document.getElementById("commentPostId").value;
+        const text = document.getElementById("commentInput").value;
+        if(!text) return;
+        try {
+            showToast("Mengirim...", "info");
+            const tx = await contract.addComment(index, text, "");
+            await tx.wait();
+            showToast("Terkirim!", "success");
+            document.getElementById("commentModal").close();
+        } catch(e) { showToast("Gagal: " + e.message, "error"); }
+    }
+
+    function openSawerModal(id) { document.getElementById("sawerTargetId").value = id; document.getElementById("sawerModal").showModal(); }
+    async function submitSawer() {
+        const postId = document.getElementById("sawerTargetId").value;
+        const amount = document.getElementById("sawerAmount").value;
+        try {
+            document.getElementById("sawerModal").close();
+            const tx = await contract.sawerPost(postId - 1, { value: ethers.utils.parseEther(amount.toString()) });
+            await tx.wait();
+            showToast("Saweran terkirim!", "success");
+        } catch (e) { showToast("Gagal sawer", "error"); }
+    }
+
+    function openRating(id) { document.getElementById("ratingTargetId").value = id; document.getElementById("ratingModal").showModal(); }
+    function setRate(n) { selectedRate = n; }
+    async function submitRating() {
+        const postId = document.getElementById("ratingTargetId").value;
+        try {
+            document.getElementById("ratingModal").close();
+            const tx = await contract.ratePost(postId - 1, selectedRate);
+            await tx.wait();
+            showToast("Rating terkirim!", "success");
+        } catch (e) { showToast("Gagal rating", "error"); }
+    }
+
+    // --- POSTING ---
+    function openNftModal() { document.getElementById('nftModal').showModal(); }
+    function previewInModal(input) {
+        if (input.files && input.files[0]) {
+            const reader = new FileReader();
+            reader.onload = function(e) { document.getElementById('modalFilePreview').innerHTML = `<img src="${e.target.result}" style="width:100px; height:100px; object-fit:cover;">`; }
+            reader.readAsDataURL(input.files[0]);
+        }
+    }
+    async function saveNftDraft() {
+        const name = document.getElementById("mName").value;
+        const file = document.getElementById("modalFileInput").files[0];
+        if(!name || !file) return showToast("Lengkapi data!", "error");
+        try {
+            document.getElementById("nftModal").close();
+            showToast("Upload IPFS...", "info");
+            const compressedFile = await customCompress(file, 50, 800);
+            const imgUri = await uploadToPinata(compressedFile);
+            const meta = { name: name, image: imgUri, attributes: [{ trait_type: "Gaya", value: document.getElementById("mGaya").value }] };
+            const blob = new Blob([JSON.stringify(meta)], {type: "application/json"});
+            const metaUri = await uploadToPinata(new File([blob], "meta.json"));
+            nftDraft = { imgUri, metaUri };
+            document.getElementById("nftReadyIndicator").style.display = "block";
+            showToast("Siap posting!", "success");
+        } catch(e) { showToast("Gagal upload", "error"); }
+    }
+    async function submitPost() {
+        const caption = document.getElementById("mainCaption").value;
+        if (!caption && !nftDraft) return showToast("Isi konten!", "error");
+        try {
+            showToast("Memproses...", "info");
+            if (nftDraft) await contract.createPost(nftDraft.imgUri, nftDraft.metaUri, caption, { value: ethers.utils.parseEther("0.0001") });
+            else await contract.createPost("", "", caption);
+            showToast("Berhasil!", "success");
+            setTimeout(() => window.location.reload(), 2000);
+        } catch (e) { showToast("Gagal: " + e.message, "error"); }
+    }
+    function cancelNft() { nftDraft = null; document.getElementById("nftReadyIndicator").style.display = "none"; }
+    </script>
+</body>
+    </html>

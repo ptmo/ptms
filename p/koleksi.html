@@ -1,0 +1,2039 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Detail Koleksi | Putramas Museum</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    
+    <style>
+        /* 1. INDUK (GRID) */
+.collection-wrapper {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 40px;
+    max-width: 1100px;
+    margin: 30px auto;
+    padding: 0 20px;
+    
+    /* PENTING: align-items harus stretch (default) agar tinggi kiri=kanan */
+    /* align-items: start; <--- HAPUS BARIS INI! */
+}
+
+/* 2. KOTAK KIRI (PEMBUNGKUS) */
+.art-stage {
+    /* PENTING: position relative agar anak absolute mengacu ke sini */
+    position: relative; 
+    
+    width: 100%;
+    /* HAPUS SEMUA INI: */
+    /* height: ... */
+    /* max-height: ... */
+    /* aspect-ratio: ... */
+    
+    background: #fff; 
+    border-radius: 15px;
+    overflow: hidden;
+    border: 1px solid #7385a5;
+    box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+/* 3. GAMBAR (ISI) */
+.art-image {
+    position: absolute;
+    
+    /* TEKNIK CENTER ABSOLUTE: */
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%); /* Geser mundur setengah ukuran gambar biar pas tengah */
+    
+    /* Ukuran sesuai permintaan (ada sisa ruang 5% untuk napas) */
+    width: 95%;
+    height: 95%;
+    
+    /* Agar gambar utuh tidak terpotong */
+    object-fit: contain; 
+    
+    background: #fff;
+}
+/* Efek Zoom yang AMAN */
+.art-stage:hover .art-image {
+    /* Gabungkan translate (posisi) dan scale (zoom) */
+    transform: translate(-50%, -50%) scale(1.05); 
+}
+
+        /* --- TAMPILAN KHUSUS HP (MOBILE) --- */
+@media (max-width: 768px) {
+    
+    /* 1. Layout Tumpuk */
+    .collection-wrapper {
+        grid-template-columns: 1fr !important; 
+        gap: 20px;
+        align-items: stretch; 
+    }
+
+    /* 2. Paksa Rasio Potret (3:4) */
+    .art-stage {
+        width: 100%;
+        aspect-ratio: 3/4 !important; 
+        height: auto !important; 
+        min-height: auto !important;
+    }
+    
+    /* 3. Gambar Tetap Center & Stabil */
+    .art-image {
+        width: 95%;
+        height: 95%;
+        /* WAJIB ADA DI MOBILE JUGA AGAR STABIL */
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%); 
+    }
+}
+
+        /* --- KOLOM KANAN (INFO) --- */
+        .art-info {
+            background: #fff;
+            padding: 30px;
+            border-radius: 15px;
+            border: 1px solid #eee;
+            box-shadow: 0 5px 25px rgba(0,0,0,0.05);
+            /* Sticky: Info tetap terlihat saat scroll gambar panjang */
+            position: sticky;
+            top: 20px; 
+            height: fit-content;
+        }
+
+        /* TABEL SPESIFIKASI */
+        .meta-table { width: 100%; border-collapse: collapse; margin-top: 15px; }
+        .meta-table td { padding: 10px 0; border-bottom: 1px solid #f0f0f0; font-size: 13px; }
+        .meta-key { font-weight: bold; color: #7385a5; width: 35%; display: flex; align-items: center; gap: 8px; }
+        .meta-val { color: #333; text-align: right; font-weight: 500; }
+
+        /* TOMBOL INTERAKSI */
+        .interaction-row { display: flex; gap: 8px; margin-top: 25px; border-top: 1px solid #eee; padding-top: 15px; }
+        .interact-btn {
+            flex: 1; padding: 10px 5px; border: 1px solid #ddd; background: white; border-radius: 8px;
+            cursor: pointer; color: #555; font-size: 11px; transition: 0.2s;
+            display: flex; flex-direction: column; align-items: center; gap: 4px;
+        }
+        .interact-btn:hover { background: #e3e7ed; border-color: #7385a5; color: #7385a5; }
+        .interact-btn i { font-size: 16px; margin-bottom: 2px; }
+
+        /* RESPONSIVE HP */
+        @media (max-width: 800px) {
+            .collection-wrapper { grid-template-columns: 1fr; gap: 20px; }
+            .art-stage { aspect-ratio: 1/1; max-height: 400px; } /* Jadi kotak di HP */
+            .art-info { position: static; padding: 20px; }
+        }
+
+        dialog::backdrop { background: rgba(0,0,0,0.6); backdrop-filter: blur(3px); }
+
+        /* Wrapper agar bintang sejajar */
+.star-wrapper {
+    display: flex;
+    gap: 15px;
+    direction: ltr; /* Pastikan urutan kiri-ke-kanan */
+}
+
+/* Warna Dasar Bintang (Abu-abu #666) */
+.star-item {
+    color: #666; 
+    transition: color 0.2s, transform 0.2s;
+    cursor: pointer;
+}
+
+/* Warna Saat Hover atau Aktif (Gold) */
+.star-item.active, 
+.star-item:hover { 
+    color: gold; 
+    transform: scale(1.2); /* Efek membesar sedikit */
+}
+
+/* --- MODAL SAWER PREMIUM --- */
+.premium-modal {
+    border: none;
+    padding: 25px;
+    border-radius: 20px; /* Sudut lebih bulat (Modern) */
+    box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25); /* Shadow lembut & dalam */
+    width: 320px; /* Sedikit diperlebar agar lega */
+    max-width: 90%;
+    background: #ffffff;
+    font-family: inherit;
+    animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+/* Efek Backdrop (Latar belakang gelap blur) */
+.premium-modal::backdrop {
+    background: rgba(15, 23, 42, 0.6);
+    backdrop-filter: blur(4px);
+}
+
+/* Judul & Deskripsi */
+.sawer-title {
+    margin: 0 0 5px 0;
+    text-align: center;
+    color: #7385a5;
+    font-size: 18px;
+    font-weight: 700;
+}
+.sawer-desc {
+    text-align: center;
+    font-size: 13px;
+    color: #94a3b8;
+    margin: 0 0 20px 0;
+}
+
+/* Grid Tombol Preset (Min, 25%, 50%...) */
+.preset-grid {
+    display: grid;
+    grid-template-columns: repeat(5, 1fr); /* 5 Kolom sama besar */
+    gap: 8px; /* Jarak antar tombol */
+    margin-bottom: 15px;
+}
+
+.btn-preset {
+    padding: 8px 0;
+    font-size: 11px;
+    font-weight: 600;
+    color: #64748b;
+    background: #f1f5f9;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.btn-preset:hover {
+    background: #e2e8f0;
+    color: #334155;
+    transform: translateY(-1px);
+}
+
+.btn-preset:active { 
+    background: #cbd5e1;
+    transform: translateY(0);
+}
+
+/* Input Nominal Besar */
+.sawer-input {
+    width: 100%;
+    padding: 12px;
+    font-size: 20px; /* Angka besar */
+    font-weight: bold;
+    text-align: center;
+    color: #334155;
+    background: #f8fafc;
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    outline: none;
+    box-sizing: border-box;
+    margin-bottom: 8px;
+    transition: border-color 0.3s;
+}
+
+.sawer-input:focus {
+    border-color: #7385a5;
+    background: #fff;
+}
+
+/* Label Min/Max Kecil */
+.limit-labels {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 25px;
+    font-size: 11px;
+    color: #94a3b8;
+    font-weight: 500;
+}
+
+/* Tombol Aksi (Batal & Kirim) */
+.action-row {
+    display: flex;
+    gap: 12px;
+}
+
+.btn-action {
+    flex: 1; /* Lebar sama rata */
+    padding: 12px;
+    border-radius: 12px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s;
+    border: none;
+}
+
+.btn-cancel {
+    background: #fff;
+    border: 1px solid #e2e8f0;
+    color: #64748b;
+}
+.btn-cancel:hover { background: #f8fafc; }
+
+.btn-submit {
+    background: #7385a5; /* Warna Brand */
+    color: white;
+    box-shadow: 0 4px 12px rgba(115, 133, 165, 0.3);
+}
+.btn-submit:hover { opacity: 0.9; }
+
+/* Animasi Muncul */
+@keyframes popIn {
+    from { opacity: 0; transform: scale(0.9); }
+    to { opacity: 1; transform: scale(1); }
+}
+
+        /* --- BADGE GAYA / LOKASI (POJOK KIRI ATAS) --- */
+.geo-badge {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    z-index: 10; /* Di atas gambar */
+    /* Efek Kaca Buram (Frosted Glass) */
+    background: #7385a5;
+    backdrop-filter: blur(8px);
+    /* Bentuk Kapsul */
+    padding: 4px 8px;
+    border-radius: 8px;
+    border: 1px solid #b9c2d2;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+    /* Flexbox untuk ikon & teks */
+    display: none; /* Sembunyi dulu sampai data ada */
+    align-items: center;
+    gap: 4px;
+    /* Animasi Muncul */
+    transition: all 0.3s ease;
+    animation: slideDown 0.5s ease-out;
+}
+
+.geo-badge i {
+    color: #fff; /* Warna Brand */
+    font-size: 8px;
+}
+
+.geo-badge span {
+    font-family: sans-serif;
+    font-weight: 700;
+    color: #fff;
+    font-size: 7px;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+@keyframes slideDown {
+    from { opacity: 0; transform: translateY(-10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+        /* Style Tombol Header Atas (Mirip Mobile Nav) */
+.nav-icon-btn {
+    color: #666; /* Warna default (abu-abu) */
+    text-decoration: none;
+    position: relative;
+    transition: all 0.3s ease; /* Efek transisi halus */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Efek saat Disentuh/Hover */
+.nav-icon-btn:hover, 
+.nav-icon-btn.active {
+    color: #7385a5; /* Warna saat aktif (Sama dengan tema) */
+    transform: scale(1.1); /* Sedikit membesar agar interaktif */
+}
+
+        /* --- STATUS DOT (Indikator Hijau) --- */
+.status-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71; /* Warna Hijau Sukses */
+    border-radius: 50%;
+    position: absolute;
+    display: none; /* Default sembunyi */
+    box-shadow: 0 0 8px rgba(46, 204, 113, 0.8);
+}
+
+/* Posisi Dot di Mobile (Pojok ikon) */
+.mobile-nav .menu-item .status-dot {
+    top: 8px;
+    right: 30%;
+}
+
+/* Posisi Dot di PC Sidebar */
+.sidebar-left .menu-item .status-dot {
+    top: 15px;
+    right: 15px;
+}
+
+/* --- ANIMASI KELAP KELIP DI MODAL --- */
+.pulse-indicator {
+    width: 15px;
+    height: 15px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    margin: 0 auto 10px;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+@keyframes pulse-green {
+    0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    70% { transform: scale(1); box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+    100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(46, 204, 113, 0); }
+}
+
+/* Style Wallet Address di Modal (Agar terlihat bisa diklik) */
+.wallet-address-box {
+    background: #f8f9fa;
+    padding: 10px;
+    border-radius: 8px;
+    border: 1px dashed #ccc;
+    font-family: monospace;
+    color: #555;
+    margin: 10px 0;
+    cursor: pointer;
+    transition: 0.2s;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.wallet-address-box:hover {
+    background: #eef2f7;
+    border-color: #7385a5;
+    color: #333;
+}
+        
+        
+        /* --- CONTAINER MODAL UTAMA --- */
+.wallet-modal-modern {
+    border: none;
+    padding: 25px;
+    border-radius: 24px;
+    background: #ffffff;
+    width: 300px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.15);
+    font-family: 'Segoe UI', sans-serif;
+    
+    /* FIX POSISI: Biar benar-benar di tengah layar HP */
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    margin: 0; /* Reset margin bawaan browser */
+    z-index: 9999; /* Pastikan paling atas */
+
+    /* FIX TAMPILAN: Default sembunyi */
+    display: none; 
+}
+
+/* HANYA MUNCUL SAAT DI-OPEN OLEH JS */
+.wallet-modal-modern[open] {
+    display: flex; /* Baru jadi flex kalau dibuka */
+    flex-direction: column;
+    align-items: center;
+    animation: slideUpFade 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.wallet-modal-modern::backdrop {
+    background: rgba(0, 0, 0, 0.3);
+    backdrop-filter: blur(4px);
+}
+
+/* --- TOMBOL CLOSE POJOK --- */
+.btn-close-corner {
+    position: absolute;
+    top: 15px;
+    right: 15px;
+    background: none;
+    border: none;
+    color: #999;
+    font-size: 16px;
+    cursor: pointer;
+    padding: 5px;
+    transition: 0.2s;
+}
+.btn-close-corner:hover { color: #333; transform: scale(1.1); }
+
+/* --- 1. STATUS PILL (KAPSUL) --- */
+.status-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    background: #e6fffa; /* Hijau mint sangat muda */
+    padding: 6px 14px;
+    border-radius: 20px;
+    color: #27ae60;
+    font-size: 11px;
+    font-weight: 700;
+    margin-bottom: 20px;
+    border: 1px solid #b2f5ea;
+}
+
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7);
+    animation: pulse-green 2s infinite;
+}
+
+/* --- 2. SALDO (HERO) --- */
+.wallet-balance-section {
+    text-align: center;
+    margin-bottom: 25px;
+}
+.wallet-balance-section .label {
+    font-size: 12px;
+    color: #94a3b8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 5px;
+}
+.wallet-balance-section .amount {
+    font-size: 32px; /* Angka Besar */
+    font-weight: 800;
+    color: #1e293b;
+    letter-spacing: -1px;
+}
+.wallet-balance-section .currency {
+    font-size: 16px;
+    color: #94a3b8;
+    font-weight: 600;
+}
+
+/* --- 3. ALAMAT (CARD) --- */
+.address-container {
+    width: 100%;
+    background: #f8fafc; /* Abu kebiruan sangat muda */
+    border-radius: 16px;
+    padding: 12px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+    border: 1px solid transparent;
+}
+.address-container:hover {
+    background: #f1f5f9;
+    border-color: #cbd5e1;
+    transform: translateY(-2px);
+}
+.address-container:active { transform: translateY(0); }
+
+.addr-label {
+    font-size: 10px;
+    color: #94a3b8;
+    margin-bottom: 4px;
+}
+.addr-box {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    font-family: monospace;
+    font-size: 14px;
+    font-weight: 600;
+    color: #475569;
+}
+.copy-hint {
+    font-size: 9px;
+    color: #7385a5;
+    margin-top: 4px;
+    opacity: 0;
+    transition: 0.2s;
+}
+.address-container:hover .copy-hint { opacity: 1; }
+
+/* --- 4. TOMBOL LOGOUT --- */
+.btn-disconnect {
+    margin-top: 25px;
+    width: 100%;
+    padding: 12px;
+    background: #fee2e2; /* Merah sangat muda */
+    color: #ef4444;       /* Merah teks */
+    border: none;
+    border-radius: 12px;
+    font-size: 13px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: 0.2s;
+}
+.btn-disconnect:hover {
+    background: #fecaca;
+}
+
+/* Animasi Premium: Blur -> Clear & Pop-Up */
+@keyframes premiumShow {
+    from {
+        opacity: 0;
+        filter: blur(12px); /* Blur awal yang kuat */
+        transform: translate(-50%, -40%) scale(0.85); /* Muncul dari bawah sedikit & kecil */
+    }
+    to {
+        opacity: 1;
+        filter: blur(0);    /* Menjadi tajam */
+        transform: translate(-50%, -50%) scale(1); /* Posisi center sempurna */
+    }
+}
+
+/* Animasi Backdrop (Latar Belakang Blur) */
+@keyframes backdropFade {
+    from { opacity: 0; backdrop-filter: blur(0px); }
+    to { opacity: 1; backdrop-filter: blur(4px); }
+    }
+
+        /* --- CSS TOMBOL ZOOM --- */
+.zoom-btn {
+    position: absolute;
+    bottom: 15px; /* Jarak dari bawah */
+    right: 15px;  /* Jarak dari kanan */
+    
+    background: rgba(255, 255, 255, 0.8); /* Latar putih transparan */
+    border: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%; /* Bentuk bulat */
+    box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+    
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 20px;
+    color: #7385a5; /* Warna ikon */
+    transition: all 0.3s ease;
+    z-index: 10; /* Pastikan di atas gambar */
+}
+
+.zoom-btn:hover {
+    background: #7385a5;
+    color: white;
+    border: 1px solid #b9c2d2;
+    transform: scale(1.1);
+}
+
+
+/* --- CSS MODAL FULL SCREEN --- */
+/* Latar Belakang Gelap */
+.zoom-modal {
+    display: none; /* Tersembunyi secara default */
+    position: fixed; 
+    z-index: 9999; /* Paling depan */
+    padding-top: 50px; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.9); /* Hitam pekat transparan */
+    
+    /* Center gambar secara fleksibel */
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Gambar di dalam Modal */
+.zoom-modal-content {
+    margin: auto;
+    display: block;
+    /* Gambar menyesuaikan layar tapi tidak melebihi ukuran asli */
+    max-width: 95%;
+    max-height: 90vh; 
+    object-fit: contain;
+    border-radius: 5px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.1);
+    animation: zoomAnim 0.3s; /* Efek muncul */
+}
+
+/* Tombol Close (X) */
+.close-zoom {
+    position: absolute;
+    top: 20px;
+    right: 35px;
+    color: #f1f1f1;
+    font-size: 40px;
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+    z-index: 10001;
+}
+.close-zoom:hover, .close-zoom:focus {
+    color: #bbb;
+    text-decoration: none;
+    cursor: pointer;
+}
+
+/* Animasi Zoom In saat muncul */
+@keyframes zoomAnim {
+    from {transform:scale(0.8); opacity:0}
+    to {transform:scale(1); opacity:1}
+}
+
+/* Penyesuaian untuk HP */
+@media only screen and (max-width: 700px){
+    .zoom-modal-content {
+        width: 100%; /* Full lebar di HP */
+    }
+    .close-zoom {
+        top: 10px;
+        right: 20px;
+        font-size: 30px;
+    }
+}
+
+        /* --- LAYOUT DISKUSI SEPERTI CHAT APP --- */
+
+/* Wadah Utama */
+.discussion-container {
+    background: white;
+    border-radius: 15px;
+    box-shadow: 0 -2px 20px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+    margin: 20px auto 80px auto; /* Margin bawah besar agar tidak tertutup nav */
+    max-width: 800px;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden; /* Penting */
+}
+
+.discussion-header {
+    padding: 15px 20px;
+    border-bottom: 1px solid #eee;
+    background: #fff;
+}
+.discussion-header h3 { margin: 0; color: #333; font-size: 16px; }
+
+/* Area Scroll Komentar */
+.comments-scroll-area {
+    max-height: 400px; /* Batasi tinggi agar bisa discroll */
+    overflow-y: auto;
+    padding: 0 20px;
+    background: #fdfdfd;
+}
+
+/* --- BAR INPUT (STICKY) --- */
+.chat-input-bar {
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    padding: 10px 15px;
+    background: #fff;
+    border-top: 1px solid #eee;
+    
+    /* KUNCI: Sticky agar menempel saat discroll di dalam container */
+    position: sticky; 
+    bottom: 0;
+    z-index: 10;
+}
+
+/* Input Textarea */
+.chat-textarea {
+    flex: 1;
+    padding: 10px 15px;
+    border: 1px solid #ddd;
+    border-radius: 20px;
+    font-family: sans-serif;
+    font-size: 14px;
+    background: #f8f9fa;
+    resize: none; /* Gaboleh ditarik user */
+    max-height: 100px;
+    min-height: 40px;
+    outline: none;
+}
+.chat-textarea:focus {
+    background: #fff;
+    border-color: #7385a5;
+    box-shadow: 0 0 0 2px rgba(115,133,165,0.1);
+}
+
+/* Tombol Kirim */
+.chat-send-btn {
+    background: #7385a5;
+    color: white;
+    border: none;
+    padding: 0 20px;
+    border-radius: 20px;
+    height: 40px;
+    font-weight: bold;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 13px;
+    margin-bottom: 2px; /* Sejajar dengan textarea */
+}
+.chat-send-btn:hover { opacity: 0.9; }
+
+/* --- KHUSUS MOBILE (SAAT KEYBOARD MUNCUL) --- */
+@media (max-width: 768px) {
+    /* Saat di HP, input bar tetap di tempatnya (dalam flow) 
+       Browser akan otomatis nge-scroll ke elemen yang difokuskan */
+       
+    .discussion-container {
+        margin-bottom: 20px; /* Di HP tidak perlu margin besar */
+        border-radius: 0;
+        border: none;
+        border-top: 5px solid #f0f2f5; /* Pemisah visual */
+    }
+}
+    </style>
+</head>
+<body style="background-color:#f9f9f9; margin:0; font-family:sans-serif;">
+
+        <div style="background:white; padding:10px 20px; border-bottom:1px solid #ddd; display:flex; justify-content:space-between; align-items:center; position:sticky; top:0; z-index:100; height:60px;">
+        <a href="home" style="text-decoration:none; display:flex; align-items:center; gap:10px;">
+            <img src="https://via.placeholder.com/40/7385a5/ffffff?text=W" 
+                 style="width:30px; height:30px; border-radius:10px; object-fit:cover;" 
+                 alt="Logo">
+            <span style="color:#7385a5; font-weight:bold; font-size:16px; letter-spacing:0.5px;">
+                Wayang Nusantara
+            </span>
+        </a>
+        <div style="display:flex; gap:25px; align-items:center;">
+            <a href="home.html" class="nav-icon-btn">
+                <i class="fa-solid fa-house" style="font-size:17px;"></i>
+            </a>
+            <a href="notifications.html" class="nav-icon-btn">
+                <i class="fa-solid fa-bell" style="font-size:17px;"></i>
+                <span class="nav-badge" id="headerBadge" style="top:-5px; right:-5px; border:1px solid white;">0</span>
+            </a>
+            <a href="profile" class="nav-icon-btn">
+                <i class="fa-solid fa-user" style="font-size:17px;"></i>
+            </a>
+            <a href="#" onclick="openWalletInfo()" class="nav-icon-btn">
+                <i class="fa-solid fa-wallet" style="font-size:17px;"></i>
+                <span id="walletDotHeader" class="status-dot" style="display:none; width:8px; height:8px; background:#2ecc71; border-radius:50%; position:absolute; top:-2px; right:-2px; border:1px solid white;"></span>
+            </a>
+        </div>
+    </div>
+            
+    <div id="loadingState" style="text-align:center; padding:80px 20px; color:#666;">
+        <i class="fa-solid fa-circle-notch fa-spin fa-3x" style="color:#7385a5;"></i><br><br>
+        <span style="font-size:14px;">Membuka Arsip Blockchain...</span>
+    </div>
+
+    <div id="mainContent" class="collection-wrapper" style="display:none;">
+                <div class="art-stage">
+            <div id="originBadge" class="geo-badge">
+                <i class="fa-solid fa-globe-asia"></i>
+                <span id="originText">Nusantara</span>
+            </div>
+           <button class="zoom-btn" onclick="openZoomModal()" title="Perbesar Gambar">
+            <i class="fa-solid fa-search"></i>
+           </button>
+            <img id="detailImg" src="" class="art-image">
+                </div>
+
+        <div id="imageZoomModal" class="zoom-modal">
+    <span class="close-zoom" onclick="closeZoomModal()">&times;</span>
+    <img class="zoom-modal-content" id="fullScreenImage">
+    <div id="zoomCaption"></div>
+        </div>
+        
+        <div class="art-info">
+            
+            <div style="margin-bottom:20px;">
+                <span id="detailBadge" style="background:#7385a5; color:white; padding:4px 10px; border-radius:4px; font-size:10px; font-weight:bold; letter-spacing:0.5px;">ARSIP #ID</span>
+                
+                <h1 id="detailTitle" style="margin:10px 0; color:#222; font-family:serif; font-size:26px; line-height:1.3;">Memuat Judul...</h1>
+                
+                <div style="display:flex; gap:15px; margin-top:15px; background:#f5f5f5; padding:12px; border-radius:10px; border:1px solid #e0e0e0;">
+                    
+                    <div style="display:flex; align-items:center; gap:10px; flex:1;">
+                        <img id="detailAvatar" src="https://via.placeholder.com/35" style="width:35px; height:35px; border-radius:50%; border:1px solid #ccc;">
+                        <div style="overflow:hidden;">
+                            <div style="font-size:9px; color:#888; text-transform:uppercase; font-weight:bold;">Arsiparis</div>
+                            <a id="detailAuthorLink" href="#" style="font-weight:bold; color:#8b4513; text-decoration:none; font-size:13px; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">...</a>
+                        </div>
+                    </div>
+
+                    <div id="ownerSection" style="display:none; align-items:center; gap:10px; border-left:1px solid #ccc; padding-left:15px; flex:1;">
+                        <div style="background:#7385a5; color:white; width:35px; height:35px; border-radius:50%; display:flex; align-items:center; justify-content:center;">
+                            <i class="fa-solid fa-crown" style="font-size:14px;"></i>
+                        </div>
+                        <div style="overflow:hidden;">
+                            <div style="font-size:9px; color:#888; text-transform:uppercase; font-weight:bold;">Pemilik Hak</div>
+                            <span id="detailOwner" style="font-weight:bold; color:#333; font-size:13px; display:block; text-overflow:ellipsis; overflow:hidden; white-space:nowrap;">...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div style="border-bottom:2px solid #eee; display:flex; gap:25px; margin-bottom:15px;">
+                <div id="tabBtnMeta" onclick="switchTab('meta')" 
+                     style="border-bottom:3px solid #7385a5; padding-bottom:8px; font-weight:bold; color:#7385a5; cursor:pointer;">
+                     Spesifikasi
+                </div>
+                <div id="tabBtnHistory" onclick="switchTab('history')" 
+                     style="padding-bottom:8px; color:#999; cursor:pointer; border-bottom:3px solid transparent;">
+                     Riwayat
+                </div>
+            </div>
+
+            <div id="contentMeta">
+                <p id="detailDesc" style="font-size:14px; line-height:1.6; color:#333; margin-bottom:20px;">
+                 Memuat deskripsi...
+                </p>
+                <table class="meta-table" id="metaTable"></table>
+            </div>
+
+            <div id="contentHistory" style="display:none;">
+                <ul id="historyList" style="list-style:none; padding:0; margin:0;">
+                    <li style="display:flex; gap:15px; margin-bottom:15px; align-items:flex-start;">
+                        <div style="background:#27ae60; color:white; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; font-size:14px;">
+                            <i class="fa-solid fa-file-contract"></i>
+                        </div>
+                        <div>
+                            <div style="font-size:13px; font-weight:bold; color:#333;">Arsip Dicetak (Minted)</div>
+                            <div style="font-size:12px; color:#666;">Oleh <span id="histCreator" style="color:#8b4513;">...</span></div>
+                            <div style="font-size:10px; color:#999; margin-top:2px;" id="histTime">...</div>
+                        </div>
+                    </li>
+                </ul>
+            </div>
+
+            <div class="interaction-row">
+                <button class="interact-btn" onclick="handleLikeDetail()">
+                    <i class="fa-solid fa-heart" id="iconLikeDetail"></i> <span id="countLikeDetail">0</span>
+                </button>
+                <button class="interact-btn" onclick="document.getElementById('commentInputDetail').focus()">
+                    <i class="fa-solid fa-commenting"></i> <span id="countCommentDetail">0</span>
+                </button>
+                <button class="interact-btn" onclick="openRatingModalDetail()">
+                    <i class="fa-solid fa-star"></i> <span id="scoreRatingDetail">0.0</span>
+                </button>
+                <button class="interact-btn" onclick="openSawerModalDetail()">
+                    <i class="fa-solid fa-gift"></i> <span>Sawer</span>
+                </button>
+                <button class="interact-btn" onclick="shareCollection()">
+                    <i class="fa-solid fa-share-nodes"></i> <span>Share</span>
+                </button>
+                <button id="btnTransfer" class="interact-btn" onclick="openTransferModal()">
+                <i class="fa-solid fa-paper-plane"></i> <span>Kirim</span>
+                </button>
+            </div>
+
+            <div style="margin-top:20px;">
+                <a id="openseaLink" href="#" target="_blank" class="btn-primary" style="display:block; text-align:center; background:#7385a5; padding:12px; border-radius:8px; color:white; text-decoration:none; font-weight:bold;">
+                    Lihat di OpenSea <i class="fa-solid fa-arrow-up-right-from-square" style="font-size:12px; margin-left:5px;"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+
+    <div class="discussion-container">
+    
+    <div class="discussion-header">
+        <h3>Diskusi Kurator</h3>
+    </div>
+
+    <div id="pageComments" class="comments-scroll-area">
+        <p style="text-align:center; color:#999; padding:20px;">Belum ada diskusi.</p>
+    </div>
+
+    <div class="chat-input-bar">
+        <textarea 
+            id="commentInputDetail" 
+            class="chat-textarea" 
+            placeholder="Tulis komentar Anda..." 
+            rows="1"></textarea>
+        
+        <button onclick="submitCommentDetail()" class="chat-send-btn">
+            Kirim
+        </button>
+    </div>
+
+    </div>
+
+    <dialog id="sawerModal" class="premium-modal">
+    
+    <h3 class="sawer-title">Sawer Kurator</h3>
+    <p class="sawer-desc">Dukung pelestari budaya dengan ETH.</p>
+    
+    <input type="hidden" id="sawerTargetId">
+
+    <div class="preset-row preset-grid">
+        <button type="button" class="btn-preset" onclick="setSawerVal('min')">Min</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.25)">25%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.50)">50%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal(0.75)">75%</button>
+        <button type="button" class="btn-preset" onclick="setSawerVal('max')">Max</button>
+    </div>
+
+    <input type="text" 
+           inputmode="decimal"
+           id="sawerAmount" 
+           class="sawer-input" 
+           placeholder="0.0000" 
+           autocomplete="off">
+    
+    <div class="limit-labels">
+        <span>Min: 0.00002 ETH</span>
+        <span>Max: 0.01 ETH</span>
+    </div>
+
+    <div class="action-row">
+        <button onclick="document.getElementById('sawerModal').close()" class="btn-action btn-cancel">
+            Batal
+        </button>
+        <button onclick="submitSawerDetail()" class="btn-action btn-submit">
+            Kirim
+        </button>
+    </div>
+
+    </dialog>
+    
+    <dialog id="ratingModal" style="border:none; border-radius:12px; padding:20px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
+    <h3 style="margin-top:0; text-align:center; color:#7385a5;">Beri Bintang</h3>
+    
+    <input type="hidden" id="ratingTargetId">
+
+    <div style="display:flex; gap:5px; font-size:35px; justify-content:center; cursor:pointer; margin:20px 0;">
+        <div class="star-wrapper">
+            <i class="fa-solid fa-star star-item" data-value="1" onclick="setRate(1)"></i>
+            <i class="fa-solid fa-star star-item" data-value="2" onclick="setRate(2)"></i>
+            <i class="fa-solid fa-star star-item" data-value="3" onclick="setRate(3)"></i>
+            <i class="fa-solid fa-star star-item" data-value="4" onclick="setRate(4)"></i>
+            <i class="fa-solid fa-star star-item" data-value="5" onclick="setRate(5)"></i>
+        </div>
+    </div>
+    
+    <div style="display:flex; gap:10px;">
+        <button onclick="document.getElementById('ratingModal').close()" style="flex:1; background:none; border:1px solid #ccc; padding:10px; cursor:pointer; border-radius:10px;">Batal</button>
+        <button onclick="submitRatingDetail()" style="flex:1; background:#7385a5; border:none; padding:10px; color:white; border-radius:10px; cursor:pointer; font-weight:bold;">Kirim</button>
+    </div>
+    </dialog>
+
+    <dialog id="transferModal" style="border:none; padding:20px; border-radius:12px; box-shadow:0 0 30px rgba(0,0,0,0.3); width:300px;">
+        <h3 style="margin-top:0; text-align:center; color:#7385a5;"><i class="fa-solid fa-paper-plane"></i> Kirim NFT</h3>
+        <p style="text-align:center; font-size:12px; color:#666;">Hak milik akan berpindah permanen.</p>
+        <input type="text" id="transferTarget" class="cp-input" placeholder="0x..." style="width:100%; margin-bottom:15px; padding:10px; box-sizing:border-box;">
+        <div style="display:flex; gap:10px;">
+            <button onclick="document.getElementById('transferModal').close()" style="flex:1; padding:10px; border:1px solid #ccc; background:white; border-radius:10px; cursor:pointer;">Batal</button>
+            <button onclick="submitTransfer()" style="flex:1; background:#7385a5; color:white; border:none; padding:10px; border-radius:10px; cursor:pointer;">Kirim</button>
+        </div>
+    </dialog>
+
+    <dialog id="walletModal" class="wallet-modal-modern">
+    <button onclick="document.getElementById('walletModal').close()" class="btn-close-corner">
+        <i class="fa-solid fa-xmark"></i>
+    </button>
+
+    <div class="status-pill">
+        <div class="pulse-dot"></div>
+        <span>Jaringan Terhubung</span>
+    </div>
+
+    <div class="wallet-balance-section">
+        <div class="label">Total Saldo</div>
+        <div class="amount">
+            <span id="infoWalletBal">0.0000</span> <span class="currency">ETH</span>
+        </div>
+    </div>
+
+    <div class="address-container" onclick="copyWalletAddress()">
+        <div class="addr-label">Alamat Dompet</div>
+        <div class="addr-box">
+            <span id="infoWalletAddr">0x...</span>
+            <i class="fa-regular fa-copy"></i>
+        </div>
+        <div class="copy-hint">Ketuk untuk menyalin</div>
+    </div>
+
+    <button onclick="disconnect()" class="btn-disconnect">
+        <i class="fa-solid fa-power-off"></i> Putuskan Koneksi
+    </button>
+    </dialog>
+
+    <div id="toast"></div>
+
+    <script src="main.js"></script>
+    
+        <script>
+        // --- KONFIGURASI GLOBAL ---
+        let currentPostId = null; 
+        let selectedRate = 0;
+        const SAWER_MIN = 0.00002;
+        const SAWER_MAX = 0.01;
+
+        // --- 1. STARTUP INTELLIGENT (CACHE FIRST) ---
+        document.addEventListener("DOMContentLoaded", async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const idParam = urlParams.get('id');
+            
+            if(!idParam) { window.location.href="home.html"; return; }
+            currentPostId = parseInt(idParam);
+
+            // LANGKAH 1: Tampilkan Cache Instan (0ms Delay)
+            loadCollectionFromCache(currentPostId);
+
+            // LANGKAH 2: Init Wallet Background
+            await initApp(); 
+
+            // LANGKAH 3: Ambil Data Live (Smart Fetch)
+            loadCollectionLive(currentPostId);
+            onWalletConnected();
+        });
+
+        // --- 2. CACHE MANAGER ---
+        function loadCollectionFromCache(id) {
+            const cacheKey = `post_cache_${id}`;
+            const cachedData = localStorage.getItem(cacheKey);
+            
+            if (cachedData) {
+                console.log("⚡ [Cache] Menampilkan data tersimpan...");
+                const data = JSON.parse(cachedData);
+                renderUI(data); 
+                stopLoading();
+            }
+        }
+
+       // --- FUNGSI LOAD LIVE (DENGAN KLIK GAMBAR KE RAW WSRV) ---
+async function loadCollectionLive(id) {
+    try {
+        const index = id - 1;
+        
+        // 1. Ambil Data Dasar
+        let currentUser = null;
+        try {
+            if (typeof userAddress !== 'undefined' && userAddress) currentUser = userAddress;
+            else if (signer) currentUser = await signer.getAddress();
+        } catch (err) {}
+
+        const post = await contract.posts(index);
+        const isNFT = post.nftId > 0;
+        const profile = await contract.getProfile(post.author);
+        
+        let ownerAddr = null;
+        if (isNFT) {
+            try { ownerAddr = await contract.ownerOf(post.nftId); } catch(e) {}
+        }
+
+        // 2. Siapkan Data Awal
+        const basicData = {
+            caption: post.caption,
+            imageURI: post.imageURI,
+            nftId: post.nftId.toString(),
+            postId: post.id.toString(),
+            likeCount: post.likeCount.toString(),
+            commentCount: post.commentCount.toString(),
+            ratingCount: post.ratingCount.toString(),
+            totalRatingScore: post.totalRatingScore.toString(),
+            timestamp: post.timestamp.toString(),
+            authorAddr: post.author,
+            authorNick: profile.nickname,
+            authorPhoto: profile.fotoProfil,
+            ownerAddr: ownerAddr,
+            meta: null, 
+            isNFT: isNFT
+        };
+
+        // 3. Render UI Awal & Pasang Link Gambar
+        renderUI(basicData); 
+
+        // --- TAMBAHAN KHUSUS: AGAR GAMBAR BISA DIKLIK (RAW WSRV) ---
+        const imgEl = document.getElementById("detailImg");
+        if (imgEl && post.imageURI && post.imageURI.length > 5) {
+            // Konversi Link
+            const rawIpfs = post.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+            // Link High Quality (q=100, Tanpa resize width)
+            const rawViewUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawIpfs)}&q=100&output=webp`;
+            
+            imgEl.style.cursor = "zoom-in"; // Ubah kursor jadi kaca pembesar
+            imgEl.onclick = function() {
+                window.open(rawViewUrl, '_blank'); // Buka di tab baru
+            };
+        }
+        // -----------------------------------------------------------
+        
+        // Handle Tombol Transfer
+        const btnTransfer = document.getElementById("btnTransfer");
+        if (btnTransfer) {
+            const isOwner = currentUser && ownerAddr && (currentUser.toLowerCase() === ownerAddr.toLowerCase());
+            btnTransfer.style.display = isOwner ? "flex" : "none";
+        }
+
+        // Matikan Loading
+        document.getElementById("loadingState").style.display = "none";
+        document.getElementById("mainContent").style.display = "grid";
+
+        // Load Background Tasks
+        loadPageComments(index);
+        const osBtn = document.getElementById("openseaLink");
+        if(osBtn) {
+            osBtn.href = `https://testnets.opensea.io/assets/base-sepolia/${CONFIG.ADDRESS}/${post.nftId}`;
+            if(!isNFT) osBtn.style.display = "none";
+        }
+
+        // 4. LOAD METADATA (DENGAN LOGIKA JUDUL LEBIH PINTAR)
+        if (post.tokenURI && post.tokenURI.length > 5) {
+            const titleEl = document.getElementById("detailTitle");
+            
+            if(titleEl.innerText === "Tanpa Judul" || titleEl.innerText === "Memuat Judul...") {
+                titleEl.innerHTML = `<i class="fa-solid fa-sync fa-spin"></i> Mengambil Data...`;
+                titleEl.style.fontSize = "18px";
+                titleEl.style.color = "#999";
+            }
+
+            const meta = await fetchMetadata(post.tokenURI);
+            
+            if (meta) {
+                // Prioritas Nama: Metadata > Atribut > Caption
+                let finalTitle = "Arsip Wayang"; 
+                
+                if (meta.name && meta.name.trim() !== "") {
+                    finalTitle = meta.name; 
+                } else if (meta.attributes && Array.isArray(meta.attributes)) {
+                    const characterTrait = meta.attributes.find(attr => 
+                        attr.trait_type.toLowerCase() === "character" || attr.trait_type.toLowerCase() === "name"
+                    );
+                    if (characterTrait && characterTrait.value.trim() !== "") {
+                        finalTitle = characterTrait.value;
+                    }
+                } else if (post.caption && post.caption.length < 50) {
+                    finalTitle = post.caption; 
+                }
+
+                titleEl.innerText = finalTitle;
+                titleEl.style.fontSize = "26px";
+                titleEl.style.color = "#222";
+
+                renderMetaTable(meta.attributes);
+                
+                basicData.meta = meta;
+                localStorage.setItem(`post_cache_${id}`, JSON.stringify(basicData));
+
+                if (meta.attributes) {
+                    // Cari atribut yang namanya mengandung "Gaya", "Gagrak", atau "Asal"
+                    const gayaAttr = meta.attributes.find(attr => 
+                        attr.trait_type.toLowerCase().includes("gaya") || 
+                        attr.trait_type.toLowerCase().includes("gagrak") ||
+                        attr.trait_type.toLowerCase().includes("origin")
+                    );
+
+                    const badgeEl = document.getElementById("originBadge");
+                    const textEl = document.getElementById("originText");
+
+                    if (gayaAttr && gayaAttr.value && gayaAttr.value !== "-") {
+                        textEl.innerText = gayaAttr.value; // Contoh: "CIREBON"
+                        badgeEl.style.display = "flex";    // Munculkan Badge
+                    } else {
+                        badgeEl.style.display = "none";    // Sembunyikan jika tidak ada data
+                    }
+                }
+                
+            } else {
+                if(titleEl.innerText.includes("Mengambil")) {
+                    titleEl.innerText = "Koleksi Wayang"; 
+                    titleEl.style.fontSize = "26px";
+                    titleEl.style.color = "#222";
+                }
+            }
+        } else {
+            const titleEl = document.getElementById("detailTitle");
+            if (post.caption && post.caption.length < 30) {
+                titleEl.innerText = post.caption;
+            } else {
+                titleEl.innerText = "Postingan Wayang";
+            }
+        }
+
+    } catch (e) {
+        console.error("Critical Error:", e);
+        const cacheKey = `post_cache_${id}`;
+        if(!localStorage.getItem(cacheKey)) {
+            document.getElementById("loadingState").innerHTML = 
+                `<div style="margin-top:20px; color:red;">Gagal memuat data.<br><button onclick="location.reload()" style="margin-top:10px; padding:8px 20px; cursor:pointer;">Muat Ulang</button></div>`;
+        }
+    }
+}
+            
+        // --- 4. TEKNIK GATEWAY RACING (Pro Level Fetching) ---
+        async function fetchMetadataPro(tokenURI) {
+            if(!tokenURI) return null;
+            const cid = tokenURI.replace("ipfs://", "");
+
+            // Daftar Gateway Cepat
+            const gateways = [
+                `https://gateway.pinata.cloud/ipfs/${cid}`,
+                `https://ipfs.io/ipfs/${cid}`,
+                `https://dweb.link/ipfs/${cid}`,
+                `https://cloudflare-ipfs.com/ipfs/${cid}`
+            ];
+
+            // Fungsi fetch dengan timeout mandiri
+            const fetchWithTimeout = (url) => {
+                return new Promise((resolve, reject) => {
+                    const timer = setTimeout(() => reject(new Error("Timeout")), 4000); // 4 detik limit
+                    fetch(url).then(res => {
+                        clearTimeout(timer);
+                        if(res.ok) resolve(res.json());
+                        else reject(new Error("Bad Response"));
+                    }).catch(err => {
+                        clearTimeout(timer);
+                        reject(err);
+                    });
+                });
+            };
+
+            try {
+                // RACE! Ambil yang pertama sukses (Tercepat menang)
+                // Promise.any akan menunggu salah satu sukses, mengabaikan yang gagal
+                return await Promise.any(gateways.map(url => fetchWithTimeout(url)));
+            } catch (error) {
+                console.warn("⚠️ Semua gateway IPFS gagal/timeout.");
+                return null;
+            }
+        }
+
+        // --- 5. UI UPDATER HELPERS ---
+                function renderUI(data) {
+            // ... (keep existing code for image, text, badge, metadata, stats, profile, owner) ...
+
+            // 1. Gambar Utama
+            if(data.imageURI) {
+                const url = data.imageURI.replace('ipfs://', 'https://ipfs.io/ipfs/');
+                document.getElementById("detailImg").src = `https://wsrv.nl/?url=${encodeURIComponent(url)}&w=1000&q=75&output=webp`;
+            }
+
+            // 2. Teks & Badge
+            const descEl = document.getElementById("detailDesc");
+            if(descEl) descEl.innerText = data.caption;
+            const badgeEl = document.getElementById("detailBadge");
+            if(badgeEl) badgeEl.innerText = data.isNFT ? `NFT #${data.nftId}` : `POST #${data.postId}`;
+            
+            // 3. Judul (Metadata)
+            if(data.meta && data.meta.name) {
+                document.getElementById("detailTitle").innerText = data.meta.name;
+            }
+
+            // 4. Stats
+            document.getElementById("countLikeDetail").innerText = data.likeCount;
+            document.getElementById("countCommentDetail").innerText = data.commentCount;
+            const score = parseInt(data.totalRatingScore);
+            const count = parseInt(data.ratingCount);
+            document.getElementById("scoreRatingDetail").innerText = count > 0 ? (score/count).toFixed(1) : "0.0";
+
+            // 5. Profil
+            const link = document.getElementById("detailAuthorLink");
+            const authorName = data.authorNick || data.authorAddr.substring(0,6) + "..." + data.authorAddr.substring(38);
+            link.innerText = authorName;
+            link.href = `profile.html?addr=${data.authorAddr}`;
+            
+            if(data.authorPhoto) {
+                document.getElementById("detailAvatar").src = `https://wsrv.nl/?url=${encodeURIComponent(data.authorPhoto.replace('ipfs://','https://gateway.pinata.cloud/ipfs/'))}&w=50&output=webp`;
+            }
+
+            // 6. Owner
+            if(data.ownerAddr) {
+                document.getElementById("ownerSection").style.display = "flex";
+                document.getElementById("detailOwner").innerText = data.ownerAddr.substring(0,6) + "..." + data.ownerAddr.substring(38);
+            }
+
+            // --- 7. HISTORY INFO (FIXED) ---
+            // Format timestamp menjadi tanggal yang mudah dibaca
+            const dateObj = new Date(parseInt(data.timestamp) * 1000);
+            const dateStr = dateObj.toLocaleDateString('id-ID', { 
+                day: 'numeric', month: 'long', year: 'numeric', 
+                hour: '2-digit', minute: '2-digit' 
+            });
+
+            // Isi elemen HTML
+            const histCreator = document.getElementById("histCreator");
+            if(histCreator) {
+                histCreator.innerText = authorName; // Menggunakan nama author yang sudah disiapkan di atas
+                histCreator.style.fontWeight = "bold";
+            }
+            
+            const histTime = document.getElementById("histTime");
+            if(histTime) {
+                histTime.innerText = dateStr;
+            }
+         }
+            
+        function updateMetaUI(meta) {
+            if(meta.name) {
+                const tEl = document.getElementById("detailTitle");
+                tEl.innerText = meta.name;
+                tEl.style.color = "#222"; 
+                tEl.classList.remove("fa-fade"); // Hapus efek loading jika ada
+            }
+            if(meta.attributes) renderMetaTable(meta.attributes);
+        }
+
+        function handleTransferButton(currentUser, ownerAddr) {
+            const btn = document.getElementById("btnTransfer");
+            if (!btn) return;
+            
+            // Logic Strict: Hanya muncul jika user login DAN dia adalah owner
+            if (currentUser && ownerAddr && (currentUser.toLowerCase() === ownerAddr.toLowerCase())) {
+                btn.style.display = "flex";
+            } else {
+                btn.style.display = "none";
+            }
+        }
+
+        function stopLoading() {
+            const loader = document.getElementById("loadingState");
+            const content = document.getElementById("mainContent");
+            if(loader) loader.style.display = "none";
+            if(content) content.style.display = "grid";
+        }
+
+        function setLoadingStatus(msg) {
+            const tEl = document.getElementById("detailTitle");
+            // Efek teks kedip halus
+            if(tEl.innerText === "Tanpa Judul" || tEl.innerText === "Memuat Judul...") {
+                tEl.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> ${msg}`;
+                tEl.style.color = "#999";
+                tEl.style.fontSize = "20px";
+            }
+        }
+
+        function setText(id, val) {
+            const el = document.getElementById(id);
+            if(el) el.innerText = val;
+        }
+
+        function updateOpenseaLink(nftId, isNFT) {
+            const btn = document.getElementById("openseaLink");
+            if(!btn) return;
+            if(isNFT) {
+                btn.href = `https://testnets.opensea.io/assets/base-sepolia/${MY_CONTRACT_ADDR}/${nftId}`;
+                btn.style.display = "block";
+            } else {
+                btn.style.display = "none";
+            }
+        }
+
+        // --- 6. UTILS LAINNYA (Sama seperti sebelumnya) ---
+        function renderMetaTable(attributes) {
+            if(!attributes) return;
+            const table = document.getElementById("metaTable");
+            let rows = "";
+            attributes.forEach(attr => {
+                if(attr.value && attr.value !== "-") {
+                    rows += `<tr><td class="meta-key"><i class="fa-solid fa-tag" style="color:#7385a5;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
+                }
+            });
+            table.innerHTML = rows;
+        }
+
+        // Paste fungsi SwitchTab, Share, Like, Comment dll yang lama di sini...
+        // (Pastikan fungsi loadPageComments, handleLikeDetail, dll tetap ada di file Anda)
+
+        function openSawerModalDetail() {
+    // Pastikan ID Postingan ada (menggunakan variabel global currentPostId dari logic halaman Anda)
+    // Jika belum ada, kita set default atau ambil dari parameter
+    if (typeof currentPostId === 'undefined' || currentPostId === null) {
+        console.error("ID Postingan tidak ditemukan");
+        return;
+    }
+
+    document.getElementById("sawerTargetId").value = currentPostId;
+    document.getElementById("sawerAmount").value = ""; // Reset input
+    
+    // Reset tampilan tombol preset (hapus warna aktif)
+    document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+    
+    // Buka Modal
+    document.getElementById("sawerModal").showModal();
+}
+
+// 2. FUNGSI HITUNG PRESET (Min, 25%, 50%, dll)
+function setSawerVal(factor) {
+    let val = 0;
+    
+    if (factor === 'min') {
+        val = SAWER_MIN;
+    } else if (factor === 'max') {
+        val = SAWER_MAX;
+    } else {
+        // Hitung persentase dari SAWER_MAX
+        val = SAWER_MAX * factor;
+    }
+
+    // Format angka agar tidak terlalu panjang (max 5 desimal)
+    // parseFloat digunakan untuk menghilangkan nol tidak penting di belakang (misal 0.00500 jadi 0.005)
+    document.getElementById("sawerAmount").value = parseFloat(val.toFixed(5));
+    
+    // Visual Feedback: Highlight tombol yang diklik
+    // Hapus kelas 'active' dari semua tombol, lalu tambahkan ke tombol yang diklik
+    document.querySelectorAll('.btn-preset').forEach(b => b.classList.remove('active'));
+    if(event && event.target) {
+        event.target.classList.add('active');
+    }
+}
+
+// 3. FUNGSI KIRIM SAWER (Integrasi Blockchain)
+async function submitSawerDetail() {
+    const amountStr = document.getElementById("sawerAmount").value;
+    const postId = document.getElementById("sawerTargetId").value;
+
+    // --- VALIDASI INPUT ---
+    if (!amountStr) {
+        return showToast("Masukkan nominal saweran!", "error");
+    }
+
+    // Ganti koma dengan titik (untuk user yang pakai keyboard Indonesia)
+    const cleanAmount = amountStr.replace(',', '.');
+    const amountFloat = parseFloat(cleanAmount);
+
+    if (isNaN(amountFloat) || amountFloat <= 0) {
+        return showToast("Nominal tidak valid", "error");
+    }
+
+    if (amountFloat < SAWER_MIN) {
+        return showToast(`Minimal sawer ${SAWER_MIN} ETH`, "error");
+    }
+    
+    if (amountFloat > SAWER_MAX) {
+        return showToast(`Maksimal sawer ${SAWER_MAX} ETH`, "error");
+    }
+
+    // --- EKSEKUSI TRANSAKSI ---
+    try {
+        // Tutup modal agar user fokus ke MetaMask
+        document.getElementById("sawerModal").close();
+        showToast("Membuka Dompet...", "info");
+
+        // Konversi ke Wei (Satuan Blockchain)
+        const weiAmount = ethers.utils.parseEther(cleanAmount.toString());
+        
+        // Sesuaikan index (ID di URL biasanya 1, di Array Contract biasanya 0)
+        // Asumsi: currentPostId = ID Blockchain (1, 2, 3...) -> Array Index (0, 1, 2...)
+        const targetIndex = parseInt(postId) - 1;
+
+        // Panggil Smart Contract
+        // Pastikan variabel 'contract' sudah didefinisikan di main.js Anda
+        if (!contract) throw new Error("Koneksi kontrak belum siap");
+
+        const tx = await contract.sawerPost(targetIndex, { value: weiAmount });
+        
+        showToast("Transaksi dikirim, menunggu konfirmasi...", "info");
+        
+        // Tunggu transaksi selesai
+        await tx.wait();
+        
+        showToast("Terima kasih! Saweran berhasil dikirim 🎁", "success");
+        
+        // Reset form
+        document.getElementById("sawerAmount").value = "";
+
+    } catch (e) {
+        console.error("Sawer Error:", e);
+        
+        // Handle jika user menolak transaksi di MetaMask
+        if (e.code === 'ACTION_REJECTED' || e.code === 4001) {
+            showToast("Transaksi dibatalkan user", "info");
+        } else {
+            // Tampilkan error lain (misal saldo kurang)
+            let msg = "Gagal mengirim saweran";
+            if(e.message.includes("insufficient funds")) msg = "Saldo ETH tidak mencukupi";
+            showToast(msg, "error");
+        }
+        
+        // Jika gagal, buka modal lagi agar user bisa coba lagi (opsional)
+        // document.getElementById("sawerModal").showModal();
+    }
+}
+
+    function switchTab(mode) {
+            // Ambil Elemen
+            const btnMeta = document.getElementById("tabBtnMeta");
+            const btnHist = document.getElementById("tabBtnHistory");
+            const divMeta = document.getElementById("contentMeta");
+            const divHist = document.getElementById("contentHistory");
+
+            // Style Aktif & Non-Aktif
+            const activeStyle = "border-bottom:3px solid #7385a5; color:#7385a5; padding-bottom:8px; font-weight:bold; cursor:pointer;";
+            const inactiveStyle = "border-bottom:3px solid transparent; color:#999; padding-bottom:8px; cursor:pointer;";
+
+            if(mode === 'meta') {
+                // Aktifkan Metadata
+                btnMeta.style.cssText = activeStyle;
+                btnHist.style.cssText = inactiveStyle;
+                divMeta.style.display = "block";
+                divHist.style.display = "none";
+            } else {
+                // Aktifkan Riwayat
+                btnHist.style.cssText = activeStyle;
+                btnMeta.style.cssText = inactiveStyle;
+                divHist.style.display = "block";
+                divMeta.style.display = "none";
+            }
+    }
+
+    async function shareCollection() {
+            const title = document.getElementById("detailTitle").innerText;
+            const shareData = {
+                title: `Arsip Putramas: ${title}`,
+                text: `Lihat koleksi wayang "${title}" ini di Putramas Museum Digital!`,
+                url: window.location.href 
+            };
+
+            try {
+                // Cek apakah browser mendukung fitur Share Native (HP Android/iOS biasanya support)
+                if (navigator.share) {
+                    await navigator.share(shareData);
+                } else {
+                    // Fallback untuk browser PC yang tidak support
+                    await navigator.clipboard.writeText(shareData.url);
+                    showToast("Link berhasil disalin ke clipboard!", "success");
+                }
+            } catch (err) {
+                console.log("Share dibatalkan user");
+            }
+        }
+
+        // --- HELPER LAINNYA ---
+        async function fetchMetadata(tokenURI) {
+            if(!tokenURI || tokenURI.length < 5) return null;
+            try {
+                const url = tokenURI.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+                const res = await fetch(url);
+                return await res.json();
+            } catch(e) { return null; }
+        }
+
+        function renderMetaTable(attributes) {
+            if(!attributes) return;
+            const table = document.getElementById("metaTable");
+            let rows = "";
+            attributes.forEach(attr => {
+                if(attr.value && attr.value !== "-") {
+                    let icon = "fa-tag";
+                    if(attr.trait_type.includes("Gaya")) icon = "fa-palette";
+                    if(attr.trait_type.includes("Golongan")) icon = "fa-users";
+                    rows += `<tr><td class="meta-key"><i class="fa-solid ${icon}" style="color:#7385a5;"></i> ${attr.trait_type}</td><td class="meta-val">${attr.value}</td></tr>`;
+                }
+            });
+            table.innerHTML = rows;
+        }
+
+    async function handleLikeDetail() {
+    // 1. Validasi ID
+    if (!currentPostId) return;
+
+    // 2. Ambil Elemen
+    const btnCount = document.getElementById("countLikeDetail");
+    const btnIcon = document.getElementById("iconLikeDetail");
+    const current = parseInt(btnCount.innerText);
+
+    // 3. CEK STATUS: Apakah user sudah like sebelumnya? (Lihat dari ikon)
+    if (btnIcon.classList.contains("fa-solid")) {
+        return showToast("Anda sudah menyukai postingan ini!", "warning");
+    }
+
+    // 4. OPTIMISTIC UI UPDATE (Ubah tampilan dulu biar terasa cepat)
+    btnCount.innerText = current + 1;
+    btnIcon.classList.remove("fa-regular");
+    btnIcon.classList.add("fa-solid");
+    btnIcon.style.color = "#e74c3c"; // Merah
+
+    try {
+        // 5. Tampilkan Toast Proses
+        showToast("Menyukai...", "info");
+
+        // 6. Kirim Transaksi (currentPostId - 1 karena array mulai dari 0)
+        const tx = await contract.likePost(currentPostId - 1);
+        
+        // 7. Tunggu Konfirmasi
+        await tx.wait();
+        
+        // 8. Toast Berhasil
+        showToast("Berhasil menyukai postingan!", "success");
+
+    } catch (e) {
+        // 9. ROLLBACK (Jika Gagal)
+        // Kembalikan angka dan warna ikon seperti semula
+        console.error(e);
+        btnCount.innerText = current;
+        btnIcon.classList.add("fa-regular");
+        btnIcon.classList.remove("fa-solid");
+        btnIcon.style.color = ""; // Reset warna (biasanya abu-abu/hitam)
+
+        // Deteksi error spesifik
+        if (e.message.includes("already liked")) {
+             showToast("Anda sudah menyukai postingan ini", "warning");
+        } else if (e.code === 4001 || e.code === "ACTION_REJECTED") {
+             showToast("Like dibatalkan user.", "warning");
+        } else {
+             showToast("Gagal Like: " + (e.reason || "Gangguan Jaringan"), "error");
+        }
+    }
+    }
+        async function submitCommentDetail() {
+    const inputEl = document.getElementById("commentInputDetail");
+    const text = inputEl.value.trim(); // Pakai trim() biar spasi doang gak masuk
+    
+    // Validasi input kosong
+    if(!text) return showToast("Tulis sesuatu dulu...", "warning");
+    
+    try {
+        showToast("Mengirim ke Blockchain...", "info");
+        
+        // 1. Kirim Transaksi
+        // Pastikan logic ID (currentPostId - 1) ini konsisten dengan smart contract Anda
+        const tx = await contract.addComment(currentPostId - 1, text, "");
+        
+        // UX TIP: Bersihkan input langsung biar user tau tombol sudah ditekan
+        inputEl.value = ""; 
+
+        // 2. Tunggu Konfirmasi
+        await tx.wait();
+        showToast("Terkirim! Memuat data...", "success");
+
+        // 3. Panggil Ulang Data Komentar (WAJIB AWAIT)
+        // Kita kasih delay sedikiit (500ms) untuk memastikan node RPC sudah update
+        setTimeout(async () => {
+            await loadPageComments(currentPostId - 1);
+            
+            // 4. FITUR AUTO SCROLL (PENTING!)
+            // Ini yang bikin komentar baru langsung terlihat
+            const container = document.getElementById("pageComments");
+            if(container) {
+                container.scrollTo({
+                    top: container.scrollHeight,
+                    behavior: 'smooth'
+                });
+            }
+        }, 1000); // Delay 1 detik agar aman
+
+    } catch(e) { 
+        console.error(e);
+        showToast("Gagal: " + (e.reason || e.message), "error"); 
+    }
+        }
+
+        async function loadPageComments(postIndex) {
+    const container = document.getElementById("pageComments");
+    try {
+        const comments = await contract.getComments(postIndex);
+        
+        if(comments.length === 0) { 
+            container.innerHTML = "<p style='color:#999; text-align:center;'>Belum ada diskusi.</p>"; 
+            return; 
+        }
+        
+        container.innerHTML = "";
+        
+        // Gunakan forEach supaya dapat index (i) untuk identifikasi komentar
+        comments.forEach((c, i) => {
+            let nick = c.commenter.substring(0,6)+"...";
+            let avt = "https://via.placeholder.com/30";
+            const timestampId = c.timestamp; // Unik ID based on timestamp
+
+            // Lazy Load Profile
+            contract.getProfile(c.commenter).then(p => {
+               if(p.nickname) {
+                   const el = document.getElementById(`cm-nick-${timestampId}`);
+                   if(el) el.innerText = p.nickname;
+               }
+               if(p.fotoProfil) {
+                   const img = document.getElementById(`cm-avt-${timestampId}`);
+                   if(img) img.src = p.fotoProfil.replace('ipfs://', 'https://gateway.pinata.cloud/ipfs/');
+               }
+            });
+
+            // LOGIKA TOMBOL EDIT (Hanya muncul jika user login == pemilik komentar)
+            let editIconHtml = "";
+            if (userAddress && c.commenter.toLowerCase() === userAddress.toLowerCase()) {
+                editIconHtml = `
+                <i class="fa-solid fa-pen-to-square" 
+                   onclick="openEditMode('${i}', '${timestampId}')" 
+                   style="cursor:pointer; color:#999; margin-left:auto; font-size:12px;" 
+                   title="Edit Komentar"></i>`;
+            }
+
+            container.innerHTML += `
+            <div style="border-bottom:1px solid #eee; padding:15px 0; display:flex; gap:15px;">
+                <a href="profile.html?addr=${c.commenter}">
+                    <img id="cm-avt-${timestampId}" src="${avt}" style="width:35px; height:35px; border-radius:50%; object-fit:cover;">
+                </a>
+                
+                <div style="flex:1;">
+                    <div style="display:flex; align-items:center; margin-bottom:5px;">
+                        <a href="profile.html?addr=${c.commenter}" id="cm-nick-${timestampId}" style="font-weight:bold; font-size:13px; color:#7385a5; text-decoration:none;">${nick}</a>
+                        <span style="font-size:10px; color:#999; margin-left:10px;">${new Date(c.timestamp*1000).toLocaleString()}</span>
+                        ${editIconHtml} 
+                    </div>
+                    <div id="view-txt-${i}" style="font-size:14px; color:#333; line-height:1.4;">${formatCaption(c.text)}</div>
+
+                    <div id="edit-area-${i}" style="display:none; margin-top:10px;">
+                        <textarea id="input-edit-${i}" class="cp-input" style="width:100%; height:60px; font-size:13px; padding:8px; border:1px solid #ddd; border-radius:5px;">${c.text}</textarea>
+                        
+                        <div style="display:flex; gap:10px; margin-top:5px; justify-content:flex-end;">
+                            <button onclick="closeEditMode('${i}')" style="background:none; border:none; color:#666; font-size:12px; cursor:pointer;">Batal</button>
+                            <button onclick="submitEditComment('${postIndex}', '${i}')" style="background:#7385a5; color:white; border:none; padding:5px 15px; border-radius:15px; font-size:12px; cursor:pointer;">Simpan</button>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+    } catch(e) { console.error(e); }
+        }
+
+        // Membuka Mode Edit
+function openEditMode(commentIndex, timestampId) {
+    // Sembunyikan teks asli
+    document.getElementById(`view-txt-${commentIndex}`).style.display = 'none';
+    // Munculkan area edit
+    document.getElementById(`edit-area-${commentIndex}`).style.display = 'block';
+    // Fokus ke textarea
+    document.getElementById(`input-edit-${commentIndex}`).focus();
+}
+
+// Membatalkan/Menutup Mode Edit
+function closeEditMode(commentIndex) {
+    document.getElementById(`view-txt-${commentIndex}`).style.display = 'block';
+    document.getElementById(`edit-area-${commentIndex}`).style.display = 'none';
+}
+
+// Mengirim Perubahan ke Blockchain
+async function submitEditComment(postIndex, commentIndex) {
+    // Ambil text baru dari inputan
+    const inputElement = document.getElementById(`input-edit-${commentIndex}`);
+    const newText = inputElement.value;
+    
+    if(!newText.trim()) return showToast("Komentar tidak boleh kosong", "error");
+
+    try {
+        showToast("Menyimpan perubahan...", "info");
+        
+        // 1. Kirim ke Blockchain
+        const tx = await contract.editComment(postIndex, commentIndex, newText);
+        await tx.wait(); // Tunggu sampai sukses
+        
+        showToast("Komentar berhasil diedit!", "success");
+        
+        // --- TEKNIK OPTIMISTIC UPDATE (Ubah Layar Langsung) ---
+        
+        // A. Update teks tampilan dengan teks baru
+        const viewElement = document.getElementById(`view-txt-${commentIndex}`);
+        if(viewElement) {
+            viewElement.innerText = newText;
+        }
+
+        // B. Tutup Mode Edit secara manual
+        closeEditMode(commentIndex);
+
+        // --- SELESAI ---
+
+        // (Opsional) Reload background setelah 3 detik untuk memastikan sinkronisasi
+        // Jangan langsung reload supaya user tidak melihat teks "berkedip" kembali ke lama
+        setTimeout(() => {
+            loadPageComments(postIndex);
+        }, 3000);
+        
+    } catch(e) {
+        console.error(e);
+        showToast("Gagal edit: " + (e.reason || e.message || "Error"), "error");
+    }
+}
+
+        function openRatingModalDetail() { document.getElementById("ratingModal").showModal(); }
+        
+        function setRate(n) {
+    selectedRate = n; // Simpan nilai
+    
+    // Ambil semua elemen bintang
+    const stars = document.querySelectorAll('.star-item');
+    
+    stars.forEach((star, index) => {
+        // Jika index bintang lebih kecil dari nilai n, nyalakan (Gold)
+        // Contoh: Pilih 3. Index 0, 1, 2 akan Gold. Index 3, 4 tetap Abu.
+        if (index < n) {
+            star.style.color = "gold";
+            star.classList.add('active');
+        } else {
+            star.style.color = "#666";
+            star.classList.remove('active');
+        }
+    });
+    
+    showToast(`${n} Bintang Dipilih`, "info");
+    }
+        
+        async function submitRatingDetail() {
+    if(!selectedRate) return showToast("Pilih jumlah bintang dulu!", "error");
+    
+    try {
+        document.getElementById("ratingModal").close();
+        showToast("Mengirim rating...", "info");
+        
+        // Panggil Smart Contract
+        const tx = await contract.ratePost(currentPostId - 1, selectedRate);
+        await tx.wait();
+        
+        showToast("Terima kasih atas penilaian Anda!", "success");
+    } catch(e) {
+        showToast("Gagal kirim rating", "error");
+    }
+        }
+
+        function openTransferModal() { document.getElementById("transferModal").showModal(); }
+        async function submitTransfer() {
+            const target = document.getElementById("transferTarget").value;
+            if(!target) return;
+            try {
+                document.getElementById("transferModal").close();
+                showToast("Memproses Transfer...", "info");
+                const index = currentPostId - 1;
+                const post = await contract.posts(index);
+                const tx = await contract.transferFrom(userAddress, target, post.nftId);
+                await tx.wait();
+                showToast("NFT Berhasil Dikirim!", "success");
+                setTimeout(() => location.reload(), 2000);
+            } catch(e) { showToast("Gagal Transfer", "error"); }
+        }
+
+        function formatCaption(text) {
+        if (!text) return "";
+        let clean = text.replace(/</g, "&lt;").replace(/>/g, "&gt;");
+        const urlRegex = /(https?:\/\/[^\s]+)/g;
+        clean = clean.replace(urlRegex, (url) => `<a href="${url}" target="_blank" style="color:#7385a5; font-weight:bold; text-decoration:none;">${url}</a>`);
+        return clean.replace(/\n/g, "<br>");
+        }
+
+    async function onWalletConnected() {
+    // Munculkan Dot Hijau
+    document.getElementById("walletDotMobile").style.display = "block";
+    document.getElementById("walletDotPC").style.display = "block";
+
+    // Munculkan Toast Hijau (Hanya sekali saat sesi dimulai)
+    if (!sessionStorage.getItem("walletToastShown")) {
+        showToast("Jaringan berhasil terhubung", "success");
+        sessionStorage.setItem("walletToastShown", "true");
+    }
+}
+
+// 2. Fungsi Membuka Popup Info (VERSI PERBAIKAN)
+async function openWalletInfo() {
+    // Cek apakah userAddress ada
+    if (!userAddress) return showToast("Dompet belum terhubung", "error");
+
+    // A. Isi Alamat Dompet (Format Rapi)
+    const shortAddr = userAddress.substring(0, 8) + "..." + userAddress.substring(38);
+    document.getElementById("infoWalletAddr").innerText = shortAddr;
+    
+    // B. Ambil Saldo Terbaru (FIX LOGIC)
+    try {
+        // PERBAIKAN: Kita definisikan provider lokal di sini agar tidak 'undefined'
+        // Ini memastikan koneksi ke MetaMask selalu fresh saat modal dibuka
+        let localProvider;
+
+        // Cek versi Ethers.js (v5 vs v6)
+        if (ethers.providers && ethers.providers.Web3Provider) {
+            // Ethers v5 (Yang umum dipakai)
+            localProvider = new ethers.providers.Web3Provider(window.ethereum);
+        } else {
+            // Ethers v6 (Versi terbaru)
+            localProvider = new ethers.BrowserProvider(window.ethereum);
+        }
+        
+        // Ambil Saldo
+        const balance = await localProvider.getBalance(userAddress);
+        
+        // Format Saldo (Wei ke ETH)
+        let ethBal;
+        if (ethers.utils && ethers.utils.formatEther) {
+             // Ethers v5
+             ethBal = ethers.utils.formatEther(balance);
+        } else {
+             // Ethers v6
+             ethBal = ethers.formatEther(balance);
+        }
+
+        // Tampilkan 4 desimal di UI
+        document.getElementById("infoWalletBal").innerText = parseFloat(ethBal).toFixed(4);
+
+    } catch (e) {
+        console.error("Detail Error Saldo:", e); // Cek Console browser (F12) jika masih error
+        // Jika gagal, tampilkan 0.0000 daripada tulisan 'Error' (lebih estetik)
+        document.getElementById("infoWalletBal").innerText = "0.0000"; 
+    }
+
+    // C. Buka Modal
+    document.getElementById("walletModal").showModal();
+}
+
+// 3. Fungsi Copy Address
+function copyWalletAddress() {
+    if (userAddress) {
+        navigator.clipboard.writeText(userAddress);
+        showToast("Alamat disalin!", "success");
+    }
+}
+
+// 4. Update fungsi Disconnect (Agar dot hilang saat logout)
+const originalDisconnect = window.disconnect; // Simpan fungsi lama jika ada
+window.disconnect = function() {
+    // Sembunyikan Dot
+    document.getElementById("walletDotMobile").style.display = "none";
+    document.getElementById("walletDotPC").style.display = "none";
+    sessionStorage.removeItem("walletToastShown"); // Reset toast session
+    
+    // Panggil fungsi disconnect asli Anda
+    if (originalDisconnect) originalDisconnect();
+    
+    // Atau reload halaman
+    localStorage.clear();
+    window.location.href = "index.html";
+};
+
+// --- FUNGSI ZOOM GAMBAR FULL SCREEN ---
+
+// 1. Buka Modal
+function openZoomModal() {
+    const modal = document.getElementById("imageZoomModal");
+    const modalImg = document.getElementById("fullScreenImage");
+    const smallImg = document.getElementById("detailImg");
+    // const captionText = document.getElementById("zoomCaption"); // Opsional
+
+    // AMBIL URL ASLI dari atribut yang kita simpan tadi
+    const originalSrc = smallImg.getAttribute('data-original-src');
+
+    // Set source gambar modal ke URL ASLI
+    // Fallback ke src biasa jika data-original-src belum siap
+    modalImg.src = originalSrc || smallImg.src; 
+    
+    // Tampilkan modal dengan flex agar centering bekerja
+    modal.style.display = "flex"; 
+    // captionText.innerHTML = smallImg.alt; // Opsional
+}
+
+// 2. Tutup Modal
+function closeZoomModal() {
+    document.getElementById("imageZoomModal").style.display = "none";
+}
+
+// 3. Tutup Modal saat klik di luar gambar (area hitam)
+window.onclick = function(event) {
+    const modal = document.getElementById("imageZoomModal");
+    if (event.target === modal) {
+        modal.style.display = "none";
+    }
+}
+
+// Script agar textarea nambah tinggi otomatis saat ngetik
+const tx = document.getElementById("commentInputDetail");
+if(tx) {
+    tx.setAttribute("style", "height:" + (tx.scrollHeight) + "px;overflow-y:hidden;");
+    tx.addEventListener("input", OnInput, false);
+}
+
+function OnInput() {
+    this.style.height = "auto";
+    this.style.height = (this.scrollHeight) + "px";
+}
+</script>
+</body>
+</html>
