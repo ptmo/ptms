@@ -619,6 +619,7 @@ Koleksi Wayang Kulit
     let contractReader;
     let currentTab = 'official';
     let searchIndex = [];
+    let publicSearchIndex = [];
     let isSearchReady = false;
     let searchRequestId = 0;
     let globalIds = [];
@@ -697,10 +698,10 @@ Koleksi Wayang Kulit
         const query = document.getElementById("searchInput").value.toLowerCase();
         const container = document.getElementById("containerGaleri");
 
-        // Counter ID untuk memastikan hasil render adalah yang terbaru
         searchRequestId++; 
         const currentRequestId = searchRequestId;
-        // Jika search kosong, kembalikan ke tampilan Kategori
+
+        // Jika search kosong, kembalikan ke tampilan default
         if (query.length === 0) {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
@@ -712,12 +713,31 @@ Koleksi Wayang Kulit
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
 
-        if (!isSearchReady) {
-            container.innerHTML = `<p style="text-align:center;">Sedang menyiapkan data...</p>`;
+        // --- SEARCH LOGIC: PUBLIK ---
+        if (currentTab === 'public') {
+            container.innerHTML = "";
+            
+            // Filter dari memori (publicSearchIndex)
+            const results = publicSearchIndex.filter(item => 
+                item.title.toLowerCase().includes(query) || 
+                item.description.toLowerCase().includes(query)
+            );
+
+            if (results.length === 0) {
+                container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Galeri Publik nihil.</p></div>`;
+            } else {
+                // Tampilkan hasil (Reverse agar yang baru diatas)
+                await renderPublicGallery([...results].reverse(), container);
+            }
             return;
         }
 
-        // FILTER PENCARIAN
+        // --- SEARCH LOGIC: OFFICIAL (NFT) ---
+        if (!isSearchReady) {
+            container.innerHTML = `<p style="text-align:center;">Sedang menyiapkan data pencarian...</p>`;
+            return;
+        }
+
         const results = searchIndex.filter(w => 
             w.nama.includes(query) || 
             w.gaya.includes(query) || 
@@ -725,37 +745,12 @@ Koleksi Wayang Kulit
         );
 
         if (results.length === 0) {
-            container.innerHTML = `
-                <div style="grid-column: 1/-1; animation: fadeIn 0.5s;">
-
-                    <div class="nf-box">
-                        <img src="img/stl.svg" 
-                             class="nf-icon" 
-                             alt="Satelit Not Found">
-
-                        <h3 style="color: #7385a5; margin: 0 0 10px 0; font-size: 22px; font-weight: 700;">
-                            Pencarian Tidak Ditemukan
-                        </h3>
-                        <p style="color: #7385a5; font-size: 15px; margin: 0; line-height: 1.6;">
-                            Radar kami tidak dapat melacak pencarian wayang dengan kata kunci:<br>
-                            <span style="color: #e74c3c; font-weight: bold; background: #fff0f0; padding: 2px 10px; border-radius: 20px; display:inline-block; margin-top:5px; border:1px solid #ffcccc;">
-                                "${query}"
-                            </span>
-                        </p>
-                        <div style="margin-top: 25px; font-size: 13px; color: #7385a5; opacity: 0.8;">
-                            Tips: Coba cari nama tokoh lain atau ID wayang.
-                        </div>
-                    </div>
-                </div>
-            `;
+            container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Koleksi Official nihil.</p></div>`;
             return;
         }
 
-        // Bersihkan Container SEBELUM render
         container.innerHTML = ""; 
-        // Ambil 20 hasil teratas saja
         const limitedIds = results.slice(0, 20).map(r => r.id);
-        // Panggil Render dengan Flag Mode Search = TRUE
         await renderCards(limitedIds, container, true, currentRequestId);
     }
 
@@ -789,38 +784,33 @@ Koleksi Wayang Kulit
         searchRequestId++; 
         const currentRequestId = searchRequestId;
         const container = document.getElementById("containerGaleri");
-        
-        // Judul Loading sesuai Tab
         const titleTab = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
         
         container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
-            <img src="img/load.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
-            Memuat ${titleTab} kategori <strong>${currentCategory}</strong>...
+            <img src="img/loading.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
+            Memuat ${titleTab}...
         </p>`;
 
-        // ==========================================
-        // CABANG 1: TAB PUBLIK (Galeri Nusantara)
-        // ==========================================
+        // --- LOGIKA TAB PUBLIK ---
         if (currentTab === 'public') {
             try {
-                // 1. Ambil SEMUA data publik
                 const rawItems = await contractReader.getAllGalleryItems();
                 
-                // 2. FILTER DI BROWSER (Client-side Filtering)
-                // Cek apakah di dalam deskripsi ada kata kunci kategori yang dipilih (misal "Satria")
-                // Kita cari string spesifik "Golongan: Satria" agar akurat, atau fallback ke nama kategori saja
+                // SIMPAN DATA KE VARIABLE GLOBAL UNTUK PENCARIAN
+                publicSearchIndex = rawItems; 
+
+                // Filter Kategori (berdasarkan Deskripsi)
                 const filteredItems = rawItems.filter(item => {
                     return item.description.includes(currentCategory);
                 });
 
-                // 3. Balik urutan (Terbaru diatas)
                 const finalItems = filteredItems.reverse();
 
                 if (finalItems.length === 0) {
                     container.innerHTML = `
                     <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
-                        <h3 style="color:#ccc;">Belum ada kiriman.</h3>
-                        <p style="color:#888;">Jadilah yang pertama mengupload tokoh <strong>${currentCategory}</strong> di Galeri Nusantara!</p>
+                        <h3 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h3>
+                        <p style="color:#888;">Jadilah yang pertama mengupload!</p>
                     </div>`;
                     return;
                 }
@@ -834,11 +824,8 @@ Koleksi Wayang Kulit
             return; 
         }
 
-        // ==========================================
-        // CABANG 2: TAB OFFICIAL (NFT Arsip)
-        // ==========================================
+        // --- LOGIKA TAB OFFICIAL (NFT) ---
         try {
-            // Filter langsung dari Smart Contract
             const ids = await contractReader.getIdsByGolongan(currentCategory);
             
             if (searchRequestId !== currentRequestId) return;
@@ -847,7 +834,7 @@ Koleksi Wayang Kulit
             isFetchingBatch = false;
 
             if (globalIds.length === 0) {
-                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi Official di kategori ini.</p>`;
+                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
                 return;
             }
             
