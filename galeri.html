@@ -869,15 +869,13 @@ Koleksi Wayang Kulit
             
             // Format URL Gambar
             let httpUri = item.imageURI;
+            // Kita pakai Gateway Pinata supaya lebih ngebut daripada ipfs.io
             if (httpUri.startsWith("ipfs://")) {
-                httpUri = httpUri.replace("ipfs://", "https://ipfs.io/ipfs/");
+                httpUri = httpUri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
             }
 
-            // --- TEKNIK PARSING DATA DARI DESKRIPSI ---
-            // Kita coba cari baris "Gaya: ... " di dalam deskripsi
-            let gayaLabel = "Komunitas"; // Default
-            
-            // Regex sederhana untuk mengambil teks setelah "Gaya: " sampai baris baru
+            // Parsing Gaya dari Deskripsi
+            let gayaLabel = "Komunitas"; 
             const gayaMatch = item.description.match(/Gaya:\s*(.*?)(?:\n|$)/);
             if (gayaMatch && gayaMatch[1]) {
                 gayaLabel = gayaMatch[1].trim();
@@ -886,11 +884,11 @@ Koleksi Wayang Kulit
             const w = {
                 id: "G-" + item.id, 
                 nama: item.title,
-                gaya: gayaLabel, // Hasil parsing
+                gaya: gayaLabel,
                 likes: 0, 
                 rating: "N/A",
                 date: date,
-                metaUrl: httpUri,
+                metaUrl: httpUri, // INI ADALAH LINK GAMBAR LANGSUNG
                 owner: item.uploader
             };
 
@@ -899,10 +897,40 @@ Koleksi Wayang Kulit
             
             container.insertAdjacentHTML('beforeend', html);
 
-            if (typeof fetchOptimizedImage === "function") {
-                fetchOptimizedImage(w.metaUrl, w.id);
-            }
+            // --- PERBAIKAN DISINI ---
+            // Jangan pakai fetchOptimizedImage (itu untuk JSON NFT).
+            // Pakai fungsi baru khusus gambar langsung:
+            displayDirectImage(w.metaUrl, w.id);
         }
+    }
+
+    // FUNGSI KHUSUS UNTUK MENAMPILKAN GAMBAR PUBLIK (LANGSUNG)
+    function displayDirectImage(imageUrl, id) {
+        const imgEl = document.getElementById(`img-${id}`);
+        const loaderEl = document.getElementById(`loader-${id}`);
+        
+        if (!imgEl) return;
+
+        // 1. Optimasi URL menggunakan wsrv.nl (Kompresi & Convert ke WebP biar ringan)
+        // Kita encode URL-nya agar karakter aneh tidak bikin error
+        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(imageUrl)}&w=300&q=75&output=webp`;
+
+        // 2. Tampilkan Gambar
+        imgEl.src = optimizedUrl;
+
+        // 3. Saat gambar selesai dimuat, hilangkan loading spinner
+        imgEl.onload = () => {
+            imgEl.style.opacity = 1;
+            if(loaderEl) loaderEl.style.display = 'none';
+        };
+
+        // 4. Jika wsrv.nl gagal, coba load link aslinya (Fallback)
+        imgEl.onerror = () => {
+            console.warn("Optimasi gagal, mencoba link asli...", id);
+            imgEl.src = imageUrl; 
+            imgEl.style.opacity = 1;
+            if(loaderEl) loaderEl.style.display = 'none';
+        };
     }
 
     async function loadNextBatch() {
