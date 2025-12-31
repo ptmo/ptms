@@ -763,19 +763,14 @@ Koleksi Wayang Kulit
     function switchTab(tab) {
         currentTab = tab;
         
-        // Update tombol aktif
+        // Update tampilan tombol tab
         document.getElementById('tab-official').className = tab === 'official' ? 'tab-btn active' : 'tab-btn';
         document.getElementById('tab-public').className = tab === 'public' ? 'tab-btn active' : 'tab-btn';
         
-        // Sembunyikan Filter Kategori jika di tab Public (karena data publik campur aduk)
-        // Tampilkan jika di tab Official
-        const catContainer = document.getElementById("categoryContainer");
-        if(tab === 'public') {
-            catContainer.style.display = 'none';
-        } else {
-            catContainer.style.display = 'flex';
-        }
+        // PASTI GESER: Tombol Filter TETAP ADA (Code display:none DIHAPUS)
+        document.getElementById("categoryContainer").style.display = 'flex';
 
+        // Reset scroll dan muat ulang data sesuai tab baru
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadGaleri();
     }
@@ -795,40 +790,55 @@ Koleksi Wayang Kulit
         const currentRequestId = searchRequestId;
         const container = document.getElementById("containerGaleri");
         
+        // Judul Loading sesuai Tab
+        const titleTab = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
+        
         container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
             <img src="img/load.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
-            Memuat Data...
+            Memuat ${titleTab} kategori <strong>${currentCategory}</strong>...
         </p>`;
 
-        // --- CABANG LOGIKA: PUBLIK vs OFFICIAL ---
+        // ==========================================
+        // CABANG 1: TAB PUBLIK (Galeri Nusantara)
+        // ==========================================
         if (currentTab === 'public') {
-            // JIKA TAB GALERI NUSANTARA (PUBLIK)
             try {
-                // Panggil fungsi khusus Public Gallery dari kontrak
+                // 1. Ambil SEMUA data publik
                 const rawItems = await contractReader.getAllGalleryItems();
                 
-                // Balik urutan agar yang terbaru muncul diatas
-                const publicItems = [...rawItems].reverse(); 
+                // 2. FILTER DI BROWSER (Client-side Filtering)
+                // Cek apakah di dalam deskripsi ada kata kunci kategori yang dipilih (misal "Satria")
+                // Kita cari string spesifik "Golongan: Satria" agar akurat, atau fallback ke nama kategori saja
+                const filteredItems = rawItems.filter(item => {
+                    return item.description.includes(currentCategory);
+                });
 
-                if (publicItems.length === 0) {
-                    container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada kiriman komunitas.</p>`;
+                // 3. Balik urutan (Terbaru diatas)
+                const finalItems = filteredItems.reverse();
+
+                if (finalItems.length === 0) {
+                    container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
+                        <h3 style="color:#ccc;">Belum ada kiriman.</h3>
+                        <p style="color:#888;">Jadilah yang pertama mengupload tokoh <strong>${currentCategory}</strong> di Galeri Nusantara!</p>
+                    </div>`;
                     return;
                 }
                 
-                // Render khusus item publik
-                await renderPublicGallery(publicItems, container);
+                await renderPublicGallery(finalItems, container);
 
             } catch (err) {
                 console.error("Public Load Error:", err);
                 container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Nusantara.</p>`;
             }
-            return; // Stop di sini agar tidak menjalankan logika NFT Official di bawah
+            return; 
         }
 
         // ==========================================
-        // JIKA TAB KOLEKSI PUTRAMAS (OFFICIAL/NFT)
+        // CABANG 2: TAB OFFICIAL (NFT Arsip)
         // ==========================================
         try {
+            // Filter langsung dari Smart Contract
             const ids = await contractReader.getIdsByGolongan(currentCategory);
             
             if (searchRequestId !== currentRequestId) return;
@@ -837,7 +847,7 @@ Koleksi Wayang Kulit
             isFetchingBatch = false;
 
             if (globalIds.length === 0) {
-                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
+                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi Official di kategori ini.</p>`;
                 return;
             }
             
@@ -849,50 +859,51 @@ Koleksi Wayang Kulit
             container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
         }
     }
-
+    
     // --- TAMBAHKAN FUNGSI INI DI BAWAH loadGaleri ---
     async function renderPublicGallery(items, container) {
-        container.innerHTML = ""; // Bersihkan loading
+        container.innerHTML = ""; 
 
-        // Loop semua item publik
         for (const item of items) {
-            // Mapping data Struct Contract ke Format Kartu Website
-            // Kita ambil Gaya/Golongan dari deskripsi jika ada (format manual)
-            // Atau set default "Komunitas"
-            
             const date = new Date(item.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
             
-            // Format URL Gambar (IPFS ke Gateway)
+            // Format URL Gambar
             let httpUri = item.imageURI;
             if (httpUri.startsWith("ipfs://")) {
                 httpUri = httpUri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
             }
 
-            // Data Object untuk Kartu
+            // --- TEKNIK PARSING DATA DARI DESKRIPSI ---
+            // Kita coba cari baris "Gaya: ... " di dalam deskripsi
+            let gayaLabel = "Komunitas"; // Default
+            
+            // Regex sederhana untuk mengambil teks setelah "Gaya: " sampai baris baru
+            const gayaMatch = item.description.match(/Gaya:\s*(.*?)(?:\n|$)/);
+            if (gayaMatch && gayaMatch[1]) {
+                gayaLabel = gayaMatch[1].trim();
+            }
+
             const w = {
-                id: "G-" + item.id, // Kasih kode G biar beda sama NFT
+                id: "G-" + item.id, 
                 nama: item.title,
-                gaya: "Komunitas", // Default label
-                likes: 0, // Fitur like publik belum ada di struct, set 0 dulu
+                gaya: gayaLabel, // Hasil parsing
+                likes: 0, 
                 rating: "N/A",
                 date: date,
                 metaUrl: httpUri,
                 owner: item.uploader
             };
 
-            // Badge Owner
             const ownerBadge = `<div class="owner-badge" style="background:#9b59b6; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
-
-            // Generate HTML
             const html = generateCardHTML(w, ownerBadge);
+            
             container.insertAdjacentHTML('beforeend', html);
 
-            // Load Gambar
             if (typeof fetchOptimizedImage === "function") {
                 fetchOptimizedImage(w.metaUrl, w.id);
             }
         }
-            }
+    }
 
     async function loadNextBatch() {
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
