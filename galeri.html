@@ -693,65 +693,67 @@ Koleksi Wayang Kulit
     } catch(e) { console.error("Index failed:", e); }
     }
 
-    // --- 4. SMART SEARCH LOGIC (FIXED) ---
+    // --- FUNGSI SMART SEARCH (GABUNGAN OFFICIAL & PUBLIK) ---
     async function smartSearch() {
         const query = document.getElementById("searchInput").value.toLowerCase();
         const container = document.getElementById("containerGaleri");
 
-        searchRequestId++; 
-        const currentRequestId = searchRequestId;
-
-        // Jika search kosong, kembalikan ke tampilan default
-        if (query.length === 0) {
+        // Jika search kosong, kembalikan ke tampilan Tab saat ini
+        if (query === "") {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
-            loadGaleri();
+            
+            // Reload sesuai tab yang aktif
+            if(currentTab === 'public') loadPublicGallery();
+            else loadOfficialGallery(currentCategory);
             return;
         }
 
-        // Mode Search Aktif
+        // Mode Search: Sembunyikan Tab & Filter Kategori
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
+        
+        container.innerHTML = `<p style="text-align:center; width:100%;">🔍 Mencari "${query}" di seluruh arsip...</p>`;
 
-        // --- SEARCH LOGIC: PUBLIK ---
-        if (currentTab === 'public') {
-            container.innerHTML = "";
-            
-            // Filter dari memori (publicSearchIndex)
-            const results = publicSearchIndex.filter(item => 
-                item.title.toLowerCase().includes(query) || 
-                item.description.toLowerCase().includes(query)
-            );
-
-            if (results.length === 0) {
-                container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Galeri Publik nihil.</p></div>`;
-            } else {
-                // Tampilkan hasil (Reverse agar yang baru diatas)
-                await renderPublicGallery([...results].reverse(), container);
-            }
-            return;
-        }
-
-        // --- SEARCH LOGIC: OFFICIAL (NFT) ---
-        if (!isSearchReady) {
-            container.innerHTML = `<p style="text-align:center;">Sedang menyiapkan data pencarian...</p>`;
-            return;
-        }
-
-        const results = searchIndex.filter(w => 
-            w.nama.includes(query) || 
-            w.gaya.includes(query) || 
-            w.id === query
+        // 1. Cari di Data PUBLIK
+        // Filter berdasarkan Nama, Gaya, atau Deskripsi
+        const publicResults = globalPublicItems.filter(item => 
+            item.nama.toLowerCase().includes(query) || 
+            item.gaya.toLowerCase().includes(query) || 
+            (item.description && item.description.includes(query))
         );
 
-        if (results.length === 0) {
-            container.innerHTML = `<div class="nf-box"><h3 style="color:#7385a5;">Tidak Ditemukan</h3><p>Pencarian "${query}" di Koleksi Official nihil.</p></div>`;
-            return;
-        }
+        // 2. Cari di Data OFFICIAL (NFT)
+        // Filter berdasarkan Nama, Gaya, atau Golongan (dari searchIndex yg sudah diload di awal)
+        const officialResults = searchIndex.filter(item => 
+            item.nama.includes(query) || 
+            item.gaya.includes(query) || 
+            item.golongan.toLowerCase().includes(query)
+        ).map(item => ({
+            // Format ulang agar strukturnya sama dengan data Publik
+            id: item.id,
+            nama: item.nama, // Huruf besar sesuai aslinya
+            gaya: item.gaya, // Huruf besar sesuai aslinya
+            badge: "👑 Official",
+            isOfficial: true, // Penanda khusus
+            img: "https://via.placeholder.com/300?text=Memuat...", // Placeholder dulu
+            likes: "-", 
+            rating: "-"
+        }));
 
-        container.innerHTML = ""; 
-        const limitedIds = results.slice(0, 20).map(r => r.id);
-        await renderCards(limitedIds, container, true, currentRequestId);
+        // 3. GABUNGKAN HASIL (Official + Publik)
+        const combinedResults = [...officialResults, ...publicResults];
+
+        if (combinedResults.length === 0) {
+            container.innerHTML = `
+                <div class="nf-box">
+                    <h3 style="color:#7385a5;">Tidak Ditemukan</h3>
+                    <p>Kata kunci "${query}" tidak ada di Koleksi Official maupun Galeri Nusantara.</p>
+                </div>`;
+        } else {
+            // Render hasil gabungan
+            renderCards(combinedResults);
+        }
     }
 
     // --- GANTI FUNGSI switchTab LAMA DENGAN INI ---
@@ -948,61 +950,50 @@ Koleksi Wayang Kulit
     }
 }
 
-async function renderCards(ids, container, isSearchMode, requestId) {
-        const promises = ids.map(async (id) => {
-            try {
-                const [info, owner, likes, ratingRaw, uri] = await Promise.all([
-                    contractReader.getInfoWayang(id),
-                    contractReader.ownerOf(id),
-                    contractReader.totalLikes(id),
-                    contractReader.getAverageRating(id),
-                    contractReader.tokenURI(id)
-                ]);
-
-                if (!info.isActive) return null;
-                if (!isSearchMode) {
-                    const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-                    if (currentTab === 'official' && !isOwnerOfficial) return null;
-                    if (currentTab === 'public' && isOwnerOfficial) return null;
-                }
-
-                const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
-                const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
-                const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
-                
-                return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
-            } catch (e) { return null; }
-        });
-
-        const results = await Promise.all(promises);
-
-        if (searchRequestId !== requestId) return;
-        const cleanResults = results.filter(item => item !== null);
-
-        if (cleanResults.length === 0) {
-            if (isSearchMode) {
-                container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
-            } 
-            return;
-        }
-
-        for (const w of cleanResults) {
-            let ownerBadge = "";
-            const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
-            if (isOwnerOfficial) {
-                ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
-                👑 Official</div>`;
-            } else {
-                ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
+// --- RENDER KARTU (BISA MENANGANI OFFICIAL & PUBLIK) ---
+    function renderCards(data) {
+        const container = document.getElementById("containerGaleri");
+        container.innerHTML = "";
+        
+        data.forEach(w => {
+            // Tentukan warna badge
+            let badgeColor = "#3498db; color:white"; // Default Publik
+            if (w.badge && w.badge.includes("Official")) {
+                badgeColor = "#f1c40f; color:black; border:1px solid #d35400";
             }
 
-            const html = generateCardHTML(w, ownerBadge);
-
+            const html = `
+                <a href="detail?id=${w.id}" class="wayang-card" style="text-decoration:none;">
+                    <div class="wayang-img">
+                        <div class="owner-badge" style="background:${badgeColor};">${w.badge}</div>
+                        
+                        <img id="thumb-${w.id}" src="${w.img}" loading="lazy" 
+                             style="transition: opacity 0.5s;"
+                             onerror="this.src='https://via.placeholder.com/300?text=Gambar+Rusak'">
+                        
+                        <div class="img-overlay-bar">
+                            <div class="overlay-date">#${w.id}</div>
+                            <div class="overlay-stats">
+                                ${w.likes !== undefined ? `<div class="stat-item">❤️ ${w.likes}</div>` : ''}
+                            </div>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div class="card-meta">
+                            <span class="gaya-text">${w.gaya}</span>
+                        </div>
+                        <h3>${w.nama}</h3>
+                    </div>
+                </a>`;
+            
             container.insertAdjacentHTML('beforeend', html);
-            if (typeof fetchOptimizedImage === "function") {
-                fetchOptimizedImage(w.metaUrl, w.id);
+
+            // LOGIKA LAZY LOAD KHUSUS OFFICIAL
+            // Jika ini item Official (yang gambarnya belum ada di index), kita fetch sekarang
+            if (w.isOfficial) {
+                fetchOfficialImage(w.id);
             }
-        }       
+        });
     }
 
 function generateCardHTML(w, badge) {
@@ -1044,6 +1035,44 @@ function generateCardHTML(w, badge) {
             </div>
         </a>`;
 }
+
+// --- HELPER: AMBIL GAMBAR OFFICIAL SECARA ASYNC ---
+    async function fetchOfficialImage(id) {
+        const imgEl = document.getElementById(`thumb-${id}`);
+        if(!imgEl) return;
+
+        // Cek Cache Lokal Dulu (Supaya hemat kuota/request)
+        const cacheKey = `wayang_thumb_${id}`;
+        const cachedUrl = localStorage.getItem(cacheKey);
+        if(cachedUrl) {
+            imgEl.src = cachedUrl;
+            return;
+        }
+
+        try {
+            // Ambil TokenURI dari Smart Contract
+            const uri = await contractReader.tokenURI(id);
+            const httpUri = uri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+            
+            // Ambil Metadata JSON
+            const res = await axios.get(httpUri);
+            let rawImg = res.data.image;
+            
+            if(rawImg.startsWith("ipfs://")) {
+                rawImg = rawImg.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+            }
+
+            // Optimasi Gambar Kecil (Thumbnail) agar ringan
+            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg)}&w=300&q=60&output=webp`;
+            
+            // Simpan ke Cache & Tampilkan
+            localStorage.setItem(cacheKey, optimizedUrl);
+            imgEl.src = optimizedUrl;
+
+        } catch(e) {
+            console.warn(`Gagal load thumb #${id}`);
+        }
+    }
 
 // --- OPTIMIZED IMAGE LOADER DENGAN SPINNER ---
 async function fetchOptimizedImage(metaUrl, id) {
