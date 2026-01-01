@@ -508,64 +508,106 @@ Koleksi Wayang Kulit
         return `ipfs://${res.data.IpfsHash}`;
     }
     
+    // Helper untuk mengambil value input, jika kosong diisi "-"
+    function getVal(id) {
+        const el = document.getElementById(id);
+        return (el && el.value.trim() !== "") ? el.value.trim() : "-";
+    }
+
     async function kirimKeAdmin() {
         const statusEl = document.getElementById("statusPublik");
         
-        // Validasi
+        // 1. Validasi Wallet
         if(!userAddress) return showToast("Wajib hubungkan wallet dulu!", 'warning');
         
+        // 2. Ambil Value Utama
         const nama = document.getElementById("inputNama").value;
         const gol = document.getElementById("inputGolongan").value;
         const gaya = document.getElementById("inputGaya").value;
         const fileInput = document.getElementById("inputGambar");
+        const deskripsiAsli = document.getElementById("inputDeskripsi").value;
         
         if(!nama || fileInput.files.length === 0) return showToast("Nama dan Gambar wajib diisi!", 'error');
 
         try {
-            // A. PERSIAPAN GAMBAR
+            // --- TAHAP 1: KOMPRESI GAMBAR ---
             statusEl.className = "status loading";
             const loadingIcon = `<img src="https://i.gifer.com/ZZ5H.gif" style="width:20px; vertical-align:middle; margin-right:10px;">`;
             
             statusEl.innerHTML = `${loadingIcon} 1/4 Mengompres Gambar...`;
             const compressedFile = await compressImage(fileInput.files[0], 650);
 
-            // B. UPLOAD GAMBAR KE IPFS (Pinata)
+            // --- TAHAP 2: UPLOAD GAMBAR KE IPFS ---
             statusEl.innerHTML = `${loadingIcon} 2/4 Upload ke Cloud (IPFS)...`;
             const imgUrl = await uploadToIPFS(compressedFile);
 
-            // C. SUSUN METADATA (JSON)
-            statusEl.innerHTML = `${loadingIcon} 3/4 Menyusun Metadata...`;
+            // --- TAHAP 3: MENYUSUN METADATA LENGKAP ---
+            statusEl.innerHTML = `${loadingIcon} 3/4 Menyusun Data Lengkap...`;
             
-            // Format Deskripsi Khusus agar Parser Halaman Detail bekerja
-            // Kita gabungkan cerita + data teknis dalam satu teks
-            const cerita = document.getElementById("inputDeskripsi").value;
-            const fullDesc = `${cerita} [Detail Wayang] Golongan: ${gol} Gaya: ${gaya} Wanda: ${getVal("inputWanda")} Material Kulit: ${getVal("inputKulit")} Pembuat: ${getVal("inputPembuat")} Ayah: ${getVal("inputAyah")} Ibu: ${getVal("inputIbu")} Negara: ${getVal("inputNegara")} Pusaka: ${getVal("inputPusaka")}`;
+            // Ambil semua data tambahan
+            const wanda = getVal("inputWanda");
+            const kulit = getVal("inputKulit");
+            const penatah = getVal("inputPenatah");
+            const penyungging = getVal("inputPenyungging");
+            const tahun = getVal("inputTahun");
+            const kolektor = getVal("inputKolektor");
+            
+            const ayah = getVal("inputAyah");
+            const ibu = getVal("inputIbu");
+            const negara = getVal("inputNegara");
+            const pusaka = getVal("inputPusaka");
 
+            // FORMAT DESKRIPSI (Gabungan Cerita + Data Teknis)
+            // Ini penting agar Halaman Detail bisa mem-parsing data secara otomatis
+            const fullDesc = `${deskripsiAsli}\n\n[Detail Wayang] ` +
+                `Golongan: ${gol}\n` +
+                `Gaya: ${gaya}\n` +
+                `Wanda: ${wanda}\n` +
+                `Material Kulit: ${kulit}\n` +
+                `Penatah: ${penatah}\n` +
+                `Penyungging: ${penyungging}\n` +
+                `Tahun: ${tahun}\n` +
+                `Kolektor: ${kolektor}\n` +
+                `Ayah: ${ayah}\n` +
+                `Ibu: ${ibu}\n` +
+                `Negara: ${negara}\n` +
+                `Pusaka: ${pusaka}`;
+
+            // FORMAT JSON METADATA (Standar Opensea/NFT)
             const metadata = {
                 name: nama,
-                description: fullDesc, // Masukkan deskripsi format baru
+                description: fullDesc, 
                 image: imgUrl,
                 attributes: [
                     { trait_type: "Golongan", value: gol },
-                    { trait_type: "Gaya", value: gaya }
+                    { trait_type: "Gaya", value: gaya },
+                    { trait_type: "Wanda", value: wanda },
+                    { trait_type: "Material Kulit", value: kulit },
+                    { trait_type: "Penatah", value: penatah },
+                    { trait_type: "Penyungging", value: penyungging },
+                    { trait_type: "Tahun", value: tahun },
+                    { trait_type: "Kolektor", value: kolektor },
+                    { trait_type: "Ayah", value: ayah },
+                    { trait_type: "Ibu", value: ibu },
+                    { trait_type: "Negara", value: negara },
+                    { trait_type: "Pusaka", value: pusaka },
+                    { trait_type: "Creator", value: userAddress },
+                    { trait_type: "Type", value: "Public Contribution" }
                 ]
             };
             
             const tokenURI = await uploadJSON(metadata);
 
-            // D. MINTING KE SMART CONTRACT (V3)
+            // --- TAHAP 4: MINTING KE BLOCKCHAIN ---
             statusEl.innerHTML = `${loadingIcon} 4/4 Konfirmasi di Wallet...`;
             
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-            
-            // Cek Fee (Ambil dari kontrak agar dinamis)
             const fee = await contract.publicMintFee();
             
-            // Eksekusi Transaksi
             const tx = await contract.uploadPublik(tokenURI, nama, gol, gaya, { value: fee });
             
             statusEl.innerHTML = `${loadingIcon} Menunggu Konfirmasi Blockchain...`;
-            await tx.wait(); // Tunggu sampai block tergali
+            await tx.wait(); 
 
             // SUKSES
             statusEl.className = "status success";
@@ -574,6 +616,7 @@ Koleksi Wayang Kulit
             // Reset Form
             document.getElementById("inputNama").value = "";
             document.getElementById("inputGambar").value = "";
+            document.getElementById("inputDeskripsi").value = "";
             showToast("Upload Berhasil!", "success");
 
         } catch (err) {
@@ -581,12 +624,6 @@ Koleksi Wayang Kulit
             statusEl.className = "status error";
             statusEl.innerText = "Gagal: " + (err.reason || err.message);
         }
-    }
-
-    // --- HELPER FUNCTIONS ---
-    
-    function getVal(id) {
-        return document.getElementById(id).value || "-";
     }
     
     // --- FUNGSI KOMPRESI GAMBAR (VANILLA JS) ---
