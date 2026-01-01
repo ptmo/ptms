@@ -788,27 +788,59 @@ async function loadGaleri() {
         Memuat ${titleTab} (${currentCategory})...
     </p>`;
 
-    try {
-        const ids = await contractReader.getIdsByGolongan(currentCategory);
-        
-        if (searchRequestId !== currentRequestId) return;
-        globalIds = ids.slice().reverse(); 
-        currentOffset = 0;
-        isFetchingBatch = false;
+    // --- LOGIKA TAB PUBLIK ---
+        if (currentTab === 'public') {
+            try {
+                const rawItems = await contractReader.getAllGalleryItems();
+                
+                // SIMPAN DATA KE VARIABLE GLOBAL UNTUK PENCARIAN
+                publicSearchIndex = rawItems; 
 
-        if (globalIds.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
-            return;
-        }
-        
-        container.innerHTML = ""; 
-        await loadNextBatch();
+                // Filter Kategori (berdasarkan Deskripsi)
+                const filteredItems = rawItems.filter(item => {
+                    return item.description.includes(currentCategory);
+                });
 
-    } catch (err) {
-        console.error(err);
-        if (searchRequestId === currentRequestId) {
-            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
+                const finalItems = filteredItems.reverse();
+
+                if (finalItems.length === 0) {
+                    container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
+                        <h3 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h3>
+                        <p style="color:#888;">Jadilah yang pertama mengupload!</p>
+                    </div>`;
+                    return;
+                }
+                
+                await renderPublicGallery(finalItems, container);
+
+            } catch (err) {
+                console.error("Public Load Error:", err);
+                container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Nusantara.</p>`;
+            }
+            return; 
         }
+
+        // --- LOGIKA TAB OFFICIAL (NFT) ---
+        try {
+            const ids = await contractReader.getIdsByGolongan(currentCategory);
+            
+            if (searchRequestId !== currentRequestId) return;
+            globalIds = ids.slice().reverse(); 
+            currentOffset = 0;
+            isFetchingBatch = false;
+
+            if (globalIds.length === 0) {
+                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
+                return;
+            }
+            
+            container.innerHTML = ""; 
+            await loadNextBatch();
+
+        } catch (err) {
+            console.error(err);
+            container.innerHTML = `<p style="font-size:13px; color: #7385a5; text-align:center; grid-column: 1/-1;">Pilih kategori atau Pencarian.</p>`;
     }
 }
 
