@@ -523,37 +523,40 @@ Koleksi Wayang Kulit
     async function kirimKeAdmin() {
         const statusEl = document.getElementById("statusPublik");
         
-        // 1. Validasi Wallet
+        // 1. Validate Wallet
         if(!userAddress) return showToast("Wajib hubungkan wallet dulu!", 'warning');
         
-        // 2. Ambil Value Utama
+        // 2. Get Main Values
         const nama = document.getElementById("inputNama").value;
         const gol = document.getElementById("inputGolongan").value;
         const gaya = document.getElementById("inputGaya").value;
         const fileInput = document.getElementById("inputGambar");
-        const deskripsiAsli = document.getElementById("inputDeskripsi").value;
+        // Use only the original description text
+        const deskripsiAsli = document.getElementById("inputDeskripsi").value; 
         
         if(!nama || fileInput.files.length === 0) return showToast("Nama dan Gambar wajib diisi!", 'error');
 
         try {
-            // --- TAHAP 1: KOMPRESI GAMBAR ---
+            // --- STAGE 1: COMPRESS IMAGE ---
             statusEl.className = "status loading";
             const loadingIcon = `<img src="https://i.gifer.com/ZZ5H.gif" style="width:20px; vertical-align:middle; margin-right:10px;">`;
             
             statusEl.innerHTML = `${loadingIcon} 1/4 Memproses Gambar...`;
+            // Using 300KB limit as requested
             const compressedFile = await compressImage(fileInput.files[0], 300);
 
-            // --- TAHAP 2: UPLOAD GAMBAR KE IPFS ---
+            // --- STAGE 2: UPLOAD IMAGE TO IPFS ---
             statusEl.innerHTML = `${loadingIcon} 2/4 Upload ke Cloud (IPFS)...`;
             const imgUrl = await uploadToIPFS(compressedFile);
 
-            // --- TAHAP 3: MENYUSUN METADATA LENGKAP ---
+            // --- STAGE 3: COMPILE METADATA ---
             statusEl.innerHTML = `${loadingIcon} 3/4 Menyusun Data Lengkap...`;
             
-            // Ambil semua data tambahan
+            // Get all additional data
             const wanda = getVal("inputWanda");
             const kulit = getVal("inputKulit");
-            const gapit = getVal("inputGapit");
+            // Optional fields - ensure getVal handles missing elements gracefully or check existence
+            const gapit = document.getElementById("inputGapit") ? getVal("inputGapit") : "-"; 
             const penatah = getVal("inputPenatah");
             const penyungging = getVal("inputPenyungging");
             const tahun = getVal("inputTahun");
@@ -564,10 +567,12 @@ Koleksi Wayang Kulit
             const negara = getVal("inputNegara");
             const pusaka = getVal("inputPusaka");
 
-            // FORMAT JSON METADATA (Standar Opensea/NFT)
+            // FORMAT JSON METADATA
+            // We use 'deskripsiAsli' directly for a clean description field.
+            // All technical data goes into 'attributes'.
             const metadata = {
                 name: nama,
-                description: fullDesc, 
+                description: deskripsiAsli, 
                 image: imgUrl,
                 attributes: [
                     { trait_type: "Golongan", value: gol },
@@ -590,18 +595,20 @@ Koleksi Wayang Kulit
             
             const tokenURI = await uploadJSON(metadata);
 
-            // --- TAHAP 4: MINTING KE BLOCKCHAIN ---
+            // --- STAGE 4: MINTING TO BLOCKCHAIN ---
             statusEl.innerHTML = `${loadingIcon} 4/4 Konfirmasi di Wallet...`;
             
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            // Fetch fee dynamically
             const fee = await contract.publicMintFee();
             
+            // Execute Transaction
             const tx = await contract.uploadPublik(tokenURI, nama, gol, gaya, { value: fee });
             
             statusEl.innerHTML = `${loadingIcon} Menunggu Konfirmasi Blockchain...`;
             await tx.wait(); 
 
-            // SUKSES
+            // SUCCESS
             statusEl.className = "status success";
             statusEl.innerHTML = `✅ BERHASIL!<br>Karya Anda sudah abadi di Blockchain.<br><a href="https://sepolia.basescan.org/tx/${tx.hash}" target="_blank" style="color:white; text-decoration:underline;">Lihat Transaksi</a>`;
             
