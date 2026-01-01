@@ -507,7 +507,7 @@ Koleksi Wayang Kulit
         });
         return `ipfs://${res.data.IpfsHash}`;
     }
-
+    
     async function kirimKeAdmin() {
         const statusEl = document.getElementById("statusPublik");
         
@@ -590,74 +590,30 @@ Koleksi Wayang Kulit
     }
     
     // --- FUNGSI KOMPRESI GAMBAR (VANILLA JS) ---
-async function compressImage(file, maxSizeKB = 300) {
-    // 1. Jika file asli sudah di bawah target, kembalikan langsung (hemat proses)
-    if (file.size <= maxSizeKB * 1024) {
-        return file; 
-    }
-
-    return new Promise((resolve, reject) => {
-        const reader = new FileReader();
-        reader.readAsDataURL(file);
-        
-        reader.onload = (event) => {
-            const img = new Image();
-            img.src = event.target.result;
-            
-            img.onload = () => {
-                // 2. Setup Canvas
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // 3. Resize Dimensi (Penting! Jangan biarkan 4000px lolos)
-                // Kita batasi lebar maksimal 1500px (Cukup tajam untuk web)
-                const MAX_WIDTH = 1200;
-                if (width > MAX_WIDTH) {
-                    height *= MAX_WIDTH / width;
-                    width = MAX_WIDTH;
-                }
-
-                canvas.width = width;
-                canvas.height = height;
-                
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // 4. Loop Kompresi (Turunkan kualitas bertahap)
-                // Mulai dari kualitas 90% (0.9), turunkan kalau masih kegedean
-                let quality = 0.9;
-                
-                const tryCompress = () => {
+async function compressImage(file, maxSizeKB) {
+        if (file.size <= maxSizeKB * 1024) return file;
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (ev) => {
+                const img = new Image();
+                img.src = ev.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const MAX = 1200; 
+                    if (w > MAX) { h *= MAX/w; w = MAX; }
+                    canvas.width = w; canvas.height = h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, 0, 0, w, h);
+                    
                     canvas.toBlob((blob) => {
-                        if (!blob) return reject("Gagal kompresi");
-                        
-                        // Cek ukuran (dalam KB)
-                        const sizeKB = blob.size / 1024;
-                        
-                        // Jika sudah di bawah target ATAU kualitas sudah jelek banget (0.5), STOP.
-                        if (sizeKB <= maxSizeKB || quality <= 0.5) {
-                            console.log(`✅ Kompresi Berhasil: ${file.size/1024}KB -> ${sizeKB.toFixed(2)}KB (Quality: ${quality})`);
-                            
-                            // Ubah Blob kembali jadi File object
-                            const newFile = new File([blob], file.name, {
-                                type: 'image/jpeg',
-                                lastModified: Date.now(),
-                            });
-                            resolve(newFile);
-                        } else {
-                            // Jika masih kegedean, kurangi kualitas dan coba lagi
-                            quality -= 0.1;
-                            tryCompress();
-                        }
-                    }, 'image/jpeg', quality);
+                        resolve(new File([blob], file.name, {type: 'image/jpeg', lastModified: Date.now()}));
+                    }, 'image/jpeg', 0.8);
                 };
-
-                tryCompress(); // Mulai proses
             };
-        };
-        reader.onerror = (error) => reject(error);
-    });
+            reader.onerror = reject;
+        });
 }
 
 function showToast(msg, type = 'info') {
