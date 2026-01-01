@@ -422,9 +422,9 @@ Koleksi Wayang Kulit
             <div style="flex: 1;"><label>Ibu:</label><input type="text" id="inputIbu" required></div>
         </div>
         <label>Negara/Tempat:</label>
-        <input type="text" id="inputNegara" required placeholder="Contoh: Indraprasta">
+        <input type="text" id="inputNegara" required">
         <label>Pusaka:</label>
-        <input type="text" id="inputPusaka" required placeholder="Contoh: Bramasta">
+        <input type="text" id="inputPusaka" required">
     </fieldset>
 
     <fieldset>
@@ -538,8 +538,8 @@ Koleksi Wayang Kulit
             statusEl.className = "status loading";
             const loadingIcon = `<img src="https://i.gifer.com/ZZ5H.gif" style="width:20px; vertical-align:middle; margin-right:10px;">`;
             
-            statusEl.innerHTML = `${loadingIcon} 1/4 Mengompres Gambar...`;
-            const compressedFile = await compressImage(fileInput.files[0], 650);
+            statusEl.innerHTML = `${loadingIcon} 1/4 Memproses Gambar...`;
+            const compressedFile = await compressImage(fileInput.files[0], 300);
 
             // --- TAHAP 2: UPLOAD GAMBAR KE IPFS ---
             statusEl.innerHTML = `${loadingIcon} 2/4 Upload ke Cloud (IPFS)...`;
@@ -616,9 +616,11 @@ Koleksi Wayang Kulit
         }
     }
     
-    // --- FUNGSI KOMPRESI GAMBAR (VANILLA JS) ---
-async function compressImage(file, maxSizeKB) {
+    // --- FUNGSI KOMPRESI GAMBAR (AUTO 300KB) ---
+    async function compressImage(file, maxSizeKB = 300) {
+        // 1. Cek ukuran awal, kalau sudah kecil, skip
         if (file.size <= maxSizeKB * 1024) return file;
+
         return new Promise((resolve, reject) => {
             const reader = new FileReader();
             reader.readAsDataURL(file);
@@ -628,20 +630,47 @@ async function compressImage(file, maxSizeKB) {
                 img.onload = () => {
                     const canvas = document.createElement('canvas');
                     let w = img.width, h = img.height;
-                    const MAX = 1200; 
-                    if (w > MAX) { h *= MAX/w; w = MAX; }
+                    
+                    // 2. Resize Dimensi (Maksimal 1000px agar mudah mencapai 300KB)
+                    const MAX = 1000; 
+                    if (w > MAX || h > MAX) {
+                        const ratio = w / h;
+                        if (w > h) { w = MAX; h = MAX / ratio; }
+                        else { h = MAX; w = MAX * ratio; }
+                    }
+                    
                     canvas.width = w; canvas.height = h;
                     const ctx = canvas.getContext('2d');
                     ctx.drawImage(img, 0, 0, w, h);
                     
-                    canvas.toBlob((blob) => {
-                        resolve(new File([blob], file.name, {type: 'image/jpeg', lastModified: Date.now()}));
-                    }, 'image/jpeg', 0.8);
+                    // 3. Logika Kompresi Berulang (Turunkan kualitas sampai pas)
+                    let quality = 0.9;
+                    
+                    const recursiveCompress = () => {
+                        canvas.toBlob((blob) => {
+                            if (!blob) return reject("Gagal kompresi");
+
+                            // Cek: Apakah sudah <= 300KB ATAU kualitas sudah mentok rendah (0.1)?
+                            if (blob.size <= maxSizeKB * 1024 || quality <= 0.1) {
+                                // Selesai
+                                resolve(new File([blob], file.name, {
+                                    type: 'image/jpeg',
+                                    lastModified: Date.now()
+                                }));
+                            } else {
+                                // Masih kegedean? Turunkan kualitas 10% lalu coba lagi
+                                quality -= 0.1;
+                                recursiveCompress();
+                            }
+                        }, 'image/jpeg', quality);
+                    };
+
+                    recursiveCompress(); // Mulai proses
                 };
             };
             reader.onerror = reject;
         });
-}
+    }
 
 function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
