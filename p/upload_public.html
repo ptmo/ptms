@@ -444,26 +444,49 @@ Koleksi Wayang Kulit
 </footer>
 
 <script>
+    const CONTRACT_ADDRESS = "0xALAMAT_KONTRAK_V3_ANDA_DISINI"; // <--- ISI ALAMAT KONTRAK BARU V3
     const PINATA_API_KEY = "4658f1eb70d0c8bcb9dc";    
     const PINATA_SECRET_KEY = "4cc702ab4f76139600b8e18c1f95166c9aefe4611b5c81cfeb5dc8b58c33dbf5";
+    const BASE_SEPOLIA_ID = '0x14a34'; // Chain ID Base Sepolia
 
-    let userAddress = "";
+    // ABI Minimalis untuk Fungsi Upload
+    const CONTRACT_ABI = [
+        "function uploadPublik(string _tokenURI, string _nama, string _golongan, string _gaya) public payable returns (uint256)",
+        "function publicMintFee() view returns (uint256)"
+    ];
+
+    let provider, signer, userAddress;
     let toastTimeout;
 
+    // --- 1. KONEKSI DOMPET ---
     async function connectWallet() {
-        if (!window.ethereum) return showToast("Install Metamask Dulu, Atau EVM Wallet Lainnya!", 'wolf');
+        if (!window.ethereum) return showToast("Install Metamask Dulu!", 'wolf');
         try {
-            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
-            const signer = provider.getSigner();
+            
+            // Cek Network
+            const network = await provider.getNetwork();
+            if (network.chainId !== parseInt(BASE_SEPOLIA_ID, 16)) {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_SEPOLIA_ID }],
+                });
+                provider = new ethers.providers.Web3Provider(window.ethereum); // Refresh provider
+            }
+
+            signer = provider.getSigner();
             userAddress = await signer.getAddress();
             
             const btn = document.getElementById("btn-connect");
             btn.innerText = userAddress.substring(0,6) + "...";
             btn.classList.add("connected");
-        } catch (err) { console.error(err); showToast("Gagal koneksi: " + err.message, 'error'); }
+        } catch (err) { 
+            console.error(err); 
+            showToast("Gagal koneksi: " + err.message, 'error'); 
+        }
     }
-
+    
     async function uploadToIPFS(file) {
         const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
         let data = new FormData();
@@ -550,7 +573,7 @@ Koleksi Wayang Kulit
     }
 
     // --- FUNGSI KOMPRESI GAMBAR (VANILLA JS) ---
-async function compressImage(file, maxSizeKB = 650) {
+async function compressImage(file, maxSizeKB = 300) {
     // 1. Jika file asli sudah di bawah target, kembalikan langsung (hemat proses)
     if (file.size <= maxSizeKB * 1024) {
         return file; 
@@ -572,7 +595,7 @@ async function compressImage(file, maxSizeKB = 650) {
 
                 // 3. Resize Dimensi (Penting! Jangan biarkan 4000px lolos)
                 // Kita batasi lebar maksimal 1500px (Cukup tajam untuk web)
-                const MAX_WIDTH = 1500;
+                const MAX_WIDTH = 1200;
                 if (width > MAX_WIDTH) {
                     height *= MAX_WIDTH / width;
                     width = MAX_WIDTH;
