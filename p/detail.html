@@ -548,76 +548,88 @@ Koleksi Wayang Kulit
     }
 
     async function loadDetail() {
-        const params = new URLSearchParams(window.location.search);
-        const id = params.get('id');
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
 
-        if (!id) {
-            document.getElementById("loading").innerText = "ID Arsip tidak ditemukan.";
-            return;
+    if (!id) {
+        document.getElementById("loading").innerText = "ID Arsip tidak ditemukan.";
+        return;
+    }
+
+    try {
+        const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+
+        // --- PERBAIKAN 1: AMBIL OWNER DULUAN (Supaya variabel 'owner' tersedia) ---
+        const owner = await contract.ownerOf(id); 
+
+        // --- PERBAIKAN 2: LOGIKA TOMBOL REVISI (Sekarang aman karena 'owner' sudah ada) ---
+        // Pastikan userAddress ada isinya (cek typeof biar gak error)
+        if (typeof userAddress !== 'undefined' && userAddress && owner.toLowerCase() === userAddress.toLowerCase()) {
+            const actionDiv = document.getElementById("ownerActions");
+            if (actionDiv) {
+                actionDiv.style.display = "block";
+                actionDiv.innerHTML = `
+                    <button onclick="window.location.href='revisi_user.html?id=${id}'" 
+                        style="background: #d35400; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px;">
+                        <i class="fas fa-edit"></i> REVISI DATA WAYANG INI
+                    </button>
+                    <p style="font-size: 12px; color: #888; text-align: center; margin-top: 5px;">*Hanya Anda (Pemilik) yang melihat tombol ini.</p>
+                `;
+            }
         }
 
-        try {
-            const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
-    
-    // 2. Cek apakah Wallet yang connect == Owner NFT
-    // Pastikan variabel 'userAddress' sudah terisi dari connectWallet()
-    if (userAddress && owner.toLowerCase() === userAddress.toLowerCase()) {
-        const actionDiv = document.getElementById("ownerActions");
-        actionDiv.style.display = "block";
-        actionDiv.innerHTML = `
-            <button onclick="window.location.href='revisi_user.html?id=${id}'" 
-                style="background: #d35400; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">
-                <i class="fas fa-edit"></i> REVISI DATA WAYANG INI
-            </button>
-            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 5px;">*Hanya Anda (Pemilik) yang melihat tombol ini.</p>
-        `;
+        // --- LANJUT KE METADATA (SESUAI REQUEST: TIDAK ADA YANG DIKURANGI) ---
+        const uri = await contract.tokenURI(id);
+        // Menggunakan gateway Pinata supaya gambar muncul lebih cepat dibanding ipfs.io
+        const httpUri = uri.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+        const response = await axios.get(httpUri);
+        const meta = response.data;
+        
+        const rawImgUrl = meta.image.replace("ipfs://", "https://gateway.pinata.cloud/ipfs/");
+        const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
+        
+        // Helper GetAttr (Saya tambahkan toLowerCase agar lebih aman mendeteksi key)
+        const getAttr = (k) => {
+            if(!meta.attributes) return "-";
+            const f = meta.attributes.find(a => a.trait_type.toLowerCase() === k.toLowerCase());
+            return f ? f.value : "-";
+        };
+
+        document.getElementById("displayId").innerText = id;
+        
+        const imgEl = document.getElementById("displayImg");
+        imgEl.src = hdImageUrl;
+        imgEl.style.opacity = 0;
+        imgEl.onload = () => { imgEl.style.opacity = 1; imgEl.style.transition = "opacity 0.5s"; };
+
+        document.getElementById("displayName").innerText = meta.name;
+        document.getElementById("displayGaya").innerText = getAttr("Gaya");
+        document.getElementById("displayDesc").innerText = meta.description;
+        
+        // Metadata Lengkap Sesuai Permintaan
+        document.getElementById("displayGolongan").innerText = getAttr("Golongan");
+        document.getElementById("displayWanda").innerText = getAttr("Wanda");
+        document.getElementById("displayKulit").innerText = getAttr("Material Kulit");
+        document.getElementById("displayGapit").innerText = getAttr("Material Gapit");
+        document.getElementById("displayPenatah").innerText = getAttr("Penatah");
+        document.getElementById("displayPenyungging").innerText = getAttr("Penyungging");
+        document.getElementById("displayTahun").innerText = getAttr("Tahun Pembuatan");
+        document.getElementById("displayKolektor").innerText = getAttr("Kolektor");
+        
+        document.getElementById("displayNegara").innerText = getAttr("Negara");
+        document.getElementById("displayAyah").innerText = getAttr("Ayah");
+        document.getElementById("displayIbu").innerText = getAttr("Ibu");
+        document.getElementById("displayPusaka").innerText = getAttr("Pusaka") || "-";
+
+        document.getElementById("loading").style.display = "none";
+        document.getElementById("content").style.display = "flex";
+
+    } catch (err) {
+        console.error(err);
+        document.getElementById("loading").innerText = "Gagal memuat data wayang. Cek koneksi.";
     }
-            const owner = await contract.ownerOf(id);
-            const uri = await contract.tokenURI(id);
-            const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
-            const response = await axios.get(httpUri);
-            const meta = response.data;
-            const rawImgUrl = meta.image.replace("ipfs://", "https://ipfs.io/ipfs/");
-            const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
-            const getAttr = (k) => {
-                const f = meta.attributes.find(a => a.trait_type === k);
-                return f ? f.value : "-";
-            };
-
-            document.getElementById("displayId").innerText = id;
-            
-            const imgEl = document.getElementById("displayImg");
-            imgEl.src = hdImageUrl;
-            imgEl.style.opacity = 0;
-            imgEl.onload = () => { imgEl.style.opacity = 1; imgEl.style.transition = "opacity 0.5s"; };
-
-            document.getElementById("displayName").innerText = meta.name;
-            document.getElementById("displayGaya").innerText = getAttr("Gaya");
-            document.getElementById("displayDesc").innerText = meta.description;
-            
-            document.getElementById("displayGolongan").innerText = getAttr("Golongan");
-            document.getElementById("displayWanda").innerText = getAttr("Wanda");
-            document.getElementById("displayKulit").innerText = getAttr("Material Kulit");
-            document.getElementById("displayGapit").innerText = getAttr("Material Gapit");
-            document.getElementById("displayPenatah").innerText = getAttr("Penatah");
-            document.getElementById("displayPenyungging").innerText = getAttr("Penyungging");
-            document.getElementById("displayTahun").innerText = getAttr("Tahun Pembuatan");
-            document.getElementById("displayKolektor").innerText = getAttr("Kolektor");
-            
-            document.getElementById("displayNegara").innerText = getAttr("Negara");
-            document.getElementById("displayAyah").innerText = getAttr("Ayah");
-            document.getElementById("displayIbu").innerText = getAttr("Ibu");
-            document.getElementById("displayPusaka").innerText = getAttr("Pusaka") || "-";
-
-            document.getElementById("loading").style.display = "none";
-            document.getElementById("content").style.display = "flex";
-
-        } catch (err) {
-            console.error(err);
-            document.getElementById("loading").innerText = "Gagal memuat data wayang. Cek koneksi.";
-        }
-    }
+  }
 
     async function loadSocialData(id) {
         try {
