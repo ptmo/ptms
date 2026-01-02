@@ -804,16 +804,16 @@
 
     // --- 3. GENERATE HTML (FIXED) ---
     function generateCardHTML(w, badge, isMine) {
-        const editBtn = isMine 
-        ? `<a href="revisi_user.html?id=${w.id}" class="btn-edit-card" title="Revisi Data" 
+        const editBtn = `
+        <button onclick="handleEditClick('${w.id}', '${w.owner}')" 
+             title="Revisi Data (Hanya Pemilik)" 
              style="position:absolute; top:500px; right:12px; z-index:20; 
-             background:#d35400; color:#fff; padding:3px 12px; border-radius:5px; 
-             font-size:9px; font-weight:bold; text-decoration:none; 
-             display:inline-flex; align-items:center; gap:5px; 
-             box-shadow: 0 2px 5px rgba(0,0,0,0.3); border:1px solid rgba(255,255,255,0.3);">
-             <i class="fas fa-edit"></i> Edit
-           </a>` 
-        : "";
+             background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
+             font-size:9px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
+             cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
+             box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;">
+             <i class="fas fa-edit"></i> Revisi
+        </button>`;
 
         return `
             <div class="wayang-card-wrapper" style="position:relative;">
@@ -854,6 +854,24 @@
                 </a> 
             </div>`;
     }
+
+    // Fungsi Handler Klik Tombol Revisi
+function handleEditClick(id, owner) {
+    // 1. Cek apakah Wallet sudah terhubung
+    if (!userAddress) {
+        showToast("Hubungkan wallet untuk mengedit!", "warning");
+        return;
+    }
+
+    // 2. Cek apakah Wallet yang login adalah Pemilik
+    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+        showToast("Anda bukan pemilik postingan ini!", "error");
+        return;
+    }
+
+    // 3. Jika Lolos Validasi -> Pindah ke Halaman Revisi
+    window.location.href = `revisi_user.html?id=${id}`;
+}
 
     async function fetchOptimizedImage(metaUrl, id) {
         const imgEl = document.getElementById(`img-${id}`);
