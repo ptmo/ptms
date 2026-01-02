@@ -502,46 +502,40 @@ body.modal-open {
             </div>
 
             <div class="review-box">
-                <h3 style="color: #7385a5; margin-top: 0;">Beri Rating</h3>
-                
-                <div class="star-rating" style="margin-bottom: 15px;">
-                    <span onclick="pilihBintang(1)">★</span>
-                    <span onclick="pilihBintang(2)">★</span>
-                    <span onclick="pilihBintang(3)">★</span>
-                    <span onclick="pilihBintang(4)">★</span>
-                    <span onclick="pilihBintang(5)">★</span>
-                </div>
-                <input type="hidden" id="selectedStar" value="0">
-
-                <div style="margin-bottom: 15px;">
-                    <p style="color:#7385a5; font-size:12px; margin-bottom:5px;">Pilih Ulasan:</p>
-                    <div id="pilihanUlasan" style="display: flex; gap: 10px; flex-wrap: wrap;">
-                        <button class="chip" onclick="pilihTag(this, 'Luar Biasa')">Luar Biasa</button>
-                        <button class="chip" onclick="pilihTag(this, 'Sangat Detail')">Sangat Detail</button>
-                        <button class="chip" onclick="pilihTag(this, 'Estetik')">Estetik</button>
-                        <button class="chip" onclick="pilihTag(this, 'Super')">Super</button>
-                        <button class="chip" onclick="pilihTag(this, 'Masterpiece')">Masterpiece</button>
-                        <button class="chip" onclick="pilihTag(this, 'Bersejarah')">Bersejarah</button>
-                    </div>
-                    <input type="hidden" id="selectedTag" value="">
-                </div>
-
-                <button onclick="kirimUlasan()" style="background: #7385a5; color: white; border: 2px solid #5c6a84; padding: 12px 25px; border-radius: 10px; cursor: pointer; width: 50%; font-weight: bold; display: block; margin: 0 auto;">
-                    Kirim Ulasan
-                </button>
-            </div>
-
-            <div style="margin-top: 30px;">
-                <h3 style="color: #7385a5;">Ulasan Pengunjung (<span id="reviewCount">0</span>)</h3>
-                <div id="reviewContainer">
-                    <p style="color:#00b300; font-style: italic; font-size: 13px;">Memuat ulasan...</p>
-                </div>
-            </div>
-        </div>
-
+    <h3 style="color: #7385a5; margin-top: 0; display:flex; align-items:center; gap:10px;">
+        <i class="fas fa-pen-nib"></i> Beri Rating
+    </h3>
+    
+    <div class="star-rating" style="margin-bottom: 15px; font-size: 24px;">
+        <input type="hidden" id="selectedStar" value="0">
+        
+        <i class="fas fa-star" onclick="pilihBintang(1)" id="star-1" style="cursor: pointer; color: #ccc; transition: 0.2s;"></i>
+        <i class="fas fa-star" onclick="pilihBintang(2)" id="star-2" style="cursor: pointer; color: #ccc; transition: 0.2s;"></i>
+        <i class="fas fa-star" onclick="pilihBintang(3)" id="star-3" style="cursor: pointer; color: #ccc; transition: 0.2s;"></i>
+        <i class="fas fa-star" onclick="pilihBintang(4)" id="star-4" style="cursor: pointer; color: #ccc; transition: 0.2s;"></i>
+        <i class="fas fa-star" onclick="pilihBintang(5)" id="star-5" style="cursor: pointer; color: #ccc; transition: 0.2s;"></i>
     </div>
-</div>
 
+    <div style="margin-bottom: 20px;">
+        <p style="color:#7385a5; font-size:12px; margin-bottom:8px; font-weight:bold;">
+            <i class="fas fa-tags"></i> Pilih Kata Kunci:
+        </p>
+        <div id="pilihanUlasan" style="display: flex; gap: 8px; flex-wrap: wrap;">
+            <button class="chip" onclick="pilihTag(this, 'Luar Biasa')"><i class="fas fa-thumbs-up"></i> Luar Biasa</button>
+            <button class="chip" onclick="pilihTag(this, 'Sangat Detail')"><i class="fas fa-search-plus"></i> Sangat Detail</button>
+            <button class="chip" onclick="pilihTag(this, 'Estetik')"><i class="fas fa-palette"></i> Estetik</button>
+            <button class="chip" onclick="pilihTag(this, 'Super')"><i class="fas fa-bolt"></i> Super</button>
+            <button class="chip" onclick="pilihTag(this, 'Masterpiece')"><i class="fas fa-crown"></i> Masterpiece</button>
+            <button class="chip" onclick="pilihTag(this, 'Bersejarah')"><i class="fas fa-history"></i> Bersejarah</button>
+        </div>
+        <input type="hidden" id="selectedTag" value="">
+    </div>
+
+    <button onclick="kirimUlasan()" style="background: #7385a5; color: white; border: none; padding: 12px 25px; border-radius: 50px; cursor: pointer; width: 60%; font-weight: bold; display: flex; align-items: center; justify-content: center; gap: 8px; margin: 0 auto; box-shadow: 0 4px 6px rgba(0,0,0,0.1);">
+        <i class="fas fa-paper-plane"></i> Kirim Ulasan
+    </button>
+            </div>
+            
 <div id="toast"></div>
 
 <footer class="footer">
@@ -746,50 +740,72 @@ function handleEditClick(id, owner) {
 }
 
     async function loadSocialData(id) {
+    try {
+        const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+        
+        // 1. Load Likes
+        const likes = await contract.totalLikes(id);
+        document.getElementById("likeCount").innerText = likes.toString();
+        
+        // 2. Load Reviews
+        const reviews = await contract.getReviews(id);
+        
+        // --- BAGIAN RATING RATA-RATA (DIPERBAIKI) ---
         try {
-            const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
-            const likes = await contract.totalLikes(id);
-            document.getElementById("likeCount").innerText = likes.toString();
-            const reviews = await contract.getReviews(id);
-try {
-    const avgScore = await contract.getAverageRating(id);
-    const finalScore = (avgScore / 10).toFixed(1);
-    if(avgScore > 0) {
-        document.getElementById("displayName").innerHTML += 
-            ` <span style="font-size:16px; color:gold; border:1px solid gold; padding:2px 8px; border-radius:10px;">⭐ ${finalScore}</span>`;
-    }
-} catch (e) {
-    console.log("Belum ada rating rata-rata");
-}
-            document.getElementById("reviewCount").innerText = reviews.length;
+            const avgScore = await contract.getAverageRating(id);
+            // Konversi BigNumber ke Float (misal 45 -> 4.5)
+            const finalScore = (avgScore / 10).toFixed(1);
             
-            const container = document.getElementById("reviewContainer");
-            
-            if(reviews.length === 0) {
-                container.innerHTML = `<p style="color:#666; font-style: italic;">Belum ada ulasan.</p>`;
-            } else {
-                container.innerHTML = "";
-                [...reviews].reverse().forEach(r => {
-                    const bintangStr = "★".repeat(r.bintang);
-                    const html = `
-                        <div class="review-card">
-                            <div style="font-size: 11px; color: #5c6a84; margin-bottom:5px;">
-                                ${r.reviewer.substring(0,6)}...${r.reviewer.substring(38)}
-                            </div>
-                            <div style="color: gold; font-size: 16px;">${bintangStr}</div>
-                            <div style="color: #666; margin-top: 5px; font-style: italic;">"${r.ulasan}"</div>
-                        </div>
-                    `;
-                    container.innerHTML += html;
-                });
+            if(avgScore > 0) {
+                // Menggunakan Icon fa-star warna emas
+                document.getElementById("displayName").innerHTML += 
+                    ` <span style="font-size:14px; color:#f1c40f; border:1px solid #f1c40f; padding:2px 8px; border-radius:15px; display:inline-flex; align-items:center; gap:4px; vertical-align: middle;">
+                        <i class="fas fa-star"></i> ${finalScore}
+                      </span>`;
             }
-
-        } catch (err) {
-            console.error("Gagal load social:", err);
+        } catch (e) {
+            console.log("Belum ada rating rata-rata");
         }
-    }
+        
+        document.getElementById("reviewCount").innerText = reviews.length;
+        const container = document.getElementById("reviewContainer");
+        
+        // --- BAGIAN LOOPING ULASAN (DIPERBAIKI) ---
+        if(reviews.length === 0) {
+            container.innerHTML = `<p style="color:#666; font-style: italic; text-align:center; padding:20px;">
+                <i class="far fa-comment-dots"></i> Belum ada ulasan. Jadilah yang pertama!
+            </p>`;
+        } else {
+            container.innerHTML = "";
+            [...reviews].reverse().forEach(r => {
+                // Mengulang string HTML icon sebanyak jumlah bintang
+                // Menggunakan margin-right kecil agar tidak terlalu rapat
+                const bintangHtml = '<i class="fas fa-star" style="margin-right:2px;"></i>'.repeat(r.bintang);
+                
+                const html = `
+                    <div class="review-card" style="border-bottom: 1px solid #eee; padding: 15px 0;">
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
+                            <div style="font-size: 11px; color: #5c6a84; font-weight:bold;">
+                                <i class="fas fa-user-circle"></i> ${r.reviewer.substring(0,6)}...${r.reviewer.substring(38)}
+                            </div>
+                            <div style="color: #f1c40f; font-size: 12px;">${bintangHtml}</div>
+                        </div>
+                        <div style="color: #444; font-size: 13px; margin-top: 5px; line-height: 1.4;">
+                            <i class="fas fa-quote-left" style="color:#ccc; font-size:10px; vertical-align:top;"></i> 
+                            ${r.ulasan}
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+        }
 
+    } catch (err) {
+        console.error("Gagal load social:", err);
+    }
+    }
+    
     async function ensureWallet() {
         if(!signer) {
             await connectWallet();
@@ -848,12 +864,22 @@ try {
     }
 
     function pilihBintang(n) {
-        document.getElementById("selectedStar").value = n;
-        const stars = document.querySelectorAll('.star-rating span');
-        stars.forEach((s, index) => {
-            if(index < n) s.classList.add('active');
-            else s.classList.remove('active');
-        });
+    // 1. Simpan nilai ke input hidden
+    document.getElementById("selectedStar").value = n;
+
+    // 2. Ambil semua elemen 'i' (icon), BUKAN 'span'
+    const stars = document.querySelectorAll('.star-rating i');
+
+    // 3. Loop untuk ubah warna
+    stars.forEach((s, index) => {
+        if(index < n) {
+            // Jika urutan bintang di bawah n, warnai Emas
+            s.style.color = "#f1c40f"; 
+        } else {
+            // Sisanya warnai Abu-abu
+            s.style.color = "#ccc"; 
+        }
+    });
     }
 
     function pilihTag(btn, teks) {
