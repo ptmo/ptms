@@ -788,59 +788,66 @@ async function loadGaleri() {
         Memuat ${titleTab} (${currentCategory})...
     </p>`;
 
-    // --- LOGIKA TAB PUBLIK ---
-        if (currentTab === 'public') {
-            try {
-                const rawItems = await contractReader.getAllGalleryItems();
-                
-                // SIMPAN DATA KE VARIABLE GLOBAL UNTUK PENCARIAN
-                publicSearchIndex = rawItems; 
-
-                // Filter Kategori (berdasarkan Deskripsi)
-                const filteredItems = rawItems.filter(item => {
-                    return item.description.includes(currentCategory);
-                });
-
-                const finalItems = filteredItems.reverse();
-
-                if (finalItems.length === 0) {
-                    container.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
-                        <h3 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h3>
-                        <p style="color:#888;">Jadilah yang pertama mengupload!</p>
-                    </div>`;
-                    return;
-                }
-                
-                await renderCards(ids, container, isSearchMode, requestId);
-
-            } catch (err) {
-                console.error("Public Load Error:", err);
-                container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Nusantara.</p>`;
-            }
-            return; 
-        }
-
-        // --- LOGIKA TAB OFFICIAL (NFT) ---
+    // --- 1. LOGIKA TAB PUBLIK (GALERI NUSANTARA) ---
+    if (currentTab === 'public') {
         try {
-            const ids = await contractReader.getIdsByGolongan(currentCategory);
+            // Ambil semua data galeri
+            // Pastikan nama fungsi di ABI kontrak Anda sesuai (getAllGalleryItems / getAllItems)
+            const rawItems = await contractReader.getAllGalleryItems(); 
             
-            if (searchRequestId !== currentRequestId) return;
-            globalIds = ids.slice().reverse(); 
-            currentOffset = 0;
-            isFetchingBatch = false;
+            // Filter Manual di Browser (Karena kontrak V3 menyimpan kategori di deskripsi/struct)
+            const publicItems = rawItems.filter(item => {
+                // Cek apakah deskripsi atau kategori mengandung kata kunci filter (misal: "Satria")
+                // Menggunakan toLowerCase() agar pencarian tidak sensitif huruf besar/kecil
+                return (item.description && item.description.toLowerCase().includes(currentCategory.toLowerCase())) ||
+                       (item.category && item.category.toLowerCase().includes(currentCategory.toLowerCase()));
+            });
 
-            if (globalIds.length === 0) {
-                container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
+            if (publicItems.length === 0) {
+                // --- INI KODE PESAN KOSONG YANG ANDA MINTA ---
+                container.innerHTML = `
+                    <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
+                        <h4 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h4>
+                        <p style="color:#888;">Jadilah yang pertama mengupload!</p><br>
+                        <button class="btn-upload-hero" onclick="window.location.href='upload_public'"><img src="img/up.svg" 
+                        style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px; filter: brightness(0) invert(1);">
+                        Upload Koleksi/Karya Anda Sekarang</button>
+                    </div>`;
                 return;
             }
-            
-            container.innerHTML = ""; 
-            await loadNextBatch();
+
+            // Jika ada data, render (Reverse agar yang terbaru muncul di atas)
+            await renderPublicGallery(publicItems.reverse(), container);
 
         } catch (err) {
             console.error(err);
-            container.innerHTML = `<p style="font-size:13px; color: #7385a5; text-align:center; grid-column: 1/-1;">Pilih kategori atau Pencarian.</p>`;
+            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Publik.</p>`;
+        }
+        return; // Berhenti di sini agar tidak menjalankan logika Official di bawah
+    }
+
+    // --- 2. LOGIKA TAB OFFICIAL (KOLEKSI PUTRAMAS) ---
+    try {
+        const ids = await contractReader.getIdsByGolongan(currentCategory);
+        
+        if (searchRequestId !== currentRequestId) return;
+        globalIds = ids.slice().reverse(); 
+        currentOffset = 0;
+        isFetchingBatch = false;
+
+        if (globalIds.length === 0) {
+            container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
+            return;
+        }
+        
+        container.innerHTML = ""; 
+        await loadNextBatch();
+
+    } catch (err) {
+        console.error(err);
+        if (searchRequestId === currentRequestId) {
+            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
+        }
     }
 }
 
