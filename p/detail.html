@@ -354,11 +354,15 @@ Koleksi Wayang Kulit
 
 <div id="content" class="container" style="display: none;">
     <div class="left-col">
-    <div class="img-frame wayang-img-wrapper" style="position: relative;">
+    <div class="img-frame wayang-img-wrapper" style="position: relative; display: inline-block; width: 100%;">
         
-        <div class="id-badge">ID: #<span id="displayId">0</span></div>
-        
-        <img id="displayImg" src="" style="width: 100%; display: block;">
+        <div class="id-badge" style="position: absolute; top: 10px; right: 10px; z-index: 30; 
+             background: rgba(0, 0, 0, 0.6); color: #fff; padding: 5px 10px; 
+             border-radius: 5px; font-weight: bold; font-size: 14px; pointer-events: none;">
+            ID: #<span id="displayId">0</span>
+        </div>
+
+        <img id="displayImg" src="" style="width: 100%; display: block; border-radius: 10px;">
         
         </div>
 
@@ -579,26 +583,25 @@ Koleksi Wayang Kulit
 
         // --- RENDER TOMBOL REVISI (SELALU MUNCUL) ---
         // Kita suntikkan tombol ini ke dalam wrapper gambar
-        const imgContainer = document.querySelector('.wayang-img-wrapper'); // Pastikan class ini ada di HTML pembungkus gambar
+        const imgContainer = document.querySelector('.wayang-img-wrapper'); 
         
-        // Sesuaikan variabel ${w.id} menjadi ${id} dan ${w.owner} menjadi ${owner}
         const editBtnHTML = `
             <button onclick="handleEditClick('${id}', '${owner}')" 
                  title="Revisi Data (Hanya Pemilik)" 
-                 style="position:absolute; top:10px; right:10px; z-index:20; 
-                 background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
-                 font-size:11px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
+                 style="position:absolute; bottom:10px; left:10px; z-index:40; 
+                 background:#d35400; color:#fff; padding:6px 14px; border-radius:5px; 
+                 font-size:11px; font-weight:bold; border:1px solid rgba(255,255,255,0.4); 
                  cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
-                 box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;">
+                 box-shadow: 0 2px 5px rgba(0,0,0,0.4); transition: transform 0.2s;">
                  <i class="fas fa-edit"></i> Revisi
             </button>`;
         
-        // Masukkan tombol ke dalam HTML (jika container ditemukan)
         if(imgContainer) {
-            imgContainer.insertAdjacentHTML('beforeend', editBtnHTML);
-        } else {
-            // Fallback: Jika tidak ada wrapper khusus, tempel di body atau elemen lain
-            console.warn("Wrapper gambar tidak ditemukan, tombol revisi mungkin tidak muncul di posisi yang tepat.");
+            // Pastikan tidak double render
+            const oldBtn = imgContainer.querySelector('button[title="Revisi Data (Hanya Pemilik)"]');
+            if (!oldBtn) {
+                imgContainer.insertAdjacentHTML('beforeend', editBtnHTML);
+            }
         }
         
         const rawImgUrl = meta.image.replace("ipfs://", "https://ipfs.io/ipfs/");
