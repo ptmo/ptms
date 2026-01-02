@@ -331,6 +331,69 @@ Koleksi Wayang Kulit
     from {top: 30px; opacity: 1;}
     to {top: -50px; opacity: 0;}
         }
+
+        /* Gaya untuk Modal Zoom */
+.zoom-modal {
+    display: none; /* Default sembunyi */
+    position: fixed; 
+    z-index: 9999; /* Paling atas menutupi semuanya */
+    padding-top: 50px; 
+    left: 0;
+    top: 0;
+    width: 100%; 
+    height: 100%; 
+    overflow: auto; 
+    background-color: rgba(0,0,0,0.9); /* Latar hitam transparan */
+    backdrop-filter: blur(5px); /* Efek blur di latar belakang */
+}
+
+/* Gambar saat di-Zoom */
+.zoom-modal-content {
+    margin: auto;
+    display: block;
+    width: 80%;
+    max-width: 700px; /* Batas lebar maksimal */
+    max-height: 80vh; /* Agar tidak kepanjangan di HP */
+    object-fit: contain;
+    border-radius: 8px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.2);
+    animation: zoomEffect 0.3s;
+}
+
+/* Tombol Close (X Merah) */
+.zoom-close {
+    position: absolute;
+    top: 20px;
+    right: 30px;
+    color: #e74c3c; /* <--- INI WARNA MERAHNYA */
+    font-size: 50px; /* Ukuran besar biar gampang dipencet */
+    font-weight: bold;
+    transition: 0.3s;
+    cursor: pointer;
+    z-index: 10001;
+    /* Kasih bayangan putih dikit biar kontras kalau gambarnya gelap */
+    text-shadow: 0 0 10px rgba(255,255,255,0.5); 
+    line-height: 1;
+}
+
+.zoom-close:hover {
+    color: #c0392b; /* Merah lebih gelap pas disentuh */
+    transform: scale(1.1); /* Efek membesar dikit */
+}
+
+/* Animasi Zoom In */
+@keyframes zoomEffect {
+    from {transform:scale(0)} 
+    to {transform:scale(1)}
+}
+
+/* Responsif untuk HP */
+@media only screen and (max-width: 700px){
+    .zoom-modal-content {
+        width: 100%;
+        margin-top: 30%; /* Agar pas di tengah layar HP */
+    }
+}
     </style>
 </head>
 <body>
@@ -362,13 +425,19 @@ Koleksi Wayang Kulit
             ID: #<span id="displayId">0</span>
         </div>
 
-        <img id="displayImg" src="" style="width: 100%; display: block;">
-        
+        <img id="displayImg" src="" 
+     onclick="openZoom(this)" 
+     style="width: 100%; display: block; border-radius: 10px; cursor: zoom-in;">
         </div>
 
     <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
         Permanen di Base Mainnet
     </div>
+    </div>
+
+    <div id="myZoomModal" class="zoom-modal" onclick="closeZoom()">
+  <span class="zoom-close">&times;</span>
+  <img class="zoom-modal-content" id="img01">
     </div>
 
     <div class="right-col">
@@ -588,8 +657,8 @@ Koleksi Wayang Kulit
             <button onclick="handleEditClick('${id}', '${owner}')" 
                  title="Revisi Data (Hanya Pemilik)" 
                  style="position:absolute; bottom:10px; left:10px; z-index:40; 
-                 background:#d35400; color:#fff; padding:5px 13px; border-radius:5px; 
-                 font-size:11px; font-weight:bold; border:1px solid rgba(255,255,255,0.4); 
+                 background:#d35400; color:#fff; padding:4px 11px; border-radius:5px; 
+                 font-size:10px; font-weight:bold; border:1px solid rgba(255,255,255,0.4); 
                  cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
                  box-shadow: 0 2px 5px rgba(0,0,0,0.4); transition: transform 0.2s;">
                  <i class="fas fa-edit"></i> Revisi
@@ -812,6 +881,24 @@ try {
         }
     }
     }
+
+    // --- FUNGSI ZOOM GAMBAR ---
+
+function openZoom(element) {
+    const modal = document.getElementById("myZoomModal");
+    const modalImg = document.getElementById("img01");
+    
+    // Munculkan layar hitam
+    modal.style.display = "block";
+    
+    // Ambil gambar dari yang diklik, masukkan ke modal
+    modalImg.src = element.src; 
+}
+
+function closeZoom() {
+    // Sembunyikan layar hitam
+    document.getElementById("myZoomModal").style.display = "none";
+}
 
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
