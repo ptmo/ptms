@@ -223,26 +223,53 @@
     margin: 0 auto 30px auto;
 }
 
+/* Icon Kaca Pembesar (Kiri) */
+.search-icon {
+    position: absolute;
+    top: 50%;
+    left: 20px;
+    transform: translateY(-50%);
+    color: #7385a5; /* Sesuai Request */
+    font-size: 18px;
+    z-index: 10;
+    pointer-events: none;
+}
+
+/* Icon Close / Silang (Kanan) */
+.close-icon {
+    position: absolute;
+    top: 50%;
+    right: 20px;
+    transform: translateY(-50%);
+    color: #e74c3c; /* Merah agar terlihat tombol aksi hapus */
+    font-size: 18px;
+    z-index: 10;
+    cursor: pointer;
+    display: none; /* Sembunyi dulu */
+    transition: transform 0.2s;
+}
+.close-icon:hover {
+    transform: translateY(-50%) scale(1.2); /* Efek membesar saat hover */
+}
+
+/* Input Field */
 #searchInput {
     width: 100%;
-    padding: 15px 25px;
+    padding: 15px 50px; /* Padding Kiri Kanan 50px agar tidak nabrak icon */
     border-radius: 50px;
     border: 2px solid #7385a5;
     background: #fff;
     outline: none;
     text-align: center;
+    font-size: 16px;
+    color: #555;
     box-shadow: 0 2px 6px rgba(115, 133, 165, 0.25);
-    transition:
-        box-shadow 0.25s ease,
-        border-color 0.25s ease,
-        transform 0.25s ease;
+    transition: all 0.25s ease;
 }
 
-#searchInput:hover,
 #searchInput:focus {
     border-color: #7385a5;
-    box-shadow: 0 6px 16px rgba(115, 133, 165, 0.45);
-    transform: translateY(-2px);
+    box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3);
 }
         
         .tab-wrapper { display: flex; justify-content: center; gap: 20px; margin-bottom: 30px; }
@@ -477,7 +504,11 @@
         </section>
 
         <div class="search-wrapper">
-            <input type="text" id="searchInput" placeholder="Mohon tunggu, sedang memuat database..." onkeyup="smartSearch()">
+    <i class="fas fa-search search-icon"></i>
+    
+    <input type="text" id="searchInput" placeholder="Mohon tunggu..." onkeyup="smartSearch()">
+    
+    <i class="fas fa-times close-icon" id="clearBtn" onclick="clearSearch()"></i>
         </div>
 
         <div class="tab-wrapper" id="tabContainer">
@@ -574,7 +605,7 @@
         if (cachedData) {
             searchIndex = JSON.parse(cachedData);
             isSearchReady = true;
-            document.getElementById("searchInput").placeholder = `🔍 Cari dari ${searchIndex.length} wayang...`;
+            document.getElementById("searchInput").placeholder = `Cari dari ${searchIndex.length} Wayang...`;
         }
     }
 
@@ -611,20 +642,33 @@
         } catch(e) { console.error("Index failed:", e); }
     }
 
+    // --- 1. FUNGSI SMART SEARCH (UPGRADED) ---
     async function smartSearch() {
-        const query = document.getElementById("searchInput").value.toLowerCase();
+        const input = document.getElementById("searchInput");
+        const clearBtn = document.getElementById("clearBtn"); // Ambil elemen tombol X
         const container = document.getElementById("containerGaleri");
+        const query = input.value.toLowerCase();
 
+        // A. LOGIKA TOMBOL CLOSE (Muncul jika ada teks)
+        if (query.length > 0) {
+            if(clearBtn) clearBtn.style.display = "block";
+        } else {
+            if(clearBtn) clearBtn.style.display = "none";
+        }
+
+        // B. SETUP REQUEST
         searchRequestId++; 
         const currentRequestId = searchRequestId;
 
+        // C. JIKA INPUT KOSONG -> KEMBALI KE GALERI UTAMA
         if (query.length === 0) {
             document.getElementById("tabContainer").style.display = "flex";
             document.getElementById("categoryContainer").style.display = "flex";
-            loadGaleri();
+            loadGaleri(); // Panggil fungsi loadGaleri (yang ada kode 'Penting' Anda)
             return;
         }
 
+        // D. MODE SEARCH AKTIF -> SEMBUNYIKAN TAB
         document.getElementById("tabContainer").style.display = "none";
         document.getElementById("categoryContainer").style.display = "none";
 
@@ -633,27 +677,39 @@
             return;
         }
 
+        // E. FILTER DATA
         const results = searchIndex.filter(w => 
             w.nama.includes(query) || 
             w.gaya.includes(query) || 
             w.id === query
         );
 
+        // F. JIKA HASIL NIHIL (TAMPILKAN SATELIT / NOT FOUND BOX)
         if (results.length === 0) {
             container.innerHTML = `
                 <div style="grid-column: 1/-1; animation: fadeIn 0.5s;">
                     <div class="nf-box">
                         <img src="img/stl.svg" class="nf-icon" alt="Not Found">
                         <h3 style="color: #7385a5; margin: 0 0 10px 0;">Pencarian Tidak Ditemukan</h3>
-                        <p style="color: #7385a5;">Tidak dapat menemukan wayang dengan kata kunci: <b>"${query}"</b></p>
+                        <p style="color: #7385a5;">Tidak dapat menemukan wayang dengan kata kunci: <b>"${input.value}"</b></p>
                     </div>
                 </div>`;
             return;
         }
 
+        // G. RENDER HASIL PENCARIAN
         container.innerHTML = ""; 
         const limitedIds = results.slice(0, 20).map(r => r.id);
         await renderCards(limitedIds, container, true, currentRequestId);
+    }
+
+    // --- 2. FUNGSI CLEAR SEARCH (Tambahkan ini di bawah smartSearch) ---
+    function clearSearch() {
+        const input = document.getElementById("searchInput");
+        input.value = ""; // Kosongkan input
+        
+        // Panggil smartSearch lagi untuk mereset tampilan ke Galeri awal
+        smartSearch(); 
     }
 
     function switchTab(tab) {
