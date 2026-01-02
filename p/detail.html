@@ -332,67 +332,73 @@ Koleksi Wayang Kulit
     to {top: -50px; opacity: 0;}
         }
 
-        /* Gaya untuk Modal Zoom */
+        /* --- MODAL PREMIUM STYLE --- */
+
+/* Latar Belakang Gelap (Overlay) */
 .zoom-modal {
-    display: none; /* Default sembunyi */
+    display: none; 
     position: fixed; 
-    z-index: 9999; /* Paling atas menutupi semuanya */
-    padding-top: 50px; 
+    z-index: 99999; 
     left: 0;
     top: 0;
     width: 100%; 
     height: 100%; 
-    overflow: auto; 
-    background-color: rgba(0,0,0,0.9); /* Latar hitam transparan */
-    backdrop-filter: blur(5px); /* Efek blur di latar belakang */
+    background-color: rgba(0, 0, 0, 0.95); /* Lebih gelap biar fokus */
+    backdrop-filter: blur(8px); /* Efek blur mahal */
+    
+    /* Flexbox untuk Centering Sempurna */
+    align-items: center; 
+    justify-content: center;
+    overflow: hidden; /* Mencegah scroll di dalam modal */
 }
 
-/* Gambar saat di-Zoom */
+/* Gambar Zoom */
 .zoom-modal-content {
-    margin: auto;
-    display: block;
-    width: 80%;
-    max-width: 700px; /* Batas lebar maksimal */
-    max-height: 80vh; /* Agar tidak kepanjangan di HP */
-    object-fit: contain;
+    max-width: 90%; 
+    max-height: 90vh; /* Maksimal 90% tinggi layar */
+    object-fit: contain; /* Gambar tidak akan gepeng */
     border-radius: 8px;
-    box-shadow: 0 0 20px rgba(255,255,255,0.2);
-    animation: zoomEffect 0.3s;
+    box-shadow: 0 0 50px rgba(0,0,0,0.5); /* Shadow halus */
+    transform: scale(0.9);
+    opacity: 0;
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Animasi membal */
 }
 
-/* Tombol Close (X Merah) */
+/* Class untuk Animasi Masuk */
+.zoom-modal.active .zoom-modal-content {
+    transform: scale(1);
+    opacity: 1;
+}
+
+/* Tombol Close Premium */
 .zoom-close {
     position: absolute;
     top: 20px;
-    right: 30px;
-    color: #e74c3c; /* <--- INI WARNA MERAHNYA */
-    font-size: 50px; /* Ukuran besar biar gampang dipencet */
-    font-weight: bold;
-    transition: 0.3s;
+    right: 25px;
+    color: #fff;
+    background: rgba(255, 255, 255, 0.1);
+    width: 45px;
+    height: 45px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 24px;
     cursor: pointer;
-    z-index: 10001;
-    /* Kasih bayangan putih dikit biar kontras kalau gambarnya gelap */
-    text-shadow: 0 0 10px rgba(255,255,255,0.5); 
-    line-height: 1;
+    transition: all 0.3s;
+    backdrop-filter: blur(5px);
+    border: 1px solid rgba(255,255,255,0.2);
 }
 
 .zoom-close:hover {
-    color: #c0392b; /* Merah lebih gelap pas disentuh */
-    transform: scale(1.1); /* Efek membesar dikit */
+    background: #e74c3c;
+    border-color: #e74c3c;
+    transform: rotate(90deg); /* Efek putar saat hover */
 }
 
-/* Animasi Zoom In */
-@keyframes zoomEffect {
-    from {transform:scale(0)} 
-    to {transform:scale(1)}
-}
-
-/* Responsif untuk HP */
-@media only screen and (max-width: 700px){
-    .zoom-modal-content {
-        width: 100%;
-        margin-top: 30%; /* Agar pas di tengah layar HP */
-    }
+/* Cegah Scroll Body saat Modal Aktif */
+body.modal-open {
+    overflow: hidden;
 }
     </style>
 </head>
@@ -436,8 +442,11 @@ Koleksi Wayang Kulit
     </div>
 
     <div id="myZoomModal" class="zoom-modal" onclick="closeZoom()">
-  <span class="zoom-close">&times;</span>
-  <img class="zoom-modal-content" id="img01">
+    <div class="zoom-close" onclick="closeZoom()">
+        <i class="fas fa-times"></i>
+    </div>
+    
+    <img class="zoom-modal-content" id="img01">
     </div>
 
     <div class="right-col">
@@ -882,22 +891,39 @@ try {
     }
     }
 
-    // --- FUNGSI ZOOM GAMBAR ---
+    // --- FUNGSI ZOOM PREMIUM ---
 
 function openZoom(element) {
     const modal = document.getElementById("myZoomModal");
     const modalImg = document.getElementById("img01");
     
-    // Munculkan layar hitam
-    modal.style.display = "block";
-    
-    // Ambil gambar dari yang diklik, masukkan ke modal
+    // 1. Set Sumber Gambar
     modalImg.src = element.src; 
+    
+    // 2. Tampilkan Modal (Flex agar centering jalan)
+    modal.style.display = "flex"; 
+    
+    // 3. Kunci Scroll Body (Biar gak goyang)
+    document.body.classList.add("modal-open");
+
+    // 4. Trigger Animasi (Sedikit delay agar transisi jalan)
+    setTimeout(() => {
+        modal.classList.add("active");
+    }, 10);
 }
 
 function closeZoom() {
-    // Sembunyikan layar hitam
-    document.getElementById("myZoomModal").style.display = "none";
+    const modal = document.getElementById("myZoomModal");
+    
+    // 1. Hilangkan Animasi
+    modal.classList.remove("active");
+    
+    // 2. Tunggu animasi selesai baru sembunyikan (300ms sesuai CSS transition)
+    setTimeout(() => {
+        modal.style.display = "none";
+        // 3. Lepas Kunci Scroll Body
+        document.body.classList.remove("modal-open");
+    }, 300);
 }
 
     function showToast(msg, type = 'info') {
