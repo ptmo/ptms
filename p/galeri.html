@@ -774,7 +774,8 @@ Koleksi Wayang Kulit
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadGaleri();
     }
-async function loadGaleri() {
+    
+    async function loadGaleri() {
     document.getElementById("searchInput").value = "";
 
     searchRequestId++; 
@@ -787,51 +788,6 @@ async function loadGaleri() {
         Memuat ${titleTab} (${currentCategory})...
     </p>`;
 
-    // --- 1. LOGIKA TAB PUBLIK (GALERI NUSANTARA) ---
-    if (currentTab === 'public') {
-        try {
-            // Ambil semua data
-            const rawItems = await contractReader.getAllGalleryItems(); 
-            
-            // Filter Data Sesuai Kategori
-            const publicItems = rawItems.filter(item => {
-                // Pastikan description & category ada sebelum di-lowercase untuk hindari error
-                const desc = item.description ? item.description.toLowerCase() : "";
-                const cat = item.category ? item.category.toLowerCase() : ""; // Sesuaikan jika kontrak V3 pakai struct category
-                const filter = currentCategory.toLowerCase();
-                
-                return desc.includes(filter) || cat.includes(filter);
-            });
-
-            if (publicItems.length === 0) {
-                // --- KODE PESAN KOSONG YANG ANDA MINTA ---
-                container.innerHTML = `
-                    <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
-                        <h4 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h4>
-                        <p style="color:#888;">Jadilah yang pertama mengupload!</p><br>
-                        <button class="btn-upload-hero" onclick="window.location.href='upload_public'"><img src="img/up.svg" 
-                        style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px; filter: brightness(0) invert(1);">
-                        Upload Koleksi/Karya Anda Sekarang</button>
-                    </div>`;
-                return;
-            }
-
-            // --- PERBAIKAN DISINI ---
-            // Kita harus ambil ID-nya saja dari publicItems agar cocok dengan fungsi renderCards
-            const publicIds = publicItems.map(item => item.id);
-
-            // Render menggunakan renderCards (dibalik agar terbaru diatas)
-            container.innerHTML = ""; // Bersihkan loading
-            await renderCards(publicIds.reverse(), container, false, currentRequestId);
-
-        } catch (err) {
-            console.error("Error Publik:", err);
-            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Publik.</p>`;
-        }
-        return; // PENTING: Stop disini agar tidak lanjut ke logika Official
-    }
-
-    // --- 2. LOGIKA TAB OFFICIAL (KOLEKSI PUTRAMAS) ---
     try {
         const ids = await contractReader.getIdsByGolongan(currentCategory);
         
@@ -841,7 +797,10 @@ async function loadGaleri() {
         isFetchingBatch = false;
 
         if (globalIds.length === 0) {
-            container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
+            container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>
+            <br><button class="btn-upload-hero" onclick="window.location.href='upload_public'"><img src="img/up.svg" 
+            style="width: 24px; height: 24px; vertical-align: middle; margin-right: 10px; filter: brightness(0) invert(1);">
+            Upload Koleksi/Karya Anda Sekarang!</button>`;
             return;
         }
         
@@ -849,12 +808,12 @@ async function loadGaleri() {
         await loadNextBatch();
 
     } catch (err) {
-        console.error("Error Official:", err);
+        console.error(err);
         if (searchRequestId === currentRequestId) {
             container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
         }
     }
-}
+ }
 
     async function loadNextBatch() {
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
