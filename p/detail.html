@@ -386,6 +386,9 @@ Koleksi Wayang Kulit
             <div class="silsilah-row"><span style="color:#666">Pusaka:</span><span style="font-weight:bold" id="displayPusaka">-</span></div>
         </div>
 
+        <div id="ownerActions" style="margin-top: 15px; display: none;">
+        </div>
+
         <div class="social-section">
             
             <div style="margin-bottom: 25px;">
@@ -557,6 +560,21 @@ Koleksi Wayang Kulit
         try {
             const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
             const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+            const owner = await contract.ownerOf(id);
+    
+    // 2. Cek apakah Wallet yang connect == Owner NFT
+    // Pastikan variabel 'userAddress' sudah terisi dari connectWallet()
+    if (userAddress && owner.toLowerCase() === userAddress.toLowerCase()) {
+        const actionDiv = document.getElementById("ownerActions");
+        actionDiv.style.display = "block";
+        actionDiv.innerHTML = `
+            <button onclick="window.location.href='revisi_user.html?id=${id}'" 
+                style="background: #d35400; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%;">
+                <i class="fas fa-edit"></i> REVISI DATA WAYANG INI
+            </button>
+            <p style="font-size: 12px; color: #888; text-align: center; margin-top: 5px;">*Hanya Anda (Pemilik) yang melihat tombol ini.</p>
+        `;
+    }
             const uri = await contract.tokenURI(id);
             const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
             const response = await axios.get(httpUri);
