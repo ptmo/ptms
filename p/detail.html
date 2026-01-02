@@ -348,19 +348,23 @@ Koleksi Wayang Kulit
     </div>
 </nav>
 
-<div id="loading" style="text-align: center; margin-top: 100px; font-size: 13px; color: #80db80;">
+<div id="loading" style="text-align: center; margin-top: 100px; font-size: 13px; color: #00b300;">
     <img src="img/loading.svg" style="width: 17px; height: 17px; vertical-align: middle;"> Membuka Detail Arsip...
 </div>
 
 <div id="content" class="container" style="display: none;">
     <div class="left-col">
-        <div class="img-frame">
-            <div class="id-badge">ID: #<span id="displayId">0</span></div>
-            <img id="displayImg" src="" alt="Wayang">
+    <div class="img-frame wayang-img-wrapper" style="position: relative;">
+        
+        <div class="id-badge">ID: #<span id="displayId">0</span></div>
+        
+        <img id="displayImg" src="" style="width: 100%; display: block;">
+        
         </div>
-        <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
-            Permanen di Base Mainnet
-        </div>
+
+    <div style="text-align: center; margin-top: 20px; color: #666; font-size: 12px;">
+        Permanen di Base Mainnet
+    </div>
     </div>
 
     <div class="right-col">
@@ -370,8 +374,6 @@ Koleksi Wayang Kulit
         </div>
         
         <p class="description" id="displayDesc">Deskripsi...</p>
-        <div id="ownerActions" style="margin-top: 15px; display: none;">
-        </div>
 
         <h3 style="color:#7385a5; border-bottom:1px solid #444; padding-bottom:5px;">Data Fisik & Budaya</h3>
         <div class="meta-grid">
@@ -411,7 +413,7 @@ Koleksi Wayang Kulit
     </div>
     <br>
     <center><div style="margin-top: 8px; margin-left: 5px; color: #666; font-size: 12px; font-style: italic;">
-        (Klik Suka & Ulasan untuk mendukung pelestarian)
+        (Klik Suka & Ulasan)
     </div></center>
 
             </div>
@@ -449,7 +451,7 @@ Koleksi Wayang Kulit
             <div style="margin-top: 30px;">
                 <h3 style="color: #7385a5;">Ulasan Pengunjung (<span id="reviewCount">0</span>)</h3>
                 <div id="reviewContainer">
-                    <p style="color:#80db80; font-style: italic; font-size: 13px;">Memuat ulasan...</p>
+                    <p style="color:#00b300; font-style: italic; font-size: 13px;">Memuat ulasan...</p>
                 </div>
             </div>
         </div>
@@ -552,44 +554,52 @@ Koleksi Wayang Kulit
         }
     }
 
-    async function loadDetail() {
+        async function loadDetail() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
 
-    if (!id) {
-        document.getElementById("loading").innerText = "ID Arsip tidak ditemukan.";
-        return;
-    }
+    if (!id) return;
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
-        // --- PERBAIKAN 1: AMBIL OWNER DULUAN (Supaya variabel 'owner' tersedia) ---
-        const owner = await contract.ownerOf(id); 
-
-        // --- PERBAIKAN 2: LOGIKA TOMBOL REVISI (Sekarang aman karena 'owner' sudah ada) ---
-        // Pastikan userAddress ada isinya (cek typeof biar gak error)
-        if (typeof userAddress !== 'undefined' && userAddress && owner.toLowerCase() === userAddress.toLowerCase()) {
-            const actionDiv = document.getElementById("ownerActions");
-            if (actionDiv) {
-                actionDiv.style.display = "block";
-                actionDiv.innerHTML = `
-                    <button onclick="window.location.href='revisi?id=${id}'" 
-                        style="background: #d35400; color: white; border: none; padding: 10px 20px; border-radius: 5px; cursor: pointer; font-weight: bold; width: 100%; margin-bottom: 10px;">
-                        <i class="fas fa-edit"></i> REVISI DATA WAYANG INI
-                    </button>
-                    <p style="font-size: 12px; color: #888; text-align: center; margin-top: 5px;">*Hanya Anda (Pemilik) yang melihat tombol ini.</p>
-                `;
-            }
-        }
-
-        // --- LANJUT KE METADATA (SESUAI REQUEST: TIDAK ADA YANG DIKURANGI) ---
+        // 1. Ambil Owner & Data
+        const owner = await contract.ownerOf(id);
         const uri = await contract.tokenURI(id);
-        // Menggunakan gateway Pinata supaya gambar muncul lebih cepat dibanding ipfs.io
         const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
         const response = await axios.get(httpUri);
         const meta = response.data;
+
+        // 2. Cek User Address (Untuk keperluan validasi nanti saat klik)
+        if (window.ethereum) {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) userAddress = accounts[0];
+        }
+
+        // --- RENDER TOMBOL REVISI (SELALU MUNCUL) ---
+        // Kita suntikkan tombol ini ke dalam wrapper gambar
+        const imgContainer = document.querySelector('.wayang-img-wrapper'); // Pastikan class ini ada di HTML pembungkus gambar
+        
+        // Sesuaikan variabel ${w.id} menjadi ${id} dan ${w.owner} menjadi ${owner}
+        const editBtnHTML = `
+            <button onclick="handleEditClick('${id}', '${owner}')" 
+                 title="Revisi Data (Hanya Pemilik)" 
+                 style="position:absolute; top:10px; right:10px; z-index:20; 
+                 background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
+                 font-size:11px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
+                 cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
+                 box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;">
+                 <i class="fas fa-edit"></i> Revisi
+            </button>`;
+        
+        // Masukkan tombol ke dalam HTML (jika container ditemukan)
+        if(imgContainer) {
+            imgContainer.insertAdjacentHTML('beforeend', editBtnHTML);
+        } else {
+            // Fallback: Jika tidak ada wrapper khusus, tempel di body atau elemen lain
+            console.warn("Wrapper gambar tidak ditemukan, tombol revisi mungkin tidak muncul di posisi yang tepat.");
+        }
         
         const rawImgUrl = meta.image.replace("ipfs://", "https://ipfs.io/ipfs/");
         const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
@@ -635,6 +645,24 @@ Koleksi Wayang Kulit
         document.getElementById("loading").innerText = "Gagal memuat data wayang. Cek koneksi.";
     }
   }
+
+    // Fungsi Handler Klik Tombol Revisi
+function handleEditClick(id, owner) {
+    // 1. Cek apakah Wallet sudah terhubung
+    if (!userAddress) {
+        showToast("Hubungkan wallet untuk mengedit!", 'warning');
+        return;
+    }
+
+    // 2. Cek apakah Wallet yang login adalah Pemilik
+    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+        showToast("Anda bukan pemilik postingan ini!", 'error');
+        return;
+    }
+
+    // 3. Jika Lolos Validasi -> Pindah ke Halaman Revisi
+    window.location.href = `revisi_user.html?id=${id}`;
+}
 
     async function loadSocialData(id) {
         try {
