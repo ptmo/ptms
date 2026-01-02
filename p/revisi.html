@@ -1,0 +1,344 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Revisi Mandiri - Wayang Nusantara</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/axios/dist/axios.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* BASE STYLE */
+        * { box-sizing: border-box; }
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f4f7f6; margin: 0; padding-bottom: 50px; color: #555; }
+        
+        .container { max-width: 800px; margin: 30px auto; padding: 30px; background: #fff; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.05); border-top: 5px solid #d35400; }
+        
+        h1 { color: #d35400; margin-top: 0; font-size: 24px; display: flex; align-items: center; gap: 10px; }
+        .sub-header { font-size: 14px; color: #888; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 15px; }
+
+        /* FORM ELEMENTS */
+        .id-box { background: #fff3e0; padding: 20px; border-radius: 8px; border: 1px solid #ffcc80; margin-bottom: 25px; }
+        .id-box label { color: #e67e22; font-weight: 800; font-size: 14px; }
+        .id-box input { border-color: #ffe0b2; font-size: 18px; font-weight: bold; color: #d35400; }
+        
+        fieldset { border: 1px solid #eee; padding: 20px; border-radius: 8px; margin-bottom: 20px; background: #fff; }
+        legend { font-weight: bold; color: #d35400; padding: 0 10px; }
+        
+        label { display: block; margin: 12px 0 5px; font-weight: 600; font-size: 13px; color: #666; }
+        input, select, textarea { width: 100%; padding: 12px; border: 1px solid #ddd; border-radius: 6px; font-size: 14px; transition: 0.3s; }
+        input:focus, select:focus, textarea:focus { border-color: #d35400; outline: none; box-shadow: 0 0 5px rgba(211, 84, 0, 0.2); }
+
+        /* BUTTONS */
+        .btn-action { width: 100%; padding: 15px; background: #d35400; color: white; border: none; border-radius: 8px; font-size: 16px; font-weight: bold; cursor: pointer; transition: 0.3s; margin-top: 20px; display: flex; align-items: center; justify-content: center; gap: 10px; }
+        .btn-action:hover { background: #a04000; transform: translateY(-2px); }
+        
+        .btn-connect { position: fixed; top: 20px; right: 20px; background: #34495e; color: white; border: none; padding: 10px 20px; border-radius: 30px; font-weight: bold; cursor: pointer; z-index: 100; box-shadow: 0 4px 10px rgba(0,0,0,0.2); }
+        .btn-connect.connected { background: #27ae60; }
+
+        /* STATUS & TOAST */
+        .status { margin-top: 15px; padding: 15px; border-radius: 6px; font-size: 14px; text-align: center; display: none; }
+        .status.loading { background: #fff3e0; color: #d35400; border: 1px solid #ffe0b2; }
+        .status.success { background: #e8f5e9; color: #2ecc71; border: 1px solid #c8e6c9; }
+        .status.error { background: #ffebee; color: #e74c3c; border: 1px solid #ffcdd2; }
+
+        #toast { visibility: hidden; min-width: 250px; background: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 9999; left: 50%; bottom: 30px; transform: translateX(-50%); display: flex; align-items: center; gap: 10px; box-shadow: 0 4px 20px rgba(0,0,0,0.3); font-size: 13px; }
+        #toast.show { visibility: visible; animation: fadein 0.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+
+        @media (max-width: 600px) { .container { margin: 15px; padding: 20px; } .btn-connect { position: absolute; } }
+    </style>
+</head>
+<body>
+
+<button id="btn-connect" class="btn-connect" onclick="connectWallet()">
+    <i class="fas fa-wallet"></i> Hubungkan Dompet
+</button>
+
+<div class="container">
+    <h1><i class="fas fa-edit"></i> Revisi Mandiri</h1>
+    <p class="sub-header">Perbaiki data wayang yang Anda upload sebelumnya. Pastikan Anda menggunakan dompet yang sama saat upload.</p>
+
+    <div class="id-box">
+        <label><i class="fas fa-fingerprint"></i> ID WAYANG (Wajib Diisi):</label>
+        <input type="number" id="editId" placeholder="Contoh: 15" required>
+        <small style="color:#d35400;">*Masukkan angka ID saja (tanpa G-)</small>
+    </div>
+
+    <fieldset>
+        <legend>1. Data Utama (Baru)</legend>
+        <label>Nama Tokoh:</label>
+        <input type="text" id="editNama" placeholder="Nama yang benar">
+        
+        <div style="display: flex; gap: 15px;">
+            <div style="flex: 1;">
+                <label>Golongan:</label>
+                <select id="editGolongan">
+                    <option value="Satria">Satria</option>
+                    <option value="Dewa">Dewa</option>
+                    <option value="Yaksa">Yaksa</option>
+                    <option value="Wanara">Wanara</option>
+                    <option value="Panakawan">Panakawan</option>
+                    <option value="Kayon">Kayon</option>
+                    <option value="Bambangan">Bambangan</option>
+                    <option value="Punggawa">Punggawa</option>
+                    <option value="Krodan">Krodan</option>
+                    <option value="Resi">Resi</option>
+                    <option value="Putren">Putren</option>
+                    <option value="Buta Kiwe">Buta Kiwe</option>
+                    <option value="Sato">Sato</option>
+                    <option value="Gaman">Gaman</option>
+                </select>
+            </div>
+            <div style="flex: 1;">
+                <label>Gaya:</label>
+                <select id="editGaya">
+                    <option value="Yogyakarta">Yogyakarta</option>
+                    <option value="Surakarta">Surakarta</option>
+                    <option value="Cirebon">Cirebon</option>
+                    <option value="Kedu">Kedu</option>
+                    <option value="Banyumas">Banyumas</option>
+                    <option value="Jawa Timur">Jawa Timur</option>
+                    <option value="Jawa Barat">Golek Sunda</option>
+                    <option value="Bali">Bali</option>
+                    <option value="Banjar">Banjar</option>
+                    <option value="Lombok">Lombok</option>
+                    <option value="Lainnya">Lainnya</option>
+                </select>
+            </div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>2. Detail Fisik</legend>
+        <label>Wanda:</label>
+        <input type="text" id="editWanda">
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>Material Kulit:</label><input type="text" id="editKulit"></div>
+            <div style="flex:1"><label>Material Gapit:</label><input type="text" id="editGapit"></div>
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>Penatah:</label><input type="text" id="editPenatah"></div>
+            <div style="flex:1"><label>Penyungging:</label><input type="text" id="editPenyungging"></div>
+        </div>
+        
+        <div style="display:flex; gap:10px;">
+            <div style="flex:1"><label>Tahun:</label><input type="text" id="editTahun"></div>
+            <div style="flex:1"><label>Kolektor:</label><input type="text" id="editKolektor"></div>
+        </div>
+    </fieldset>
+
+    <fieldset>
+        <legend>3. Silsilah</legend>
+        <div style="display: flex; gap: 15px;">
+            <div style="flex: 1;"><label>Ayah:</label><input type="text" id="editAyah"></div>
+            <div style="flex: 1;"><label>Ibu:</label><input type="text" id="editIbu"></div>
+        </div>
+        <label>Negara/Tempat:</label>
+        <input type="text" id="editNegara">
+        <label>Pusaka:</label>
+        <input type="text" id="editPusaka">
+    </fieldset>
+
+    <fieldset>
+        <legend>4. Media (Wajib Upload Ulang)</legend>
+        <label>Deskripsi Singkat:</label>
+        <textarea id="editDeskripsi" rows="3" placeholder="Cerita wayang..."></textarea>
+        
+        <label style="color: #d35400;">Foto Wayang (Baru/Lama):</label>
+        <input type="file" id="editGambar" required>
+        <small style="color:#888;">*Jika tidak ingin ganti foto, upload ulang foto yang sama.</small>
+    </fieldset>
+
+    <button class="btn-action" onclick="revisiWayang()">
+        <i class="fas fa-sync-alt"></i> UPDATE DATA & BAYAR FEE
+    </button>
+    
+    <div id="statusRevisi" class="status"></div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+    // --- KONFIGURASI ---
+    const CONTRACT_ADDRESS = "0xE6A51b5D204e1bA45e2d607ee53eba3D7E70Bc69"; 
+    const PINATA_API_KEY = "9e761468bc54ff406e32";
+    const PINATA_SECRET_KEY = "56cc032751b13afe3deb04ee30a341fbeb54b119649a45a1c4c6b1df8e58a780";
+    
+    const BASE_SEPOLIA_ID = '0x14a34'; 
+    
+    // ABI (Hanya fungsi yang dibutuhkan)
+    const CONTRACT_ABI = [
+        "function revisiWayang(uint256 _id, string _namaBaru, string _uriBaru) public payable",
+        "function revisionFee() view returns (uint256)"
+    ];
+
+    let provider, signer, userAddress, toastTimeout;
+
+    // --- 1. CONNECT WALLET ---
+    async function connectWallet() {
+        if (!window.ethereum) return showToast("Install Metamask!", 'error');
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            
+            // Switch Network
+            const net = await provider.getNetwork();
+            if (net.chainId !== 84532) {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: BASE_SEPOLIA_ID }],
+                });
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+            }
+
+            signer = provider.getSigner();
+            userAddress = await signer.getAddress();
+            
+            const btn = document.getElementById("btn-connect");
+            btn.innerHTML = `<i class="fas fa-check"></i> ${userAddress.substring(0,6)}...`;
+            btn.classList.add("connected");
+            
+            showToast("Terhubung!", 'success');
+        } catch (err) { console.error(err); }
+    }
+
+    // --- 2. LOGIKA REVISI ---
+    async function revisiWayang() {
+        const statusEl = document.getElementById("statusRevisi");
+        statusEl.style.display = 'block';
+        
+        // Ambil Value
+        const id = document.getElementById("editId").value;
+        const fileInput = document.getElementById("editGambar");
+        const nama = document.getElementById("editNama").value;
+        const deskripsiAsli = document.getElementById("editDeskripsi").value;
+
+        // Validasi
+        if (!userAddress) return showToast("Hubungkan dompet dulu!", 'warning');
+        if (!id || !nama || !fileInput.files[0]) {
+            return showToast("ID, Nama, dan Foto wajib diisi!", 'error');
+        }
+
+        try {
+            statusEl.className = "status loading";
+            const loadIcon = `<i class="fas fa-circle-notch fa-spin"></i>`;
+
+            // A. KOMPRESI GAMBAR
+            statusEl.innerHTML = `${loadIcon} 1/4 Mengompres Gambar (Max 300KB)...`;
+            const compressedFile = await compressImage(fileInput.files[0], 300);
+
+            // B. UPLOAD IPFS
+            statusEl.innerHTML = `${loadIcon} 2/4 Upload ke Cloud...`;
+            const imgUrl = await uploadToIPFS(compressedFile);
+
+            // C. BUAT METADATA BARU (Format Konsisten dengan Upload Public)
+            statusEl.innerHTML = `${loadIcon} 3/4 Menyusun Data Baru...`;
+            
+            const metadata = {
+                name: nama,
+                description: deskripsiAsli, // Deskripsi Bersih
+                image: imgUrl,
+                attributes: [
+                    { trait_type: "Golongan", value: document.getElementById("editGolongan").value },
+                    { trait_type: "Gaya", value: document.getElementById("editGaya").value },
+                    { trait_type: "Wanda", value: getVal("editWanda") },
+                    { trait_type: "Material Kulit", value: getVal("editKulit") },
+                    { trait_type: "Material Gapit", value: getVal("editGapit") },
+                    { trait_type: "Penatah", value: getVal("editPenatah") },
+                    { trait_type: "Penyungging", value: getVal("editPenyungging") },
+                    { trait_type: "Tahun Pembuatan", value: getVal("editTahun") },
+                    { trait_type: "Kolektor", value: getVal("editKolektor") },
+                    { trait_type: "Ayah", value: getVal("editAyah") },
+                    { trait_type: "Ibu", value: getVal("editIbu") },
+                    { trait_type: "Negara", value: getVal("editNegara") },
+                    { trait_type: "Pusaka", value: getVal("editPusaka") },
+                    { trait_type: "Creator", value: userAddress },
+                    { trait_type: "Status", value: "Revised" }
+                ]
+            };
+
+            const tokenURI = await uploadJSON(metadata);
+
+            // D. TRANSAKSI BLOCKCHAIN
+            statusEl.innerHTML = `${loadIcon} 4/4 Konfirmasi di Wallet...`;
+            
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+            
+            // Cek Fee Revisi
+            const fee = await contract.revisionFee(); // Panggil fungsi fee revisi
+            
+            // Eksekusi
+            const tx = await contract.revisiWayang(id, nama, tokenURI, { value: fee });
+            
+            statusEl.innerHTML = `${loadIcon} Menunggu Konfirmasi Blockchain...`;
+            await tx.wait();
+
+            // FINISH
+            statusEl.className = "status success";
+            statusEl.innerHTML = `✅ REVISI BERHASIL!<br>Data ID #${id} telah diperbarui.<br><a href="detail?id=${id}" target="_blank">Lihat Hasil</a>`;
+            showToast("Sukses!", 'success');
+
+        } catch (err) {
+            console.error(err);
+            let msg = err.reason || err.message;
+            if(msg.includes("bukan pemilik")) msg = "Gagal: Anda bukan pemilik wayang ini!";
+            statusEl.className = "status error";
+            statusEl.innerText = msg;
+        }
+    }
+
+    // --- HELPER ---
+    function getVal(id) { return document.getElementById(id).value || "-"; }
+
+    async function uploadToIPFS(file) {
+        let data = new FormData(); data.append('file', file);
+        const res = await axios.post(`https://api.pinata.cloud/pinning/pinFileToIPFS`, data, {
+            headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY, "Content-Type": "multipart/form-data"}
+        });
+        return `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
+    }
+
+    async function uploadJSON(json) {
+        const res = await axios.post(`https://api.pinata.cloud/pinning/pinJSONToIPFS`, json, {
+            headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY}
+        });
+        return `ipfs://${res.data.IpfsHash}`;
+    }
+
+    async function compressImage(file, maxSizeKB) {
+        if (file.size <= maxSizeKB * 1024) return file;
+        return new Promise((resolve) => {
+            const reader = new FileReader();
+            reader.readAsDataURL(file);
+            reader.onload = (e) => {
+                const img = new Image();
+                img.src = e.target.result;
+                img.onload = () => {
+                    const canvas = document.createElement('canvas');
+                    let w = img.width, h = img.height;
+                    const MAX = 1000;
+                    if(w>MAX){ h*=MAX/w; w=MAX; }
+                    canvas.width=w; canvas.height=h;
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img,0,0,w,h);
+                    canvas.toBlob(blob => resolve(new File([blob], file.name, {type:'image/jpeg', lastModified:Date.now()})), 'image/jpeg', 0.8);
+                };
+            };
+        });
+    }
+
+    function showToast(msg, type) {
+        const x = document.getElementById("toast");
+        x.innerText = msg;
+        x.className = `show ${type}`;
+        if(toastTimeout) clearTimeout(toastTimeout);
+        toastTimeout = setTimeout(() => x.className = "", 3000);
+    }
+</script>
+
+</body>
+  </html>
