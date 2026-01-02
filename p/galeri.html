@@ -520,6 +520,25 @@ Koleksi Wayang Kulit
     filter: grayscale(0%) opacity(1); /* Jadi berwarna */
     transform: scale(1.15) rotate(-10deg); /* Membesar & Miring dikit */
 }
+
+.btn-edit-card {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background: rgba(0,0,0,0.6);
+    color: white;
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    text-align: center;
+    line-height: 30px;
+    text-decoration: none;
+    font-size: 14px;
+    z-index: 5;
+    transition: 0.3s;
+    border: 1px solid white;
+}
+.btn-edit-card:hover { background: #d35400; transform: scale(1.1); }
 </style>
 </head>
 <body>
@@ -882,29 +901,43 @@ async function renderCards(ids, container, isSearchMode, requestId) {
         }
 
         for (const w of cleanResults) {
+            // 1. Cek dulu: Apakah wayang ini milik user yang sedang login?
+            // (Pastikan variabel userAddress sudah ada isinya dari connectWallet)
+            const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
+
+            // 2. Tentukan Badge (Official / Warga)
             let ownerBadge = "";
             const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
+            
             if (isOwnerOfficial) {
-                ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
-                👑 Official</div>`;
+                ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;">👑 Official</div>`;
             } else {
                 ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
             }
 
-            const html = generateCardHTML(w, ownerBadge);
+            // 3. Generate HTML SEKALI SAJA (Masukkan 'isMine' di sini)
+            const html = generateCardHTML(w, ownerBadge, isMine); 
 
+            // 4. Masukkan ke layar
             container.insertAdjacentHTML('beforeend', html);
+            
             if (typeof fetchOptimizedImage === "function") {
                 fetchOptimizedImage(w.metaUrl, w.id);
             }
-        }       
+        }
     }
 
-function generateCardHTML(w, badge) {
+function generateCardHTML(w, badge, isMine) {
+    const editBtn = isMine 
+        ? `<a href="revisi_user.html?id=${w.id}" class="btn-edit-card" title="Revisi Data" style="position:absolute; top:10px; right:10px; z-index:10; background:rgba(0,0,0,0.7); color:#fff; width:30px; height:30px; border-radius:50%; text-align:center; line-height:30px; text-decoration:none; border:1px solid white;">✏️</a>` 
+        : "";
     return `
-        <a href="detail?id=${w.id}" class="wayang-card">
-            <div class="wayang-img">
-                ${badge}
+        <div class="wayang-card-wrapper" style="position:relative;">
+            ${editBtn} <a href="detail?id=${w.id}" class="wayang-card">
+                <div class="wayang-img">
+                    ${badge}
+                    </div>
+                 </a>
                 
                 <div id="loader-${w.id}" class="img-loader">
                     <div class="spinner-circle"></div>
