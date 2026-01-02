@@ -774,7 +774,6 @@ Koleksi Wayang Kulit
         window.scrollTo({ top: 0, behavior: 'smooth' });
         loadGaleri();
     }
-
 async function loadGaleri() {
     document.getElementById("searchInput").value = "";
 
@@ -791,20 +790,21 @@ async function loadGaleri() {
     // --- 1. LOGIKA TAB PUBLIK (GALERI NUSANTARA) ---
     if (currentTab === 'public') {
         try {
-            // Ambil semua data galeri
-            // Pastikan nama fungsi di ABI kontrak Anda sesuai (getAllGalleryItems / getAllItems)
+            // Ambil semua data
             const rawItems = await contractReader.getAllGalleryItems(); 
             
-            // Filter Manual di Browser (Karena kontrak V3 menyimpan kategori di deskripsi/struct)
+            // Filter Data Sesuai Kategori
             const publicItems = rawItems.filter(item => {
-                // Cek apakah deskripsi atau kategori mengandung kata kunci filter (misal: "Satria")
-                // Menggunakan toLowerCase() agar pencarian tidak sensitif huruf besar/kecil
-                return (item.description && item.description.toLowerCase().includes(currentCategory.toLowerCase())) ||
-                       (item.category && item.category.toLowerCase().includes(currentCategory.toLowerCase()));
+                // Pastikan description & category ada sebelum di-lowercase untuk hindari error
+                const desc = item.description ? item.description.toLowerCase() : "";
+                const cat = item.category ? item.category.toLowerCase() : ""; // Sesuaikan jika kontrak V3 pakai struct category
+                const filter = currentCategory.toLowerCase();
+                
+                return desc.includes(filter) || cat.includes(filter);
             });
 
             if (publicItems.length === 0) {
-                // --- INI KODE PESAN KOSONG YANG ANDA MINTA ---
+                // --- KODE PESAN KOSONG YANG ANDA MINTA ---
                 container.innerHTML = `
                     <div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
                         <h4 style="color:#ccc;">Belum ada kiriman ${currentCategory}.</h4>
@@ -816,14 +816,19 @@ async function loadGaleri() {
                 return;
             }
 
-            // Jika ada data, render (Reverse agar yang terbaru muncul di atas)
-            await renderCards(ids, container, isSearchMode, requestId);
+            // --- PERBAIKAN DISINI ---
+            // Kita harus ambil ID-nya saja dari publicItems agar cocok dengan fungsi renderCards
+            const publicIds = publicItems.map(item => item.id);
+
+            // Render menggunakan renderCards (dibalik agar terbaru diatas)
+            container.innerHTML = ""; // Bersihkan loading
+            await renderCards(publicIds.reverse(), container, false, currentRequestId);
 
         } catch (err) {
-            console.error(err);
+            console.error("Error Publik:", err);
             container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat Galeri Publik.</p>`;
         }
-        return; // Berhenti di sini agar tidak menjalankan logika Official di bawah
+        return; // PENTING: Stop disini agar tidak lanjut ke logika Official
     }
 
     // --- 2. LOGIKA TAB OFFICIAL (KOLEKSI PUTRAMAS) ---
@@ -844,7 +849,7 @@ async function loadGaleri() {
         await loadNextBatch();
 
     } catch (err) {
-        console.error(err);
+        console.error("Error Official:", err);
         if (searchRequestId === currentRequestId) {
             container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
         }
