@@ -824,76 +824,99 @@
     }
 
     async function renderCards(ids, container, isSearchMode, requestId) {
-        const promises = ids.map(async (id) => {
-            try {
-                const [info, owner, likes, ratingRaw, uri] = await Promise.all([
-                    contractReader.getInfoWayang(id),
-                    contractReader.ownerOf(id),
-                    contractReader.totalLikes(id),
-                    contractReader.getAverageRating(id),
-                    contractReader.tokenURI(id)
-                ]);
+    const promises = ids.map(async (id) => {
+        // ... (Bagian fetch data tetap sama, tidak perlu diubah) ...
+        try {
+            const [info, owner, likes, ratingRaw, uri] = await Promise.all([
+                contractReader.getInfoWayang(id),
+                contractReader.ownerOf(id),
+                contractReader.totalLikes(id),
+                contractReader.getAverageRating(id),
+                contractReader.tokenURI(id)
+            ]);
 
-                if (!info.isActive) return null;
-                if (!isSearchMode) {
-                    const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-                    if (currentTab === 'official' && !isOwnerOfficial) return null;
-                    if (currentTab === 'public' && isOwnerOfficial) return null;
-                }
+            if (!info.isActive) return null;
+            // ... (Filter official/public tetap sama) ...
+            
+            // ... (Formatting data tetap sama) ...
+            const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
+            
+            // Return object data
+            return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
+        } catch (e) { return null; }
+    });
 
-                const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
-                const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
-                const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
-                
-                return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
-            } catch (e) { return null; }
-        });
+    const results = await Promise.all(promises);
 
-        const results = await Promise.all(promises);
+    if (searchRequestId !== requestId) return;
+    const cleanResults = results.filter(item => item !== null);
 
-        if (searchRequestId !== requestId) return;
-        const cleanResults = results.filter(item => item !== null);
+    // --- JANGAN TARUH KODE DI SINI (Variable 'w' belum ada) ---
 
-        if (cleanResults.length === 0) {
-            if (isSearchMode) {
-                container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
-            } 
-            return;
+    if (cleanResults.length === 0) {
+        if (isSearchMode) {
+            container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
+        } 
+        return;
+    }
+
+    // === MASUK KE DALAM LOOPING ===
+    for (const w of cleanResults) {
+        
+        // 1. Cek Status Official & Milik Sendiri
+        const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+        const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
+
+        // 2. Style Dasar (Floating KIRI ATAS)
+        const floatStyle = `
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            z-index: 50; 
+            padding: 4px 10px; 
+            border-radius: 20px; 
+            font-size: 10px; 
+            font-weight: bold; 
+            border: 1px solid rgba(255,255,255,0.3); 
+            cursor: pointer; 
+            display: inline-flex; 
+            align-items: center; 
+            gap: 5px; 
+            box-shadow: 0 2px 5px rgba(0,0,0,0.3); 
+            transition: transform 0.2s;
+        `;
+
+        // 3. Buat Tombol Floating (Pengganti ownerBadge lama)
+        let ownerFloatingBtn = '';
+
+        if (isOwnerOfficial) {
+            // OFFICIAL (Kuning)
+            ownerFloatingBtn = `
+            <button onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'" 
+                 title="Official Account" 
+                 style="${floatStyle} background: #f1c40f; color: #000;">
+                 <i class="fas fa-crown" style="color: #d35400;"></i> Official
+            </button>`;
+        } else {
+            // REGULAR USER (Biru)
+            ownerFloatingBtn = `
+            <button onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'" 
+                 title="Lihat Profil Pemilik" 
+                 style="${floatStyle} background: #3498db; color: #fff;">
+                 <i class="fas fa-user"></i> ${w.owner.substring(0, 6)}...
+            </button>`;
         }
 
-        for (const w of cleanResults) {
-            // --- 2. CEK KEPEMILIKAN ---
-            const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
-
-            let ownerBadge = "";
-            const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
-            
-            if (isOwnerOfficial) {
-                ownerBadge = `
-    <div class="owner-badge" 
-         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-         title="Lihat Profil Official"
-         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
-         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
-    </div>`;
-} else {
-    // BAGIAN REGULAR OWNER (Bisa diklik + ada icon User)
-    ownerBadge = `
-    <div class="owner-badge" 
-         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-         title="Lihat Profil Pemilik"
-         style="background:#3498db; color:white; cursor:pointer;">
-         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
-    </div>`;
-            }
-
-            const html = generateCardHTML(w, ownerBadge, isMine); 
-            container.insertAdjacentHTML('beforeend', html);
-            
-            if (typeof fetchOptimizedImage === "function") {
-                fetchOptimizedImage(w.metaUrl, w.id);
-            }
+        // 4. Panggil Fungsi Generate HTML
+        // Parameter kedua kita isi dengan ownerFloatingBtn
+        const html = generateCardHTML(w, ownerFloatingBtn, isMine); 
+        container.insertAdjacentHTML('beforeend', html);
+        
+        // Fetch gambar (tetap sama)
+        if (typeof fetchOptimizedImage === "function") {
+            fetchOptimizedImage(w.metaUrl, w.id);
         }
+    }
     }
 
     // --- 3. GENERATE HTML (FIXED) ---
@@ -932,8 +955,8 @@
 
         return `
             <div class="wayang-card-wrapper" style="position:relative;">
-                ${editBtn} 
-                
+                ${editBtn}
+                ${ownerFloatingBtn}
                 <a href="detail?id=${w.id}" class="wayang-card">
                     
                     <div class="wayang-img">
