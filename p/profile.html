@@ -514,62 +514,59 @@
         // 2. FUNGSI CONNECT & SWITCH NETWORK (Base Sepolia)
         // ============================================================
         async function connectWallet() {
-    const btn = document.getElementById("btn-connect"); // Tombol Navbar
-    const btnBig = document.getElementById("btnLogin"); // Tombol Wall Login
-    
-    // 1. CEK STATUS: Jika sudah connect (punya class 'connected'), buka Modal saja.
-    if (btn && btn.classList.contains("connected")) {
-        toggleWalletModal();
-        return;
-    }
-
-    if (!window.ethereum) return alert("Metamask tidak ditemukan!");
-
-    // 2. EFEK LOADING
-    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
-
-    try {
-        // 3. PROSES KONEKSI
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
+        const btn = document.getElementById("btn-connect"); 
+        const btnBig = document.getElementById("btnLogin"); 
         
-        // Auto Switch Network
-        if (typeof switchNetwork === "function") await switchNetwork();
-
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
-        
-        // Simpan Sesi
-        localStorage.setItem('userWallet', address);
-        if (typeof viewerAddress !== 'undefined') viewerAddress = address;
-        
-        // 4. --- ISI DATA KE DALAM MODAL (PENTING) ---
-        // A. Masukkan Address
-        if(document.getElementById("modalFullAddress")) {
-            document.getElementById("modalFullAddress").innerText = address;
-            document.getElementById("modalShortAddress").innerText = address.substring(0, 10) + "..." + address.substring(35);
+        // JIKA SUDAH CONNECT -> BUKA MODAL
+        if (btn && btn.classList.contains("connected")) {
+            toggleWalletModal();
+            return;
         }
 
-        // B. Ambil & Masukkan Saldo ETH
-        const balance = await provider.getBalance(address);
-        const ethBalance = ethers.utils.formatEther(balance);
-        if(document.getElementById("modalBalance")) {
-            document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
+        if (!window.ethereum) return alert("Install Metamask!");
+
+        if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            
+            // AUTO SWITCH NETWORK
+            await switchNetwork();
+
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
+            
+            // Simpan Sesi
+            localStorage.setItem('userWallet', address);
+            viewerAddress = address;
+            
+            // --- BAGIAN PENTING: ISI DATA MODAL ---
+            // Fetch Saldo
+            const balance = await provider.getBalance(address);
+            const ethBalance = ethers.utils.formatEther(balance);
+            
+            // Update Teks di Modal (INI YANG KEMARIN HILANG)
+            if(document.getElementById("modalBalance")) {
+                document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
+            }
+            if(document.getElementById("modalFullAddress")) {
+                document.getElementById("modalFullAddress").innerText = address;
+                document.getElementById("modalShortAddress").innerText = address.substring(0, 10) + "..." + address.substring(35);
+            }
+            // -------------------------------------
+
+            updateConnectButtonUI(address);
+            unlockGate(address);
+
+        } catch (err) {
+            console.error("Login Error:", err);
+            alert("Gagal koneksi: " + err.message);
+            if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+            if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
         }
-
-        // 5. UPDATE UI UTAMA
-        updateConnectButtonUI(address); // Ubah tombol jadi "0x..."
-        if (typeof unlockGate === "function") unlockGate(address); // Buka halaman profil
-
-    } catch (err) {
-        console.error("Login Error:", err);
-        // Reset Tombol jika gagal
-        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
-        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
-        alert("Gagal koneksi: " + err.message);
-    }
-}
+        }
 
 // Fungsi Update UI Tombol Navbar (Dipanggil di atas)
 function updateConnectButtonUI(addr) {
