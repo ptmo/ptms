@@ -1,0 +1,560 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Profil Kolektor - Putramas Official</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+    <style>
+        /* --- 1. GLOBAL RESET --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: 'Rubik', sans-serif;
+            background-color: #f8f9fa;
+            color: #333;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* --- 2. NAVBAR (Sama seperti halaman lain) --- */
+        .navbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px 5%;
+            background: rgba(255, 255, 255, 0.95);
+            backdrop-filter: blur(10px);
+            position: sticky;
+            top: 0;
+            z-index: 1000;
+            box-shadow: 0 2px 15px rgba(0,0,0,0.05);
+        }
+        .nav-logo-area { display: flex; align-items: center; text-decoration: none; gap: 10px; }
+        .nav-logo-img { width: 40px; height: 40px; border-radius: 50%; border: 2px solid #7385a5; }
+        .nav-brand { font-size: 18px; color: #7385a5; font-weight: bold; }
+        
+        #btn-connect {
+            background: transparent; color: #7385a5; border: 2px solid #7385a5; 
+            padding: 8px 20px; cursor: pointer; font-weight: bold; border-radius: 30px; 
+            transition: 0.3s; font-size: 13px; font-family: 'Rubik', sans-serif;
+        }
+        #btn-connect:hover { background: #f6f9ff; }
+        #btn-connect.connected { background: #7385a5; color: #fff; }
+
+        /* --- 3. PROFILE CONTAINER --- */
+        .profile-container {
+            max-width: 900px;
+            width: 95%;
+            margin: 30px auto;
+            flex: 1; /* Push footer down */
+        }
+
+        /* --- 4. HEADER CARD PREMIUM --- */
+        .profile-header-card {
+            background: #fff;
+            border-radius: 20px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.05);
+            position: relative;
+            margin-bottom: 30px;
+            border: 1px solid rgba(0,0,0,0.03);
+        }
+
+        .profile-cover {
+            height: 140px;
+            /* Gradasi Premium: Biru Langit ke Ungu Soft */
+            background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%); 
+            position: relative;
+        }
+
+        .profile-content {
+            padding: 0 20px 30px 20px;
+            text-align: center;
+            position: relative;
+            margin-top: -60px; /* Avatar naik ke atas cover */
+        }
+
+        .profile-avatar-box {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 10px;
+        }
+
+        .avatar-placeholder {
+            width: 110px;
+            height: 110px;
+            background: #fff;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 50px;
+            color: #4facfe;
+            border: 4px solid #fff;
+            box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+        }
+
+        .profile-badge-icon {
+            position: absolute;
+            bottom: 5px;
+            right: 5px;
+            background: #f1c40f;
+            color: #fff;
+            width: 28px;
+            height: 28px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 14px;
+            border: 2px solid #fff;
+            box-shadow: 0 2px 5px rgba(0,0,0,0.2);
+        }
+
+        .profile-address {
+            font-size: 20px;
+            color: #2c3e50;
+            margin: 5px 0 15px 0;
+            font-weight: 700;
+        }
+
+        .profile-actions {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+
+        .pill-btn {
+            padding: 8px 20px;
+            border-radius: 50px;
+            border: none;
+            background: #f0f2f5;
+            color: #555;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .pill-btn:hover { background: #e4e6eb; transform: translateY(-2px); }
+        .pill-btn.outline { background: transparent; border: 1px solid #ddd; }
+
+        .profile-stats {
+            display: flex;
+            justify-content: center;
+            gap: 50px;
+            border-top: 1px solid #eee;
+            padding-top: 20px;
+        }
+        .stat-item { text-align: center; }
+        .stat-value { display: block; font-size: 22px; font-weight: bold; color: #2c3e50; }
+        .stat-label { font-size: 11px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* --- 5. TABS --- */
+        .profile-tabs {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 25px;
+        }
+        .tab-btn {
+            background: none;
+            border: none;
+            padding: 10px 25px;
+            font-size: 14px;
+            color: #888;
+            cursor: pointer;
+            font-weight: 600;
+            border-radius: 30px;
+            transition: all 0.3s;
+        }
+        .tab-btn.active { background: #fff; color: #4facfe; box-shadow: 0 2px 10px rgba(0,0,0,0.05); }
+        .tab-btn:hover:not(.active) { background: rgba(0,0,0,0.03); }
+
+        /* --- 6. GALLERY GRID --- */
+        .gallery-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+            gap: 20px;
+            padding-bottom: 50px;
+        }
+
+        .card-profile {
+            background: #fff;
+            border-radius: 12px;
+            overflow: hidden;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.05);
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            border: 1px solid #eee;
+            cursor: pointer;
+            position: relative;
+        }
+        .card-profile:hover { transform: translateY(-5px); box-shadow: 0 12px 25px rgba(0,0,0,0.1); }
+        
+        .card-img-wrapper {
+            height: 220px; /* Fixed Height */
+            width: 100%;
+            background: #f4f4f4;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+        }
+        .card-profile img { width: 100%; height: 100%; object-fit: cover; transition: transform 0.5s; }
+        .card-profile:hover img { transform: scale(1.05); }
+        
+        .card-profile-info { padding: 12px; }
+        .card-title { font-size: 14px; font-weight: bold; color: #333; margin: 0 0 5px 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .card-meta { font-size: 11px; color: #888; display: flex; justify-content: space-between; }
+        
+        /* Empty / Loading States */
+        .grid-msg { grid-column: 1 / -1; text-align: center; padding: 60px 20px; color: #999; }
+        .grid-msg i { font-size: 30px; margin-bottom: 15px; color: #ddd; display: block; }
+
+        /* --- 7. FOOTER --- */
+        .footer { background: #fff; padding: 25px; text-align: center; margin-top: auto; border-top: 1px solid #eee; }
+        .copyright { color: #888; font-size: 13px; }
+
+        /* Toast */
+        #toast { visibility: hidden; min-width: 250px; background-color: #333; color: #fff; text-align: center; border-radius: 8px; padding: 16px; position: fixed; z-index: 9999; bottom: 30px; left: 50%; transform: translateX(-50%); font-size: 14px; }
+        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
+        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 30px; opacity: 1;} }
+        @keyframes fadeout { from {bottom: 30px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+
+        /* Responsive Mobile */
+        @media (max-width: 480px) {
+            .gallery-grid { grid-template-columns: repeat(2, 1fr); gap: 10px; }
+            .card-img-wrapper { height: 180px; }
+            .profile-header-card { border-radius: 0; margin-left: -20px; margin-right: -20px; border: none; }
+            .profile-container { width: 100%; padding: 0; }
+        }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="index.html" class="nav-logo-area">
+            <img src="img/icon-192.png" alt="Logo" class="nav-logo-img" onerror="this.src='https://via.placeholder.com/40'">
+            <span class="nav-brand">Putramas Official</span>
+        </a>
+        <button id="btn-connect" onclick="connectWallet()">
+            <i class="fas fa-wallet"></i> Hubungkan
+        </button>
+    </nav>
+
+    <div class="profile-container">
+        
+        <div class="profile-header-card">
+            <div class="profile-cover"></div>
+            
+            <div class="profile-content">
+                <div class="profile-avatar-box">
+                    <div id="profileAvatar" class="avatar-placeholder">
+                        <i class="fas fa-user-astronaut"></i>
+                    </div>
+                    <div id="profileBadge" class="profile-badge-icon" style="display:none;">
+                        <i class="fas fa-crown"></i>
+                    </div>
+                </div>
+
+                <h2 id="profileAddressDisplay" class="profile-address">0x...</h2>
+                
+                <div class="profile-actions">
+                    <button onclick="copyProfileAddress()" class="pill-btn">
+                        <i class="far fa-copy"></i> Salin Address
+                    </button>
+                    <a id="linkEtherscan" href="#" target="_blank" class="pill-btn outline">
+                        <i class="fas fa-external-link-alt"></i> Etherscan
+                    </a>
+                </div>
+
+                <div class="profile-stats">
+                    <div class="stat-item">
+                        <span class="stat-value" id="statKoleksi">0</span>
+                        <span class="stat-label">Koleksi</span>
+                    </div>
+                    <div class="stat-item">
+                        <span class="stat-value" id="statKreasi">0</span>
+                        <span class="stat-label">Kreasi</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="profile-tabs">
+            <button class="tab-btn active" onclick="switchTab('koleksi')">Koleksi Saya</button>
+            <button class="tab-btn" onclick="switchTab('kreasi')">Kreasi Saya</button>
+        </div>
+
+        <div id="profileGalleryGrid" class="gallery-grid">
+            <div class="grid-msg">
+                <i class="fas fa-circle-notch fa-spin"></i>
+                Memuat data...
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p class="copyright">&copy; 2026 Powered By <strong>Putramas Official</strong></p>
+    </footer>
+
+    <div id="toast">Notifikasi</div>
+
+    <script>
+        // --- KONFIGURASI BLOCKCHAIN ---
+        const CONTRACT_ADDRESS = "0x29f19E566380DC680357d30fbfFc7EB7DD02947B"; 
+        const BASE_SEPOLIA_ID = '0x14a34';
+        
+        // Sesuaikan Alamat Wallet Official Anda Disini
+        const OFFICIAL_WALLET = "0x736FD59218671607f2E67598379A3540026e7929"; 
+
+        // Minimal ABI untuk Read Data Profile
+        const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramasOfficial.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramasOfficial.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+        // --- GLOBAL VARS ---
+        let provider, signer, userAddress;
+        let currentProfileAddr = null;
+        let profileDataCache = []; // Cache data agar tidak load ulang saat ganti tab
+
+        // --- 1. INISIALISASI HALAMAN ---
+        window.addEventListener('load', async () => {
+            await checkWalletConnection(); // Cek apakah user sudah connect wallet sebelumnya
+            initProfilePage(); // Load konten profile
+        });
+
+        async function initProfilePage() {
+            // Ambil address dari URL (?address=0x...)
+            const urlParams = new URLSearchParams(window.location.search);
+            let targetAddr = urlParams.get('address');
+
+            // Jika URL kosong, tapi user connect wallet, pakai address user
+            if (!targetAddr && userAddress) {
+                targetAddr = userAddress;
+            }
+
+            // Jika masih kosong (User belum connect & URL kosong)
+            if (!targetAddr) {
+                renderEmptyState("Silakan hubungkan dompet atau cari alamat pengguna untuk melihat profil.");
+                return;
+            }
+
+            currentProfileAddr = targetAddr;
+            renderProfileHeader(targetAddr);
+            loadProfileData(targetAddr);
+        }
+
+        // --- 2. RENDER HEADER INFO ---
+        function renderProfileHeader(addr) {
+            // Format Address Pendek
+            const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+            const disp = document.getElementById('profileAddressDisplay');
+            
+            disp.innerText = short;
+            disp.dataset.full = addr; // Simpan full address di atribut data
+
+            document.getElementById('linkEtherscan').href = `https://sepolia.basescan.org/address/${addr}`;
+
+            // Cek Official Badge
+            if (addr.toLowerCase() === OFFICIAL_WALLET.toLowerCase()) {
+                document.getElementById('profileBadge').style.display = 'flex';
+                // Ganti warna background header jadi emas dikit kalau official (Opsional)
+                document.querySelector('.profile-cover').style.background = "linear-gradient(135deg, #f1c40f 0%, #f39c12 100%)";
+            }
+        }
+
+        // --- 3. FETCH DATA DARI BLOCKCHAIN ---
+        async function loadProfileData(addr) {
+            const grid = document.getElementById('profileGalleryGrid');
+            grid.innerHTML = `<div class="grid-msg"><i class="fas fa-circle-notch fa-spin"></i> Mengambil data dari Blockchain...</div>`;
+
+            try {
+                // Gunakan Default Provider (Public RPC) jika user belum connect wallet
+                // Agar profil tetap bisa dilihat orang luar
+                let readProvider = provider;
+                if (!readProvider) {
+                    readProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+                }
+                
+                const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+
+                // A. Ambil semua ID milik user (Koleksi)
+                const rawIds = await contract.walletOfOwner(addr);
+                
+                // B. Loop ambil detail (Batasi 50 item terbaru agar tidak berat)
+                const items = [];
+                let createdCount = 0; // Hitung manual untuk statistik sementara
+                
+                // Kita balik array agar yang terbaru (ID besar) muncul duluan
+                const idsToFetch = rawIds.slice().reverse().slice(0, 50); 
+
+                for (let id of idsToFetch) {
+                    try {
+                        const [info, uri] = await Promise.all([
+                            contract.getInfoWayang(id),
+                            contract.tokenURI(id)
+                        ]);
+
+                        // Cek Kreasi (Statistik) - Logic sederhana
+                        if (info.creator.toLowerCase() === addr.toLowerCase()) {
+                            createdCount++;
+                        }
+
+                        // Fix URL IPFS
+                        const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+
+                        items.push({
+                            id: id.toString(),
+                            nama: info.nama,
+                            gaya: info.gaya,
+                            creator: info.creator,
+                            image: httpUri
+                        });
+                    } catch (err) {
+                        console.warn("Gagal load ID:", id);
+                    }
+                }
+
+                profileDataCache = items;
+
+                // Update Statistik
+                document.getElementById('statKoleksi').innerText = rawIds.length;
+                // Note: statKreasi ini hanya menghitung dari sample yg didownload. 
+                // Idealnya kontrak punya fungsi `balanceOfCreator`, tapi ini cukup untuk UI.
+                document.getElementById('statKreasi').innerText = createdCount; 
+
+                // Tampilkan Default Tab
+                renderGrid('koleksi');
+
+            } catch (error) {
+                console.error("Error Load Profile:", error);
+                renderEmptyState("Gagal memuat data profil. Pastikan jaringan stabil.");
+            }
+        }
+
+        // --- 4. RENDER GRID (LOGIC TAB) ---
+        function renderGrid(mode) {
+            const grid = document.getElementById('profileGalleryGrid');
+            grid.innerHTML = "";
+
+            let dataToShow = [];
+
+            if (mode === 'koleksi') {
+                // Tampilkan Semua yang ada di cache (milik user)
+                dataToShow = profileDataCache;
+            } else if (mode === 'kreasi') {
+                // Filter: Hanya yang creatornya == alamat profil ini
+                dataToShow = profileDataCache.filter(item => 
+                    item.creator.toLowerCase() === currentProfileAddr.toLowerCase()
+                );
+            }
+
+            if (dataToShow.length === 0) {
+                grid.innerHTML = `<div class="grid-msg"><i class="far fa-folder-open"></i> Belum ada item di kategori ini.</div>`;
+                return;
+            }
+
+            // Generate HTML Kartu
+            dataToShow.forEach(item => {
+                const card = `
+                    <div class="card-profile" onclick="window.location.href='index.html?id=${item.id}'"> <div class="card-img-wrapper">
+                            <img src="${item.image}" alt="${item.nama}" loading="lazy">
+                        </div>
+                        <div class="card-profile-info">
+                            <h4 class="card-title">${item.nama}</h4>
+                            <div class="card-meta">
+                                <span>${item.gaya}</span>
+                                <span>#${item.id}</span>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                grid.insertAdjacentHTML('beforeend', card);
+            });
+        }
+
+        // --- 5. UTILITIES ---
+        function switchTab(mode) {
+            // Update Active Button
+            document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+            event.target.classList.add('active');
+            
+            // Render Grid
+            renderGrid(mode);
+        }
+
+        function copyProfileAddress() {
+            const disp = document.getElementById('profileAddressDisplay');
+            if(disp && disp.dataset.full) {
+                navigator.clipboard.writeText(disp.dataset.full).then(() => {
+                    showToast("Alamat Berhasil Disalin!");
+                });
+            }
+        }
+
+        function renderEmptyState(msg) {
+            const grid = document.getElementById('profileGalleryGrid');
+            grid.innerHTML = `<div class="grid-msg"><i class="fas fa-exclamation-circle"></i> ${msg}</div>`;
+        }
+
+        function showToast(msg) {
+            const x = document.getElementById("toast");
+            x.className = "show";
+            x.innerText = msg;
+            setTimeout(() => { x.className = x.className.replace("show", ""); }, 3000);
+        }
+
+        // --- 6. WALLET CONNECTION (Navbar Logic) ---
+        async function checkWalletConnection() {
+            if (window.ethereum) {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) {
+                    signer = provider.getSigner();
+                    userAddress = accounts[0];
+                    updateBtnUI(userAddress);
+                }
+            }
+        }
+
+        async function connectWallet() {
+            if (!window.ethereum) return alert("Install Metamask!");
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                await provider.send("eth_requestAccounts", []);
+                signer = provider.getSigner();
+                userAddress = await signer.getAddress();
+                
+                // Cek Network Base Sepolia
+                const { chainId } = await provider.getNetwork();
+                if (chainId !== parseInt(BASE_SEPOLIA_ID, 16)) {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: BASE_SEPOLIA_ID }],
+                    });
+                }
+                
+                updateBtnUI(userAddress);
+                // Reload halaman agar profile ter-detect otomatis jika URL kosong
+                if (!currentProfileAddr) window.location.reload(); 
+                
+            } catch (err) { console.error(err); }
+        }
+
+        function updateBtnUI(addr) {
+            const btn = document.getElementById("btn-connect");
+            btn.innerHTML = `<i class="fas fa-wallet"></i> ${addr.substring(0,6)}...`;
+            btn.classList.add("connected");
+        }
+
+    </script>
+</body>
+  </html>
