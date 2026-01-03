@@ -542,6 +542,18 @@ body.modal-open {
         <i class="fas fa-paper-plane"></i> Kirim Ulasan
     </button>
             </div>
+
+    <div style="margin-top: 30px; margin-bottom: 50px;">
+    <h3 style="color: #7385a5; display:flex; align-items:center; gap:10px;">
+        <i class="fas fa-comments"></i> Ulasan Pengunjung (<span id="reviewCount">0</span>)
+    </h3>
+    
+    <div id="reviewContainer" style="min-height: 50px;">
+        <p style="color:#999; text-align:center; font-style:italic;">
+            <i class="fas fa-spinner fa-spin"></i> Memuat data...
+        </p>
+    </div>
+    </div>
             
 <div id="toast"></div>
 
@@ -753,65 +765,71 @@ function handleEditClick(id, owner) {
         
         // 1. Load Likes
         const likes = await contract.totalLikes(id);
-        document.getElementById("likeCount").innerText = likes.toString();
+        const likeEl = document.getElementById("likeCount");
+        if(likeEl) likeEl.innerText = likes.toString();
         
         // 2. Load Reviews
         const reviews = await contract.getReviews(id);
         
-        // --- BAGIAN RATING RATA-RATA (DIPERBAIKI) ---
+        // --- RATING RATA-RATA ---
         try {
             const avgScore = await contract.getAverageRating(id);
-            // Konversi BigNumber ke Float (misal 45 -> 4.5)
             const finalScore = (avgScore / 10).toFixed(1);
             
             if(avgScore > 0) {
-                // Menggunakan Icon fa-star warna emas
-                document.getElementById("displayName").innerHTML += 
+                // Cek agar tidak double render bintang di nama
+                const nameEl = document.getElementById("displayName");
+                if(!nameEl.innerHTML.includes("⭐")) { 
+                    nameEl.innerHTML += 
                     ` <span style="font-size:14px; color:#f1c40f; border:1px solid #f1c40f; padding:2px 8px; border-radius:15px; display:inline-flex; align-items:center; gap:4px; vertical-align: middle;">
                         <i class="fas fa-star"></i> ${finalScore}
                       </span>`;
+                }
             }
         } catch (e) {
             console.log("Belum ada rating rata-rata");
         }
         
-        document.getElementById("reviewCount").innerText = reviews.length;
+        // Update Jumlah Review
+        const countEl = document.getElementById("reviewCount");
+        if(countEl) countEl.innerText = reviews.length;
+        
         const container = document.getElementById("reviewContainer");
         
-        // --- BAGIAN LOOPING ULASAN (DIPERBAIKI) ---
+        // --- LOOPING ULASAN ---
         if(reviews.length === 0) {
             container.innerHTML = `<p style="color:#666; font-style: italic; text-align:center; padding:20px;">
                 <i class="far fa-comment-dots"></i> Belum ada ulasan. Jadilah yang pertama!
             </p>`;
         } else {
-            container.innerHTML = "";
+            container.innerHTML = ""; // Bersihkan loading
             [...reviews].reverse().forEach(r => {
-                // Mengulang string HTML icon sebanyak jumlah bintang
-                // Menggunakan margin-right kecil agar tidak terlalu rapat
                 const bintangHtml = '<i class="fas fa-star" style="margin-right:2px;"></i>'.repeat(r.bintang);
                 
+                // PERBAIKAN: Hapus style inline di div utama agar class .review-card dari CSS terpakai
                 const html = `
-                    <div class="review-card" style="border-bottom: 1px solid #eee; padding: 15px 0;">
-                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:5px;">
-                            <div style="font-size: 11px; color: #5c6a84; font-weight:bold;">
+                    <div class="review-card"> 
+                        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px; border-bottom:1px dashed #ccc; padding-bottom:5px;">
+                            <div style="font-size: 12px; color: #5c6a84; font-weight:bold;">
                                 <i class="fas fa-user-circle"></i> ${r.reviewer.substring(0,6)}...${r.reviewer.substring(38)}
                             </div>
                             <div style="color: #f1c40f; font-size: 12px;">${bintangHtml}</div>
                         </div>
-                        <div style="color: #444; font-size: 13px; margin-top: 5px; line-height: 1.4;">
-                            <i class="fas fa-quote-left" style="color:#ccc; font-size:10px; vertical-align:top;"></i> 
+                        <div style="color: #444; font-size: 13px; line-height: 1.4;">
+                            <i class="fas fa-quote-left" style="color:#ccc; font-size:10px; vertical-align:top; margin-right:5px;"></i> 
                             ${r.ulasan}
                         </div>
                     </div>
                 `;
                 container.innerHTML += html;
             });
-        }
+        loadSocialData(id);
+    }
 
     } catch (err) {
         console.error("Gagal load social:", err);
     }
-    }
+        }
     
     async function ensureWallet() {
         if(!signer) {
