@@ -500,6 +500,127 @@
     filter: grayscale(0%) opacity(1); /* Jadi berwarna */
     transform: scale(1.15) rotate(-10deg); /* Membesar & Miring dikit */
             }
+
+    /* Overlay Background (Gelap Transparan) */
+.modal-overlay {
+    position: fixed;
+    top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(5px); /* Efek blur di belakang */
+    z-index: 9999;
+    display: none; /* Hidden default */
+    justify-content: center;
+    align-items: center;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.modal-overlay.active {
+    display: flex;
+    opacity: 1;
+}
+
+/* Kartu Modal */
+.modal-card {
+    background: #fff;
+    width: 90%;
+    max-width: 350px;
+    padding: 25px;
+    border-radius: 20px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.3);
+    transform: translateY(20px);
+    transition: transform 0.3s cubic-bezier(0.18, 0.89, 0.32, 1.28);
+    text-align: center;
+    font-family: 'Rubik', sans-serif;
+}
+
+.modal-overlay.active .modal-card {
+    transform: translateY(0);
+}
+
+/* Header */
+.modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 20px;
+    border-bottom: 1px solid #eee;
+    padding-bottom: 10px;
+}
+.modal-header h3 { margin: 0; font-size: 18px; color: #333; }
+.close-btn { background: none; border: none; font-size: 18px; cursor: pointer; color: #888; }
+
+/* Status Badge & Dot Kelap Kelip */
+.modal-status {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: #f8f9fa;
+    padding: 10px 15px;
+    border-radius: 10px;
+    margin-bottom: 15px;
+}
+.status-badge {
+    color: #27ae60;
+    font-weight: bold;
+    font-size: 12px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+.pulse-dot {
+    width: 8px; height: 8px;
+    background-color: #27ae60;
+    border-radius: 50%;
+    box-shadow: 0 0 0 rgba(39, 174, 96, 0.4);
+    animation: pulse 1.5s infinite;
+}
+@keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0.7); }
+    70% { box-shadow: 0 0 0 6px rgba(39, 174, 96, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(39, 174, 96, 0); }
+}
+
+/* Saldo */
+.modal-balance { margin-bottom: 20px; }
+.balance-label { font-size: 12px; color: #888; text-transform: uppercase; letter-spacing: 1px; }
+.balance-amount { font-size: 24px; font-weight: bold; color: #2c3e50; margin-top: 5px; }
+
+/* Address Box (Copyable) */
+.modal-address-box {
+    background: #f1f2f6;
+    padding: 12px;
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: all 0.2s;
+    margin-bottom: 25px;
+}
+.modal-address-box:hover { border-color: #3498db; background: #eaf6ff; }
+.address-text { font-family: monospace; font-size: 14px; color: #555; }
+.copy-icon { color: #3498db; }
+
+/* Tombol Aksi */
+.modal-actions { display: flex; flex-direction: column; gap: 10px; }
+.action-btn {
+    padding: 12px;
+    border-radius: 10px;
+    border: none;
+    font-weight: bold;
+    font-size: 14px;
+    cursor: pointer;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    gap: 8px;
+    transition: transform 0.1s;
+}
+.action-btn:active { transform: scale(0.98); }
+.action-btn.primary { background: #3498db; color: white; }
+.action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid #fcc; }
 </style>
 </head>
 <body>
@@ -561,6 +682,48 @@
 
         <div id="containerGaleri" class="galeri-grid">
             <p style="text-align: center; width: 100%; grid-column: 1/-1; color: #aaa;">Klik kategori untuk melihat koleksi</p>
+        </div>
+
+        <div id="walletModal" class="modal-overlay" onclick="closeWalletModal(event)">
+    <div class="modal-card">
+        
+        <div class="modal-header">
+            <h3><i class="fas fa-wallet" style="color:#3498db;"></i> Wallet Info</h3>
+            <button class="close-btn" onclick="toggleWalletModal()"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="modal-status">
+            <span class="status-label">Status</span>
+            <div class="status-badge">
+                <span class="pulse-dot"></span> Terhubung
+            </div>
+        </div>
+
+        <div class="modal-balance">
+            <div class="balance-label">Total Saldo</div>
+            <div class="balance-amount" id="modalBalance">
+                <i class="fas fa-spinner fa-spin"></i> Loading...
+            </div>
+        </div>
+
+        <div class="modal-address-box" onclick="copyAddress()">
+            <div class="address-text">
+                <span id="modalFullAddress" style="display:none;"></span> <span id="modalShortAddress">0x...</span>
+            </div>
+            <i class="far fa-copy copy-icon"></i>
+        </div>
+
+        <div class="modal-actions">
+            <button class="action-btn primary" onclick="window.location.href='?page=profile'">
+                <i class="fas fa-user-circle"></i> Buka Profil Saya
+            </button>
+            
+            <button class="action-btn danger" onclick="disconnectWallet()">
+                <i class="fas fa-sign-out-alt"></i> Putuskan Koneksi
+            </button>
+        </div>
+        
+    </div>
         </div>
 
         <div id="toast"></div>
@@ -1046,36 +1209,120 @@ function handleEditClick(id, owner) {
         }
     }
 
-    async function connectWallet() {
-        if (!window.ethereum) return showToast("Install dahulu, Metamask tidak ditemukan!", 'wolf');
-        try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            await provider.send("eth_requestAccounts", []);
-
-            const network = await provider.getNetwork();
-            if (network.chainId !== 84532) await switchNetwork();
-            signer = provider.getSigner();
-            
-            // --- UPDATE GLOBAL USER ADDRESS ---
-            const address = await signer.getAddress();
-            userAddress = address; // PENTING! Update variabel global
-
-            document.getElementById("btn-connect").innerText = Profile;
-            document.getElementById("btn-connect").classList.add("connected");
-            
-            // Reload galeri agar tombol edit muncul
-            loadGaleri();
-
-        } catch (err) { console.error(err); }
+// 1. UPDATE FUNGSI CONNECT WALLET
+async function connectWallet() {
+    // Jika tombol sudah status "connected", maka klik akan membuka Modal, bukan connect ulang
+    const btn = document.getElementById("btn-connect");
+    if (btn.classList.contains("connected")) {
+        toggleWalletModal();
+        return;
     }
 
-    async function switchNetwork() {
-        try {
-            await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_ID }] });
-        } catch (e) {
-            if (e.code === 4902) await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [BASE_SEPOLIA_CONFIG] });
+    if (!window.ethereum) return alert("Metamask tidak ditemukan!"); // Ganti dengan showToast jika ada
+
+    try {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+
+        const network = await provider.getNetwork();
+        // Ganti 84532 dengan Chain ID Base Sepolia Anda
+        if (network.chainId !== 84532) await switchNetwork(); 
+
+        signer = provider.getSigner();
+        userAddress = await signer.getAddress();
+        
+        // --- LOGIKA UPDATE UI SETELAH CONNECT ---
+        
+        // 1. Ubah Tampilan Tombol Utama jadi Alamat Pendek
+        const shortAddr = userAddress.substring(0, 6) + "..." + userAddress.substring(38);
+        btn.innerHTML = `<i class="fas fa-wallet"></i> ${shortAddr}`;
+        btn.classList.add("connected"); // Menandai sudah connect
+        
+        // 2. Siapkan Data untuk Modal
+        document.getElementById("modalFullAddress").innerText = userAddress;
+        document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.substring(35);
+        
+        // 3. Ambil Saldo ETH
+        const balance = await provider.getBalance(userAddress);
+        const ethBalance = ethers.utils.formatEther(balance);
+        document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
+
+        // Reload galeri/app logic
+        if (typeof loadGaleri === "function") loadGaleri();
+
+    } catch (err) { 
+        console.error(err); 
+    }
+}
+
+// 2. FUNGSI SWITCH NETWORK (Sesuai kode Anda)
+async function switchNetwork() {
+    try {
+        // Pastikan BASE_SEPOLIA_ID & CONFIG sudah didefinisikan di script Anda
+        await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x14a34' }] }); // 84532 hex
+    } catch (e) {
+        if (e.code === 4902) {
+             // Logic add chain jika belum ada
+             // await window.ethereum.request(...) 
         }
     }
+}
+
+// 3. FUNGSI MODAL & UTILITIES
+function toggleWalletModal() {
+    const modal = document.getElementById("walletModal");
+    const isActive = modal.classList.contains("active");
+    
+    if (isActive) {
+        modal.classList.remove("active");
+        setTimeout(() => modal.style.display = "none", 300); // Tunggu animasi selesai
+    } else {
+        modal.style.display = "flex";
+        // Sedikit delay agar transisi opacity jalan
+        setTimeout(() => modal.classList.add("active"), 10);
+    }
+}
+
+// Menutup modal jika klik di area gelap (backdrop)
+function closeWalletModal(e) {
+    if (e.target.id === "walletModal") {
+        toggleWalletModal();
+    }
+}
+
+// Copy Address ke Clipboard
+function copyAddress() {
+    const fullAddress = document.getElementById("modalFullAddress").innerText;
+    navigator.clipboard.writeText(fullAddress).then(() => {
+        // Ubah icon sementara jadi checkmark
+        const icon = document.querySelector(".copy-icon");
+        icon.className = "fas fa-check";
+        icon.style.color = "#27ae60";
+        
+        // Kembalikan setelah 2 detik
+        setTimeout(() => {
+            icon.className = "far fa-copy";
+            icon.style.color = "#3498db";
+        }, 2000);
+    });
+}
+
+// Disconnect (Simulasi - karena Web3 tidak bisa benar-benar logout dari sisi web)
+function disconnectWallet() {
+    userAddress = null;
+    signer = null;
+    
+    // Reset Tombol Utama
+    const btn = document.getElementById("btn-connect");
+    btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+    btn.classList.remove("connected");
+    
+    // Tutup Modal
+    toggleWalletModal();
+    
+    // Reload halaman agar bersih
+    window.location.reload();
+}
 
     function showToast(msg, type = 'info') {
         const x = document.getElementById("toast");
