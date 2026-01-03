@@ -453,73 +453,86 @@
         // 1. FUNGSI SAKTI (GATEKEEPER) - LOGIKA UTAMA
         // ============================================================
         async function initGatekeeper() {
-            
-            // LANGKAH A: Cek Siapa Penontonnya (Viewer) DULUAN!
-            // Ini wajib supaya logika Badge "Milik Anda" jalan.
-            if (window.ethereum) {
-                try {
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                    const accounts = await provider.listAccounts();
-                    if (accounts.length > 0) {
-                        viewerAddress = accounts[0]; // KITA TAHU SIAPA PENONTONNYA
-                        updateConnectButtonUI(viewerAddress); // Update tombol navbar
-                    }
-                } catch (e) {
-                    console.log("Wallet belum connect, anggap visitor biasa.");
-                }
-            }
-
-            // LANGKAH B: Tentukan Profil Siapa yang Mau Dibuka?
-            const urlParams = new URLSearchParams(window.location.search);
-            const addressParam = urlParams.get('address');
-
-            // 1. Prioritas Utama: Parameter URL (Mode Intip)
-            if (addressParam) {
-                unlockGate(addressParam); 
-                return;
-            }
-
-            // 2. Prioritas Kedua: Cache LocalStorage (Fitur Anti-Login Ulang)
-            const cachedAddr = localStorage.getItem('userWallet');
-            
-            if (viewerAddress) {
-                // Kalau Metamask sudah connect, pakai akun Metamask
-                unlockGate(viewerAddress);
-            } else if (cachedAddr) {
-                // Kalau Metamask belum siap tapi ada Cache, pakai Cache dulu (Optimistic UI)
-                unlockGate(cachedAddr);
-                
-                // Tapi tetap verifikasi diam-diam (Silent Security Check)
-                if(window.ethereum) verifyConnection(cachedAddr);
-            } else {
-                // 3. Belum ada data sama sekali -> Tampilkan Gembok
-                console.log("Menunggu Login...");
-            }
-        }
-
-        // Fungsi Verifikasi Diam-diam (Pasangan Script Sakti)
-        async function verifyConnection(cachedAddr) {
+        if (window.ethereum) {
             try {
+                // Provider hanya untuk cek status (readonly)
+                provider = new ethers.providers.Web3Provider(window.ethereum);
                 const accounts = await provider.listAccounts();
-                if (accounts.length === 0 || accounts[0].toLowerCase() !== cachedAddr.toLowerCase()) {
-                    // Wah, cache ada tapi di Metamask beda akun/logout?
-                    // Hapus cache dan kunci lagi demi keamanan!
-                    localStorage.removeItem('userWallet');
-                    location.reload(); 
+                if (accounts.length > 0) {
+                    viewerAddress = accounts[0]; 
+                    updateConnectButtonUI(viewerAddress); 
+                    
+                    // --- PERBAIKAN: UPDATE MODAL SAAT LOAD ---
+                    updateModalData(viewerAddress); 
                 }
-            } catch (e) { /* Hiraukan error */ }
+            } catch (e) {
+                console.log("Visitor mode");
+            }
         }
 
-        // ============================================================
-        // 2. FUNGSI CONNECT & SWITCH NETWORK (Base Sepolia)
-        // ============================================================
-        async function connectWallet() {
+        const urlParams = new URLSearchParams(window.location.search);
+        const addressParam = urlParams.get('address');
+
+        // Logic buka gerbang
+        if (addressParam) {
+            unlockGate(addressParam); 
+            return;
+        }
+
+        const cachedAddr = localStorage.getItem('userWallet');
+        
+        if (viewerAddress) {
+            unlockGate(viewerAddress);
+        } else if (cachedAddr) {
+            unlockGate(cachedAddr);
+            if(window.ethereum) verifyConnection(cachedAddr);
+        }
+    }
+
+    async function verifyConnection(cachedAddr) {
+        try {
+            const accounts = await provider.listAccounts();
+            if (accounts.length === 0 || accounts[0].toLowerCase() !== cachedAddr.toLowerCase()) {
+                localStorage.removeItem('userWallet');
+                location.reload(); 
+            }
+        } catch (e) {}
+    }
+
+    // --- 2. FUNGSI KHUSUS UPDATE MODAL (SOLUSI STUCK) ---
+    async function updateModalData(addr) {
+        if(!addr || !provider) return;
+        
+        try {
+            // A. Update Teks Address
+            if(document.getElementById("modalFullAddress")) {
+                document.getElementById("modalFullAddress").innerText = addr;
+                document.getElementById("modalShortAddress").innerText = addr.substring(0, 10) + "..." + addr.substring(35);
+            }
+
+            // B. Fetch Saldo
+            const balance = await provider.getBalance(addr);
+            const ethBalance = ethers.utils.formatEther(balance);
+            
+            // C. Update Teks Saldo
+            if(document.getElementById("modalBalance")) {
+                document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
+            }
+        } catch (err) {
+            console.error("Gagal update modal:", err);
+        }
+    }
+
+    // --- 3. CONNECT WALLET (FIXED) ---
+    async function connectWallet() {
         const btn = document.getElementById("btn-connect"); 
         const btnBig = document.getElementById("btnLogin"); 
         
         // JIKA SUDAH CONNECT -> BUKA MODAL
         if (btn && btn.classList.contains("connected")) {
             toggleWalletModal();
+            // Panggil update lagi untuk jaga-jaga (misal saldo berubah)
+            if(viewerAddress) updateModalData(viewerAddress);
             return;
         }
 
@@ -532,7 +545,6 @@
             provider = new ethers.providers.Web3Provider(window.ethereum);
             await provider.send("eth_requestAccounts", []);
             
-            // AUTO SWITCH NETWORK
             await switchNetwork();
 
             signer = provider.getSigner();
@@ -542,20 +554,9 @@
             localStorage.setItem('userWallet', address);
             viewerAddress = address;
             
-            // --- BAGIAN PENTING: ISI DATA MODAL ---
-            // Fetch Saldo
-            const balance = await provider.getBalance(address);
-            const ethBalance = ethers.utils.formatEther(balance);
-            
-            // Update Teks di Modal (INI YANG KEMARIN HILANG)
-            if(document.getElementById("modalBalance")) {
-                document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
-            }
-            if(document.getElementById("modalFullAddress")) {
-                document.getElementById("modalFullAddress").innerText = address;
-                document.getElementById("modalShortAddress").innerText = address.substring(0, 10) + "..." + address.substring(35);
-            }
-            // -------------------------------------
+            // --- PANGGIL FUNGSI UPDATE MODAL DISINI ---
+            await updateModalData(address);
+            // ------------------------------------------
 
             updateConnectButtonUI(address);
             unlockGate(address);
@@ -566,7 +567,7 @@
             if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
             if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
         }
-        }
+    }
 
 // Fungsi Update UI Tombol Navbar (Dipanggil di atas)
 function updateConnectButtonUI(addr) {
@@ -778,7 +779,7 @@ function disconnectWallet() {
             
             // Tombol Revisi (Hanya muncul jika profil sendiri)
             let editBtn = isMyProfile 
-                ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:10px; padding:2px 8px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>`
+                ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>`
                 : ``;
 
             const html = `
