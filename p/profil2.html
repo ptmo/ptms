@@ -441,28 +441,62 @@
         loadCollectionGrid(addr);
     }
 
-    function updateProfileHeader(addr) {
+    async function updateProfileHeader(addr) {
+        // 1. Tampilkan Address Pendek
         const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
         document.getElementById("displayAddress").innerText = short;
 
-        // Cek apakah ini profil kita sendiri?
-        const isMyProfile = viewerAddress && (viewerAddress.toLowerCase() === addr.toLowerCase());
+        const avatarImg = document.getElementById("avatarImg");
         const avatarContainer = document.getElementById("avatarContainer");
 
-        if (isMyProfile) {
-            // Profil Sendiri -> Bisa Edit
-            avatarContainer.classList.add('editable');
-            // Cek LocalStorage: Apakah ada PFP tersimpan?
-            const savedPfp = localStorage.getItem(`pfp_${addr.toLowerCase()}`);
-            if (savedPfp) {
-                 document.getElementById("avatarImg").src = savedPfp;
+        // Set Loading State
+        avatarImg.style.opacity = "0.5";
+
+        try {
+            // 2. LOGIKA SAKTI: Ambil PFP dari Blockchain Langsung (NFT Terbaru)
+            // Gunakan provider global atau buat baru jika belum ada
+            const readProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+
+            // Cek token apa saja yang dimiliki alamat ini
+            const tokenIds = await contract.walletOfOwner(addr);
+
+            if (tokenIds.length > 0) {
+                // --- KASUS A: PUNYA KOLEKSI ---
+                // Ambil Token ID terakhir (paling baru didapat)
+                const latestId = tokenIds[tokenIds.length - 1]; 
+                
+                // Ambil Metadata URI
+                const uri = await contract.tokenURI(latestId);
+                
+                // Fetch Gambar dari IPFS
+                // (Kita bypass fetch metadata JSON biar cepat, asumsi kita tahu formatnya)
+                // Tapi amannya fetch JSON dulu:
+                const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+                const res = await fetch(httpUri);
+                const meta = await res.json();
+                
+                // Tampilkan Gambar NFT Asli!
+                const finalImg = meta.image.replace("ipfs://", "https://ipfs.io/ipfs/");
+                avatarImg.src = finalImg;
+                
+                // Tambahkan border emas karena dia kolektor/owner
+                avatarContainer.style.border = "2px solid #f1c40f";
+                avatarContainer.style.borderRadius = "50%";
+
             } else {
-                 document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+                // --- KASUS B: TIDAK PUNYA KOLEKSI ---
+                // Pakai Identicon standar
+                avatarImg.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+                avatarContainer.style.border = "none";
             }
-        } else {
-            // Profil Orang Lain -> Read Only
-            avatarContainer.classList.remove('editable');
-            document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+
+        } catch (err) {
+            console.error("Gagal load PFP:", err);
+            // Fallback kalau error jaringan
+            avatarImg.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+        } finally {
+            avatarImg.style.opacity = "1";
         }
     }
 
