@@ -268,25 +268,74 @@
         }
 
         function renderCard(id, name, img, container) {
-            const html = `
-                <div class="wayang-card">
-                    <div style="position:relative;">
-                        <span class="owned-badge"><i class="fas fa-check"></i> MILIK ANDA</span>
-                        <img src="${img}" class="card-img" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
-                    </div>
-                    <div class="card-body">
-                        <span class="card-id">ID #${id}</span>
-                        <h4 class="card-title">${name}</h4>
-                        <div style="margin-top:10px;">
-                            <a href="detail.html?id=${id}" class="btn-detail">
-                                Lihat Sertifikat
-                            </a>
-                        </div>
-                    </div>
+    // Kita ambil owner dari variable global 'currentAddress' 
+    // karena halaman ini memang menampilkan koleksi milik address tersebut.
+    const ownerOfThisItem = currentAddress; 
+
+    const html = `
+        <div class="wayang-card">
+            <div style="position:relative;">
+                <span class="owned-badge"><i class="fas fa-check"></i> MILIK ANDA</span>
+                <img src="${img}" class="card-img" onerror="this.src='https://via.placeholder.com/150?text=No+Image'">
+            </div>
+            
+            <div class="card-body">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+                    <span class="card-id" style="margin:0;">ID #${id}</span>
+                    
+                    <button onclick="handleEditClick('${id}', '${ownerOfThisItem}')" 
+                         title="Revisi Data" 
+                         style="background:#d35400; color:#fff; padding:4px 10px; border-radius:5px; 
+                         font-size:10px; font-weight:bold; border:none; 
+                         cursor:pointer; display:inline-flex; align-items:center; gap:4px; 
+                         box-shadow: 0 2px 4px rgba(0,0,0,0.2); transition: 0.2s;">
+                         <i class="fas fa-edit"></i> Revisi
+                    </button>
                 </div>
-            `;
-            container.innerHTML += html;
+
+                <h4 class="card-title">${name}</h4>
+                
+                <div style="margin-top:10px;">
+                    <a href="detail.html?id=${id}" class="btn-detail">
+                        Lihat Sertifikat
+                    </a>
+                </div>
+            </div>
+        </div>
+    `;
+    container.innerHTML += html;
+ }
+
+        // --- LOGIKA TOMBOL REVISI ---
+
+function handleEditClick(id, owner) {
+    // 1. Cek apakah Wallet di Browser terhubung?
+    if (!window.ethereum || !provider) {
+        showToast("Hubungkan wallet dulu!", 'warning');
+        return;
+    }
+
+    // 2. Ambil Wallet yang sedang Login di Metamask saat ini
+    // (Bukan address profil yang sedang dilihat, tapi yang sedang aktif di extension)
+    provider.listAccounts().then(accounts => {
+        const loggedInUser = accounts[0];
+
+        if (!loggedInUser) {
+            showToast("Wallet terkunci/belum connect.", 'error');
+            return;
         }
+
+        // 3. Validasi: Apakah yang login = Pemilik barang?
+        if (loggedInUser.toLowerCase() !== owner.toLowerCase()) {
+            showToast("Eits! Anda bukan pemilik pusaka ini.", 'error');
+            return;
+        }
+
+        // 4. Lolos Validasi -> Gas ke halaman revisi
+        // (Pastikan file revisi.html atau revisi/index.html ada)
+        window.location.href = `revisi?id=${id}`;
+    });
+}
 
         function copyAddress() {
             if(currentAddress) {
