@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ruang Pusaka - Profil Kolektor</title>
+    <link rel="icon" href="/img/favicon.ico">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+
+    <style>
+        /* --- STYLE PREMIUM BASIC --- */
+        body { font-family: 'Poppins', sans-serif; background-color: #f6f9ff; color: #333; margin: 0; padding: 0; }
+        .navbar { background: white; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
+        .logo { font-weight: 700; color: #7385a5; font-size: 18px; text-decoration: none; display: flex; align-items: center; gap: 10px;}
+        .container { max-width: 800px; margin: 0 auto; padding: 20px; min-height: 80vh; }
+        
+        /* LOGIN WALL */
+        #loginSection { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center; animation: fadeIn 0.5s ease; }
+        .lock-icon { font-size: 50px; color: #7385a5; margin-bottom: 20px; background: #e9f0ff; width: 100px; height: 100px; line-height: 100px; border-radius: 50%; box-shadow: 0 10px 30px rgba(115, 133, 165, 0.2); }
+        .btn-connect-big { background: linear-gradient(135deg, #7385a5, #5c6a84); color: white; border: none; padding: 15px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 25px; transition: 0.3s; box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3); display: flex; align-items: center; gap: 10px; }
+        .btn-connect-big:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(115, 133, 165, 0.4); }
+
+        /* PROFILE CARD & AVATAR */
+        .profile-card { background: linear-gradient(135deg, #7385a5, #5c6a84); color: white; border-radius: 25px; padding: 30px; display: flex; flex-direction: column; align-items: center; gap: 20px; box-shadow: 0 10px 25px rgba(115, 133, 165, 0.4); position: relative; overflow: hidden; margin-bottom: 30px; text-align: center; }
+        .profile-card::before { content: ''; position: absolute; top: -50%; left: -20%; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; }
+        @media (min-width: 768px) { .profile-card { flex-direction: row; text-align: left; justify-content: space-between; } .profile-info-wrapper { display: flex; align-items: center; gap: 20px; } }
+        
+        /* --- NEW: AVATAR EDITABLE STYLE --- */
+        .profile-avatar { position: relative; width: 80px; height: 80px; cursor: pointer; }
+        .profile-avatar img { width: 100%; height: 100%; border-radius: 50%; border: 4px solid rgba(255,255,255,0.3); object-fit: cover; background: #fff; transition: 0.3s; }
+        /* Overlay Kamera saat Hover (Hanya jika milik sendiri) */
+        .profile-avatar.editable::after {
+            content: '\f030'; /* FontAwesome Camera Icon */
+            font-family: "Font Awesome 6 Free"; font-weight: 900;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            background: rgba(0,0,0,0.5); border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            color: #fff; font-size: 24px; opacity: 0; transition: 0.3s; border: 4px solid transparent;
+        }
+        .profile-avatar.editable:hover::after { opacity: 1; }
+
+        .profile-details h2 { margin: 0; font-size: 13px; font-family: 'Courier New', monospace; letter-spacing: 0.5px; margin-bottom: 5px; }
+        .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
+        @media (min-width: 768px) { .badges { justify-content: flex-start; } }
+        .badge { background: rgba(255,255,255,0.2); padding: 4px 12px; border-radius: 50px; font-size: 11px; font-weight: 600; display: inline-flex; align-items: center; gap: 5px; }
+        .btn-copy { background: rgba(255,255,255,0.9); color: #7385a5; border: none; padding: 10px 20px; border-radius: 50px; font-weight: bold; font-size: 13px; cursor: pointer; transition: 0.3s; display: flex; align-items: center; gap: 8px; }
+        .btn-copy:hover { transform: translateY(-2px); }
+        
+        /* GRID & CARDS */
+        .section-title { color: #7385a5; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; font-size: 18px; border-bottom: 1px solid #ddd; padding-bottom: 10px; }
+        .collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
+        .wayang-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid #eee; position: relative; }
+        .wayang-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
+        .card-img { width: 100%; height: 180px; object-fit: cover; background: #eee; }
+        .card-body { padding: 12px; }
+        .card-title { font-size: 11px; font-weight: bold; color: #5c6a84; margin: 0; }
+        .card-id { font-size: 11px; color: #999; margin-bottom: 8px; display: block; }
+        .btn-detail { display: block; width: 100%; text-align: center; background: #e9f0ff; color: #7385a5; text-decoration: none; padding: 8px 0; border-radius: 8px; font-size: 12px; font-weight: bold; transition: 0.2s; }
+        .btn-detail:hover { background: #7385a5; color: white; }
+        .owned-badge { position: absolute; top: 10px; right: 10px; background: #f1c40f; color: white; font-size: 6px; padding: 2px 4px; border-radius: 8px; font-weight: bold; box-shadow: 0 2px 5px rgba(0,0,0,0.2); z-index: 2; }
+        .state-box { text-align: center; padding: 50px 20px; color: #7385a5; }
+
+        /* SEARCH CAPSULE */
+        .search-capsule { background: white; border-radius: 50px; padding: 0; display: flex; align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border: 2px solid #7385a5; margin-bottom: 25px; transition: 0.3s; height: 50px; overflow: hidden; }
+        .search-capsule:focus-within { box-shadow: 0 8px 25px rgba(115, 133, 165, 0.15); border-color: #dbe4f3; transform: translateY(-2px); }
+        .search-icon { color: #b0b8c4; font-size: 16px; padding-left: 20px; }
+        .search-capsule input { border: none; outline: none; flex: 1; font-size: 14px; font-family: 'Poppins', sans-serif; color: #5c6a84; background: transparent; height: 100%; padding-left: 15px; }
+        .btn-search { background: #7385a5; color: white; border: none; height: 100%; padding: 0 20px; font-size: 16px; border-radius: 0 50px 50px 0; cursor: pointer; transition: 0.3s; display: flex; align-items: center; justify-content: center; }
+        .btn-search:hover { background: #5c6a84; }
+        @media (max-width: 480px) { .search-icon { display: none; } .search-capsule input { padding-left: 20px; } }
+
+        /* MODAL COMMON & WALLET INFO */
+        .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5); backdrop-filter: blur(5px); z-index: 9998; display: none; opacity: 0; transition: opacity 0.3s ease; }
+        .modal-overlay.active { display: flex; opacity: 1; }
+        
+        /* Modal Wallet Info (Dropdown Style) */
+        #walletModal .modal-card { position: absolute; top: 70px; right: 20px; width: 300px; background: #fff; padding: 20px; border-radius: 12px; box-shadow: 0 5px 30px rgba(0,0,0,0.15); transform: translateY(-10px) scale(0.95); transition: all 0.2s; }
+        #walletModal.active .modal-card { transform: translateY(0) scale(1); }
+        #walletModal .modal-card::before { content: ""; position: absolute; top: -6px; right: 20px; width: 12px; height: 12px; background: #fff; transform: rotate(45deg); border-left: 1px solid rgba(0,0,0,0.05); border-top: 1px solid rgba(0,0,0,0.05); }
+
+        /* --- NEW: MODAL SELEKSI NFT (PFP PICKER) --- */
+        #nftPickerModal { align-items: center; justify-content: center; }
+        #nftPickerModal .modal-card { background: #fff; width: 90%; max-width: 500px; border-radius: 20px; padding: 25px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); transform: scale(0.9); transition: 0.3s; max-height: 80vh; display: flex; flex-direction: column; }
+        #nftPickerModal.active .modal-card { transform: scale(1); }
+        
+        .picker-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(100px, 1fr)); gap: 10px; overflow-y: auto; padding: 10px 0; flex: 1; }
+        .picker-item { border-radius: 12px; overflow: hidden; cursor: pointer; border: 2px solid transparent; transition: 0.2s; position: relative; aspect-ratio: 1/1; }
+        .picker-item:hover { border-color: #7385a5; transform: translateY(-3px); }
+        .picker-item img { width: 100%; height: 100%; object-fit: cover; }
+        .picker-item.selected { border-color: #2ecc71; box-shadow: 0 0 0 3px rgba(46, 204, 113, 0.3); }
+
+        /* Common Modal Elements */
+        .modal-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; }
+        .modal-header h3 { margin: 0; font-size: 18px; color: #5c6a84; }
+        .close-btn { background: none; border: none; font-size: 20px; cursor: pointer; color: #999; transition: 0.2s; }
+        .close-btn:hover { color: #333; }
+
+        /* Footer & Buttons */
+        .footer { background: #fff; padding: 15px; text-align: center; margin-top: auto; border-top: 1px solid #eee; }
+        #btn-connect { background: transparent; color: #7385a5; border: 2px solid #7385a5; padding: 8px 20px; cursor: pointer; font-family: 'Poppins', sans-serif; font-weight: bold; border-radius: 30px; transition: 0.3s; font-size: 13px; }
+        #btn-connect:hover { background: #f6f9ff; }
+        #btn-connect.connected { background: #7385a5; color: #fff; }
+
+        /* Wallet Info Styles */
+        .modal-status { display: flex; justify-content: space-between; background: #f8f9fa; padding: 10px; border-radius: 10px; margin-bottom: 15px; font-size: 12px; }
+        .status-badge { color: #27ae60; font-weight: bold; display: flex; align-items: center; gap: 5px; }
+        .pulse-dot { width: 8px; height: 8px; background: #27ae60; border-radius: 50%; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(39,174,96,0.7); } 100% { box-shadow: 0 0 0 6px transparent; } }
+        .modal-balance { text-align: center; margin-bottom: 20px; }
+        .balance-amount { font-size: 24px; font-weight: bold; color: #2c3e50; }
+        .modal-address-box { background: #f1f2f6; padding: 10px; border-radius: 10px; display: flex; justify-content: space-between; align-items: center; font-family: monospace; font-size: 12px; color: #5c6a84; margin-bottom: 20px; cursor: pointer; }
+        .action-btn { width: 100%; padding: 12px; border-radius: 10px; border: none; font-weight: bold; cursor: pointer; display: flex; justify-content: center; align-items: center; gap: 8px; margin-bottom: 10px; transition: 0.2s; }
+        .action-btn.primary { background: #7385a5; color: white; }
+        .action-btn.danger { background: #fee; color: #e74c3c; }
+        .action-btn:hover { opacity: 0.9; transform: translateY(-2px); }
+
+        @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+    </style>
+</head>
+<body>
+
+    <nav class="navbar">
+        <a href="index" class="logo"><i class="fas fa-arrow-left"></i>Profile Kolektor</a>
+        <div class="nav-right">
+            <button id="btn-connect" onclick="handleConnectButton()">
+                <i class="fas fa-wallet"></i> Hubungkan
+            </button>
+        </div>
+    </nav>
+
+    <div id="loginSection">
+        <div class="lock-icon"><i class="fas fa-shield-alt"></i></div>
+        <h2 style="color:#5c6a84; margin-bottom:5px;">Akses Ruang Koleksi</h2>
+        <p style="color:#8898aa; max-width: 350px;">Hubungkan dompet Web3 Anda untuk membuka profil.</p>
+        <button onclick="handleConnectButton()" class="btn-connect-big" id="btnLogin">
+            <i class="fas fa-wallet"></i> Buka Akses
+        </button>
+    </div>
+
+    <div id="mainContent" class="container" style="display:none;">
+        <div class="search-capsule">
+            <div class="search-icon"><i class="fas fa-search"></i></div>
+            <input type="text" id="inputAddress" placeholder="Cari Alamat Wallet Kolektor" onkeypress="handleEnter(event)">
+            <button onclick="cariProfile()" class="btn-search"><i class="fas fa-search"></i></button>
+        </div>
+        
+        <div class="profile-card">
+            <div class="profile-info-wrapper">
+                <div class="profile-avatar" id="avatarContainer" onclick="openNftPicker()">
+                    <img src="" id="avatarImg" alt="Avatar">
+                </div>
+                <div class="profile-details">
+                    <h2 id="displayAddress">Loading...</h2>
+                    <div class="badges">
+                        <span class="badge"><i class="fas fa-crown"></i> Owner</span>
+                        <span class="badge" style="background:rgba(255,255,255,0.3);"><i class="fas fa-cube"></i> <span id="totalItems">0</span> Koleksi</span>
+                    </div>
+                </div>
+            </div>
+            <button onclick="copyAddress()" class="btn-copy"><i class="far fa-copy"></i> <span id="btnCopyText">Salin</span></button>
+        </div>
+
+        <h3 class="section-title"><i class="fas fa-box-open"></i> Koleksi/Karya</h3>
+
+        <div id="loading" class="state-box">
+            <i class="fas fa-circle-notch fa-spin" style="font-size: 30px; margin-bottom: 10px;"></i>
+            <p>Membaca data Blockchain...</p>
+        </div>
+        <div id="emptyState" class="state-box" style="display: none;">
+            <i class="fas fa-ghost" style="font-size: 40px; margin-bottom: 15px; opacity: 0.5;"></i>
+            <p>Belum ada Koleksi Wayang.</p>
+        </div>
+
+        <div id="collectionContainer" class="collection-grid"></div>
+    </div>
+
+    <div id="walletModal" class="modal-overlay" onclick="closeModalOutside(event, 'walletModal')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fas fa-wallet" style="color:#7385a5;"></i> Wallet Info</h3>
+                <button class="close-btn" onclick="toggleModal('walletModal')"><i class="fas fa-times"></i></button>
+            </div>
+            <div class="modal-status">
+                <span style="color:#888">Status</span>
+                <div class="status-badge"><span class="pulse-dot"></span> Terhubung</div>
+            </div>
+            <div class="modal-balance">
+                <div style="font-size:12px; color:#888; margin-bottom:5px;">TOTAL SALDO</div>
+                <div class="balance-amount" id="modalBalance"><i class="fas fa-spinner fa-spin"></i></div>
+            </div>
+            <div class="modal-address-box" onclick="copyAddressModal()">
+                <div><span id="modalFullAddress" style="display:none;"></span><span id="modalShortAddress">0x...</span></div>
+                <i class="far fa-copy" style="color:#7385a5;"></i>
+            </div>
+            <button class="action-btn primary" onclick="window.location.href='/profile'"><i class="fas fa-user-circle"></i> Buka Profil Saya</button>
+            <button class="action-btn danger" onclick="disconnectWallet()"><i class="fas fa-sign-out-alt"></i> Putuskan Koneksi</button>
+        </div>
+    </div>
+
+    <div id="nftPickerModal" class="modal-overlay" onclick="closeModalOutside(event, 'nftPickerModal')">
+        <div class="modal-card">
+            <div class="modal-header">
+                <h3><i class="fas fa-image" style="color:#7385a5;"></i> Pilih Foto Profil</h3>
+                <button class="close-btn" onclick="toggleModal('nftPickerModal')"><i class="fas fa-times"></i></button>
+            </div>
+            
+            <div id="pickerLoading" class="state-box" style="padding: 20px;">
+                <i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi Anda...
+            </div>
+            <div id="pickerEmpty" class="state-box" style="padding: 20px; display:none;">
+                <p>Anda belum memiliki NFT Wayang.</p>
+            </div>
+
+            <div id="pickerGrid" class="picker-grid">
+                </div>
+             <div style="text-align:center; margin-top:10px; font-size:11px; color:#999;">
+                Klik gambar untuk menjadikannya foto profil.
+            </div>
+        </div>
+    </div>
+
+    <footer class="footer">
+        <p class="copyright">&copy; <span id="year"></span> Powered By <strong>Putramas Official</strong></p>
+    </footer>
+
+<script>
+    // --- KONFIGURASI ---
+    const BASE_SEPOLIA_ID = '0x14a34'; 
+    const BASE_SEPOLIA_CONFIG = {
+        chainId: BASE_SEPOLIA_ID,
+        chainName: 'Base Sepolia Testnet',
+        nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+        rpcUrls: ['https://sepolia.base.org'],
+        blockExplorerUrls: ['https://sepolia-explorer.base.org']
+    };
+    const CONTRACT_ADDRESS = "0x29f19E566380DC680357d30fbfFc7EB7DD02947B"; 
+    // ABI Minimal untuk kebutuhan ini
+    const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramasOfficial.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramasOfficial.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+        
+    let provider, signer;
+    let currentAddress = null; // Profil yang SEDANG DILIHAT
+    let viewerAddress = null;  // Dompet KITA (User Login)
+
+    // ============================================================
+    // 1. FUNGSI UTAMA & GATEKEEPER
+    // ============================================================
+    async function initApp() {
+        // Cek status login wallet di browser
+        if (window.ethereum) {
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) {
+                    viewerAddress = accounts[0];
+                    updateBtnUI(true);
+                    updateModalData(viewerAddress); // Isi data modal di background
+                }
+            } catch (e) console.log("Mode Visitor");
+        }
+
+        // Tentukan profil mana yang ditampilkan
+        const urlParams = new URLSearchParams(window.location.search);
+        const targetParam = urlParams.get('address');
+        const cachedWallet = localStorage.getItem('userWallet');
+
+        if (targetParam) {
+            loadProfile(targetParam); // Mode Intip
+        } else if (viewerAddress) {
+            loadProfile(viewerAddress); // Mode Login Metamask
+        } else if (cachedWallet) {
+            loadProfile(cachedWallet); // Mode Cache
+            if(window.ethereum) verifyCache(cachedWallet);
+        }
+        
+        document.getElementById("year").innerText = new Date().getFullYear();
+    }
+
+    async function verifyCache(cached) {
+        const accounts = await provider.listAccounts();
+        if (accounts.length === 0 || accounts[0].toLowerCase() !== cached.toLowerCase()) {
+            localStorage.removeItem('userWallet'); window.location.reload();
+        }
+    }
+
+    // ============================================================
+    // 2. LOGIKA WALLET (Connect, Switch, Modal Data)
+    // ============================================================
+    async function handleConnectButton() {
+        const btn = document.getElementById("btn-connect");
+        if (btn.classList.contains("connected")) {
+            toggleModal('walletModal');
+            if(viewerAddress) updateModalData(viewerAddress);
+            return;
+        }
+        await connectWallet();
+    }
+
+    async function connectWallet() {
+        if (!window.ethereum) return alert("Install Metamask!");
+        
+        const btn = document.getElementById("btn-connect");
+        const btnBig = document.getElementById("btnLogin");
+        if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            await switchNetwork();
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
+
+            localStorage.setItem('userWallet', address);
+            viewerAddress = address;
+
+            await updateModalData(address);
+            updateBtnUI(true);
+            loadProfile(address);
+
+        } catch (err) {
+            console.error(err);
+            alert("Koneksi Gagal: " + err.message);
+            updateBtnUI(false);
+            if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
+        }
+    }
+
+    async function switchNetwork() {
+        try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_ID }] }); }
+        catch (err) {
+            if (err.code === 4902) await window.ethereum.request({ method: 'wallet_addEthereumChain', params: [BASE_SEPOLIA_CONFIG] });
+            else throw err;
+        }
+    }
+
+    async function updateModalData(addr) {
+        if(!addr || !provider) return;
+        try {
+            document.getElementById("modalFullAddress").innerText = addr;
+            document.getElementById("modalShortAddress").innerText = addr.substring(0, 10) + "..." + addr.substring(35);
+            const balance = await provider.getBalance(addr);
+            document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
+        } catch (e) console.error("Gagal update modal data");
+    }
+
+    function updateBtnUI(isConnected) {
+        const btn = document.getElementById("btn-connect");
+        if(isConnected) {
+            btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
+            btn.classList.add("connected");
+        } else {
+            btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+            btn.classList.remove("connected");
+        }
+    }
+
+    function disconnectWallet() {
+        localStorage.removeItem('userWallet');
+        viewerAddress = null; signer = null;
+        toggleModal('walletModal');
+        window.location.reload();
+    }
+
+    // ============================================================
+    // 3. LOGIKA PROFIL & NFT PICKER (FITUR BARU!)
+    // ============================================================
+    function loadProfile(addr) {
+        currentAddress = addr;
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainContent").style.display = "block";
+        
+        updateProfileHeader(addr);
+        loadCollectionGrid(addr);
+    }
+
+    function updateProfileHeader(addr) {
+        const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+        document.getElementById("displayAddress").innerText = short;
+
+        // Cek apakah ini profil kita sendiri?
+        const isMyProfile = viewerAddress && (viewerAddress.toLowerCase() === addr.toLowerCase());
+        const avatarContainer = document.getElementById("avatarContainer");
+
+        if (isMyProfile) {
+            // Jika profil sendiri, tambahkan class 'editable' agar muncul ikon kamera saat hover
+            avatarContainer.classList.add('editable');
+            // Cek LocalStorage: Apakah ada PFP tersimpan?
+            const savedPfp = localStorage.getItem(`pfp_${addr.toLowerCase()}`);
+            if (savedPfp) {
+                 document.getElementById("avatarImg").src = savedPfp;
+            } else {
+                 // Default Identicon
+                 document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+            }
+        } else {
+            // Profil orang lain, tidak bisa diedit
+            avatarContainer.classList.remove('editable');
+            // Cek PFP mereka (di real app ini harusnya dari smart contract/backend)
+            // Untuk demo, kita pakai default dulu jika lihat orang lain
+            document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+        }
+    }
+
+    // --- FUNGSI BUKA MODAL PICKER ---
+    async function openNftPicker() {
+        // Hanya izinkan jika login dan melihat profil sendiri
+        if (!viewerAddress || viewerAddress.toLowerCase() !== currentAddress.toLowerCase()) {
+            return; // Diam saja jika klik profil orang lain
+        }
+        
+        toggleModal('nftPickerModal');
+        
+        // Load NFT milik user ke dalam grid modal
+        const grid = document.getElementById("pickerGrid");
+        const loading = document.getElementById("pickerLoading");
+        const empty = document.getElementById("pickerEmpty");
+        grid.innerHTML = "";
+        loading.style.display = "block";
+        empty.style.display = "none";
+
+        try {
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
+            // Ambil ID milik viewerAddress (dompet kita)
+            const tokenIds = await contract.walletOfOwner(viewerAddress);
+
+            if (tokenIds.length === 0) {
+                loading.style.display = "none";
+                empty.style.display = "block";
+                return;
+            }
+
+            // Ambil 20 item terbaru saja untuk picker
+            const recentIds = tokenIds.slice().reverse().slice(0, 20);
+            
+            // Fetch parallel turbo
+            const promises = recentIds.map(async (id) => {
+                try {
+                    const uri = await contract.tokenURI(id);
+                    const url = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+                    const res = await fetch(url);
+                    const json = await res.json();
+                    const imgUrl = json.image.replace("ipfs://", "https://ipfs.io/ipfs/");
+                    return imgUrl;
+                } catch (e) { return null; }
+            });
+
+            const images = await Promise.all(promises);
+            loading.style.display = "none";
+
+            // Render ke grid picker
+            images.forEach(imgUrl => {
+                if (imgUrl) {
+                    const item = document.createElement('div');
+                    item.className = 'picker-item';
+                    item.innerHTML = `<img src="${imgUrl}" loading="lazy">`;
+                    // Saat diklik, jadikan ini PFP
+                    item.onclick = () => selectPfp(imgUrl);
+                    grid.appendChild(item);
+                }
+            });
+
+        } catch (err) {
+            console.error("Picker Error:", err);
+            loading.innerHTML = "Gagal memuat koleksi.";
+        }
+    }
+
+    // --- FUNGSI SIMPAN PFP ---
+    function selectPfp(imgUrl) {
+        if(!viewerAddress) return;
+        
+        // 1. Simpan URL gambar di LocalStorage dengan kunci unik berdasarkan wallet
+        localStorage.setItem(`pfp_${viewerAddress.toLowerCase()}`, imgUrl);
+        
+        // 2. Update tampilan avatar utama secara langsung
+        document.getElementById("avatarImg").src = imgUrl;
+        
+        // 3. Tutup modal
+        toggleModal('nftPickerModal');
+        
+        // 4. Feedback (Opsional)
+        // alert("Foto profil diperbarui!");
+    }
+
+
+    // ============================================================
+    // 4. LOAD COLLECTION GRID (MAIN PAGE)
+    // ============================================================
+    async function loadCollectionGrid(targetAddr) {
+        const container = document.getElementById("collectionContainer");
+        const loading = document.getElementById("loading");
+        const empty = document.getElementById("emptyState");
+        container.innerHTML = ""; loading.style.display = 'block'; empty.style.display = 'none';
+
+        const readProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+
+        try {
+            const tokenIds = await contract.walletOfOwner(targetAddr);
+            document.getElementById("totalItems").innerText = tokenIds.length;
+
+            if (tokenIds.length === 0) {
+                loading.style.display = 'none'; empty.style.display = 'block'; return;
+            }
+
+            const recentIds = tokenIds.slice().reverse().slice(0, 50);
+            const promises = recentIds.map(async (id) => {
+                try {
+                    const uri = await contract.tokenURI(id);
+                    const url = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+                    const res = await fetch(url);
+                    const json = await res.json();
+                    let img = json.image ? json.image.replace("ipfs://", "https://ipfs.io/ipfs/") : "img/placeholder.jpg";
+                    return { id: id.toString(), name: json.name, image: img };
+                } catch (e) { return null; }
+            });
+
+            const results = await Promise.all(promises);
+            loading.style.display = 'none';
+            results.forEach(item => { if (item) renderCard(item, container); });
+
+        } catch (err) {
+            console.error(err);
+            loading.innerHTML = `<p style="color:red">Data Blockchain Gagal Dimuat.</p>`;
+        }
+    }
+
+    function renderCard(item, container) {
+        const isMyProfile = viewerAddress && currentAddress && (viewerAddress.toLowerCase() === currentAddress.toLowerCase());
+        const badge = isMyProfile ? 
+            `<span class="owned-badge" style="background:#f1c40f;"><i class="fas fa-check-circle"></i> Milik Anda</span>` : 
+            `<span class="owned-badge" style="background:#2ecc71;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
+        const editBtn = isMyProfile ? 
+            `<button onclick="window.location.href='revisi?id=${item.id}'" style="border:none; background:#d35400; color:white; border-radius:5px; font-size:10px; padding:2px 8px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>` : ``;
+
+        container.insertAdjacentHTML('beforeend', `
+            <div class="wayang-card">
+                <div style="position:relative;">${badge}<img src="${item.image}" class="card-img" loading="lazy"></div>
+                <div class="card-body">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span class="card-id">ID #${item.id}</span>${editBtn}</div>
+                    <h4 class="card-title">${item.name || 'Wayang #'+item.id}</h4>
+                    <div style="margin-top:10px;"><a href="detail?id=${item.id}" class="btn-detail">Lihat Sertifikat</a></div>
+                </div>
+            </div>
+        `);
+    }
+
+    // ============================================================
+    // 5. HELPER FUNCTIONS (Modal, Copy, Search)
+    // ============================================================
+    function toggleModal(modalId) {
+        const modal = document.getElementById(modalId);
+        if (modal.classList.contains("active")) {
+            modal.classList.remove("active"); setTimeout(() => { modal.style.display = "none"; }, 200);
+        } else {
+            modal.style.display = "flex"; setTimeout(() => { modal.classList.add("active"); }, 10);
+        }
+    }
+    function closeModalOutside(e, modalId) { if (e.target.id === modalId) toggleModal(modalId); }
+
+    function copyAddressModal() { copyText(document.getElementById("modalFullAddress").innerText); }
+    function copyAddress() { copyText(currentAddress); }
+    function copyText(text) {
+        if(!text) return;
+        navigator.clipboard.writeText(text).then(() => alert("Alamat Disalin!"));
+    }
+
+    function cariProfile() {
+        const val = document.getElementById("inputAddress").value.trim();
+        if (val) window.location.href = `?address=${val}`;
+    }
+    function handleEnter(e) { if (e.key === "Enter") cariProfile(); }
+
+    // INIT LISTENER
+    window.addEventListener('DOMContentLoaded', initApp);
+    if(window.ethereum) window.ethereum.on('accountsChanged', () => { localStorage.removeItem('userWallet'); window.location.reload(); });
+</script>
+</body>
+          </html>
