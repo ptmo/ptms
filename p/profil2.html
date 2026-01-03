@@ -43,8 +43,6 @@
         
         /* GRID SYSTEM */
         .collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
-        .wayang-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid #eee; position: relative; }
-        .wayang-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
         .card-img { width: 100%; height: 180px; object-fit: cover; background: #eee; }
         .card-body { padding: 12px; }
         .card-title { font-size: 11px; font-weight: bold; color: #5c6a84; margin: 0; }
@@ -55,6 +53,45 @@
         .state-box { text-align: center; padding: 50px 20px; color: #7385a5; }
 
         @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+        /* --- 3D HOLOGRAM CARD EFFECT --- */
+.wayang-card {
+    /* Setup 3D */
+    transition: transform 0.1s ease-out; /* Animasi halus */
+    transform-style: preserve-3d;
+    perspective: 1000px;
+    will-change: transform;
+    position: relative;
+    z-index: 1;
+}
+
+/* Lapisan Kilau Hologram (Glare) */
+.wayang-card::after {
+    content: "";
+    position: absolute;
+    top: 0; left: 0; right: 0; bottom: 0;
+    /* Gradient Pelangi Transparan */
+    background: linear-gradient(
+        105deg,
+        transparent 20%,
+        rgba(255, 255, 255, 0.3) 40%,
+        rgba(255, 0, 150, 0.2) 45%, /* Pink Hologram */
+        rgba(0, 255, 255, 0.2) 50%, /* Cyan Hologram */
+        rgba(255, 255, 255, 0.3) 55%,
+        transparent 80%
+    );
+    opacity: 0; /* Hidden by default */
+    mix-blend-mode: overlay;
+    transition: opacity 0.3s;
+    pointer-events: none; /* Biar tetap bisa diklik */
+    border-radius: 15px;
+    z-index: 10;
+}
+
+/* Saat kartu aktif (Hover/Touch) */
+.wayang-card.active-3d::after {
+    opacity: 1;
+}
 
         /* --- SEARCH CAPSULE STYLE (FIXED) --- */
 .search-capsule {
@@ -848,23 +885,44 @@
     }
 
     function renderCard(item, container) {
-        const isMyProfile = viewerAddress && currentAddress && (viewerAddress.toLowerCase() === currentAddress.toLowerCase());
-        const badge = isMyProfile ? 
-            `<span class="owned-badge" style="background:#f1c40f;"><i class="fas fa-check-circle"></i> Milik Anda</span>` : 
-            `<span class="owned-badge" style="background:#2ecc71;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
-        const editBtn = isMyProfile ? 
-            `<button onclick="window.location.href='revisi?id=${item.id}'" style="border:none; background:#d35400; color:white; border-radius:5px; font-size:10px; padding:2px 8px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>` : ``;
+    // 1. Logika Badge & Tombol (TETAP)
+    const isMyProfile = viewerAddress && currentAddress && (viewerAddress.toLowerCase() === currentAddress.toLowerCase());
+    
+    const badge = isMyProfile ? 
+        `<span class="owned-badge" style="background:#f1c40f;"><i class="fas fa-check-circle"></i> Milik Anda</span>` : 
+        `<span class="owned-badge" style="background:#2ecc71;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
+    
+    const editBtn = isMyProfile ? 
+        `<button onclick="window.location.href='revisi?id=${item.id}'" style="border:none; background:#d35400; color:white; border-radius:5px; font-size:10px; padding:2px 8px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>` : ``;
 
-        container.insertAdjacentHTML('beforeend', `
-            <div class="wayang-card">
-                <div style="position:relative;">${badge}<img src="${item.image}" class="card-img" loading="lazy"></div>
-                <div class="card-body">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;"><span class="card-id">ID #${item.id}</span>${editBtn}</div>
-                    <h4 class="card-title">${item.name || 'Wayang #'+item.id}</h4>
-                    <div style="margin-top:10px;"><a href="detail?id=${item.id}" class="btn-detail">Lihat Sertifikat</a></div>
+    // 2. HTML Kartu dengan Efek 3D (YANG BARU)
+    const html = `
+        <div class="wayang-card" 
+             onmousemove="handleTilt(event, this)" 
+             onmouseleave="resetTilt(this)"
+             ontouchmove="handleTilt(event.touches[0], this)"
+             ontouchend="resetTilt(this)">
+             
+            <div style="position:relative; pointer-events:none;"> 
+                ${badge} 
+                <img src="${item.image}" class="card-img" loading="lazy">
+            </div>
+            
+            <div class="card-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span class="card-id">ID #${item.id}</span>
+                    ${editBtn}
+                </div>
+                <h4 class="card-title">${item.name || 'Wayang #'+item.id}</h4>
+                <div style="margin-top:10px;">
+                    <a href="detail?id=${item.id}" class="btn-detail" style="position:relative; z-index:20;">Lihat Sertifikat</a>
                 </div>
             </div>
-        `);
+        </div>
+    `;
+
+    // 3. Masukkan ke Container
+    container.insertAdjacentHTML('beforeend', html);
     }
 
     // ============================================================
@@ -965,6 +1023,38 @@ function revealKhodam() {
             </div>
         `;
     }, 2000); 
+}
+
+    // --- LOGIKA 3D TILT ---
+function handleTilt(e, card) {
+    const rect = card.getBoundingClientRect();
+    
+    // Hitung posisi mouse/jari relatif terhadap kartu
+    const x = e.clientX - rect.left; 
+    const y = e.clientY - rect.top;
+    
+    // Hitung titik tengah
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+    
+    // Kalkulasi Rotasi (Maksimal 15 derajat)
+    const rotateX = ((y - centerY) / centerY) * -15; 
+    const rotateY = ((x - centerX) / centerX) * 15;
+
+    // Terapkan Transformasi
+    card.style.transform = `perspective(1000px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) scale(1.05)`;
+    
+    // Geser Kilau Hologram (Opsional, biar makin real)
+    card.style.backgroundPosition = `${x/5 + y/5}%`;
+    
+    // Tambah class untuk memunculkan kilau
+    card.classList.add('active-3d');
+}
+
+function resetTilt(card) {
+    // Balik ke posisi semula
+    card.style.transform = `perspective(1000px) rotateX(0) rotateY(0) scale(1)`;
+    card.classList.remove('active-3d');
 }
 
     // Init App
