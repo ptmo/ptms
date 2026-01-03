@@ -438,40 +438,62 @@
             }
         }
 
-        async function connectWallet() {
+       async function connectWallet() {
             const btn = document.getElementById("btn-connect");
-            // JIKA SUDAH KONEK -> BUKA MODAL (BUKAN RELOAD)
+            
+            // 1. Jika sudah connect, buka Modal (jangan connect ulang)
             if (btn.classList.contains("connected")) {
                 toggleWalletModal();
                 return;
             }
 
             if (!window.ethereum) return alert("Install Metamask!");
+
             try {
+                // Setup Provider
                 provider = new ethers.providers.Web3Provider(window.ethereum);
                 await provider.send("eth_requestAccounts", []);
                 signer = provider.getSigner();
                 userAddress = await signer.getAddress();
                 
+                // Cek Network (Base Sepolia)
                 const { chainId } = await provider.getNetwork();
                 if (chainId !== parseInt(BASE_SEPOLIA_ID, 16)) {
-                    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: BASE_SEPOLIA_ID }] });
+                    await window.ethereum.request({ 
+                        method: 'wallet_switchEthereumChain', 
+                        params: [{ chainId: BASE_SEPOLIA_ID }] 
+                    });
                 }
                 
+                // Update Tombol UI
                 updateBtnUI(userAddress);
                 
-                // Fetch Saldo untuk Modal
+                // Update Data di Modal (Saldo & Address)
                 const balance = await provider.getBalance(userAddress);
                 const ethBalance = ethers.utils.formatEther(balance);
                 document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
                 document.getElementById("modalFullAddress").innerText = userAddress;
                 document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.substring(35);
 
-                // Reload hanya jika profil saat ini kosong/belum ada target
-                if (!currentProfileAddr) window.location.reload();
+                // --- BAGIAN INI YANG DIPERBAIKI (Hapus Reload) ---
+                // Jika profil di layar masih kosong, langsung isi dengan data user yang baru connect
+                if (!currentProfileAddr) {
+                    // 1. Ubah URL di browser tanpa reload (biar kelihatan profesional)
+                    const newUrl = new URL(window.location);
+                    newUrl.searchParams.set('address', userAddress);
+                    window.history.pushState({}, '', newUrl);
+
+                    // 2. Jalankan fungsi init manual
+                    initProfilePage(); 
+                }
                 
-            } catch (err) { console.error(err); }
-        }
+                // Tampilkan notifikasi sukses (opsional)
+                showToast("Berhasil Terhubung!");
+
+            } catch (err) { 
+                console.error(err); 
+            }
+       }
 
         function updateBtnUI(addr) {
             const btn = document.getElementById("btn-connect");
