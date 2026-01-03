@@ -880,6 +880,44 @@ body.modal-open {
         
     </div>
     </div>
+
+    <div id="download-template" style="position: fixed; left: -9999px;">
+    <div id="certificate-hd" style="width: 1200px; padding: 60px; background: #fff; font-family: 'Poppins', sans-serif; border: 20px solid #2c3e50; position: relative;">
+        
+        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.05; background-image: url('img/logo-putramas.png'); background-repeat: repeat; z-index: 0;"></div>
+
+        <div style="position: relative; z-index: 1; text-align: center;">
+            <img src="img/logo.png" style="width: 150px; margin-bottom: 20px;">
+            <h1 style="font-size: 60px; color: #d35400; margin: 0; text-transform: uppercase; letter-spacing: 5px;">Sertifikat Digital</h1>
+            <p style="font-size: 24px; color: #7f8c8d; margin-top: 10px;">Arsip Wayang Digital - Putramas Official</p>
+            
+            <hr style="border: 2px solid #d35400; width: 300px; margin: 40px auto;">
+
+            <div style="margin: 40px auto; width: 600px; height: 600px; border: 10px solid #f4f4f4; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
+                <img id="hd-wayang-img" src="" style="width: 100%; height: 100%; object-fit: cover;">
+            </div>
+
+            <h2 id="hd-nama-tokoh" style="font-size: 48px; color: #2c3e50; margin-bottom: 10px;">Memuat Nama...</h2>
+            <p style="font-size: 20px; color: #95a5a6;">Identity Token ID: <strong id="hd-token-id">#0</strong></p>
+
+            <div style="background: #fdf2e9; padding: 30px; border-radius: 15px; margin-top: 40px; border: 1px dashed #d35400;">
+                <p style="font-size: 18px; color: #d35400; margin-bottom: 10px; font-weight: bold;">SAH DIMILIKI OLEH (OWNER):</p>
+                <p id="hd-owner-address" style="font-size: 22px; color: #2c3e50; font-family: monospace; word-break: break-all;">0x00000000000000000000000000</p>
+            </div>
+
+            <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
+                <div style="text-align: left;">
+                    <p style="font-size: 16px; color: #bdc3c7;">Terverifikasi On-Chain:</p>
+                    <img src="img/base.svg" style="width: 120px; margin-top: 10px;">
+                </div>
+                <div style="text-align: right;">
+                    <p style="font-size: 18px; color: #2c3e50; font-weight: bold;">PUTRAMAS OFFICIAL</p>
+                    <p style="font-size: 14px; color: #7f8c8d;">Digital Heritage Archive</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    </div>
             
 <div id="toast"></div>
 
@@ -1463,6 +1501,49 @@ function closeZoom() {
         document.body.classList.remove("modal-open");
     }, 300);
 }
+
+    async function downloadSertifikatHD() {
+    const btn = event.target;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender HD...`;
+
+    try {
+        // 1. Ambil Data dari UI yang sudah ada
+        const namaTokoh = document.getElementById("displayNama").innerText;
+        const imgUrl = document.getElementById("displayImg").src;
+        const ownerAddr = document.getElementById("displayOwner").innerText;
+        const tokenId = new URLSearchParams(window.location.search).get("id");
+
+        // 2. Masukkan ke Template Tersembunyi
+        document.getElementById("hd-nama-tokoh").innerText = namaTokoh;
+        document.getElementById("hd-wayang-img").src = imgUrl;
+        document.getElementById("hd-owner-address").innerText = ownerAddr;
+        document.getElementById("hd-token-id").innerText = "#" + tokenId;
+
+        // Beri waktu sebentar agar gambar ter-load di template
+        await new Promise(resolve => setTimeout(resolve, 500));
+
+        // 3. Potret Template HD
+        const element = document.getElementById("certificate-hd");
+        const canvas = await html2canvas(element, {
+            useCORS: true,
+            scale: 2, // 2x dari 1200px = 2400px (Super Tajam!)
+            backgroundColor: "#ffffff"
+        });
+
+        // 4. Download
+        const link = document.createElement("a");
+        link.download = `Sertifikat_HD_Wayang_${tokenId}.png`;
+        link.href = canvas.toDataURL("image/png", 1.0);
+        link.click();
+
+        alert("Sertifikat Resolusi Tinggi Tersimpan!");
+    } catch (err) {
+        console.error(err);
+        alert("Gagal merender gambar.");
+    } finally {
+        btn.innerHTML = `<i class="fas fa-download"></i> Simpan Sertifikat (Gambar)`;
+    }
+            }
 
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
