@@ -168,7 +168,7 @@ Koleksi Wayang Kulit
         .meta-label { font-size: 12px; text-transform: uppercase; color: #666; letter-spacing: 1px; display: block; margin-bottom: 5px; }
         .meta-value { font-size: 16px; font-weight: bold; color: #5c6a84; }
 
-        .silsilah-box { background: #e9f0ff; padding: 20px; border: 1px solid #7385a5; border-radius: 12px; }
+        .silsilah-box { background: #e9f0ff; padding: 20px; border: 1px solid #7385a5; border-radius: 20px; }
         .silsilah-row { display: flex; justify-content: space-between; border-bottom: 1px dashed #666; padding: 10px 0; }
         
         .social-section { margin-top: 40px; border-top: 1px dashed #5d4037; padding-top: 20px; }
@@ -810,24 +810,36 @@ function handleEditClick(id, owner) {
         // 2. Load Reviews
         const reviews = await contract.getReviews(id);
         
-        // --- RATING RATA-RATA ---
+        // --- RATING RATA-RATA (FIX DUPLIKAT) ---
         try {
             const avgScore = await contract.getAverageRating(id);
             const finalScore = (avgScore / 10).toFixed(1);
             
             if(avgScore > 0) {
-                // Cek agar tidak double render bintang di nama
                 const nameEl = document.getElementById("displayName");
-                if(!nameEl.innerHTML.includes("⭐")) { 
-                    nameEl.innerHTML += 
-                    ` <span style="font-size:14px; color:#f1c40f; border:1px solid #f1c40f; padding:2px 8px; border-radius:15px; display:inline-flex; align-items:center; gap:4px; vertical-align: middle;">
-                        <i class="fas fa-star"></i> ${finalScore}
-                      </span>`;
+                
+                // 1. Cek apakah badge rating sudah ada?
+                let ratingBadge = document.getElementById("rating-badge-dynamic");
+
+                // 2. Jika BELUM ada, kita buat element baru
+                if (!ratingBadge) {
+                    ratingBadge = document.createElement("span");
+                    ratingBadge.id = "rating-badge-dynamic"; // Kasih ID biar dikenali
+                    
+                    // Style CSS (Sama seperti sebelumnya)
+                    ratingBadge.style.cssText = "font-size:14px; color:#f1c40f; border:1px solid #f1c40f; padding:2px 8px; border-radius:15px; display:inline-flex; align-items:center; gap:4px; vertical-align: middle; margin-left: 10px;";
+                    
+                    // Masukkan ke sebelah Nama
+                    nameEl.appendChild(ratingBadge);
                 }
+
+                // 3. Update Isinya (Baik itu baru dibuat atau sudah ada)
+                // Ini menjamin isinya cuma satu dan angkanya selalu update
+                ratingBadge.innerHTML = `<i class="fas fa-star"></i> ${finalScore}`;
             }
         } catch (e) {
             console.log("Belum ada rating rata-rata");
-        }
+    }
         
         // Update Jumlah Review
         const countEl = document.getElementById("reviewCount");
