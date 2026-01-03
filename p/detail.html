@@ -840,6 +840,41 @@ body.modal-open {
         } catch (e) { console.log("Wallet belum connect"); }
 
         const shortOwner = owner.substring(0, 6) + "..." + owner.substring(owner.length - 4);
+
+        // --- 6. PINDAHKAN BADGE GAYA (CIREBON) KE HEADER ---
+        
+        // A. Ambil Text Gaya (Misal: "Cirebon")
+        const textGaya = getAttr("Gaya");
+
+        if (textGaya) {
+            // B. Sembunyikan Elemen Gaya yang Lama (yang ada di bawah)
+            // Supaya tidak muncul double
+            const oldGayaEl = document.getElementById("displayGaya");
+            if (oldGayaEl) {
+                // Sembunyikan elemen ini (atau parent-nya jika perlu)
+                oldGayaEl.style.display = 'none'; 
+                
+                // Opsional: Jika displayGaya ada di dalam container khusus (misal .badge-container), sembunyikan container itu juga
+                if(oldGayaEl.parentElement && oldGayaEl.parentElement.className.includes('badge')) {
+                     oldGayaEl.parentElement.style.display = 'none';
+                }
+            }
+
+            // C. Buat HTML Badge Gaya Baru (Style Pill Biru Elegan)
+            const newGayaBadge = `
+                <span title="Gaya / Asal" 
+                      style="background:#5c6a84; color:white; padding:4px 12px; border-radius:50px; 
+                             font-size:11px; font-weight:600; vertical-align:middle; margin-left:8px; 
+                             display:inline-flex; align-items:center; border:1px solid rgba(255,255,255,0.2); 
+                             transform:translateY(-1px);">
+                    <i class="fas fa-map-marker-alt" style="margin-right:4px; font-size:10px;"></i> ${textGaya}
+                </span>
+            `;
+
+            // D. Masukkan ke dalam Judul (displayName)
+            // 'beforeend' artinya ditaruh di urutan paling akhir di dalam H2 (Setelah Teks Judul & Bintang)
+            document.getElementById("displayName").insertAdjacentHTML('beforeend', newGayaBadge);
+        }
         
         // Cek Pemilik dengan aman
         const isMyItem = (currentUser && currentUser.toLowerCase() === owner.toLowerCase());
@@ -847,12 +882,12 @@ body.modal-open {
         // 3. Buat HTML Badge Kontributor (Di Bawah Judul)
         const contributorHTML = `
             <div id="contributor-badge-area" style="display:flex; align-items:center; gap:10px; margin-top:5px; margin-bottom:15px;">
-                <a href="profile.html?address=${owner}" style="text-decoration:none; display:flex; align-items:center; gap:6px; background:#eef2f7; padding:5px 12px; border-radius:50px; transition:0.2s;">
+                <a href="profile?address=${owner}" style="text-decoration:none; display:flex; align-items:center; gap:6px; background:#eef2f7; padding:5px 12px; border-radius:50px; transition:0.2s;">
                     <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${owner}" style="width:20px; height:20px; border-radius:50%;">
-                    <span style="font-size:12px; font-weight:600; color:#5c6a84;">${shortOwner}</span>
+                    <span style="font-size:12px; font-weight:600; color:#5c6a84;">Pemilik ${shortOwner}</span>
                 </a>
                 ${isMyItem ? `
-                    <span style="font-size:10px; color:#f1c40f; background:rgba(241, 196, 15, 0.1); padding:4px 8px; border-radius:4px; font-weight:bold;">
+                    <span style="font-size:12px; color:#f1c40f; background:rgba(241, 196, 15, 0.1); padding:5px 10px; border-radius:50px; font-weight:bold;">
                         Milik Anda
                     </span>
                 ` : ''}
@@ -866,7 +901,7 @@ body.modal-open {
                 style="background:none; border:none; cursor:pointer; color:#d35400; font-size:18px; margin-left:10px; vertical-align:middle; transition:0.2s;"
                 onmouseover="this.style.transform='scale(1.2)'" 
                 onmouseout="this.style.transform='scale(1)'">
-                <i class="fas fa-pen-to-square"></i>
+                <i class="fas fa-pen-to-square"></i>Revisi
             </button>
         `;
 
