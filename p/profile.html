@@ -57,6 +57,74 @@
         .state-box { text-align: center; padding: 50px 20px; color: #7385a5; }
 
         @keyframes fadeIn { from { opacity:0; transform: translateY(10px); } to { opacity:1; transform: translateY(0); } }
+
+        /* --- SEARCH CAPSULE STYLE --- */
+.search-capsule {
+    background: white;
+    border-radius: 50px;
+    padding: 5px 5px 5px 20px; /* Kiri agak lega buat icon */
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid #eef2f7;
+    margin-bottom: 25px; /* Jarak ke kartu profil */
+    transition: 0.3s;
+}
+
+.search-capsule:focus-within {
+    box-shadow: 0 8px 25px rgba(115, 133, 165, 0.15); /* Glow saat diketik */
+    border-color: #dbe4f3;
+    transform: translateY(-2px);
+}
+
+.search-icon {
+    color: #b0b8c4;
+    font-size: 14px;
+}
+
+.search-capsule input {
+    border: none;
+    outline: none;
+    flex: 1; /* Isi ruang kosong */
+    font-size: 14px;
+    font-family: 'Poppins', sans-serif;
+    color: #5c6a84;
+    background: transparent;
+}
+
+.search-capsule input::placeholder {
+    color: #b0b8c4;
+}
+
+.btn-search {
+    background: #7385a5;
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 50px;
+    font-weight: 600;
+    font-size: 13px;
+    cursor: pointer;
+    transition: 0.3s;
+    letter-spacing: 0.5px;
+}
+
+.btn-search:hover {
+    background: #5c6a84;
+    transform: scale(1.05);
+    box-shadow: 0 4px 10px rgba(115, 133, 165, 0.3);
+}
+
+/* Mobile Responsive */
+@media (max-width: 480px) {
+    .search-capsule {
+        padding: 5px;
+    }
+    .search-icon { display: none; /* Hemat tempat di HP */ }
+    .search-capsule input { margin-left: 10px; }
+    .btn-search { padding: 10px 20px; }
+}
     </style>
 </head>
 <body>
@@ -77,6 +145,16 @@
         <button onclick="requestLogin()" class="btn-connect-big" id="btnLogin">
             <i class="fas fa-wallet"></i> Buka Akses
         </button>
+    </div>
+
+    <div class="search-capsule">
+    <div class="search-icon">
+        <i class="fas fa-search"></i>
+    </div>
+    <input type="text" id="inputAddress" placeholder="Tempel Alamat Wallet (0x...) di sini..." onkeypress="handleEnter(event)">
+    <button onclick="cariProfile()" class="btn-search">
+        CARI
+    </button>
     </div>
 
     <div id="mainContent" class="container">
@@ -345,6 +423,44 @@ function handleEditClick(id, owner) {
                 setTimeout(() => btnText.innerText = "Salin", 2000);
             }
         }
+
+        // --- FITUR PENCARIAN PROFIL ---
+
+function cariProfile() {
+    const input = document.getElementById("inputAddress");
+    const address = input.value.trim();
+
+    // 1. Validasi Input Kosong
+    if (!address) {
+        showToast("Masukkan alamat wallet dulu!", 'warning');
+        return;
+    }
+
+    // 2. Validasi Format Ethereum (Harus 0x... dan panjang 42)
+    // Regex sederhana untuk cek address ETH
+    const isAddress = /^0x[a-fA-F0-9]{40}$/.test(address);
+
+    if (!isAddress) {
+        showToast("Format alamat tidak valid! (Harus 0x...)", 'error');
+        return;
+    }
+
+    // 3. Eksekusi Pencarian
+    // Kita reload halaman dengan parameter address baru
+    const btn = document.querySelector(".btn-search");
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; // Loading effect
+    
+    setTimeout(() => {
+        window.location.href = `profile.html?address=${address}`;
+    }, 500); // Delay dikit biar animasi kelihatan
+}
+
+// Fitur: Tekan Enter untuk mencari
+function handleEnter(e) {
+    if (e.key === "Enter") {
+        cariProfile();
+    }
+}
 
         // Auto Reload jika akun berubah di metamask
         if(window.ethereum) {
