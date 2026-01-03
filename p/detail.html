@@ -872,60 +872,67 @@ body.modal-open {
         document.getElementById("displayName").innerText = meta.name;
         document.getElementById("displayGaya").innerText = getAttr("Gaya");
 
-        // --- UPDATE UI STANDAR PROFESIONAL (CLEAN LOOK) ---
+        // --- UPDATE UI STANDAR PROFESIONAL (FIXED VERSION) ---
 
-// 1. Definisikan Elemen Target (Judul Wayang)
-const titleElement = document.getElementById('displayName'); // Pastikan ID judul anda benar
-const infoContainer = titleElement.parentElement; // Wadah teks di bawah gambar
+        // 1. Definisikan Elemen Target
+        const titleElement = document.getElementById('displayName'); 
 
-// 2. Siapkan Data
-const shortOwner = owner.substring(0, 6) + "..." + owner.substring(owner.length - 4);
-const isMyItem = (userAddress && userAddress.toLowerCase() === owner.toLowerCase());
+        // 2. Siapkan Data User (AMBIL LANGSUNG DARI METAMASK BIAR TIDAK ERROR)
+        let currentUser = "";
+        try {
+            if (window.ethereum && window.ethereum.selectedAddress) {
+                currentUser = window.ethereum.selectedAddress;
+            }
+        } catch (e) { console.log("Wallet belum connect"); }
 
-// 3. Buat HTML Badge Kontributor (Pill Shape)
-// Ini ditaruh DI BAWAH JUDUL
-const contributorHTML = `
-    <div style="display:flex; align-items:center; gap:10px; margin-top:5px; margin-bottom:15px;">
-        <a href="profile.html?address=${owner}" style="text-decoration:none; display:flex; align-items:center; gap:6px; background:#eef2f7; padding:5px 12px; border-radius:50px; transition:0.2s;">
-            <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${owner}" style="width:20px; height:20px; border-radius:50%;">
-            <span style="font-size:12px; font-weight:600; color:#5c6a84;">${shortOwner}</span>
-        </a>
-        ${isMyItem ? `
-            <span style="font-size:10px; color:#f1c40f; background:rgba(241, 196, 15, 0.1); padding:4px 8px; border-radius:4px; font-weight:bold;">
-                Milik Anda
-            </span>
-        ` : ''}
-    </div>
-`;
-
-// 4. Buat HTML Tombol Revisi (Icon Only)
-// Ini ditaruh DI SAMPING JUDUL
-const editIconHTML = `
-    <button onclick="handleEditClick('${id}', '${owner}')" title="Revisi Data"
-        style="background:none; border:none; cursor:pointer; color:#d35400; font-size:18px; margin-left:10px; vertical-align:middle;">
-        <i class="fas fa-pen-to-square"></i>
-    </button>
-`;
-
-// 5. EKSEKUSI RENDER
-// A. Masukkan Kontributor di bawah judul
-// Cek dulu biar gak dobel
-if (!document.getElementById('contributor-badge-area')) {
-    const div = document.createElement('div');
-    div.id = 'contributor-badge-area';
-    div.innerHTML = contributorHTML;
-    // Sisipkan SETELAH judul (h2)
-    titleElement.parentNode.insertBefore(div, titleElement.nextSibling);
-}
-
-// B. Masukkan Tombol Edit di SAMPING teks judul (h2)
-if (isMyItem) {
-    // Cek biar gak dobel
-    if (!titleElement.querySelector('button')) {
-        titleElement.innerHTML += editIconHTML; 
-    }
-}
+        const shortOwner = owner.substring(0, 6) + "..." + owner.substring(owner.length - 4);
         
+        // Cek Pemilik dengan aman
+        const isMyItem = (currentUser && currentUser.toLowerCase() === owner.toLowerCase());
+
+        // 3. Buat HTML Badge Kontributor (Di Bawah Judul)
+        const contributorHTML = `
+            <div id="contributor-badge-area" style="display:flex; align-items:center; gap:10px; margin-top:5px; margin-bottom:15px;">
+                <a href="profile.html?address=${owner}" style="text-decoration:none; display:flex; align-items:center; gap:6px; background:#eef2f7; padding:5px 12px; border-radius:50px; transition:0.2s;">
+                    <img src="https://api.dicebear.com/7.x/identicon/svg?seed=${owner}" style="width:20px; height:20px; border-radius:50%;">
+                    <span style="font-size:12px; font-weight:600; color:#5c6a84;">${shortOwner}</span>
+                </a>
+                ${isMyItem ? `
+                    <span style="font-size:10px; color:#f1c40f; background:rgba(241, 196, 15, 0.1); padding:4px 8px; border-radius:4px; font-weight:bold;">
+                        Milik Anda
+                    </span>
+                ` : ''}
+            </div>
+        `;
+
+        // 4. Buat HTML Tombol Revisi (Icon Only)
+        // Menggunakan insertAdjacentHTML agar lebih aman daripada innerHTML+=
+        const editIconHTML = `
+            <button onclick="handleEditClick('${id}', '${owner}')" title="Revisi Data"
+                style="background:none; border:none; cursor:pointer; color:#d35400; font-size:18px; margin-left:10px; vertical-align:middle; transition:0.2s;"
+                onmouseover="this.style.transform='scale(1.2)'" 
+                onmouseout="this.style.transform='scale(1)'">
+                <i class="fas fa-pen-to-square"></i>
+            </button>
+        `;
+
+        // 5. EKSEKUSI RENDER
+        
+        // A. Masukkan Kontributor (Cek dulu biar tidak dobel)
+        if (!document.getElementById('contributor-badge-area')) {
+            // Masukkan SETELAH elemen judul (h2)
+            titleElement.insertAdjacentHTML('afterend', contributorHTML);
+        }
+
+        // B. Masukkan Tombol Edit (Di DALAM judul, sebelah teks)
+        if (isMyItem) {
+            // Cek apakah tombol sudah ada? Kalau belum, masukkan.
+            if (!titleElement.querySelector('button')) {
+                titleElement.insertAdjacentHTML('beforeend', editIconHTML);
+            }
+        }
+        
+        // --- LANJUT DATA LAINNYA ---
         document.getElementById("displayDesc").innerText = meta.description;
         document.getElementById("displayGolongan").innerText = getAttr("Golongan");
         document.getElementById("displayWanda").innerText = getAttr("Wanda");
@@ -945,10 +952,10 @@ if (isMyItem) {
         document.getElementById("content").style.display = "flex";
 
     } catch (err) {
-        console.error(err);
+        console.error("Error Detail:", err);
         document.getElementById("loading").innerText = "Gagal memuat data wayang. Cek koneksi.";
     }
-  }
+} // Tutup kurung fungsi loadDetail
 
     // Fungsi Handler Klik Tombol Revisi
 function handleEditClick(id, owner) {
