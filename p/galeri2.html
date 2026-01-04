@@ -1200,6 +1200,7 @@ function handleEditClick(id, owner) {
     async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
     const loaderEl = document.getElementById(`loader-${id}`);
+    // Gunakan Dedicated Gateway Mas untuk SEMUA request
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
     if (!imgEl) return;
@@ -1212,35 +1213,42 @@ function handleEditClick(id, owner) {
         };
     };
 
-    // 1. Ambil CID langsung dari metaUrl untuk memotong jalur Axios JSON
-    // Kita asumsikan gambar memiliki CID yang sama atau bisa ditebak dari metaUrl
-    // Jika metaUrl adalah ipfs://CID, kita langsung arahkan ke gateway
-    const cid = metaUrl.replace("ipfs://", "").split('/')[0];
-    
-    // Gunakan Dedicated Gateway untuk kecepatan maksimal
-    const fastUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
-
-    // 2. Gunakan Weserv.nl HANYA jika digabungkan dengan Dedicated Gateway Mas
-    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(fastUrl)}&w=400&q=80&output=webp`;
-
     const cacheKey = `wayang_img_${id}`;
     const cachedUrl = localStorage.getItem(cacheKey);
 
+    // 1. Cek Cache (Instant)
     if (cachedUrl) {
         showImage(cachedUrl);
         return;
     }
 
     try {
-        // Langsung tampilkan dari Dedicated Gateway (Tanpa nunggu Axios JSON)
-        // Ini membuat card Mas muncul instan begitu metadata blockchain terbaca
+        // 2. Akses JSON lewat Dedicated Gateway (Instan, Tidak Lelet seperti ipfs.io)
+        let fetchUrl = metaUrl.includes("ipfs://") 
+            ? metaUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`) 
+            : metaUrl;
+
+        const res = await axios.get(fetchUrl, { timeout: 8000 });
+        
+        // 3. Ambil URL Gambar dari JSON
+        let rawImgUrl = res.data.image;
+        if (rawImgUrl.startsWith("ipfs://")) {
+            rawImgUrl = rawImgUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+        }
+
+        // 4. Optimasi Ukuran dengan Weserv (Gunakan Dedicated sebagai Source)
+        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=75&output=webp`;
+
         localStorage.setItem(cacheKey, optimizedUrl);
         showImage(optimizedUrl);
 
     } catch(e) { 
         console.warn("Gagal load gambar id " + id);
-        // Fallback ke IPFS IO jika Dedicated Gateway bermasalah
-        showImage(`https://ipfs.io/ipfs/${cid}`);
+        if(loaderEl) loaderEl.innerHTML = '<span style="color:red; font-size:10px;">Retry...</span>';
+        
+        // Fallback terakhir jika dedicated gateway sibuk
+        const CID_MANUAL = metaUrl.replace("ipfs://", "").split('/')[0];
+        imgEl.src = `https://cloudflare-ipfs.com/ipfs/${CID_MANUAL}`; 
     }
     }
     
