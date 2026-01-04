@@ -704,44 +704,6 @@ body.modal-open {
     </div>
 </nav>
 
-<div id="download-template" style="position: fixed; left: -9999px;">
-    <div id="certificate-hd" style="width: 1200px; padding: 60px; background: #fff; font-family: 'Poppins', sans-serif; border: 20px solid #2c3e50; position: relative;">
-        
-        <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; opacity: 0.05; background-image: url('img/logo-putramas.png'); background-repeat: repeat; z-index: 0;"></div>
-
-        <div style="position: relative; z-index: 1; text-align: center;">
-            <img src="img/logo.png" style="width: 150px; margin-bottom: 20px;">
-            <h1 style="font-size: 60px; color: #d35400; margin: 0; text-transform: uppercase; letter-spacing: 5px;">Sertifikat Digital</h1>
-            <p style="font-size: 24px; color: #7f8c8d; margin-top: 10px;">Arsip Wayang Digital - Putramas Official</p>
-            
-            <hr style="border: 2px solid #d35400; width: 300px; margin: 40px auto;">
-
-            <div style="margin: 40px auto; width: 600px; height: 600px; border: 10px solid #f4f4f4; border-radius: 20px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.1);">
-                <img id="hd-wayang-img" src="" style="width: 100%; height: 100%; object-fit: cover;">
-            </div>
-
-            <h2 id="hd-nama-tokoh" style="font-size: 48px; color: #2c3e50; margin-bottom: 10px;">Memuat Nama...</h2>
-            <p style="font-size: 20px; color: #95a5a6;">Identity Token ID: <strong id="hd-token-id">#0</strong></p>
-
-            <div style="background: #fdf2e9; padding: 30px; border-radius: 15px; margin-top: 40px; border: 1px dashed #d35400;">
-                <p style="font-size: 18px; color: #d35400; margin-bottom: 10px; font-weight: bold;">SAH DIMILIKI OLEH (OWNER):</p>
-                <p id="hd-owner-address" style="font-size: 22px; color: #2c3e50; font-family: monospace; word-break: break-all;">0x00000000000000000000000000</p>
-            </div>
-
-            <div style="margin-top: 50px; display: flex; justify-content: space-between; align-items: flex-end;">
-                <div style="text-align: left;">
-                    <p style="font-size: 16px; color: #bdc3c7;">Terverifikasi On-Chain:</p>
-                    <img src="img/base.svg" style="width: 120px; margin-top: 10px;">
-                </div>
-                <div style="text-align: right;">
-                    <p style="font-size: 18px; color: #2c3e50; font-weight: bold;">PUTRAMAS OFFICIAL</p>
-                    <p style="font-size: 14px; color: #7f8c8d;">Digital Heritage Archive</p>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 <div id="loading" style="text-align: center; margin-top: 100px; font-size: 14px; color: #7385a5; font-weight: 500; letter-spacing: 0.5px;">
     <i class="fas fa-circle-notch fa-spin" style="font-size: 22px; vertical-align: middle; margin-right: 10px;"></i> 
     Membuka Detail Arsip...
@@ -803,10 +765,6 @@ body.modal-open {
             <div class="silsilah-row"><span style="color:#666">Pusaka:</span><span style="font-weight:bold" id="displayPusaka">-</span></div>
         </div>
 
-        <h2 id="displayNama">Memuat Nama...</h2> 
-<img id="displayImg" src="placeholder.png">
-<div id="displayOwner">0x0...</div>
-
         <div class="social-section">
     <div style="margin-bottom: 25px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px;">
@@ -842,76 +800,7 @@ body.modal-open {
     </div>
         </div>
 
-        // 1. FUNGSI DOWNLOAD HD
-async function downloadSertifikatHD() {
-    const btn = document.getElementById("btnDownloadHD");
-    if(!btn) return;
-    
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
-    btn.disabled = true;
-
-    try {
-        // Ambil Data dari Elemen Asli
-        const elNama = document.getElementById("displayNama");
-        const elImg = document.getElementById("displayImg");
-        const elOwner = document.getElementById("displayOwner");
-
-        if (!elNama || !elImg || !elOwner) {
-            throw new Error("Elemen UI tidak ditemukan. Periksa ID di HTML.");
-        }
-
-        const tokenId = new URLSearchParams(window.location.search).get("id") || "0";
-
-        // Isi Template HD
-        document.getElementById("hd-nama-tokoh").innerText = elNama.innerText;
-        document.getElementById("hd-owner-address").innerText = elOwner.innerText;
-        document.getElementById("hd-token-id").innerText = "#" + tokenId;
         
-        const hdImg = document.getElementById("hd-wayang-img");
-        hdImg.crossOrigin = "anonymous"; 
-        hdImg.src = elImg.src;
-
-        // Tunggu Gambar Load
-        await new Promise((resolve, reject) => {
-            if (hdImg.complete) resolve();
-            hdImg.onload = resolve;
-            hdImg.onerror = () => reject(new Error("Gagal muat gambar."));
-        });
-
-        // Render ke Gambar
-        const canvas = await html2canvas(document.getElementById("certificate-hd"), {
-            useCORS: true,
-            scale: 2,
-            backgroundColor: "#ffffff"
-        });
-
-        const link = document.createElement("a");
-        link.download = `Sertifikat_Wayang_${tokenId}.png`;
-        link.href = canvas.toDataURL("image/png", 1.0);
-        link.click();
-
-        alert("Sertifikat Berhasil Disimpan!");
-    } catch (err) {
-        alert("Gagal: " + err.message);
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
-}
-
-// 2. FUNGSI SAWER ETH
-function panggilSawerDetail() {
-    const receiver = document.getElementById("displayOwner").innerText; 
-    const namaWayang = document.getElementById("displayNama").innerText;
-    
-    // Memanggil fungsi global sawerETH yang sudah dibuat sebelumnya
-    if(window.sawerETH) {
-        window.sawerETH(receiver, namaWayang);
-    } else {
-        alert("Fungsi Sawer tidak ditemukan.");
-    }
-}
 
             <div class="review-box">
     <h3 style="color: #7385a5; margin-top: 0; display:flex; align-items:center; gap:10px;">
@@ -1601,77 +1490,6 @@ function closeZoom() {
     }, 300);
 }
 
-    // 1. FUNGSI DOWNLOAD HD
-async function downloadSertifikatHD() {
-    const btn = document.getElementById("btnDownloadHD");
-    if(!btn) return;
-    
-    const originalText = btn.innerHTML;
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
-    btn.disabled = true;
-
-    try {
-        // Ambil Data dari Elemen Asli
-        const elNama = document.getElementById("displayNama");
-        const elImg = document.getElementById("displayImg");
-        const elOwner = document.getElementById("displayOwner");
-
-        if (!elNama || !elImg || !elOwner) {
-            throw new Error("Elemen UI tidak ditemukan. Periksa ID di HTML.");
-        }
-
-        const tokenId = new URLSearchParams(window.location.search).get("id") || "0";
-
-        // Isi Template HD
-        document.getElementById("hd-nama-tokoh").innerText = elNama.innerText;
-        document.getElementById("hd-owner-address").innerText = elOwner.innerText;
-        document.getElementById("hd-token-id").innerText = "#" + tokenId;
-        
-        const hdImg = document.getElementById("hd-wayang-img");
-        hdImg.crossOrigin = "anonymous"; 
-        hdImg.src = elImg.src;
-
-        // Tunggu Gambar Load
-        await new Promise((resolve, reject) => {
-            if (hdImg.complete) resolve();
-            hdImg.onload = resolve;
-            hdImg.onerror = () => reject(new Error("Gagal muat gambar."));
-        });
-
-        // Render ke Gambar
-        const canvas = await html2canvas(document.getElementById("certificate-hd"), {
-            useCORS: true,
-            scale: 2,
-            backgroundColor: "#ffffff"
-        });
-
-        const link = document.createElement("a");
-        link.download = `Sertifikat_Wayang_${tokenId}.png`;
-        link.href = canvas.toDataURL("image/png", 1.0);
-        link.click();
-
-        alert("Sertifikat Berhasil Disimpan!");
-    } catch (err) {
-        alert("Gagal: " + err.message);
-    } finally {
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-    }
-}
-
-// 2. FUNGSI SAWER ETH
-function panggilSawerDetail() {
-    const receiver = document.getElementById("displayOwner").innerText; 
-    const namaWayang = document.getElementById("displayNama").innerText;
-    
-    // Memanggil fungsi global sawerETH yang sudah dibuat sebelumnya
-    if(window.sawerETH) {
-        window.sawerETH(receiver, namaWayang);
-    } else {
-        alert("Fungsi Sawer tidak ditemukan.");
-    }
-        }
-    
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
 
