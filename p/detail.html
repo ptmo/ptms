@@ -1068,6 +1068,8 @@ function disconnectWallet() {
         async function loadDetail() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
+    // SENJATA BARU ANDA:
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
 
     if (!id) return;
 
@@ -1075,23 +1077,28 @@ function disconnectWallet() {
         const provider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, provider);
 
-        // 1. Ambil Owner & Data
+        // 1. Ambil Owner & Data (DIUBAH KE DEDICATED)
         const owner = await contract.ownerOf(id);
         const uri = await contract.tokenURI(id);
-        const httpUri = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+        
+        // Ganti ipfs.io dengan Dedicated Gateway Anda untuk JSON Metadata
+        const httpUri = uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         const response = await axios.get(httpUri);
         const meta = response.data;
 
-        // 2. Cek User Address (Untuk keperluan validasi nanti saat klik)
+        // 2. Cek User Address (Logika Anda tetap sama)
         if (window.ethereum) {
             const accounts = await window.ethereum.request({ method: 'eth_accounts' });
             if (accounts.length > 0) userAddress = accounts[0];
         }
         
-        const rawImgUrl = meta.image.replace("ipfs://", "https://ipfs.io/ipfs/");
-        const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
+        // Ganti ipfs.io dengan Dedicated Gateway Anda untuk Gambar Utama
+        const rawImgUrl = meta.image.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         
-        // Helper GetAttr (Saya tambahkan toLowerCase agar lebih aman mendeteksi key)
+        // Optimasi Gambar HD tetap menggunakan weserv tapi sumbernya dari Gateway VIP Anda
+        const hdImageUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=1200&q=95&output=webp`;
+
+        // --- SISANYA TETAP MENGGUNAKAN KODE LENGKAP ANDA ---
         const getAttr = (k) => {
             if(!meta.attributes) return "-";
             const f = meta.attributes.find(a => a.trait_type.toLowerCase() === k.toLowerCase());
@@ -1102,10 +1109,15 @@ function disconnectWallet() {
         
         const imgEl = document.getElementById("displayImg");
         imgEl.src = hdImageUrl;
+        // Fallback jika weserv bermasalah
+        imgEl.onerror = () => { imgEl.src = rawImgUrl; };
+        
         imgEl.style.opacity = 0;
         imgEl.onload = () => { imgEl.style.opacity = 1; imgEl.style.transition = "opacity 0.5s"; };
 
         document.getElementById("displayName").innerText = meta.name;
+        
+        // ... (Lanjutkan dengan semua logika Badge, Gaya, dan Silsilah milik Anda) ...
         document.getElementById("displayGaya").innerText = getAttr("Gaya");
 
         // --- UPDATE UI STANDAR PROFESIONAL (FIXED VERSION) ---
