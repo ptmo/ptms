@@ -805,20 +805,35 @@
     let toastTimeout;
 
     window.onload = async function() {
-        const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-        contractReader = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
-        const btns = document.querySelectorAll('.btn-filter');
-        if(btns.length > 0) btns[0].classList.add('active');
-        
-        loadCachedIndex();
-        loadGaleri(); 
+    // 1. Setup Dasar (Cepat)
+    const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+    contractReader = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+    
+    // UI Setup
+    const btns = document.querySelectorAll('.btn-filter');
+    if(btns.length > 0) btns[0].classList.add('active');
+    
+    // Load Cache Search (Cepat, dari memori HP)
+    loadCachedIndex();
+
+    // 2. PRIORITAS UTAMA: Tampilkan Galeri Dulu!
+    // Kita tunggu sebentar agar request galeri masuk antrian pertama
+    await loadGaleri(); 
+    
+    // 3. FITUR BERAT (Search Indexing) DITUNDA
+    // Beri jeda 4 detik. Biarkan gambar galeri muncul dulu, baru kita tarik data search.
+    // Ini bikin website terasa "Enteng" saat pertama dibuka.
+    setTimeout(() => {
+        console.log("⚙️ System: Memulai index pencarian di background...");
         buildSearchIndex(); 
-        
-        // Auto connect jika sudah pernah login
-        if(window.ethereum && window.ethereum.selectedAddress) {
-             connectWallet();
-        }
-    };
+    }, 4000); 
+    
+    // 4. Cek Wallet (Non-blocking)
+    // Jalankan tanpa 'await' agar jika Metamask lemot, tampilan tidak ikut macet
+    if(window.ethereum && window.ethereum.selectedAddress) {
+         connectWallet().catch(e => console.log("Auto-connect info:", e));
+    }
+};
 
     function loadCachedIndex() {
         const cachedData = localStorage.getItem("wayang_search_index");
@@ -1018,132 +1033,95 @@
     }
 
         async function renderCards(ids, container, isSearchMode, requestId) {
-    // Kita tidak pakai map yang ditunggu Promise.all, tapi for..of loop atau map fire-and-forget
-    // Tapi cara paling aman dan cepat agar urutan terjaga tapi render instan:
-    
+    // 1. GUNAKAN GATEWAY VIP (Kunci Kecepatan)
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
 
-    // Proses setiap ID satu per satu tapi secara paralel (Async)
+    // 2. LOGIKA PARALEL (Non-Blocking)
+    // Kita pakai forEach agar setiap kartu diproses & dirender secara independen.
+    // Jadi jika kartu ke-1 siap, dia langsung muncul tanpa nunggu kartu ke-10.
     ids.forEach(async (id) => {
-        if (searchRequestId !== requestId) return; // Stop jika user sudah pindah search
+        
+        // Cek pembatalan: Jika user ketik search baru, stop proses lama
+        if (searchRequestId !== requestId) return; 
 
         try {
-            // 1. Ambil Data (Tetap Async)
+            // A. Ambil Data Dasar
             const info = await contractReader.getInfoWayang(id);
             if (!info.isActive) return;
 
-            // ... (Logika filter Tab Official/Public Anda tetap sama) ...
-            
-            // Ambil data pendukung secara paralel untuk 1 kartu ini saja
-            const [owner, likes, ratingRaw, uri] = await Promise.all([
-                contractReader.ownerOf(id),
+            // B. Ambil Owner (Penting untuk Filter Tab)
+            const owner = await contractReader.ownerOf(id);
+
+            // C. Filter Tab (Official vs Public) - Langsung di sini
+            if (!isSearchMode) {
+                const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+                if (currentTab === 'official' && !isOwnerOfficial) return; // Skip kalau bukan official
+                if (currentTab === 'public' && isOwnerOfficial) return;   // Skip kalau official
+            }
+
+            // D. Ambil Data Sisanya (Likes, Rating, URI) secara Paralel
+            const [likes, ratingRaw, uri] = await Promise.all([
                 contractReader.totalLikes(id),
                 contractReader.getAverageRating(id),
                 contractReader.tokenURI(id)
             ]);
 
-            // ... (Logika filter Search Mode Anda tetap sama) ...
-
-            // 2. Siapkan Data UI
+            // E. Format Data
             const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
             const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
             
-            // GUNAKAN GATEWAY VIP (Fix Masalah No. 1)
-            const httpUri = uri ? uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`) : "https://via.placeholder.com/300";
-            
+            // F. SIAPKAN LINK GAMBAR (Pakai Dedicated Gateway biar ngebut)
+            const CID = uri ? uri.replace("ipfs://", "") : null;
+            const httpUri = CID ? `${DEDICATED_GATEWAY}/ipfs/${CID}` : "https://via.placeholder.com/300";
+
+            // Object Data Wayang
             const w = { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
 
-            // 3. Render Kartu LANGSUNG (Tanpa menunggu kartu lain)
-            // Cek lagi apakah request ID masih valid sebelum manipulasi DOM
+            // 3. RENDER KARTU LANGSUNG (Tanpa Nunggu Temannya)
             if (searchRequestId === requestId) {
-                // ... (Logika Badge Owner Anda tetap sama) ...
                 
-                // Copy-paste logika badge Anda di sini...
-                let ownerBadge = "";
+                // --- LOGIKA BADGE OWNER (Sesuai V3 Anda) ---
+                const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
                 const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
+                
+                let ownerBadge = "";
                 if (isOwnerOfficial) {
-                    ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;">👑 Official</div>`;
+                    ownerBadge = `
+                    <div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Official"
+                         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
+                         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
+                    </div>`;
                 } else {
-                    ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
+                    ownerBadge = `
+                    <div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Pemilik"
+                         style="background:#3498db; color:white; cursor:pointer;">
+                         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
+                    </div>`;
                 }
-                
+
                 // Generate HTML
-                const html = generateCardHTML(w, ownerBadge); // Pastikan fungsi generateCardHTML menerima parameter yang pas
+                const html = generateCardHTML(w, ownerBadge, isMine); 
                 
-                // Masukkan ke Container
+                // Tempel ke Layar
                 container.insertAdjacentHTML('beforeend', html);
                 
-                // Panggil Image Loader
+                // Panggil Loader Gambar (Yang sudah kita perbaiki pakai Gateway)
                 if (typeof fetchOptimizedImage === "function") {
                     fetchOptimizedImage(w.metaUrl, w.id);
                 }
             }
+
         } catch (e) { 
-            // Silent error agar satu kartu gagal tidak merusak galeri
+            // Silent error: Jika 1 kartu gagal (misal RPC error), kartu lain tetap muncul
             console.warn(`Skip ID ${id}:`, e.message); 
         }
     });
         }
 
-                const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
-                const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
-                // Gunakan Dedicated Gateway Mas agar loading gambar instan & anti-stuck
-const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
-
-const CID = uri ? uri.replace("ipfs://", "") : null;
-// Gunakan gateway utama Mas, dan tambahkan fallback ke cloudflare jika perlu
-const httpUri = CID ? `${DEDICATED_GATEWAY}/ipfs/${CID}` : "https://via.placeholder.com/300x400?text=Gambar+Tidak+Tersedia";
-                
-                return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
-            } catch (e) { return null; }
-        });
-
-        const results = await Promise.all(promises);
-
-        if (searchRequestId !== requestId) return;
-        const cleanResults = results.filter(item => item !== null);
-
-        if (cleanResults.length === 0) {
-            if (isSearchMode) {
-                container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
-            } 
-            return;
-        }
-
-        for (const w of cleanResults) {
-            // --- 2. CEK KEPEMILIKAN ---
-            const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
-
-            let ownerBadge = "";
-            const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
-            
-            if (isOwnerOfficial) {
-                ownerBadge = `
-    <div class="owner-badge" 
-         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-         title="Lihat Profil Official"
-         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
-         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
-    </div>`;
-} else {
-    // BAGIAN REGULAR OWNER (Bisa diklik + ada icon User)
-    ownerBadge = `
-    <div class="owner-badge" 
-         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-         title="Lihat Profil Pemilik"
-         style="background:#3498db; color:white; cursor:pointer;">
-         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
-    </div>`;
-            }
-
-            const html = generateCardHTML(w, ownerBadge, isMine); 
-            container.insertAdjacentHTML('beforeend', html);
-            
-            if (typeof fetchOptimizedImage === "function") {
-                fetchOptimizedImage(w.metaUrl, w.id);
-            }
-        }
-    }
     
     // --- 3. GENERATE HTML (FIXED) ---
     function generateCardHTML(w, badge, isMine) {
