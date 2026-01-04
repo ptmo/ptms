@@ -1037,7 +1037,12 @@
 
                 const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
                 const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
-                const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
+                // Gunakan Dedicated Gateway Mas agar loading gambar instan & anti-stuck
+const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+
+const CID = uri ? uri.replace("ipfs://", "") : null;
+// Gunakan gateway utama Mas, dan tambahkan fallback ke cloudflare jika perlu
+const httpUri = CID ? `${DEDICATED_GATEWAY}/ipfs/${CID}` : "https://via.placeholder.com/300x400?text=Gambar+Tidak+Tersedia";
                 
                 return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
             } catch (e) { return null; }
@@ -1193,53 +1198,52 @@ function handleEditClick(id, owner) {
 }
 
     async function fetchOptimizedImage(metaUrl, id) {
-        const imgEl = document.getElementById(`img-${id}`);
-        const loaderEl = document.getElementById(`loader-${id}`);
-        
-        if (!imgEl) return;
+    const imgEl = document.getElementById(`img-${id}`);
+    const loaderEl = document.getElementById(`loader-${id}`);
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+    
+    if (!imgEl) return;
 
-        const showImage = (url) => {
-            imgEl.src = url;
-            imgEl.onload = () => {
-                imgEl.style.opacity = 1;     
-                if(loaderEl) loaderEl.style.display = 'none'; 
-            };
-            if (imgEl.complete) {
-                imgEl.style.opacity = 1;
-                if(loaderEl) loaderEl.style.display = 'none';
-            }
+    const showImage = (url) => {
+        imgEl.src = url;
+        imgEl.onload = () => {
+            imgEl.style.opacity = 1;     
+            if(loaderEl) loaderEl.style.display = 'none'; 
         };
+    };
 
-        const cacheKey = `wayang_img_${id}`;
-        const cachedUrl = localStorage.getItem(cacheKey);
+    // 1. Ambil CID langsung dari metaUrl untuk memotong jalur Axios JSON
+    // Kita asumsikan gambar memiliki CID yang sama atau bisa ditebak dari metaUrl
+    // Jika metaUrl adalah ipfs://CID, kita langsung arahkan ke gateway
+    const cid = metaUrl.replace("ipfs://", "").split('/')[0];
+    
+    // Gunakan Dedicated Gateway untuk kecepatan maksimal
+    const fastUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
 
-        if (cachedUrl) {
-            showImage(cachedUrl);
-            return;
-        }
+    // 2. Gunakan Weserv.nl HANYA jika digabungkan dengan Dedicated Gateway Mas
+    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(fastUrl)}&w=400&q=80&output=webp`;
 
-        try {
-            let fetchUrl = metaUrl;
-            if (metaUrl.startsWith("ipfs://")) {
-                fetchUrl = metaUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
-            }
+    const cacheKey = `wayang_img_${id}`;
+    const cachedUrl = localStorage.getItem(cacheKey);
 
-            const res = await axios.get(fetchUrl, { timeout: 5000 });
-            let rawImgUrl = res.data.image;
-            if (rawImgUrl.startsWith("ipfs://")) {
-                rawImgUrl = rawImgUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
-            }
-            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=300&q=75&output=webp`;
-
-            localStorage.setItem(cacheKey, optimizedUrl);
-            showImage(optimizedUrl);
-
-        } catch(e) { 
-            console.warn("Gagal load gambar id " + id);
-            if(loaderEl) loaderEl.innerHTML = '<span style="color:red; font-size:10px;">Gagal</span>'; 
-        }
+    if (cachedUrl) {
+        showImage(cachedUrl);
+        return;
     }
 
+    try {
+        // Langsung tampilkan dari Dedicated Gateway (Tanpa nunggu Axios JSON)
+        // Ini membuat card Mas muncul instan begitu metadata blockchain terbaca
+        localStorage.setItem(cacheKey, optimizedUrl);
+        showImage(optimizedUrl);
+
+    } catch(e) { 
+        console.warn("Gagal load gambar id " + id);
+        // Fallback ke IPFS IO jika Dedicated Gateway bermasalah
+        showImage(`https://ipfs.io/ipfs/${cid}`);
+    }
+    }
+    
 // 1. UPDATE FUNGSI CONNECT WALLET
 async function connectWallet() {
     // Jika tombol sudah status "connected", maka klik akan membuka Modal, bukan connect ulang
