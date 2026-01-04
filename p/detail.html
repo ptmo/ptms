@@ -1505,6 +1505,86 @@ function closeZoom() {
     }, 300);
 }
 
+    async function downloadSertifikatHD() {
+    const btn = document.getElementById("btnDownloadHD");
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> GENERATING HD...`;
+    btn.disabled = true;
+
+    // Ambil data langsung dari elemen yang sudah di-load oleh fungsi loadDetail Anda
+    const nama = document.getElementById("displayName").innerText;
+    const imgElement = document.getElementById("displayImg");
+    const tokenId = document.getElementById("displayId").innerText;
+    const ownerInfo = document.querySelector("#contributor-badge-area span")?.innerText || "Putramas Collector";
+
+    // KUNCI: Gunakan URL asli dari gateway tanpa Weserv khusus untuk sertifikat agar resolusi maksimal
+    const rawImgUrl = imgElement.src.split('?url=')[1] ? decodeURIComponent(imgElement.src.split('?url=')[1].split('&')[0]) : imgElement.src;
+
+    const wrapper = document.createElement("div");
+    wrapper.style.position = "fixed";
+    wrapper.style.left = "-9999px";
+    wrapper.style.top = "0";
+
+    // Template Sertifikat Premium (Tanpa Gepeng)
+    wrapper.innerHTML = `
+        <div id="cert-hd" style="width: 1000px; background: #ffffff; padding: 60px; border: 30px solid #7385a5; position: relative; font-family: 'Rubik', sans-serif;">
+            <div style="border: 2px solid #d35400; padding: 40px;">
+                <h1 style="color: #7385a5; font-size: 50px; margin: 0; letter-spacing: 5px;">CERTIFICATE OF AUTHENTICITY</h1>
+                <p style="color: #999; text-transform: uppercase; letter-spacing: 2px;">Digital Heritage Archive • Putramas Official</p>
+                
+                <div style="width: 100%; height: 600px; margin: 40px 0; display: flex; align-items: center; justify-content: center; background: #fdfdfd; border: 1px solid #eee; overflow: hidden;">
+                    <img src="${rawImgUrl}" crossorigin="anonymous" style="max-width: 95%; max-height: 95%; object-fit: contain;">
+                </div>
+
+                <h2 style="font-size: 45px; color: #2c3e50; margin: 10px 0;">${nama}</h2>
+                <p style="font-size: 18px; color: #7385a5;">Token ID: <strong>#${tokenId}</strong></p>
+                
+                <div style="margin: 30px auto; width: 80%; border-top: 1px solid #eee; padding-top: 20px;">
+                    <p style="font-size: 14px; color: #bbb; margin-bottom: 5px;">REGISTERED OWNER</p>
+                    <p style="font-size: 16px; color: #5c6a84; font-family: monospace;">${ownerInfo}</p>
+                </div>
+
+                <div style="margin-top: 50px; display: flex; justify-content: center; align-items: center; gap: 20px;">
+                    <img src="img/icon-192.png" style="width: 80px; height: 80px; border-radius: 50%;">
+                    <div style="text-align: left;">
+                        <p style="font-weight: bold; color: #7385a5; margin: 0; font-size: 20px;">PUTRAMAS OFFICIAL</p>
+                        <p style="color: #bbb; margin: 0; font-size: 14px;">Verified On-Chain: Base Mainnet</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(wrapper);
+
+    try {
+        // Tunggu gambar di dalam wrapper selesai loading sebelum di-canvas
+        const certImg = wrapper.querySelector('img');
+        await new Promise((resolve) => {
+            if (certImg.complete) resolve();
+            certImg.onload = resolve;
+            certImg.onerror = resolve; // Tetap lanjut meski error agar tidak stuck
+        });
+
+        const canvas = await html2canvas(document.getElementById("cert-hd"), {
+            useCORS: true,
+            scale: 2, // Resolusi 2x lebih tajam
+            backgroundColor: "#ffffff"
+        });
+
+        const link = document.createElement("a");
+        link.download = `Sertifikat_Official_${nama}_${tokenId}.png`;
+        link.href = canvas.toDataURL("image/png", 1.0);
+        link.click();
+    } catch (err) {
+        console.error("Gagal cetak sertifikat:", err);
+        alert("Gagal menyimpan gambar. Pastikan koneksi stabil.");
+    } finally {
+        document.body.removeChild(wrapper);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+    }
+
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
 
