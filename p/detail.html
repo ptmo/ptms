@@ -803,6 +803,10 @@ body.modal-open {
             <div class="silsilah-row"><span style="color:#666">Pusaka:</span><span style="font-weight:bold" id="displayPusaka">-</span></div>
         </div>
 
+        <h2 id="displayNama">Memuat Nama...</h2> 
+<img id="displayImg" src="placeholder.png">
+<div id="displayOwner">0x0...</div>
+
         <div class="social-section">
     <div style="margin-bottom: 25px;">
         <div style="display: flex; align-items: center; justify-content: space-between; width: 100%; gap: 10px;">
@@ -837,6 +841,77 @@ body.modal-open {
         </center>
     </div>
         </div>
+
+        // 1. FUNGSI DOWNLOAD HD
+async function downloadSertifikatHD() {
+    const btn = document.getElementById("btnDownloadHD");
+    if(!btn) return;
+    
+    const originalText = btn.innerHTML;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
+    btn.disabled = true;
+
+    try {
+        // Ambil Data dari Elemen Asli
+        const elNama = document.getElementById("displayNama");
+        const elImg = document.getElementById("displayImg");
+        const elOwner = document.getElementById("displayOwner");
+
+        if (!elNama || !elImg || !elOwner) {
+            throw new Error("Elemen UI tidak ditemukan. Periksa ID di HTML.");
+        }
+
+        const tokenId = new URLSearchParams(window.location.search).get("id") || "0";
+
+        // Isi Template HD
+        document.getElementById("hd-nama-tokoh").innerText = elNama.innerText;
+        document.getElementById("hd-owner-address").innerText = elOwner.innerText;
+        document.getElementById("hd-token-id").innerText = "#" + tokenId;
+        
+        const hdImg = document.getElementById("hd-wayang-img");
+        hdImg.crossOrigin = "anonymous"; 
+        hdImg.src = elImg.src;
+
+        // Tunggu Gambar Load
+        await new Promise((resolve, reject) => {
+            if (hdImg.complete) resolve();
+            hdImg.onload = resolve;
+            hdImg.onerror = () => reject(new Error("Gagal muat gambar."));
+        });
+
+        // Render ke Gambar
+        const canvas = await html2canvas(document.getElementById("certificate-hd"), {
+            useCORS: true,
+            scale: 2,
+            backgroundColor: "#ffffff"
+        });
+
+        const link = document.createElement("a");
+        link.download = `Sertifikat_Wayang_${tokenId}.png`;
+        link.href = canvas.toDataURL("image/png", 1.0);
+        link.click();
+
+        alert("Sertifikat Berhasil Disimpan!");
+    } catch (err) {
+        alert("Gagal: " + err.message);
+    } finally {
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+    }
+}
+
+// 2. FUNGSI SAWER ETH
+function panggilSawerDetail() {
+    const receiver = document.getElementById("displayOwner").innerText; 
+    const namaWayang = document.getElementById("displayNama").innerText;
+    
+    // Memanggil fungsi global sawerETH yang sudah dibuat sebelumnya
+    if(window.sawerETH) {
+        window.sawerETH(receiver, namaWayang);
+    } else {
+        alert("Fungsi Sawer tidak ditemukan.");
+    }
+}
 
             <div class="review-box">
     <h3 style="color: #7385a5; margin-top: 0; display:flex; align-items:center; gap:10px;">
@@ -1526,77 +1601,77 @@ function closeZoom() {
     }, 300);
 }
 
-    async function downloadSertifikatHD() {
+    // 1. FUNGSI DOWNLOAD HD
+async function downloadSertifikatHD() {
     const btn = document.getElementById("btnDownloadHD");
     if(!btn) return;
     
-    const originalText = `<i class="fas fa-file-download"></i> Simpan`;
+    const originalText = btn.innerHTML;
     btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
     btn.disabled = true;
 
     try {
-        // AMBIL ELEMEN (Gunakan pengaman agar tidak null)
+        // Ambil Data dari Elemen Asli
         const elNama = document.getElementById("displayNama");
         const elImg = document.getElementById("displayImg");
         const elOwner = document.getElementById("displayOwner");
 
         if (!elNama || !elImg || !elOwner) {
-            throw new Error("Elemen UI (Nama/Gambar/Owner) tidak ditemukan. Pastikan ID 'displayNama', 'displayImg', dan 'displayOwner' sudah terpasang di HTML.");
+            throw new Error("Elemen UI tidak ditemukan. Periksa ID di HTML.");
         }
 
-        const namaTokoh = elNama.innerText;
-        const imgUrl = elImg.src;
-        const ownerAddr = elOwner.innerText;
         const tokenId = new URLSearchParams(window.location.search).get("id") || "0";
 
-        // MASUKKAN KE TEMPLATE HD
-        const hdNama = document.getElementById("hd-nama-tokoh");
-        const hdOwner = document.getElementById("hd-owner-address");
-        const hdToken = document.getElementById("hd-token-id");
-        const hdImg = document.getElementById("hd-wayang-img");
-
-        if (!hdNama || !hdImg) {
-            throw new Error("Template Sertifikat HD belum terpasang di HTML.");
-        }
-
-        hdNama.innerText = namaTokoh;
-        hdOwner.innerText = ownerAddr;
-        hdToken.innerText = "#" + tokenId;
+        // Isi Template HD
+        document.getElementById("hd-nama-tokoh").innerText = elNama.innerText;
+        document.getElementById("hd-owner-address").innerText = elOwner.innerText;
+        document.getElementById("hd-token-id").innerText = "#" + tokenId;
         
-        // Setup Gambar
+        const hdImg = document.getElementById("hd-wayang-img");
         hdImg.crossOrigin = "anonymous"; 
-        hdImg.src = imgUrl;
+        hdImg.src = elImg.src;
 
+        // Tunggu Gambar Load
         await new Promise((resolve, reject) => {
             if (hdImg.complete) resolve();
             hdImg.onload = resolve;
-            hdImg.onerror = () => reject(new Error("Gagal memuat gambar Wayang."));
-            setTimeout(() => reject(new Error("Timeout muat gambar")), 10000);
+            hdImg.onerror = () => reject(new Error("Gagal muat gambar."));
         });
 
-        const element = document.getElementById("certificate-hd");
-        const canvas = await html2canvas(element, {
+        // Render ke Gambar
+        const canvas = await html2canvas(document.getElementById("certificate-hd"), {
             useCORS: true,
-            allowTaint: false,
             scale: 2,
             backgroundColor: "#ffffff"
         });
 
         const link = document.createElement("a");
-        link.download = `Sertifikat_HD_Wayang_${tokenId}.png`;
+        link.download = `Sertifikat_Wayang_${tokenId}.png`;
         link.href = canvas.toDataURL("image/png", 1.0);
         link.click();
 
         alert("Sertifikat Berhasil Disimpan!");
     } catch (err) {
-        console.error("Detail Error:", err);
         alert("Gagal: " + err.message);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
-    }
+}
 
+// 2. FUNGSI SAWER ETH
+function panggilSawerDetail() {
+    const receiver = document.getElementById("displayOwner").innerText; 
+    const namaWayang = document.getElementById("displayNama").innerText;
+    
+    // Memanggil fungsi global sawerETH yang sudah dibuat sebelumnya
+    if(window.sawerETH) {
+        window.sawerETH(receiver, namaWayang);
+    } else {
+        alert("Fungsi Sawer tidak ditemukan.");
+    }
+        }
+    
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
 
