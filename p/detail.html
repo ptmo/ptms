@@ -1528,47 +1528,60 @@ function closeZoom() {
 
     async function downloadSertifikatHD() {
     const btn = document.getElementById("btnDownloadHD");
+    if(!btn) return;
+    
     const originalText = `<i class="fas fa-file-download"></i> Simpan`;
     btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
     btn.disabled = true;
 
     try {
-        // 1. Ambil Data
-        const namaTokoh = document.getElementById("displayNama").innerText;
-        const imgUrl = document.getElementById("displayImg").src;
-        const ownerAddr = document.getElementById("displayOwner").innerText;
-        const tokenId = new URLSearchParams(window.location.search).get("id");
+        // AMBIL ELEMEN (Gunakan pengaman agar tidak null)
+        const elNama = document.getElementById("displayNama");
+        const elImg = document.getElementById("displayImg");
+        const elOwner = document.getElementById("displayOwner");
 
-        // 2. Masukkan ke Template
-        document.getElementById("hd-nama-tokoh").innerText = namaTokoh;
-        document.getElementById("hd-owner-address").innerText = ownerAddr;
-        document.getElementById("hd-token-id").innerText = "#" + tokenId;
-        
+        if (!elNama || !elImg || !elOwner) {
+            throw new Error("Elemen UI (Nama/Gambar/Owner) tidak ditemukan. Pastikan ID 'displayNama', 'displayImg', dan 'displayOwner' sudah terpasang di HTML.");
+        }
+
+        const namaTokoh = elNama.innerText;
+        const imgUrl = elImg.src;
+        const ownerAddr = elOwner.innerText;
+        const tokenId = new URLSearchParams(window.location.search).get("id") || "0";
+
+        // MASUKKAN KE TEMPLATE HD
+        const hdNama = document.getElementById("hd-nama-tokoh");
+        const hdOwner = document.getElementById("hd-owner-address");
+        const hdToken = document.getElementById("hd-token-id");
         const hdImg = document.getElementById("hd-wayang-img");
+
+        if (!hdNama || !hdImg) {
+            throw new Error("Template Sertifikat HD belum terpasang di HTML.");
+        }
+
+        hdNama.innerText = namaTokoh;
+        hdOwner.innerText = ownerAddr;
+        hdToken.innerText = "#" + tokenId;
         
-        // PENTING: Set CrossOrigin agar tidak kena blokir CORS saat render
+        // Setup Gambar
         hdImg.crossOrigin = "anonymous"; 
         hdImg.src = imgUrl;
 
-        // 3. Tunggu Gambar Benar-benar Load
         await new Promise((resolve, reject) => {
             if (hdImg.complete) resolve();
             hdImg.onload = resolve;
-            hdImg.onerror = () => reject(new Error("Gagal memuat gambar Wayang untuk render HD"));
-            setTimeout(() => reject(new Error("Waktu tunggu muat gambar habis")), 10000);
+            hdImg.onerror = () => reject(new Error("Gagal memuat gambar Wayang."));
+            setTimeout(() => reject(new Error("Timeout muat gambar")), 10000);
         });
 
-        // 4. Proses Render
         const element = document.getElementById("certificate-hd");
         const canvas = await html2canvas(element, {
             useCORS: true,
             allowTaint: false,
             scale: 2,
-            backgroundColor: "#ffffff",
-            logging: false // Matikan log agar lebih cepat
+            backgroundColor: "#ffffff"
         });
 
-        // 5. Download
         const link = document.createElement("a");
         link.download = `Sertifikat_HD_Wayang_${tokenId}.png`;
         link.href = canvas.toDataURL("image/png", 1.0);
@@ -1577,7 +1590,7 @@ function closeZoom() {
         alert("Sertifikat Berhasil Disimpan!");
     } catch (err) {
         console.error("Detail Error:", err);
-        alert("Gagal merender gambar: " + err.message);
+        alert("Gagal: " + err.message);
     } finally {
         btn.innerHTML = originalText;
         btn.disabled = false;
