@@ -1527,47 +1527,62 @@ function closeZoom() {
 }
 
     async function downloadSertifikatHD() {
-    const btn = event.target;
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender HD...`;
+    const btn = document.getElementById("btnDownloadHD");
+    const originalText = `<i class="fas fa-file-download"></i> Simpan`;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Merender...`;
+    btn.disabled = true;
 
     try {
-        // 1. Ambil Data dari UI yang sudah ada
+        // 1. Ambil Data
         const namaTokoh = document.getElementById("displayNama").innerText;
         const imgUrl = document.getElementById("displayImg").src;
         const ownerAddr = document.getElementById("displayOwner").innerText;
         const tokenId = new URLSearchParams(window.location.search).get("id");
 
-        // 2. Masukkan ke Template Tersembunyi
+        // 2. Masukkan ke Template
         document.getElementById("hd-nama-tokoh").innerText = namaTokoh;
-        document.getElementById("hd-wayang-img").src = imgUrl;
         document.getElementById("hd-owner-address").innerText = ownerAddr;
         document.getElementById("hd-token-id").innerText = "#" + tokenId;
+        
+        const hdImg = document.getElementById("hd-wayang-img");
+        
+        // PENTING: Set CrossOrigin agar tidak kena blokir CORS saat render
+        hdImg.crossOrigin = "anonymous"; 
+        hdImg.src = imgUrl;
 
-        // Beri waktu sebentar agar gambar ter-load di template
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // 3. Tunggu Gambar Benar-benar Load
+        await new Promise((resolve, reject) => {
+            if (hdImg.complete) resolve();
+            hdImg.onload = resolve;
+            hdImg.onerror = () => reject(new Error("Gagal memuat gambar Wayang untuk render HD"));
+            setTimeout(() => reject(new Error("Waktu tunggu muat gambar habis")), 10000);
+        });
 
-        // 3. Potret Template HD
+        // 4. Proses Render
         const element = document.getElementById("certificate-hd");
         const canvas = await html2canvas(element, {
             useCORS: true,
-            scale: 2, // 2x dari 1200px = 2400px (Super Tajam!)
-            backgroundColor: "#ffffff"
+            allowTaint: false,
+            scale: 2,
+            backgroundColor: "#ffffff",
+            logging: false // Matikan log agar lebih cepat
         });
 
-        // 4. Download
+        // 5. Download
         const link = document.createElement("a");
         link.download = `Sertifikat_HD_Wayang_${tokenId}.png`;
         link.href = canvas.toDataURL("image/png", 1.0);
         link.click();
 
-        alert("Sertifikat Resolusi Tinggi Tersimpan!");
+        alert("Sertifikat Berhasil Disimpan!");
     } catch (err) {
-        console.error(err);
-        alert("Gagal merender gambar.");
+        console.error("Detail Error:", err);
+        alert("Gagal merender gambar: " + err.message);
     } finally {
-        btn.innerHTML = `<i class="fas fa-download"></i> Simpan Sertifikat (Gambar)`;
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
-            }
+    }
 
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
