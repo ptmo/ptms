@@ -987,6 +987,7 @@ let globalIds = [];
 let currentOffset = 0;
 let isFetchingBatch = false;
 let toastTimeout;
+let carouselCandidates = [];
 
 window.filterKategori = filterKategori;
 
@@ -1342,6 +1343,15 @@ async function renderCards(ids, container, isSearchMode, requestId) {
         
         // Panggil Loader Gambar Cerdas
         fetchOptimizedImage(w.metaUrl, w.id);
+
+        const cid = w.metaUrl.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const carouselImgUrl = `https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cid}`;
+
+        // 2. Kirim Data ke Carousel (Feeder)
+        if(typeof feedToCarousel === "function") {
+            // Ini yang bikin carousel otomatis terisi saat galeri dimuat
+            feedToCarousel(w.id, w.nama, w.likes, w.rating, carouselImgUrl);
+        }
     }       
 }
 
@@ -1531,136 +1541,70 @@ function copyAddress() {
     });
 }
 
-async function loadTopEngagement() {
-    const track = document.getElementById("topEngagementTrack");
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+// FUNGSI FEEDER: "Mencuri" data dari loop Galeri
+function feedToCarousel(id, nama, likes, rating, rawImgUrl) {
+    // 1. Validasi Data
+    const likeCount = parseInt(likes);
+    const ratingVal = parseFloat(rating); // Rating biasanya format 10, 20, 50 (per 10)
+
+    // 2. Filter Syarat: Minimal 1 Like ATAU Rating > 0
+    // Kalau kosong dua-duanya, langsung tolak (Hemat memori)
+    if (likeCount < 1 && ratingVal <= 0) return;
+
+    // 3. Cek Duplikat (Biar gak masuk dua kali)
+    if (carouselCandidates.some(item => item.id === id)) return;
+
+    // 4. Masukkan ke Daftar Calon
+    // Kita hitung skor: Like x 10 + Rating
+    const score = (likeCount * 10) + ratingVal;
     
-    // 1. Cek Ketersediaan Data Awal
-    if (!globalIds || globalIds.length === 0) {
-        console.log("⏳ Menunggu data globalIds...");
-        setTimeout(loadTopEngagement, 2000);
-        return;
-    }
+    carouselCandidates.push({
+        id: id,
+        nama: nama,
+        likes: likeCount,
+        rating: (ratingVal / 10).toFixed(1), // Ubah 50 jadi 5.0
+        score: score,
+        imgUrl: rawImgUrl
+    });
 
-    try {
-        console.log("🔥 Mulai Scanning Top Engagement...");
-        
-        // KURANGI LOAD: Cek 20 item terbaru saja biar RPC tidak error
-        const candidates = globalIds.slice(0, 20); 
-        
-        const promises = candidates.map(async (id) => {
-            try {
-                // Fetch Data Statistik
-                const [likes, ratingRaw] = await Promise.all([
-                    contractReader.totalLikes(id),
-                    contractReader.getAverageRating(id)
-                ]);
+    // 5. Urutkan: Skor Tertinggi di Atas
+    carouselCandidates.sort((a, b) => b.score - a.score);
 
-                // Konversi BigNumber ke Angka Biasa (PENTING)
-                const likeCount = parseInt(likes.toString());
-                const ratingVal = parseInt(ratingRaw.toString()); 
-
-                // DEBUG LOG: Biar tahu ID mana yang punya like
-                if (likeCount > 0 || ratingVal > 0) {
-                    console.log(`✅ ID ${id} Lolos: Likes=${likeCount}, Rating=${ratingVal}`);
-                }
-
-                // SYARAT: Minimal 1 Like ATAU 1 Bintang
-                const isQualified = (likeCount >= 1) || (ratingVal > 0);
-                
-                if (!isQualified) return null; 
-
-                // Ambil Detail jika lolos
-                const info = await contractReader.getInfoWayang(id);
-                const uri = await contractReader.tokenURI(id);
-                const score = (likeCount * 10) + ratingVal; 
-
-                let imgUrl = "img/loading.svg"; 
-                const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-                if (cid) imgUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
-
-                return { 
-                    id, 
-                    nama: info.nama, 
-                    likes: likeCount, 
-                    rating: (ratingVal / 10).toFixed(1),
-                    score,
-                    imgUrl 
-                };
-            } catch (e) { 
-                return null; 
-            }
-        });
-
-        const results = await Promise.all(promises);
-        
-        // Filter & Sortir
-        let finalIds = results.filter(i => i !== null);
-        finalIds.sort((a, b) => b.score - a.score);
-
-        // --- FALLBACK STRATEGY (JARING PENGAMAN) ---
-        // Jika tidak ada SATUPUN yang lolos filter (hasil 0),
-        // Kita paksa ambil 10 item terbaru secara acak biar Carousel GAK KOSONG.
-        if (finalIds.length === 0) {
-            console.warn("⚠️ Tidak ada data populer, menggunakan data terbaru (Fallback).");
-            // Ambil 10 data murni terbaru
-            finalIds = await getFallbackItems(globalIds.slice(0, 10));
-        } else {
-            // Kalau ada isinya, batasi max 10
-            finalIds = finalIds.slice(0, 10);
-        }
-
-        // RENDER HTML
-        let html = "";
-        
-        const makeCard = (item) => `
-            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <img src="${item.imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/150x200?text=Img+Error'">
-                <div class="mini-badge">
-                    <div style="display:flex; justify-content:space-between; width:100%;">
-                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
-                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
-                    </div>
-                    <div style="font-size:9px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:bold;">
-                        ${item.nama}
-                    </div>
-                </div>
-            </div>`;
-
-        // Duplikasi untuk efek Marquee
-        finalIds.forEach(item => html += makeCard(item));
-        finalIds.forEach(item => html += makeCard(item)); 
-
-        track.innerHTML = html; 
-
-    } catch (err) {
-        console.error("Gagal load carousel:", err);
-    }
+    // 6. Update Tampilan Carousel (Batasi Top 10)
+    renderLiveCarousel();
 }
 
-// Helper Fallback (Dipanggil jika tidak ada yang like)
-async function getFallbackItems(rawIds) {
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+// FUNGSI RENDER CAROUSEL (Dipanggil otomatis oleh Feeder)
+function renderLiveCarousel() {
+    const track = document.getElementById("topEngagementTrack");
+    if (!track) return;
+
+    // Ambil 10 Terbaik saat ini
+    const top10 = carouselCandidates.slice(0, 10);
     
-    const promises = rawIds.map(async (id) => {
-        try {
-            const info = await contractReader.getInfoWayang(id);
-            const uri = await contractReader.tokenURI(id);
-            const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-            
-            return {
-                id,
-                nama: info.nama,
-                likes: 0,   // Default 0
-                rating: "N/A", // Default N/A
-                score: 0,
-                imgUrl: `${DEDICATED_GATEWAY}/ipfs/${cid}`
-            };
-        } catch(e) { return null; }
-    });
+    let html = "";
     
-    const res = await Promise.all(promises);
-    return res.filter(i => i !== null);
+    const makeCard = (item) => `
+        <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
+            <img src="${item.imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/150x200?text=No+Img'">
+            <div class="mini-badge">
+                <div style="display:flex; justify-content:space-between; width:100%;">
+                    <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+                    <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+                </div>
+                <div style="font-size:9px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:bold;">
+                    ${item.nama}
+                </div>
+            </div>
+        </div>`;
+
+    // Duplikasi untuk efek Marquee Loop
+    top10.forEach(item => html += makeCard(item));
+    if(top10.length >= 5) { // Cuma duplikasi kalau itemnya udah agak banyak biar gak aneh
+        top10.forEach(item => html += makeCard(item)); 
+    }
+
+    track.innerHTML = html;
 }
     
 // Disconnect Wallet
