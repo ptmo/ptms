@@ -1239,49 +1239,71 @@ function handleEditClick(id, owner) {
     async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
     const loaderEl = document.getElementById(`loader-${id}`);
-    
-    // 1. GUNAKAN GATEWAY VIP ANDA (Kunci Kecepatan)
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
     if (!imgEl) return;
 
+    // --- LOGIKA TRANSISI HALUS (MODIFIKASI DISINI) ---
     const showImage = (url) => {
+        // 1. Pastikan ada transisi CSS agar munculnya halus
+        imgEl.style.transition = "opacity 0.5s ease-out";
+        
+        // 2. Set URL source gambar
         imgEl.src = url;
-        imgEl.onload = () => {
-            imgEl.style.opacity = 1;     
-            if(loaderEl) loaderEl.style.display = 'none'; 
-        };
-    };
 
+        // Fungsi yang dijalankan saat gambar selesai diload browser
+        const handleImageLoaded = () => {
+            // A. Munculkan Gambar (Fade In mulai berjalan)
+            imgEl.style.opacity = 1;     
+
+            // B. Tahan Spinner selama 0.5 detik (500ms), baru hilangkan.
+            // Ini memberikan waktu agar gambar benar-benar terlihat dulu sebelum spinner hilang.
+            if (loaderEl) {
+                setTimeout(() => {
+                    // Opsional: Bisa tambahkan efek fade-out juga ke loader jika mau lebih halus lagi
+                    // loaderEl.style.opacity = 0; 
+                    // setTimeout(() => loaderEl.style.display = 'none', 300);
+                    
+                    // Versi simpel: langsung hide setelah 0.5d
+                    loaderEl.style.display = 'none'; 
+                }, 500); // <-- JEDA 0.5 DETIK DISINI
+            }
+        };
+
+        imgEl.onload = handleImageLoaded;
+
+        // Handle jika gambar sudah di-cache browser (langsung complete)
+        if (imgEl.complete && imgEl.naturalWidth > 0) {
+            handleImageLoaded();
+        }
+    };
+    // --------------------------------------------------
+
+    // 1. Cek Cache LocalStorage (Instant)
     const cacheKey = `wayang_img_${id}`;
     const cachedUrl = localStorage.getItem(cacheKey);
-
-    // 2. CEK CACHE (Instan)
     if (cachedUrl) {
         showImage(cachedUrl);
         return;
     }
 
     try {
-        // 3. FETCH JSON LEWAT DEDICATED GATEWAY
-        // (V3 lama skip ini, makanya error. Kita balikin tapi pakai jalur cepat)
+        // 2. Ambil JSON lewat Dedicated Gateway
         let jsonUrl = metaUrl;
         if (jsonUrl.startsWith("ipfs://")) {
             jsonUrl = jsonUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        // Timeout pendek (5 detik) karena dedicated gateway harusnya ngebut
-        const res = await axios.get(jsonUrl, { timeout: 5000 });
+        // Timeout 8 detik
+        const res = await axios.get(jsonUrl, { timeout: 8000 });
         
-        // 4. AMBIL URL GAMBAR ASLI DARI DALAM JSON
+        // 3. Ambil URL Gambar dari JSON
         let rawImgUrl = res.data.image;
-        
-        // Ubah link gambar IPFS jadi link Gateway VIP juga
         if (rawImgUrl && rawImgUrl.startsWith("ipfs://")) {
             rawImgUrl = rawImgUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        // 5. OPTIMASI UKURAN VIA WESERV (Source-nya dari Gateway VIP)
+        // 4. Optimasi Ukuran dengan Weserv
         const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=75&output=webp`;
 
         // Simpan & Tampilkan
@@ -1289,10 +1311,16 @@ function handleEditClick(id, owner) {
         showImage(optimizedUrl);
 
     } catch(e) { 
-        console.warn(`Gagal load ID ${id}, mencoba fallback...`);
-        // Fallback darurat: Coba tebak CID (hanya jika JSON gagal total)
-        const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
-        showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
+        console.warn(`Gagal load ID ${id} via JSON, mencoba fallback...`);
+        // Fallback darurat: Coba tebak CID langsung
+        try {
+             const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
+             if(manualCid) {
+                 showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
+             } else { throw new Error("CID Invalid"); }
+        } catch(errFallback) {
+             if(loaderEl) loaderEl.innerHTML = '<span style="color:#e74c3c; font-size:10px;">Gagal Muat</span>';
+        }
     }
     }
     
