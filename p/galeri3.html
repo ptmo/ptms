@@ -1538,65 +1538,89 @@ function copyAddress() {
 // FUNGSI PENAMPUNG (FEEDER) VERSI FINAL
 // ==========================================
 
-function feedToCarousel(id, nama, likes, rating, rawCid) {
-    // 1. Validasi Angka
-    const likeCount = parseInt(likes);
-    const ratingVal = parseFloat(rating); 
-
-    // 2. Syarat Masuk: Minimal 1 Like ATAU Rating > 0
-    if (likeCount < 1 && ratingVal <= 0) return;
-
-    // 3. Cek Duplikat (Agar tidak masuk 2x saat ganti kategori)
-    if (carouselCandidates.some(item => item.id === id)) return;
-
-    // 4. Hitung Skor & Siapkan Gambar Anti-Pecah
-    const score = (likeCount * 10) + ratingVal;
-    
-    // SOLUSI BROKEN IMAGE: Pakai Weserv + Gateway Cepat
-    const cleanCid = rawCid.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-    const safeImgUrl = `https://wsrv.nl/?url=https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cleanCid}&w=200&q=70&output=webp`;
-
-    carouselCandidates.push({
-        id: id,
-        nama: nama,
-        likes: likeCount,
-        rating: (ratingVal / 10).toFixed(1), 
-        score: score,
-        imgUrl: safeImgUrl
-    });
-
-    // 5. Urutkan & Render
-    carouselCandidates.sort((a, b) => b.score - a.score);
-    renderLiveCarousel();
-}
-
-function renderLiveCarousel() {
+async function loadTopEngagement() {
     const track = document.getElementById("topEngagementTrack");
-    if (!track) return;
-
-    // Ambil Top 10
-    const top10 = carouselCandidates.slice(0, 10);
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
-    let html = "";
-    
-    // Template Kartu Bersih
-    top10.forEach(item => {
-        html += `
-        <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-            <img src="${item.imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/135x190?text=No+Img'">
-            <div class="mini-badge">
-                <div style="font-size:10px; font-weight:bold; margin-bottom:4px; color:#2c3e50; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
-                    ${item.nama}
-                </div>
-                <div style="display:flex; justify-content:space-between; font-size:10px; color:#7f8c8d;">
-                    <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
-                    <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
-                </div>
-            </div>
-        </div>`;
-    });
+    // Tampilkan Skeleton Loading dulu
+    track.innerHTML = `
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+    `;
 
-    track.innerHTML = html;
+    try {
+        // AMBIL DATA MANDIRI (ID 1 sampai 10)
+        // Kita tidak nunggu globalIds biar gak telat munculnya
+        const sampleIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
+        
+        const promises = sampleIds.map(async (id) => {
+            try {
+                // Fetch Paralel (Cepat)
+                const [info, likes, ratingRaw, uri] = await Promise.all([
+                    contractReader.getInfoWayang(id),
+                    contractReader.totalLikes(id),
+                    contractReader.getAverageRating(id),
+                    contractReader.tokenURI(id)
+                ]);
+
+                if (!info.isActive) return null;
+
+                // Proses URL Gambar (Logic Anti-Broken)
+                let imgUrl = "img/loading.svg"; // Default
+                
+                // 1. Bersihkan CID
+                const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+                
+                // 2. Susun URL Gateway VIP + Weserv (Biar Ringan & Cepat)
+                const rawUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=200&q=70&output=webp`;
+
+                return {
+                    id,
+                    nama: info.nama,
+                    likes: parseInt(likes),
+                    rating: (parseInt(ratingRaw) / 10).toFixed(1),
+                    imgUrl
+                };
+            } catch (e) { return null; }
+        });
+
+        const results = await Promise.all(promises);
+        const validItems = results.filter(i => i !== null);
+
+        // Render HTML
+        let html = "";
+        
+        validItems.forEach(item => {
+            html += `
+            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
+                <img src="${item.imgUrl}" loading="lazy" 
+                     onerror="this.src='https://via.placeholder.com/140x200?text=No+Image'">
+                
+                <div class="mini-badge">
+                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ${item.nama}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color:#7385a5;">
+                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        if (html === "") {
+            track.innerHTML = `<span style="padding:20px; color:#aaa;">Belum ada data populer.</span>`;
+        } else {
+            track.innerHTML = html;
+        }
+
+    } catch (err) {
+        console.warn("Carousel skip:", err);
+        track.innerHTML = ""; // Bersihkan jika gagal total
+    }
 }
     
 // Disconnect Wallet
