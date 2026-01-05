@@ -1004,11 +1004,15 @@ async function buildSearchIndex() {
 }
 
 async function smartSearch() {
-    const query = document.getElementById("searchInput").value.toLowerCase();
+    // 1. Ambil elemen inputnya (Supaya bisa dipanggil di bawah)
+    const inputEl = document.getElementById("searchInput"); 
+    const query = inputEl.value.toLowerCase();
+    
     const container = document.getElementById("containerGaleri");
     searchRequestId++; 
     const currentRequestId = searchRequestId;
 
+    // Jika kosong, kembalikan ke tampilan awal
     if (query.length === 0) {
         document.getElementById("tabContainer").style.display = "flex";
         document.getElementById("categoryContainer").style.display = "flex";
@@ -1016,30 +1020,47 @@ async function smartSearch() {
         return;
     }
 
+    // Sembunyikan tab & kategori saat searching
     document.getElementById("tabContainer").style.display = "none";
     document.getElementById("categoryContainer").style.display = "none";
 
     if (!isSearchReady) return;
 
+    // Filter Logic
     const results = searchIndex.filter(w => w.nama.includes(query) || w.gaya.includes(query) || w.id === query);
+    
+    // Bersihkan container
     container.innerHTML = "";
 
+    // --- BAGIAN PERBAIKAN (NOT FOUND) ---
     if (results.length === 0) {
-        container.innerHTML = `<div style="grid-column: 1/-1; animation: fadeIn 0.5s;">
-                    <div class="nf-box">
-                        <img src="img/stl.svg" class="nf-icon">
-                        <h3 style="color: #7385a5; margin: 0 0 10px 0;">Pencarian Tidak Ditemukan</h3>
-                        <p style="color: #7385a5;">Tidak dapat menemukan wayang dengan kata kunci: <b>"${input.value}"</b></p>
-                    </div>
-                </div>`;
+        // Kita pakai CSS inline biar pasti muncul rapi
+        container.innerHTML = `
+            <div style="grid-column: 1/-1; padding: 40px 20px; text-align: center; animation: fadeIn 0.5s;">
+                <div class="nf-box">
+                    <img src="img/stl.svg" class="nf-icon" style="width: 80px; opacity: 0.6; margin-bottom: 15px;">
+                    
+                    <h3 style="color: #7385a5; margin: 0 0 10px 0; font-size: 18px;">
+                        Pencarian Tidak Ditemukan
+                    </h3>
+                    
+                    <p style="color: #95a5a6; font-size: 14px; margin: 0;">
+                        Tidak dapat menemukan wayang dengan kata kunci: <br>
+                        <b style="color: #e74c3c; background: #fff0f0; padding: 2px 8px; border-radius: 4px;">
+                            "${inputEl.value}"
+                        </b>
+                    </p>
+                </div>
+            </div>`;
         return;
     }
+    // ------------------------------------
     
     // Render search results
     const limitedIds = results.slice(0, 20).map(r => r.id);
     await renderCards(limitedIds, container, true, currentRequestId);
 }
-
+    
 function switchTab(tab) {
     currentTab = tab;
     document.getElementById('tab-official').className = tab === 'official' ? 'tab-btn active' : 'tab-btn';
