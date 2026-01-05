@@ -971,11 +971,9 @@
     const container = document.getElementById("containerGaleri");
     const titleTab = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
     
-    // TAMPILKAN LOADER AWAL (Biarkan ini tetap ada)
-    container.innerHTML = `<p style="text-align:center; color:#00b300; grid-column: 1/-1; margin-top: 50px;">
-        <i class="fa-solid fa-spinner fa-spin" style="color: #7385a5; font-size: 24px; margin-right: 10px;"></i> 
-        <br><br>
-        <span style="color:#7385a5; font-size:14px;">Memuat ${titleTab} (${currentCategory})...</span>
+    container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
+        <img src="img/load.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
+        Memuat ${titleTab} (${currentCategory})...
     </p>`;
 
     try {
@@ -987,53 +985,38 @@
         isFetchingBatch = false;
 
         if (globalIds.length === 0) {
-            // Kalau kosong, baru kita timpa loader dengan pesan kosong
-            container.innerHTML = `<div style="grid-column: 1/-1; text-align:center; margin-top:40px;">
-                <p style="text-align:center; color:#aaa;">Belum ada koleksi di kategori ini.</p>
-                <button class="btn-upload-hero" onclick="window.location.href='upload_public'">
-                <i class="fas fa-cloud-upload-alt" style="font-size: 20px; margin-right: 10px; vertical-align: middle;"></i>
-                Upload Sekarang!</button>
-            </div>`;
+            container.innerHTML = `<p style="text-align:center; color:#aaa; grid-column: 1/-1;">Belum ada koleksi di kategori ini.</p>`;
             return;
         }
         
-        // HAPUS BARIS INI: container.innerHTML = ""; 
-        // Biarkan loadNextBatch yang menghapusnya nanti agar transisi mulus.
-        
+        container.innerHTML = ""; 
         await loadNextBatch();
 
     } catch (err) {
         console.error(err);
         if (searchRequestId === currentRequestId) {
-            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Koneksi RPC Gagal.</p>`;
+            container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal koneksi RPC.</p>`;
         }
     }
-    }
-    
+}
+
     async function loadNextBatch() {
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
 
     isFetchingBatch = true;
     const container = document.getElementById("containerGaleri");
     const loaderId = "loader-bottom";
-
-    // Loader bawah hanya untuk scroll (offset > 0)
-    if (currentOffset > 0 && !document.getElementById(loaderId)) {
+    if (!document.getElementById(loaderId)) {
         container.insertAdjacentHTML('beforeend', `
             <p id="${loaderId}" style="text-align:center; grid-column: 1/-1; color:#888; font-style:italic; margin-top:20px;">
-            <i class="fa-solid fa-circle-notch fa-spin" style="color: #7385a5; font-size: 18px; margin-right: 8px;"></i> Memuat data berikutnya...</p>
+                <img src="img/loading.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> Memuat data berikutnya...
+            </p>
         `);
     }
 
     const batchIds = globalIds.slice(currentOffset, currentOffset + BATCH_SIZE);
 
-    // --- PERUBAHAN DISINI: ---
-    // SAYA HAPUS baris 'container.innerHTML = "";' 
-    // Kita biarkan loader "Memuat Galeri..." tetap ada sampai detik terakhir!
-
     await renderCards(batchIds, container, false, searchRequestId);
-    
-    // Hapus loader bawah jika ada
     const loaderEl = document.getElementById(loaderId);
     if (loaderEl) loaderEl.remove();
 
@@ -1043,7 +1026,7 @@
     if (container.children.length === 0 && currentOffset < globalIds.length) {
         loadNextBatch();
     }
-    }
+        }
         
     async function renderCards(ids, container, isSearchMode, requestId) {
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
@@ -1088,185 +1071,129 @@
     });
     }
     
-    // --- 3. GENERATE HTML (FIXED) ---
-    function generateCardHTML(w, badge, isMine) {
-    
-    // 1. Definisi Tombol Revisi (Edit)
-    const editBtn = `
-        <button onclick="handleEditClick('${w.id}', '${w.owner}')" 
-             title="Revisi Data (Hanya Pemilik)" 
-             style="position:absolute; top:490px; right:12px; z-index:20; 
-             background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
-             font-size:9px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
-             cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
-             box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;">
-             <i class="fas fa-edit"></i> Revisi
-        </button>`;
+    async function renderCards(ids, container, isSearchMode, requestId) {
+        const promises = ids.map(async (id) => {
+            try {
+                const [info, owner, likes, ratingRaw, uri] = await Promise.all([
+                    contractReader.getInfoWayang(id),
+                    contractReader.ownerOf(id),
+                    contractReader.totalLikes(id),
+                    contractReader.getAverageRating(id),
+                    contractReader.tokenURI(id)
+                ]);
 
-    // 2. Logika Tombol Profil Pemilik
-    // Cek apakah address ada isinya untuk menghindari error substring
-    let profileBtn = '';
-    
-    // Pastikan gunakan w.owner atau w.uploader sesuai data smart contract Anda
-    const ownerAddress = w.owner ? w.owner : w.uploader; 
+                if (!info.isActive) return null;
+                if (!isSearchMode) {
+                    const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+                    if (currentTab === 'official' && !isOwnerOfficial) return null;
+                    if (currentTab === 'public' && isOwnerOfficial) return null;
+                }
 
-    if (ownerAddress) {
-        const shortAddr = ownerAddress.substring(0, 4) + '...' + ownerAddress.substring(38);
-        
-        profileBtn = `
-        <button onclick="event.stopPropagation(); window.location.href='?page=profile&address=${ownerAddress}'" 
-             style="background:#7385a5; color:#fff; padding:2px 8px; border-radius:4px; 
-             font-size:10px; border:none; cursor:pointer; display:inline-flex; 
-             align-items:center; gap:4px; margin-left:5px; z-index: 10; position: relative;">
-             <i class="fa-solid fa-user"></i> Pemilik: ${shortAddr}
-        </button>`;
+                const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
+                const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
+                const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
+                
+                return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
+            } catch (e) { return null; }
+        });
+
+        const results = await Promise.all(promises);
+
+        if (searchRequestId !== requestId) return;
+        const cleanResults = results.filter(item => item !== null);
+
+        if (cleanResults.length === 0) {
+            if (isSearchMode) {
+                container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
+            } 
+            return;
+        }
+
+        for (const w of cleanResults) {
+            let ownerBadge = "";
+            const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
+            if (isOwnerOfficial) {
+                ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
+                👑 Official</div>`;
+            } else {
+                ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
+            }
+
+            const html = generateCardHTML(w, ownerBadge);
+
+            container.insertAdjacentHTML('beforeend', html);
+            if (typeof fetchOptimizedImage === "function") {
+                fetchOptimizedImage(w.metaUrl, w.id);
+            }
+        }       
     }
-
-        return `
-            <div class="wayang-card-wrapper" style="position:relative;">
-                ${editBtn}
-                <a href="detail?id=${w.id}" class="wayang-card">
-                    
-                    <div class="wayang-img">
-                        ${badge}
-                        
-                        <div id="loader-${w.id}" class="img-loader">
-                            <div class="spinner-circle"></div>
-                        </div>
-
-                        <img id="img-${w.id}" 
-                             src="https://via.placeholder.com/300x400/2c3e50/2c3e50?text=." 
-                             alt="${w.nama}" 
-                             loading="lazy"
-                             style="opacity: 0; transition: opacity 0.3s;">
-                        
-                        <div class="img-overlay-bar">
-                        <div class="overlay-date">${w.date}</div>
-                        <div class="overlay-stats">
-                            <div class="stat-item">
-                                <i class="fas fa-heart" style="color: #e74c3c;"></i> ${w.likes}
-                            </div>
-                            <div class="stat-item">
-                                <i class="fas fa-star" style="color: #f1c40f;"></i> ${w.rating}
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                    
-                    <div class="card-body">
-                <div class="card-meta" style="display: flex; justify-content: space-between; align-items: center;">
-    <div style="display: flex; align-items: center;">
-        
-        <span class="gaya-text">${w.gaya}</span>
-        
-        ${profileBtn}
-        
-    </div>
-
-    <span class="date-text">#${w.id}</span>
-</div>
-                <h3>${w.nama}</h3>
-                        <div class="stats-row">Klik untuk detail & ulasan</div>
-                    </div>
-                </a> 
-            </div>`;
-    }
-
-    // Fungsi Handler Klik Tombol Revisi
-function handleEditClick(id, owner) {
-    // 1. Cek apakah Wallet sudah terhubung
-    if (!userAddress) {
-        showToast("Hubungkan wallet untuk mengedit!", 'warning');
-        return;
-    }
-
-    // 2. Cek apakah Wallet yang login adalah Pemilik
-    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-        showToast("Anda bukan pemilik postingan ini!", 'error');
-        return;
-    }
-
-    // 3. Jika Lolos Validasi -> Pindah ke Halaman Revisi
-    window.location.href = `revisi?id=${id}`;
-}
 
     async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
     const loaderEl = document.getElementById(`loader-${id}`);
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
     if (!imgEl) return;
 
-    // --- FITUR BARU: FAIL-SAFE TIMER 10 DETIK ---
-    // Apapun yang terjadi (sukses/gagal/lelet), spinner AKAN MATI di detik ke-10.
-    const maxSpinnerTime = setTimeout(() => {
-        if (loaderEl && loaderEl.style.display !== 'none') {
-            // console.log(`Spinner timeout untuk ID ${id}`); // Debugging opsional
-            loaderEl.style.display = 'none';
-            // Opsional: Jika ingin memberi tanda gambar gagal/lelet
-            // imgEl.alt = "Koneksi lambat..."; 
-        }
-    }, 10000); // 10.000 ms = 10 Detik
-
     const showImage = (url) => {
         imgEl.src = url;
-        
         imgEl.onload = () => {
-            // Jika gambar sukses dimuat SEBELUM 10 detik:
-            clearTimeout(maxSpinnerTime); // Batalkan timer (biar hemat memori)
-            
-            imgEl.style.opacity = 1;     
-            if(loaderEl) loaderEl.style.display = 'none'; 
-        };
-
-        imgEl.onerror = () => {
-            // Jika gambar error (link mati):
-            clearTimeout(maxSpinnerTime); // Batalkan timer
-            
+            imgEl.style.opacity = 1;
             if(loaderEl) loaderEl.style.display = 'none';
-            // Fallback ke placeholder atau biarkan kosong
         };
+        if (imgEl.complete) {
+            imgEl.style.opacity = 1;
+            if(loaderEl) loaderEl.style.display = 'none';
+        }
     };
 
     const cacheKey = `wayang_img_${id}`;
     const cachedUrl = localStorage.getItem(cacheKey);
 
-    // 1. Cek Cache
     if (cachedUrl) {
         showImage(cachedUrl);
         return;
     }
 
     try {
-        // 2. Ambil JSON
-        let jsonUrl = metaUrl;
-        if (jsonUrl.startsWith("ipfs://")) {
-            jsonUrl = jsonUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+        let fetchUrl = metaUrl;
+        if (metaUrl.startsWith("ipfs://")) {
+            fetchUrl = metaUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
         }
 
-        const res = await axios.get(jsonUrl, { timeout: 8000 }); // Axios timeout 8s, Spinner total 10s
+        const res = await axios.get(fetchUrl, { timeout: 5000 });
         
-        // 3. Ambil Gambar
         let rawImgUrl = res.data.image;
-        if (rawImgUrl && rawImgUrl.startsWith("ipfs://")) {
-            rawImgUrl = rawImgUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+        if (rawImgUrl.startsWith("ipfs://")) {
+            rawImgUrl = rawImgUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
         }
 
-        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=75&output=webp`;
+        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=300&q=75&output=webp`;
 
         localStorage.setItem(cacheKey, optimizedUrl);
+
         showImage(optimizedUrl);
 
     } catch(e) { 
-        // Fallback
-        const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
-        if(manualCid) {
-             showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
-        } else {
-             // Jika error total, spinner tetap akan mati di detik ke-10 berkat timer di atas
-        }
+        console.warn("Gagal load gambar id " + id);
+        if(loaderEl) loaderEl.innerHTML = '<span style="color:red; font-size:10px;">Gagal</span>';
     }
-    }
+}
+
+function loadImage(imgEl, url) {
+    const tempImg = new Image();
+    
+    tempImg.onerror = () => {
+        console.warn("Gagal load gambar optimized");
+    };
+
+    tempImg.onload = () => {
+        imgEl.src = url;
+        imgEl.style.transition = "opacity 0.4s ease-out";
+        imgEl.style.opacity = 1; 
+    };
+    
+    tempImg.src = url;
+}
     
 // 1. UPDATE FUNGSI CONNECT WALLET
 async function connectWallet() {
