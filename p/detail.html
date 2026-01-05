@@ -1080,7 +1080,6 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     let signer;
     let toastTimeout;
     let sawerTargetAddress = null;
-    let sawerTargetName = "";
     const MIN_TIP = 0.0001;
     const MAX_TIP = 0.005;
 
@@ -1870,8 +1869,7 @@ function closeZoom() {
     }
     }
 
-
-// 1. FUNGSI PEMICU (Load Data Pemilik)
+// 1. FUNGSI PEMICU (Gunakan contractReader yang sudah ada & stabil)
 async function panggilSawerDetail() {
     const btn = document.getElementById("btnSawer");
     const originalContent = btn.innerHTML;
@@ -1887,24 +1885,28 @@ async function panggilSawerDetail() {
     btn.disabled = true;
 
     try {
-        // Ambil Nama Wayang dari UI (Biar cepat)
         const elNama = document.getElementById("displayName");
         const namaWayang = elNama ? elNama.innerText : "Karya Seni";
 
-        // Koneksi RPC (Read-Only) untuk ambil Owner
-        // Gunakan provider baru khusus baca agar tidak konflik dengan signer wallet
-        const rpcProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
-        const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
-
-        // Ambil Owner
-        const ownerAddress = await readContract.ownerOf(id);
+        // --- PERBAIKAN: Gunakan contractReader Global ---
+        // Jangan bikin provider baru. Pakai yang sudah ada di script utama.
+        // contractReader biasanya sudah diset di script utama Mas.
+        let ownerAddress;
+        
+        if (typeof contractReader !== 'undefined') {
+            ownerAddress = await contractReader.ownerOf(id);
+        } else if (typeof contract !== 'undefined') {
+            ownerAddress = await contract.ownerOf(id);
+        } else {
+            throw new Error("Koneksi kontrak belum siap.");
+        }
 
         // Buka Modal
         await window.bukaModalSawer(ownerAddress, namaWayang);
 
     } catch (err) {
         console.error("Gagal load owner:", err);
-        showToast("Gagal memuat data pemilik. Cek koneksi.", 'error');
+        showToast("Gagal memuat data. Pastikan wallet terhubung / refresh halaman.", 'error');
     } finally {
         btn.innerHTML = originalContent;
         btn.disabled = false;
@@ -1912,98 +1914,88 @@ async function panggilSawerDetail() {
 }
 
 
-// 2. FUNGSI BUKA MODAL & CEK SALDO (FIXED)
+// 2. FUNGSI BUKA MODAL & UPDATE SALDO (Fix Saldo 0)
 window.bukaModalSawer = async function(address, name) {
-    // A. Cek Login Wallet
-    if (!window.ethereum || !userAddress) {
+    // Cek Login
+    if (!userAddress) {
         showToast("Hubungkan wallet dulu!", 'warning');
-        connectWallet(); // Coba connect otomatis
+        // Coba panggil connectWallet() jika ada fungsi globalnya
+        if(typeof connectWallet === 'function') connectWallet(); 
         return;
     }
 
-    // B. Cek Self-Tipping
     if (userAddress.toLowerCase() === address.toLowerCase()) {
-        showToast("Eits! Tidak bisa sawer diri sendiri.", 'wolf');
+        showToast("Anda tidak bisa menyawer diri sendiri!", 'wolf');
         return;
     }
 
     sawerTargetAddress = address;
     
-    // C. Isi UI Modal
+    // Isi UI
     document.getElementById("sawerReceiverName").innerText = name;
     document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 8) + "..." + address.substring(38);
     document.getElementById("sawerAmount").value = "";
     document.getElementById("sawerMessage").value = "";
 
-    // D. CEK SALDO USER (PERBAIKAN UTAMA)
+    // --- FIX SALDO: Pakai Provider Global ---
     try {
-        // Gunakan provider dari window.ethereum untuk cek saldo user sendiri
-        const userProvider = new ethers.providers.Web3Provider(window.ethereum);
-        const balanceBN = await userProvider.getBalance(userAddress);
+        // Gunakan 'provider' global yang sudah terhubung ke Metamask
+        const balanceBN = await provider.getBalance(userAddress);
         const ethVal = ethers.utils.formatEther(balanceBN);
         
-        // Tampilkan Saldo
-        document.getElementById("sawerUserBalance").innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+        // Update UI Saldo
+        const elSaldo = document.getElementById("sawerUserBalance");
+        elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
         
-        // Simpan saldo di dataset untuk dipakai tombol persentase (biar gak request ulang)
-        document.getElementById("sawerUserBalance").dataset.balance = ethVal;
+        // Simpan saldo asli di atribut data agar tombol persen bisa baca
+        elSaldo.setAttribute('data-balance', ethVal); 
 
     } catch (e) {
         console.error("Gagal cek saldo:", e);
-        document.getElementById("sawerUserBalance").innerText = "Err";
+        document.getElementById("sawerUserBalance").innerText = "0.0000 ETH";
     }
 
     toggleSawerModal(true);
 }
 
 
-// 3. FUNGSI TOMBOL PERSENTASE (FIXED)
+// 3. FUNGSI TOMBOL PERSENTASE (Fix Tombol Mati)
 async function setSawerPercent(percent) {
-    const btnSend = document.getElementById("btnKirimSawer");
-    const originalText = btnSend.innerHTML;
-    
-    try {
-        // Ambil saldo dari dataset yang sudah disimpan tadi (Lebih Cepat)
-        const elBalance = document.getElementById("sawerUserBalance");
-        let balanceEth = parseFloat(elBalance.dataset.balance || "0");
-        
-        // Jika dataset kosong, coba fetch ulang (Fallback)
-        if (balanceEth === 0 && userAddress) {
-            const userProvider = new ethers.providers.Web3Provider(window.ethereum);
-            const balanceBN = await userProvider.getBalance(userAddress);
-            balanceEth = parseFloat(ethers.utils.formatEther(balanceBN));
-        }
+    const elSaldo = document.getElementById("sawerUserBalance");
+    // Ambil saldo dari atribut data-balance yang kita simpan tadi
+    let balanceEth = parseFloat(elSaldo.getAttribute('data-balance') || "0");
 
-        // Estimasi Gas Fee (Safety Margin: 0.0005 ETH)
-        let maxSafe = balanceEth - 0.0005; 
-        if (maxSafe < 0) maxSafe = 0;
+    // Jika saldo 0, jangan lanjut
+    if (balanceEth <= 0) {
+        showToast("Saldo Anda 0 ETH", 'warning');
+        return;
+    }
 
-        // Hitung Nominal
-        let amount = (maxSafe * percent) / 100;
+    // Estimasi Gas Fee (Safety Margin: 0.0005 ETH)
+    let maxSafe = balanceEth - 0.0005; 
+    if (maxSafe < 0) maxSafe = 0;
 
-        // Capping (Sesuai Aturan Kontrak)
-        if (amount > MAX_TIP) amount = MAX_TIP;
-        if (amount < MIN_TIP) {
-            // Jika saldo mepet, cek apakah masih bisa minimal?
-            if (maxSafe >= MIN_TIP) amount = MIN_TIP;
-            else amount = 0; // Saldo tidak cukup
-        }
+    // Hitung Nominal
+    let amount = (maxSafe * percent) / 100;
 
-        // Tampilkan di Input (4 Desimal)
-        if (amount > 0) {
-            document.getElementById("sawerAmount").value = amount.toFixed(4);
-        } else {
-            showToast("Saldo tidak cukup untuk gas fee.", 'warning');
-            document.getElementById("sawerAmount").value = "0";
-        }
+    // Capping (Sesuai Kontrak)
+    if (amount > MAX_TIP) amount = MAX_TIP;
+    if (amount < MIN_TIP) {
+        // Kalau hasil hitungan < min tip, tapi user punya duit, set ke min tip
+        if (maxSafe >= MIN_TIP) amount = MIN_TIP;
+        else amount = 0; 
+    }
 
-    } catch(e) {
-        console.error("Error hitung persen:", e);
+    // Tampilkan
+    if (amount > 0) {
+        document.getElementById("sawerAmount").value = amount.toFixed(4);
+    } else {
+        showToast("Saldo tidak cukup untuk gas fee.", 'warning');
     }
 }
 
 
-// 4. EKSEKUSI TRANSAKSI (Sama, sedikit rapihkan)
+// 4. EKSEKUSI TRANSAKSI
 async function eksekusiSawer() {
     const amountVal = document.getElementById("sawerAmount").value;
     const msgVal = document.getElementById("sawerMessage").value;
@@ -2014,15 +2006,15 @@ async function eksekusiSawer() {
         return;
     }
 
-    if (!signer) {
-         // Re-init signer jika hilang
-         const p = new ethers.providers.Web3Provider(window.ethereum);
-         signer = p.getSigner();
-    }
-
     try {
         btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
         btn.disabled = true;
+
+        // Pastikan signer ready
+        if (!signer) {
+            const p = new ethers.providers.Web3Provider(window.ethereum);
+            signer = p.getSigner();
+        }
 
         const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         const amountWei = ethers.utils.parseEther(amountVal.toString());
@@ -2039,7 +2031,7 @@ async function eksekusiSawer() {
     } catch (err) {
         console.error(err);
         let msg = err.reason || err.message;
-        if(msg.includes("insufficient funds")) msg = "Saldo tidak cukup (+Gas Fee)";
+        if(msg && msg.includes("insufficient funds")) msg = "Saldo kurang untuk +Gas Fee";
         showToast("Gagal: " + msg, 'error');
     } finally {
         btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
