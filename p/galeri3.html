@@ -1269,17 +1269,13 @@ function bukaRevisi(event, id) {
 // =========================================
 // 4. WALLET & UTILS
 // =========================================
-
-// Pastikan variabel ini ada di paling atas file script
-// let provider, signer, userAddress; 
-
 async function connectWallet() {
     if (!window.ethereum) return showToast("Install Metamask!", 'wolf');
     
     const btnConnect = document.getElementById("btn-connect");
     const originalText = btnConnect.innerHTML;
     
-    // Ubah status tombol jadi Loading
+    // Ubah status tombol jadi Loading (Pakai innerHTML biar icon loading jalan)
     btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
 
     try {
@@ -1290,35 +1286,35 @@ async function connectWallet() {
         if (network.chainId !== 84532) await switchNetwork();
 
         signer = provider.getSigner();
-        userAddress = await signer.getAddress(); // Simpan ke variabel global
+        userAddress = await signer.getAddress(); 
 
-        // --- 1. UPDATE DATA KE DALAM MODAL (SINKRONISASI) ---
-        const shortAddr = innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
-        btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-        btn.classList.add("connected"); // Menandai sudah connect
-        
-        // A. Masukkan Address ke Modal (Full & Short)
+        // --- 1. UPDATE DATA MODAL ---
         document.getElementById("modalFullAddress").innerText = userAddress;
         document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
 
-        // B. Ambil & Masukkan Saldo ETH
         const balance = await provider.getBalance(userAddress);
         const ethBalance = ethers.utils.formatEther(balance);
-        // Format 4 desimal
-        document.getElementById("modalBalance").innerHTML = `${parseFloat(ethBalance).toFixed(4)} <span style="font-size:14px; color:#7385a5;">ETH</span>`;
+        const elBalance = document.getElementById("modalBalance");
+        if(elBalance) {
+            elBalance.innerHTML = `${parseFloat(ethBalance).toFixed(4)} <span style="font-size:14px; color:#7385a5;">ETH</span>`;
+        }
 
-        // --- 2. UPDATE TOMBOL UTAMA ---
+        // --- 2. UPDATE TOMBOL UTAMA (DENGAN ICON) ---
         
-        // Teks tombol jadi address pendek
-        btnConnect.innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        // Buat format alamat pendek
+        const shortAddress = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        
+        // PERBAIKAN DISINI: Pakai innerHTML + Icon Wallet
+        btnConnect.innerHTML = `<i class="fas fa-wallet"></i>Info Profile`;
+        
         btnConnect.classList.add("connected");
-        
-        // PENTING: Ganti fungsi klik tombol -> Buka Modal
         btnConnect.onclick = toggleWalletModal; 
+
+        if(typeof showToast === "function") showToast("Wallet Terhubung!", "success");
 
     } catch (err) { 
         console.error(err);
-        btnConnect.innerHTML = originalText; // Balikin teks jika gagal
+        btnConnect.innerHTML = originalText; // Balikin ke teks asli (Hubungkan)
     }
 }
 
