@@ -1027,10 +1027,11 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
         </div>
 
         <div class="percent-grid">
-            <button onclick="setSawerPercent(25)">25%</button>
-            <button onclick="setSawerPercent(50)">50%</button>
-            <button onclick="setSawerPercent(75)">75%</button>
-            <button onclick="setSawerPercent(100)">MAX</button>
+    <button onclick="setSawerPercent('MIN')">Min</button> 
+    <button onclick="setSawerPercent(25)">25%</button>
+    <button onclick="setSawerPercent(50)">50%</button>
+    <button onclick="setSawerPercent(75)">75%</button>
+    <button onclick="setSawerPercent(100)">MAX</button>
         </div>
 
         <div class="input-group" style="margin-top: 15px;">
@@ -1974,39 +1975,59 @@ async function bukaModalSawer(address, name) {
 
 
 // ==========================================
-// 3. LOGIKA TOMBOL PERSENTASE
+// 3. LOGIKA TOMBOL PERSENTASE (PERBAIKAN LOGIKA)
 // ==========================================
 function setSawerPercent(percent) {
     const elSaldo = document.getElementById("sawerUserBalance");
     const rawBalance = elSaldo.getAttribute('data-balance');
     
-    if (!rawBalance) return;
+    if (!rawBalance) {
+        alert("Saldo belum terbaca, tunggu sebentar.");
+        return;
+    }
 
     let balanceEth = parseFloat(rawBalance);
     
-    // Sisakan 0.0005 ETH untuk Gas Fee
-    let maxSafe = balanceEth - 0.0005;
-    if (maxSafe < 0) maxSafe = 0;
+    // 1. Tentukan Batas Atas (Ceiling)
+    // Batasnya adalah angka TERKECIL antara: 
+    // (Saldo User - Gas) ATAU (Max Tip Kontrak 0.005)
+    let maxSafeUser = balanceEth - 0.0005; // Saldo aman
+    if (maxSafeUser < 0) maxSafeUser = 0;
 
-    // Hitung nominal
-    let amount = (maxSafe * percent) / 100;
+    // Ini kuncinya: Jangan hitung % dari saldo dompet kalau dompetnya tebal.
+    // Hitung % dari Batas Maksimal Sawer (0.005).
+    let effectiveLimit = Math.min(maxSafeUser, MAX_TIP); 
 
-    // Batasi (Clamp) sesuai rules Contract
-    if (amount > MAX_TIP) amount = MAX_TIP;
-    if (amount < MIN_TIP) {
-        // Jika hasil hitungan dibawah min, tapi saldo cukup, paksa ke min
-        if (maxSafe >= MIN_TIP) amount = MIN_TIP;
-        else amount = 0; // Saldo emang gak cukup
+    let amount = 0;
+
+    // 2. Hitung Nominal
+    if (percent === 'MIN') {
+        amount = MIN_TIP; // Set langsung ke 0.0001
+    } else {
+        // Hitung persentase dari Limit Efektif
+        amount = (effectiveLimit * percent) / 100;
     }
 
-    // Tampilkan 4 angka belakang koma
+    // 3. Validasi Akhir (Clamping)
+    // Pastikan tidak kurang dari minimum kontrak
+    if (amount < MIN_TIP) {
+        // Jika user maksa pencet 25% tapi hasilnya dibawah min, 
+        // kita bulatkan ke min (kecuali saldo emang 0)
+        if (maxSafeUser >= MIN_TIP) amount = MIN_TIP;
+        else amount = 0;
+    }
+
+    // Pastikan tidak lebih dari limit
+    if (amount > effectiveLimit) amount = effectiveLimit;
+
+    // 4. Render ke Input
     if (amount > 0) {
-        document.getElementById("sawerAmount").value = amount.toFixed(4);
+        // Gunakan toFixed(4) tapi hilangkan nol berlebih di belakang (opsional)
+        document.getElementById("sawerAmount").value = parseFloat(amount.toFixed(5)); 
     } else {
         alert("Saldo tidak cukup untuk gas fee.");
     }
 }
-
 
 // ==========================================
 // 4. EKSEKUSI TRANSAKSI
