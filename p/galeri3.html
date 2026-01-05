@@ -120,79 +120,78 @@
     letter-spacing: 1px;
 }
 
+/* --- CAROUSEL MODERN (SWIPEABLE) --- */
+.hero-carousel-wrapper {
+    width: 100%;
+    max-width: 800px;
+    margin-bottom: 30px;
+    position: relative;
+}
+
+.carousel-label {
+    font-size: 12px; font-weight: 700; color: #2c3e50;
+    text-transform: uppercase; letter-spacing: 1px; margin-bottom: 15px;
+    display: inline-block; background: #fff; padding: 6px 16px;
+    border-radius: 20px; border: 1px solid #eee; box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+}
+
+/* Container Scroll Manual (Bukan Animasi) */
 .marquee-container {
     width: 100%;
-    overflow: hidden;
-    padding: 10px 0; /* Ruang untuk shadow kartu */
-    /* Efek pudar kiri-kanan */
-    mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
-    -webkit-mask-image: linear-gradient(to right, transparent, black 10%, black 90%, transparent);
+    overflow-x: auto; /* Bisa discroll/swipe ke samping */
+    overflow-y: hidden;
+    white-space: nowrap;
+    padding: 10px 5px 20px 5px; /* Ruang bawah untuk shadow */
+    -webkit-overflow-scrolling: touch; /* Smooth scroll di iOS */
+    
+    /* Hilangkan Scrollbar tapi tetap bisa scroll */
+    scrollbar-width: none; 
+    -ms-overflow-style: none;
 }
+.marquee-container::-webkit-scrollbar { display: none; }
 
 .marquee-track {
-    display: flex;
-    gap: 18px;
-    width: max-content;
-    animation: scrollCenter 35s linear infinite;
+    display: inline-flex; /* Agar berjejer ke samping */
+    gap: 15px;
 }
-.marquee-track:hover { animation-play-state: paused; }
 
-/* KARTU WAYANG (Ukuran Medium Premium) */
+/* Kartu Mini */
 .mini-card {
-    width: 170px;  /* Lebar Proporsional */
-    height: 240px; /* Tinggi Proporsional */
+    width: 140px; height: 200px;
     background: #fff;
     border-radius: 12px;
     overflow: hidden;
-    box-shadow: 0 5px 15px rgba(0,0,0,0.06);
-    position: relative;
-    transition: all 0.3s ease;
-    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.08); /* Shadow halus */
     border: 1px solid #f0f0f0;
+    transition: transform 0.2s;
+    cursor: pointer;
+    position: relative;
+    flex-shrink: 0; /* Agar tidak gepeng */
+    white-space: normal; /* Agar teks di dalam bisa turun baris */
 }
 
-.mini-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 12px 25px rgba(0,0,0,0.1);
-    border-color: #d35400; /* Aksen warna saat hover */
+.mini-card:hover { transform: translateY(-5px); border-color: #7385a5; }
+
+.mini-card img { 
+    width: 100%; height: 100%; object-fit: cover; 
+    background: #f4f4f4; /* Placeholder warna abu */
 }
 
-.mini-card img { width: 100%; height: 100%; object-fit: cover; }
-
+/* Badge Baru (Clean White - Tanpa Shadow Hitam Kotor) */
 .mini-badge {
-    position: absolute; bottom: 0; left: 0; right: 0;
-    background: linear-gradient(to top, rgba(0,0,0,0.8), transparent);
-    color: #fff;
-    padding: 40px 10px 10px; /* Gradasi halus */
-    font-size: 11px;
+    position: absolute; bottom: 8px; left: 8px; right: 8px;
+    background: rgba(255,255,255,0.95); /* Putih bersih transparan */
+    color: #333;
+    padding: 8px; 
+    border-radius: 8px;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1); /* Shadow lembut */
+    backdrop-filter: blur(2px);
+    font-size: 10px;
 }
 
 .mini-card-skeleton {
-    width: 170px; height: 240px; background: #eee; border-radius: 12px;
-}
-
-/* 3. TOMBOL UPLOAD (Premium) */
-.btn-upload-hero {
-    background: #7385a5; /* Warna Gelap Elegan */
-    color: #fff;
-    border: none;
-    padding: 14px 20px;
-    border-radius: 50px;
-    font-size: 14px;
-    font-weight: 600;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    box-shadow: 0 8px 20px rgba(44, 62, 80, 0.25);
-    transition: all 0.3s;
-    letter-spacing: 0.5px;
-}
-
-.btn-upload-hero:hover {
-    transform: translateY(-3px);
-    background: #34495e;
-    box-shadow: 0 12px 25px rgba(44, 62, 80, 0.35);
+    width: 140px; height: 200px; background: #eee; border-radius: 12px;
+    flex-shrink: 0; animation: pulse 1.5s infinite;
 }
 
 .btn-upload-hero i { font-size: 16px; }
@@ -1091,9 +1090,7 @@ window.onload = async function() {
     loadCachedIndex();
     loadGaleri(); 
     buildSearchIndex();
-    setTimeout(() => {
     loadTopEngagement();
-}, 2500);
 };
 
 function loadCachedIndex() {
@@ -1541,70 +1538,90 @@ function copyAddress() {
     });
 }
 
-// FUNGSI FEEDER: "Mencuri" data dari loop Galeri
-function feedToCarousel(id, nama, likes, rating, rawImgUrl) {
-    // 1. Validasi Data
-    const likeCount = parseInt(likes);
-    const ratingVal = parseFloat(rating); // Rating biasanya format 10, 20, 50 (per 10)
-
-    // 2. Filter Syarat: Minimal 1 Like ATAU Rating > 0
-    // Kalau kosong dua-duanya, langsung tolak (Hemat memori)
-    if (likeCount < 1 && ratingVal <= 0) return;
-
-    // 3. Cek Duplikat (Biar gak masuk dua kali)
-    if (carouselCandidates.some(item => item.id === id)) return;
-
-    // 4. Masukkan ke Daftar Calon
-    // Kita hitung skor: Like x 10 + Rating
-    const score = (likeCount * 10) + ratingVal;
-    
-    carouselCandidates.push({
-        id: id,
-        nama: nama,
-        likes: likeCount,
-        rating: (ratingVal / 10).toFixed(1), // Ubah 50 jadi 5.0
-        score: score,
-        imgUrl: rawImgUrl
-    });
-
-    // 5. Urutkan: Skor Tertinggi di Atas
-    carouselCandidates.sort((a, b) => b.score - a.score);
-
-    // 6. Update Tampilan Carousel (Batasi Top 10)
-    renderLiveCarousel();
-}
-
-// FUNGSI RENDER CAROUSEL (Dipanggil otomatis oleh Feeder)
-function renderLiveCarousel() {
+// --- FUNGSI CAROUSEL MANDIRI (AUTO START) ---
+async function loadTopEngagement() {
     const track = document.getElementById("topEngagementTrack");
-    if (!track) return;
-
-    // Ambil 10 Terbaik saat ini
-    const top10 = carouselCandidates.slice(0, 10);
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
-    let html = "";
-    
-    const makeCard = (item) => `
-        <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-            <img src="${item.imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/150x200?text=No+Img'">
-            <div class="mini-badge">
-                <div style="display:flex; justify-content:space-between; width:100%;">
-                    <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
-                    <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
-                </div>
-                <div style="font-size:9px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:bold;">
-                    ${item.nama}
-                </div>
-            </div>
-        </div>`;
+    // Tampilkan Skeleton Loading dulu
+    track.innerHTML = `
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+        <div class="mini-card-skeleton"></div>
+    `;
 
-    // Duplikasi untuk efek Marquee Loop
-    top10.forEach(item => html += makeCard(item));
-    if(top10.length >= 5) { // Cuma duplikasi kalau itemnya udah agak banyak biar gak aneh
-        top10.forEach(item => html += makeCard(item)); 
+    try {
+        // AMBIL DATA MANDIRI (ID 1 sampai 10)
+        // Kita tidak nunggu globalIds biar gak telat munculnya
+        const sampleIds = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10]; 
+        
+        const promises = sampleIds.map(async (id) => {
+            try {
+                // Fetch Paralel (Cepat)
+                const [info, likes, ratingRaw, uri] = await Promise.all([
+                    contractReader.getInfoWayang(id),
+                    contractReader.totalLikes(id),
+                    contractReader.getAverageRating(id),
+                    contractReader.tokenURI(id)
+                ]);
+
+                if (!info.isActive) return null;
+
+                // Proses URL Gambar (Logic Anti-Broken)
+                let imgUrl = "img/loading.svg"; // Default
+                
+                // 1. Bersihkan CID
+                const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+                
+                // 2. Susun URL Gateway VIP + Weserv (Biar Ringan & Cepat)
+                const rawUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=200&q=70&output=webp`;
+
+                return {
+                    id,
+                    nama: info.nama,
+                    likes: parseInt(likes),
+                    rating: (parseInt(ratingRaw) / 10).toFixed(1),
+                    imgUrl
+                };
+            } catch (e) { return null; }
+        });
+
+        const results = await Promise.all(promises);
+        const validItems = results.filter(i => i !== null);
+
+        // Render HTML
+        let html = "";
+        
+        validItems.forEach(item => {
+            html += `
+            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
+                <img src="${item.imgUrl}" loading="lazy" 
+                     onerror="this.src='https://via.placeholder.com/140x200?text=No+Image'">
+                
+                <div class="mini-badge">
+                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                        ${item.nama}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color:#7385a5;">
+                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+                    </div>
+                </div>
+            </div>`;
+        });
+
+        if (html === "") {
+            track.innerHTML = `<span style="padding:20px; color:#aaa;">Belum ada data populer.</span>`;
+        } else {
+            track.innerHTML = html;
+        }
+
+    } catch (err) {
+        console.warn("Carousel skip:", err);
+        track.innerHTML = ""; // Bersihkan jika gagal total
     }
-
-    track.innerHTML = html;
 }
     
 // Disconnect Wallet
