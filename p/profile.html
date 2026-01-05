@@ -766,54 +766,59 @@ function disconnectWallet() {
         }
 
         function renderCard(id, name, img, container) {
-            // LOGIKA BADGE MILIK SENDIRI
-            // Apakah Penonton (Viewer) == Pemilik Profil (CurrentAddress)?
-            let isMyProfile = false;
-            if (viewerAddress && currentAddress) {
-                isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
-            }
+    // LOGIKA BADGE MILIK SENDIRI
+    // Apakah Penonton (Viewer) == Pemilik Profil (CurrentAddress)?
+    let isMyProfile = false;
+    // Pastikan variabel global viewerAddress & currentAddress sudah ada nilainya
+    if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
+        isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+    }
 
-            let badgeHtml = isMyProfile 
-                ? `<span class="owned-badge" style="background:#f1c40f; color:#fff;"><i class="fas fa-check-circle"></i> Milik Anda</span>`
-                : `<span class="owned-badge" style="background:#2ecc71; color:#fff;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
-            
-            // Tombol Revisi (Hanya muncul jika profil sendiri)
-            let editBtn = isMyProfile 
-                ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>`
-                : ``;
-
-            const html = `
-                <div class="wayang-card">
-                    <div style="position:relative;">
-                        ${badgeHtml} 
-                        <img src="${img}" class="card-img" loading="lazy">
-                    </div>
-                    <div class="card-body">
-                        <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                            <span class="card-id">ID #${id}</span>
-                            ${editBtn}
-                        </div>
-                        <h4 class="card-title">${name}</h4>
-                        <div style="margin-top:10px; display:flex; gap:8px;">
+    let badgeHtml = isMyProfile 
+        ? `<span class="owned-badge" style="background:#f1c40f; color:#fff;"><i class="fas fa-check-circle"></i> Milik Anda</span>`
+        : `<span class="owned-badge" style="background:#2ecc71; color:#fff;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
     
-    <a href="detail?id=${id}" class="btn-detail" 
-       title="Lihat Detail"
-       style="flex: 1; display:flex; align-items:center; justify-content:center;">
-       <i class="fas fa-arrow-right"></i>
-    </a>
+    // Tombol Revisi (Hanya muncul jika profil sendiri)
+    let editBtn = isMyProfile 
+        ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer;"><i class="fas fa-edit"></i> Revisi</button>`
+        : ``;
 
-    <button onclick="event.stopPropagation(); window.sawerETH('${owner}', '${name}')" 
-            class="btn-detail" 
-            title="Kirim Hadiah/Tip"
-            style="flex: 1; display:flex; align-items:center; justify-content:center; background: #f1c40f; color: white; border: 1px solid #f39c12; cursor: pointer;">
-       <i class="fas fa-gift"></i>
-    </button>
-
-</div>
-                    </div>
+    // --- PERBAIKAN UTAMA ADA DI BAWAH INI ---
+    // Ganti '${owner}' menjadi '${currentAddress}' 
+    
+    const html = `
+        <div class="wayang-card">
+            <div style="position:relative;">
+                ${badgeHtml} 
+                <img src="${img}" class="card-img" loading="lazy" alt="${name}">
+            </div>
+            <div class="card-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                    <span class="card-id">ID #${id}</span>
+                    ${editBtn}
                 </div>
-            `;
-            container.innerHTML += html;
+                <h4 class="card-title">${name}</h4>
+                
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                    <a href="detail?id=${id}" class="btn-detail" 
+                       title="Lihat Detail"
+                       style="flex: 1; display:flex; align-items:center; justify-content:center; text-decoration: none;">
+                       <i class="fas fa-arrow-right"></i>
+                    </a>
+
+                    <button onclick="event.stopPropagation(); window.sawerETH('${currentAddress}', '${name}')" 
+                            class="btn-detail" 
+                            title="Kirim Hadiah/Tip"
+                            style="flex: 1; display:flex; align-items:center; justify-content:center; background: #f1c40f; color: white; border: 1px solid #f39c12; cursor: pointer;">
+                       <i class="fas fa-gift"></i>
+                    </button>
+                </div>
+
+            </div>
+        </div>
+    `;
+
+    container.innerHTML += html;
         }
 
         // --- UTILS ---
