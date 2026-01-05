@@ -1096,11 +1096,11 @@ async function renderCards(ids, container, isSearchMode, requestId) {
 
 function generateCardHTML(w, badge) {
     
-    // 1. Tombol Revisi (POSISI MANUAL 490PX - SESUAI REQUEST)
-    // Muncul untuk SEMUA user (Strategi Marketing)
+    // TOMBOL REVISI (PORTAL BEBAS AKSES)
+    // Posisi: Top 490px (Sesuai Request)
     const editBtn = `
-        <button onclick="handleEditClick(event, '${w.id}', '${w.owner}')" 
-             title="Fitur Revisi (Berbayar)" 
+        <button onclick="bukaRevisi(event, '${w.id}')" 
+             title="Masuk Halaman Revisi" 
              style="position:absolute; top:490px; right:12px; z-index:20; 
              background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
              font-size:9px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
@@ -1109,18 +1109,16 @@ function generateCardHTML(w, badge) {
              <i class="fas fa-edit"></i> Revisi
         </button>`;
 
-    // 2. Tombol Profil Pemilik (Safety Check)
+    // TOMBOL PROFIL
     let profileBtn = '';
-    const ownerAddress = w.owner; // Pastikan data w.owner ada
-
-    if (ownerAddress) {
-        const shortAddr = ownerAddress.substring(0, 4) + '...' + ownerAddress.substring(38);
+    if (w.owner) {
+        const shortAddr = w.owner.substring(0, 4) + '...' + w.owner.substring(38);
         profileBtn = `
-        <button onclick="event.preventDefault(); event.stopPropagation(); window.location.href='?page=profile&address=${ownerAddress}'" 
+        <button onclick="event.preventDefault(); event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'" 
              style="background:#7385a5; color:#fff; padding:2px 8px; border-radius:4px; 
              font-size:10px; border:none; cursor:pointer; display:inline-flex; 
              align-items:center; gap:4px; margin-left:5px; z-index: 10; position: relative;">
-             <i class="fas fa-user"></i> Pemilik: ${shortAddr}
+             <i class="fas fa-user"></i> ${shortAddr}
         </button>`;
     }
 
@@ -1128,19 +1126,12 @@ function generateCardHTML(w, badge) {
         <div class="wayang-card-wrapper" style="position:relative;">
             
             ${editBtn} <a href="detail?id=${w.id}" class="wayang-card">
-                
                 <div class="wayang-img">
                     ${badge}
-                    
-                    <div id="loader-${w.id}" class="img-loader">
-                        <div class="spinner-circle"></div>
-                    </div>
-
+                    <div id="loader-${w.id}" class="img-loader"><div class="spinner-circle"></div></div>
                     <img id="img-${w.id}" 
                          src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
-                         alt="${w.nama}" 
-                         loading="lazy"
-                         style="opacity: 0; transition: opacity 0.3s;">
+                         alt="${w.nama}" loading="lazy" style="opacity: 0; transition: opacity 0.3s;">
                     
                     <div class="img-overlay-bar">
                         <div class="overlay-date">${w.date}</div>
@@ -1166,28 +1157,16 @@ function generateCardHTML(w, badge) {
         </div>`;
 }
 
-    function handleEditClick(event, id, owner) {
-    // MATIKAN KLIK TEMBUS (Penting karena tombol ini di atas link <a>)
+    // Fungsi Portal Sederhana
+function bukaRevisi(event, id) {
     if(event) {
-        event.preventDefault(); 
+        event.preventDefault();
         event.stopPropagation();
     }
-
-    // 1. Cek Login
-    if (typeof userAddress === 'undefined' || !userAddress) {
-        showToast("Hubungkan wallet untuk akses fitur revisi!", 'wolf');
-        return;
-    }
-
-    // 2. Cek Owner (Penangkal untuk user iseng)
-    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
-        showToast("Hanya pemilik wayang yang bisa merevisi data ini.", 'error');
-        return;
-    }
-
-    // 3. Lolos -> Masuk halaman bayar
+    
+    // Langsung arahkan tanpa babibu
     window.location.href = `revisi?id=${id}`;
-    }
+}
 
 // =========================================
 // 4. WALLET & UTILS
