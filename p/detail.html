@@ -1869,42 +1869,47 @@ function closeZoom() {
     }
     }
 
-    
-// Fungsi ini yang bertugas mencari "Siapa pemilik wayang ini?" secara real-time dari Blockchain
 async function panggilSawerDetail() {
-    // Ambil ID dari URL browser
+    // 1. Ambil ID dari URL browser
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
 
-    if (!id) return showToast("ID Wayang tidak ditemukan.", 'warning');
+    if (!id) return alert("ID Wayang tidak ditemukan.");
 
-    // Ubah icon tombol jadi loading
+    // 2. Ubah tombol jadi loading
     const btn = document.getElementById("btnSawer"); 
     const originalContent = btn.innerHTML;
     btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
     btn.disabled = true;
 
     try {
-        // Ambil Nama Wayang dari layar (UI)
-        const namaWayang = document.getElementById("displayName").innerText || "Karya Seni";
+        // 3. Ambil Nama Wayang dari UI
+        const namaWayang = document.getElementById("displayName") ? document.getElementById("displayName").innerText : "Karya Seni";
 
-        // KONEKSI CEK DATA (Gunakan Provider Publik agar cepat)
-        // Pastikan variabel 'contract' atau 'provider' sudah terinisialisasi di script global Mas
-        // Jika belum, inisialisasi provider standar:
-        // const tempProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org"); 
-        // const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+        // --- PERBAIKAN UTAMA DI SINI ---
+        // Kita buat koneksi "Read-Only" dadakan. 
+        // Ini menjamin fungsi jalan MESKIPUN user belum connect wallet.
         
-        // Cek owner langsung ke Smart Contract
-        const ownerAddress = await contract.ownerOf(id);
+        // Gunakan RPC Publik Base Sepolia (atau RPC pilihan Anda)
+        const rpcProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+        
+        // Buat instansi kontrak khusus untuk baca data (Tanpa Signer)
+        // Pastikan CONTRACT_ADDRESS dan CONTRACT_ABI sudah ada di file utama Anda
+        const readOnlyContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
-        // Setelah dapet datanya, BUKA MODAL
+        // 4. Ambil Owner dari Blockchain
+        const ownerAddress = await readOnlyContract.ownerOf(id);
+
+        // 5. Buka Modal dengan data yang didapat
         window.bukaModalSawer(ownerAddress, namaWayang);
 
     } catch (err) {
-        console.error("Gagal fetch owner:", err);
-        showToast("Gagal memuat data pemilik. Cek koneksi internet.", 'error');
+        console.error("Error panggilSawerDetail:", err);
+        // Tampilkan pesan error yang lebih jelas
+        // Jika Anda punya fungsi showToast/alert custom, ganti alert() di bawah ini
+        alert("Gagal memuat data pemilik. Pastikan ID benar dan koneksi internet stabil.");
     } finally {
-        // Balikin tombol jadi normal
+        // 6. Kembalikan tombol jadi normal
         btn.innerHTML = originalContent;
         btn.disabled = false;
     }
