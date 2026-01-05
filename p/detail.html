@@ -1079,10 +1079,8 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     let provider;
     let signer;
     let toastTimeout;
-    // --- VARIABEL GLOBAL KHUSUS SAWER ---
-let currentDetailOwner = null; // Menyimpan alamat pemilik wayang
-let currentDetailName = "";    // Menyimpan nama wayang
-const MIN_TIP = 0.0001; 
+    let sawerTargetAddress = null;
+const MIN_TIP = 0.0001;
 const MAX_TIP = 0.005;
 
     async function init() {
@@ -1873,58 +1871,222 @@ function closeZoom() {
     }
     }
 
-    function panggilSawerDetail() {
-    // 1. Cek apakah data sudah siap?
-    if (!currentDetailOwner) {
-        showToast("Tunggu sebentar, data sedang dimuat...", 'loading');
+// ==========================================
+// 1. FUNGSI UTAMA: PANGGIL POPUP (ON-DEMAND)
+// ==========================================
+async function panggilSawerDetail() {
+    const btn = document.getElementById("btnSawer");
+    const originalContent = btn ? btn.innerHTML : "";
+    
+    // Ambil ID Wayang dari URL
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (!id) return alert("ID Wayang tidak ditemukan di URL.");
+
+    // Ubah tombol jadi loading
+    if(btn) {
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        btn.disabled = true;
+    }
+
+    try {
+        // Ambil Nama Wayang dari Layar
+        const elNama = document.getElementById("displayName");
+        const namaWayang = elNama ? elNama.innerText : "Karya Seni";
+
+        // --- FETCH DATA DADAKAN (INDEPENDENT) ---
+        // Kita gunakan RPC Publik supaya jalan walau user belum connect wallet
+        const rpcProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+        const readOnlyContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+
+        // Ambil Owner dari Blockchain
+        const ownerAddress = await readOnlyContract.ownerOf(id);
+
+        // Buka Modal dengan data fresh
+        await bukaModalSawer(ownerAddress, namaWayang);
+
+    } catch (err) {
+        console.error("Gagal ambil data:", err);
+        alert("Gagal memuat data pemilik. Cek koneksi internet.");
+    } finally {
+        // Balikin tombol
+        if(btn) {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }
+    }
+}
+
+
+// ==========================================
+// 2. LOGIKA BUKA MODAL & CEK SALDO
+// ==========================================
+async function bukaModalSawer(address, name) {
+    // Cek apakah user sudah connect wallet?
+    // Asumsi variabel global 'userAddress' ada. Jika tidak, cek window.ethereum
+    let currentUser = typeof userAddress !== 'undefined' ? userAddress : null;
+    
+    if (!currentUser && window.ethereum) {
+        try {
+            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
+            if (accounts.length > 0) currentUser = accounts[0];
+        } catch(e) {}
+    }
+
+    if (!currentUser) {
+        alert("Harap hubungkan wallet (Connect) terlebih dahulu!");
         return;
     }
 
-    // 2. Langsung Buka Modal dengan data dari memori
-    window.bukaModalSawer(currentDetailOwner, currentDetailName);
-    }
-
-    window.bukaModalSawer = async function(address, name) {
-    // A. Cek Login Wallet
-    if (!window.ethereum || !userAddress) {
-        showToast("Hubungkan wallet dulu!", 'warning');
-        // connectWallet(); // Opsional: Panggil connect otomatis
+    // Cek Self-Tipping
+    if (currentUser.toLowerCase() === address.toLowerCase()) {
+        alert("Tidak bisa menyawer diri sendiri!");
         return;
     }
 
-    // B. Cek Self-Tipping
-    if (userAddress.toLowerCase() === address.toLowerCase()) {
-        showToast("Eits! Tidak bisa sawer diri sendiri.", 'wolf');
-        return;
-    }
+    sawerTargetAddress = address;
 
-    sawerTargetAddress = address; // Set target transfer
-
-    // C. Isi UI Modal
+    // Isi Data ke HTML
     document.getElementById("sawerReceiverName").innerText = name;
     document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 8) + "..." + address.substring(38);
     document.getElementById("sawerAmount").value = "";
     document.getElementById("sawerMessage").value = "";
 
-    // D. CEK SALDO (WAJIB PAKAI PROVIDER WALLET)
+    // Cek Saldo User (Pakai Provider Wallet User)
     try {
-        // Kita paksa pakai provider dari Metamask user agar saldo terbaca
         const walletProvider = new ethers.providers.Web3Provider(window.ethereum);
-        const balanceBN = await walletProvider.getBalance(userAddress);
+        const balanceBN = await walletProvider.getBalance(currentUser);
         const ethVal = ethers.utils.formatEther(balanceBN);
         
-        // Update UI Saldo
         const elSaldo = document.getElementById("sawerUserBalance");
         elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
-        elSaldo.setAttribute('data-balance', ethVal); // Simpan untuk kalkulator persen
+        elSaldo.setAttribute('data-balance', ethVal); // Simpan untuk hitung persen
 
     } catch (e) {
         console.error("Gagal cek saldo:", e);
         document.getElementById("sawerUserBalance").innerText = "Err";
     }
 
+    // Tampilkan Modal
     toggleSawerModal(true);
+}
+
+
+// ==========================================
+// 3. LOGIKA TOMBOL PERSENTASE
+// ==========================================
+function setSawerPercent(percent) {
+    const elSaldo = document.getElementById("sawerUserBalance");
+    const rawBalance = elSaldo.getAttribute('data-balance');
+    
+    if (!rawBalance) return;
+
+    let balanceEth = parseFloat(rawBalance);
+    
+    // Sisakan 0.0005 ETH untuk Gas Fee
+    let maxSafe = balanceEth - 0.0005;
+    if (maxSafe < 0) maxSafe = 0;
+
+    // Hitung nominal
+    let amount = (maxSafe * percent) / 100;
+
+    // Batasi (Clamp) sesuai rules Contract
+    if (amount > MAX_TIP) amount = MAX_TIP;
+    if (amount < MIN_TIP) {
+        // Jika hasil hitungan dibawah min, tapi saldo cukup, paksa ke min
+        if (maxSafe >= MIN_TIP) amount = MIN_TIP;
+        else amount = 0; // Saldo emang gak cukup
     }
+
+    // Tampilkan 4 angka belakang koma
+    if (amount > 0) {
+        document.getElementById("sawerAmount").value = amount.toFixed(4);
+    } else {
+        alert("Saldo tidak cukup untuk gas fee.");
+    }
+}
+
+
+// ==========================================
+// 4. EKSEKUSI TRANSAKSI
+// ==========================================
+async function eksekusiSawer() {
+    const amountVal = document.getElementById("sawerAmount").value;
+    const msgVal = document.getElementById("sawerMessage").value;
+    const btn = document.getElementById("btnKirimSawer");
+
+    if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
+        alert(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`);
+        return;
+    }
+
+    try {
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+        btn.disabled = true;
+
+        // Siapkan Signer
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        // Parse ke Wei
+        const amountWei = ethers.utils.parseEther(amountVal.toString());
+
+        // Kirim Transaksi
+        const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { value: amountWei });
+        
+        toggleSawerModal(false); // Tutup modal biar lihat notif
+        
+        // (Opsional) Tampilkan Toast Loading disini jika ada fungsi toast
+        // showToast("Transaksi dikirim...", "loading");
+
+        await tx.wait();
+        
+        alert(`Berhasil mengirim ${amountVal} ETH!`);
+        // location.reload(); // Refresh halaman (opsional)
+
+    } catch (err) {
+        console.error(err);
+        let msg = err.reason || err.message;
+        if(msg.includes("insufficient funds")) msg = "Saldo kurang untuk membayar Gas Fee.";
+        alert("Gagal: " + msg);
+    } finally {
+        btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+        btn.disabled = false;
+    }
+}
+
+
+// ==========================================
+// 5. HELPER UI (BUKA/TUTUP)
+// ==========================================
+function toggleSawerModal(show = true) { // Default true jika dipanggil tanpa argumen
+    const modal = document.getElementById("sawerModal");
+    if (!modal) return;
+
+    // Jika dipanggil dari tombol close (onclick="toggleSawerModal()")
+    // Maka cek dulu apakah sedang terbuka atau tertutup
+    if (arguments.length === 0) {
+        show = !modal.classList.contains("active"); 
+        // Tapi karena tombol close pasti ingin menutup, kita force false saja biar aman
+        if (modal.style.display === "flex") show = false;
+    }
+
+    if (show) {
+        modal.style.display = "flex";
+        setTimeout(() => modal.classList.add("active"), 10);
+    } else {
+        modal.classList.remove("active");
+        setTimeout(() => modal.style.display = "none", 300);
+    }
+}
+
+function closeSawer(event) {
+    if (event.target.id === "sawerModal") {
+        toggleSawerModal(false);
+    }
+}
     
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
