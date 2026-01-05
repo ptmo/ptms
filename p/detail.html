@@ -1010,7 +1010,7 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     <div class="sawer-card">
         
         <div class="sawer-header">
-            <h3>Dukung & Apresiasi Kreator<br> Dengan ETH</h3>
+            <h3>Dukung & Apresiasi Kreator</h3>
             <button class="sawer-close" onclick="toggleSawerModal(false)"><i class="fas fa-times"></i></button>
         </div>
 
@@ -1036,7 +1036,7 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
         </div>
 
         <div class="input-group">
-            <label>Nominal (ETH)</label>
+            <label>Nominal Sawer (ETH)</label>
             <div class="input-wrapper">
                 <input type="number" id="sawerAmount" placeholder="0.001" step="0.0001" min="0.0001" max="0.005">
                 <span class="suffix">ETH</span>
@@ -1050,6 +1050,11 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     <button onclick="setSawerPercent(50)">50%</button>
     <button onclick="setSawerPercent(75)">75%</button>
     <button onclick="setSawerPercent(100)">MAX</button>
+        </div>
+
+        <div class="input-group" style="margin-top: 15px;">
+            <label>Pesan Dukungan (Opsional)</label>
+            <textarea id="sawerMessage" rows="2" placeholder="Terima kasih atas karya wayangnya..."></textarea>
         </div>
 
         <button id="btnKirimSawer" class="btn-sawer-send" onclick="eksekusiSawer()">
@@ -2095,41 +2100,32 @@ async function eksekusiSawer() {
 // ==========================================
 // 5. HELPER UI (BUKA/TUTUP)
 // ==========================================
-function toggleSawerModal(show) {
-    const modal = document.getElementById("sawerModal"); // Pastikan ID ini sama dengan di HTML
-    
-    if (!modal) {
-        console.error("Error: Element #sawerModal tidak ditemukan di HTML!");
-        return;
+function toggleSawerModal(show = true) { // Default true jika dipanggil tanpa argumen
+    const modal = document.getElementById("sawerModal");
+    if (!modal) return;
+
+    // Jika dipanggil dari tombol close (onclick="toggleSawerModal()")
+    // Maka cek dulu apakah sedang terbuka atau tertutup
+    if (arguments.length === 0) {
+        show = !modal.classList.contains("active"); 
+        // Tapi karena tombol close pasti ingin menutup, kita force false saja biar aman
+        if (modal.style.display === "flex") show = false;
     }
 
     if (show) {
-        // 1. Ubah dulu jadi Flex biar ada di layout
         modal.style.display = "flex";
-        
-        // 2. Kasih delay dikit (10ms) baru tambah class 'active'
-        // Ini trik biar animasi Fade-In (Opacity) jalan mulus
-        setTimeout(() => {
-            modal.classList.add("active");
-        }, 10);
-        
+        setTimeout(() => modal.classList.add("active"), 10);
     } else {
-        // 1. Hapus class 'active' biar Fade-Out
         modal.classList.remove("active");
-        
-        // 2. Tunggu animasi CSS selesai (0.3s), baru sembunyikan total
-        setTimeout(() => {
-            modal.style.display = "none";
-        }, 300); // Angka 300 harus sama dengan 'transition: 0.3s' di CSS
+        setTimeout(() => modal.style.display = "none", 300);
     }
 }
 
-// Fungsi Klik Area Luar untuk Tutup
 function closeSawer(event) {
     if (event.target.id === "sawerModal") {
         toggleSawerModal(false);
     }
-    }
+}
     
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
