@@ -1510,96 +1510,138 @@ function copyAddress() {
     });
 }
 
-// --- LOGIKA CAROUSEL TOP 10 ---
 async function loadTopEngagement() {
     const track = document.getElementById("topEngagementTrack");
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
+    // 1. Cek apakah Global ID sudah siap?
+    // Jika belum, coba lagi 2 detik kemudian (Recursive)
+    if (!globalIds || globalIds.length === 0) {
+        setTimeout(loadTopEngagement, 2000);
+        return;
+    }
+
     try {
-        // Ambil sampel data (Misal 30 ID terakhir biar cepat)
-        // Kalau mau akurat seluruh data, ganti dengan 'getAllIds' tapi loading lebih lama
-        const totalSupply = await contractReader._currentTokenId(); // Pastikan variabel _currentTokenId public atau gunakan trik lain
-        // Fallback: Ambil data dari cache searchIndex yang sudah ada (lebih cepat)
+        // 2. SCANNING LUAS (Ambil sampel 50 item terbaru untuk dicek)
+        // Semakin banyak sampel, semakin akurat "Top 10"-nya
+        const candidates = globalIds.slice(0, 50); 
         
-        let candidates = [];
-        
-        // Gunakan searchIndex yang sudah dibuat di fungsi main
-        if (searchIndex && searchIndex.length > 0) {
-            candidates = searchIndex;
-        } else {
-            // Jika index belum siap, fetch manual 10 ID terakhir
-             // (Logic fetch manual opsional, kita andalkan searchIndex agar ringan)
-             return; 
-        }
-
-        // Ambil Data Likes untuk sorting
-        // Kita batasi proses max 20 item agar tidak berat di awal
-        const processCount = Math.min(candidates.length, 20); 
-        const richData = [];
-
-        for(let i=0; i<processCount; i++) {
-            const item = candidates[i];
+        // Fetch Data Paralel (Ngebut)
+        const promises = candidates.map(async (id) => {
             try {
-                // Ambil Likes & Rating Realtime
-                const likes = await contractReader.totalLikes(item.id);
-                const rating = await contractReader.getAverageRating(item.id);
-                // Hitung Skor (Likes + Rating)
-                const score = parseInt(likes) + (parseInt(rating) / 2); 
+                // Ambil Data Statistik Saja Dulu (Lebih Ringan)
+                const [likes, ratingRaw] = await Promise.all([
+                    contractReader.totalLikes(id),
+                    contractReader.getAverageRating(id)
+                ]);
+
+                const likeCount = parseInt(likes);
+                const ratingVal = parseInt(ratingRaw); // Biasanya 10 = 1.0 Bintang
+
+                // --- ALGORITMA FILTER SYARAT MINIMAL ---
+                // Syarat: Minimal 1 Like ATAU Minimal ada Rating (Bintang > 0)
+                // Mas bisa ganti '||' (ATAU) jadi '&&' (DAN) kalau mau lebih ketat.
+                const isQualified = (likeCount >= 1) || (ratingVal > 0);
                 
-                richData.push({ ...item, score, likes, rating });
-            } catch(e) {}
+                if (!isQualified) return null; // Gugur jika nol semua
+
+                // Jika Lolos, baru ambil Data Detail (Nama & Gambar)
+                const info = await contractReader.getInfoWayang(id);
+                const uri = await contractReader.tokenURI(id);
+
+                // Hitung Skor Engagement
+                // Rumus: Likes punya bobot besar, Rating jadi penambah
+                const score = (likeCount * 10) + ratingVal; 
+
+                // Proses URL Gambar
+                let imgUrl = "img/loading.svg"; 
+                const cid = uri.replace("ipfs://", "");
+                if (cid) imgUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
+
+                return { 
+                    id, 
+                    nama: info.nama, 
+                    likes: likeCount, 
+                    rating: (ratingVal / 10).toFixed(1), // Format 5.0
+                    score,
+                    imgUrl 
+                };
+            } catch (e) { return null; }
+        });
+
+        // Tunggu hasil scanning
+        const results = await Promise.all(promises);
+        
+        // 3. SORTING (PENGURUTAN)
+        // Buang yang null (tidak lolos syarat), lalu urutkan dari Skor Tertinggi
+        let finalIds = results.filter(i => i !== null);
+        finalIds.sort((a, b) => b.score - a.score);
+
+        // 4. FALLBACK STRATEGY (Penting biar gak kosong)
+        // Jika ternyata DApp masih sepi (belum ada yang like sama sekali)
+        // Kita paksa ambil 10 item terbaru secara acak biar Carousel tetap cantik
+        if (finalIds.length < 5) {
+             // Ambil 10 data murni terbaru tanpa filter skor
+             // (Logic ini opsional, bisa dihapus kalau Mas mau carousel kosong jika sepi)
+             const fallbackIds = await getFallbackItems(globalIds.slice(0, 10));
+             finalIds = fallbackIds;
+        } else {
+             // Ambil Top 10 Pemenang
+             finalIds = finalIds.slice(0, 10);
         }
 
-        // Sortir: Skor Tertinggi ke Terendah
-        richData.sort((a, b) => b.score - a.score);
-
-        // Ambil Top 10
-        const top10 = richData.slice(0, 10);
-
-        // Render HTML
+        // 5. RENDER HTML
         let html = "";
         
-        // Helper Render Card Kecil
-        const makeCard = (item) => {
-            // Ambil gambar (Asumsi searchIndex belum punya gambar, fetch dari gateway)
-            // Trik: Kita pakai placeholder dulu, lalu lazy load
-            const imgUrl = `${DEDICATED_GATEWAY}/ipfs/${item.metaUrl ? item.metaUrl.replace('ipfs://','') : ''}`; 
-            
-            // Karena searchIndex biasanya blm ada URL gambar, 
-            // Kita pakai fetchOptimized logic di dalam elemen img (via on-demand fetch)
-            // Sederhananya: Kita panggil renderCards logic
-            
-            return `
+        const makeCard = (item) => `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <img id="thumb-${item.id}" src="img/loading.svg" style="opacity:0.5">
+                <img src="${item.imgUrl}" loading="lazy" onerror="this.src='https://via.placeholder.com/150x200?text=Wayang'">
                 <div class="mini-badge">
-                    <i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes} 
-                    <i class="fas fa-star" style="color:#f1c40f; margin-left:5px;"></i> ${(item.rating/10).toFixed(1)}
+                    <div style="display:flex; justify-content:space-between; width:100%;">
+                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+                    </div>
+                    <div style="font-size:9px; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-weight:bold;">
+                        ${item.nama}
+                    </div>
                 </div>
             </div>`;
-        };
 
-        top10.forEach(item => html += makeCard(item));
-        
-        // DUPLIKASI HTML AGAR ANIMASI LOOPING (Infinite Scroll)
-        // A + A
-        track.innerHTML = html + html; 
+        // Duplikasi untuk efek Marquee (Running Text) yang mulus
+        finalIds.forEach(item => html += makeCard(item));
+        finalIds.forEach(item => html += makeCard(item)); // Copy set kedua
 
-        // Jalankan Fetch Gambar untuk Top 10
-        top10.forEach(item => {
-            // Panggil contract tokenURI untuk dapat gambar
-            contractReader.tokenURI(item.id).then(uri => {
-                fetchOptimizedImage(uri, `thumb-${item.id}`); // Gambar set 1
-                // Karena diduplikasi, kita perlu handle ID unik untuk set 2 (opsional/biarkan lazy)
-            });
-        });
+        track.innerHTML = html; 
 
     } catch (err) {
         console.error("Gagal load carousel:", err);
-        track.innerHTML = `<span style="padding:20px; color:#aaa;">Data belum tersedia.</span>`;
+        // Silent fail
     }
 }
 
+// Helper untuk Fallback (Jika belum ada yang like)
+async function getFallbackItems(rawIds) {
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+    const promises = rawIds.map(async (id) => {
+        try {
+            const info = await contractReader.getInfoWayang(id);
+            const uri = await contractReader.tokenURI(id);
+            const cid = uri.replace("ipfs://", "");
+            
+            return {
+                id,
+                nama: info.nama,
+                likes: 0,
+                rating: "N/A",
+                score: 0,
+                imgUrl: `${DEDICATED_GATEWAY}/ipfs/${cid}`
+            };
+        } catch(e) { return null; }
+    });
+    const res = await Promise.all(promises);
+    return res.filter(i => i !== null);
+}
+    
 // Disconnect Wallet
 function disconnectWallet() {
     userAddress = null;
