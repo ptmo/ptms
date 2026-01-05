@@ -1901,7 +1901,7 @@ function closeZoom() {
         link.click();
     } catch (err) {
         console.error("Gagal cetak sertifikat:", err);
-        s("Gagal menyimpan gambar. Pastikan koneksi stabil.");
+        ("Gagal menyimpan gambar. Pastikan koneksi stabil.");
     } finally {
         document.body.removeChild(wrapper);
         btn.innerHTML = originalText;
@@ -1920,7 +1920,7 @@ async function panggilSawerDetail() {
     const params = new URLSearchParams(window.location.search);
     const id = params.get('id');
 
-    if (!id) return alert("ID Wayang tidak ditemukan di URL.");
+    if (!id) return showToast("ID Wayang tidak ditemukan di URL.", 'error');
 
     // Ubah tombol jadi loading
     if(btn) {
@@ -1946,7 +1946,7 @@ async function panggilSawerDetail() {
 
     } catch (err) {
         console.error("Gagal ambil data:", err);
-        alert("Gagal memuat data pemilik. Cek koneksi internet.");
+        showToast("Gagal memuat data pemilik. Cek koneksi internet.", 'error');
     } finally {
         // Balikin tombol
         if(btn) {
@@ -1973,13 +1973,13 @@ async function bukaModalSawer(address, name) {
     }
 
     if (!currentUser) {
-        alert("Harap hubungkan wallet (Connect) terlebih dahulu!");
+        showToast("Harap hubungkan wallet (Connect) terlebih dahulu!", 'wolf');
         return;
     }
 
     // Cek Self-Tipping
     if (currentUser.toLowerCase() === address.toLowerCase()) {
-        alert("Tidak bisa menyawer diri sendiri!");
+        showToast("Tidak bisa menyawer diri sendiri!", 'warning');
         return;
     }
 
@@ -2019,7 +2019,7 @@ function setSawerPercent(percent) {
     const rawBalance = elSaldo.getAttribute('data-balance');
     
     if (!rawBalance) {
-        alert("Saldo belum terbaca, tunggu sebentar.");
+        showToast("Saldo belum terbaca, tunggu sebentar.", 'info');
         return;
     }
 
@@ -2062,7 +2062,7 @@ function setSawerPercent(percent) {
         // Gunakan toFixed(4) tapi hilangkan nol berlebih di belakang (opsional)
         document.getElementById("sawerAmount").value = parseFloat(amount.toFixed(5)); 
     } else {
-        alert("Saldo tidak cukup untuk gas fee.");
+        showToast("Saldo tidak cukup untuk gas fee.", 'error');
     }
 }
 
@@ -2075,7 +2075,7 @@ async function eksekusiSawer() {
     const btn = document.getElementById("btnKirimSawer");
 
     if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
-        alert(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`);
+        showToast(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`, 'warning');
         return;
     }
 
@@ -2097,18 +2097,19 @@ async function eksekusiSawer() {
         toggleSawerModal(false); // Tutup modal biar lihat notif
         
         // (Opsional) Tampilkan Toast Loading disini jika ada fungsi toast
-        // showToast("Transaksi dikirim...", "loading");
+        showToast("Transaksi dikirim...", 'load');
 
         await tx.wait();
         
-        alert(`Berhasil mengirim ${amountVal} ETH!`);
+        showToast(`Berhasil mengirim ${amountVal} ETH!`, 'success');
+        
         // location.reload(); // Refresh halaman (opsional)
 
     } catch (err) {
         console.error(err);
         let msg = err.reason || err.message;
         if(msg.includes("insufficient funds")) msg = "Saldo kurang untuk membayar Gas Fee.";
-        alert("Gagal: " + msg);
+        showToast("Gagal: " + msg, 'error');
     } finally {
         btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
         btn.disabled = false;
