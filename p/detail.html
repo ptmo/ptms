@@ -709,6 +709,81 @@ body.modal-open {
 .action-btn:active { transform: scale(0.98); }
 .action-btn.primary { background: #7385a5; color: white; }
 .action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid #fcc; }
+
+        /* Overlay Gelap */
+.sawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.6); backdrop-filter: blur(5px);
+    z-index: 9999; display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+}
+.sawer-overlay.active { opacity: 1; }
+
+/* Kartu Modal */
+.sawer-card {
+    background: #ffffff; width: 90%; max-width: 400px;
+    border-radius: 20px; padding: 25px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    transform: translateY(20px); transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    font-family: 'Rubik', sans-serif;
+}
+.sawer-overlay.active .sawer-card { transform: translateY(0); }
+
+/* Komponen Header */
+.sawer-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 5px; }
+.sawer-header h3 { margin: 0; color: #2c3e50; font-size: 18px; }
+.sawer-close { background: none; border: none; font-size: 20px; color: #95a5a6; cursor: pointer; }
+
+/* Indikator Jaringan */
+.network-indicator {
+    display: flex; align-items: center; gap: 8px; font-size: 11px;
+    color: #27ae60; background: rgba(39, 174, 96, 0.1);
+    padding: 6px 12px; border-radius: 20px; width: fit-content; margin-bottom: 20px; font-weight: 600;
+}
+.pulse-green {
+    width: 8px; height: 8px; background: #27ae60; border-radius: 50%;
+    box-shadow: 0 0 0 rgba(39, 174, 96, 0.4); animation: pulse 1.5s infinite;
+}
+
+/* Info Box */
+.sawer-info-box { background: #f8f9fa; padding: 15px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #e9ecef; }
+.info-row { display: flex; justify-content: space-between; font-size: 13px; color: #555; margin-bottom: 4px; }
+.info-row.sub { font-size: 11px; color: #999; }
+.info-row.highlight { color: #2c3e50; font-weight: bold; font-size: 14px; }
+.info-row .mono { font-family: monospace; }
+.divider { height: 1px; background: #e0e0e0; margin: 8px 0; }
+
+/* Input & Buttons */
+.input-group label { display: block; font-size: 12px; color: #7f8c8d; margin-bottom: 5px; font-weight: 600; }
+.input-wrapper { position: relative; display: flex; align-items: center; }
+.input-wrapper input {
+    width: 100%; padding: 12px; padding-right: 50px;
+    border: 2px solid #e0e0e0; border-radius: 10px; font-size: 16px; font-weight: bold; color: #2c3e50;
+    transition: border-color 0.2s;
+}
+.input-wrapper input:focus { border-color: #3498db; outline: none; }
+.suffix { position: absolute; right: 15px; color: #95a5a6; font-weight: 600; font-size: 12px; }
+.limit-info { font-size: 10px; color: #e67e22; margin-top: 4px; display: block; }
+textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius: 10px; font-family: inherit; resize: none; }
+
+.percent-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+.percent-grid button {
+    background: #fff; border: 1px solid #dcdcdc; border-radius: 8px;
+    padding: 6px; font-size: 11px; font-weight: bold; color: #555; cursor: pointer; transition: 0.2s;
+}
+.percent-grid button:hover { background: #f0f0f0; border-color: #aaa; }
+
+.btn-sawer-send {
+    width: 100%; background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%);
+    color: white; border: none; padding: 14px; border-radius: 12px;
+    font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 20px;
+    box-shadow: 0 4px 15px rgba(243, 156, 18, 0.3); transition: transform 0.2s;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+.btn-sawer-send:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(243, 156, 18, 0.4); }
+.btn-sawer-send:disabled { background: #ccc; box-shadow: none; cursor: not-allowed; }
+
+@keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; } }
     </style>
 </head>
 <body>
@@ -912,6 +987,63 @@ body.modal-open {
         
     </div>
     </div>
+
+    <div id="sawerModal" class="sawer-overlay" onclick="closeSawer(event)">
+    <div class="sawer-card">
+        
+        <div class="sawer-header">
+            <h3>Dukung & Apresiasi Kreator</h3>
+            <button class="sawer-close" onclick="toggleSawerModal(false)"><i class="fas fa-times"></i></button>
+        </div>
+
+        <div class="network-indicator">
+            <span class="pulse-green"></span>
+            Terhubung Ke Jaringan Base
+        </div>
+
+        <div class="sawer-info-box">
+            <div class="info-row">
+                <span class="label">Penerima:</span>
+                <span class="value" id="sawerReceiverName" style="font-weight:bold;">Loading...</span>
+            </div>
+            <div class="info-row sub">
+                <span class="label">Address:</span>
+                <span class="value mono" id="sawerReceiverAddr">0x...</span>
+            </div>
+            <div class="divider"></div>
+            <div class="info-row highlight">
+                <span class="label">Saldo Anda:</span>
+                <span class="value" id="sawerUserBalance">0.0000 ETH</span>
+            </div>
+        </div>
+
+        <div class="input-group">
+            <label>Nominal Sawer (ETH)</label>
+            <div class="input-wrapper">
+                <input type="number" id="sawerAmount" placeholder="0.001" step="0.0001" min="0.0001" max="0.005">
+                <span class="suffix">ETH</span>
+            </div>
+            <small class="limit-info">Min: 0.0001 ETH • Max: 0.005 ETH</small>
+        </div>
+
+        <div class="percent-grid">
+            <button onclick="setSawerPercent(25)">25%</button>
+            <button onclick="setSawerPercent(50)">50%</button>
+            <button onclick="setSawerPercent(75)">75%</button>
+            <button onclick="setSawerPercent(100)">MAX</button>
+        </div>
+
+        <div class="input-group" style="margin-top: 15px;">
+            <label>Pesan Dukungan (Opsional)</label>
+            <textarea id="sawerMessage" rows="2" placeholder="Terima kasih atas karya wayangnya..."></textarea>
+        </div>
+
+        <button id="btnKirimSawer" class="btn-sawer-send" onclick="eksekusiSawer()">
+            <i class="fas fa-paper-plane"></i> Kirim Apresiasi
+        </button>
+
+    </div>
+    </div>
             
 <div id="toast"></div>
 
@@ -947,6 +1079,9 @@ body.modal-open {
     let provider;
     let signer;
     let toastTimeout;
+    let sawerTargetAddress = null;
+    const MIN_TIP = 0.0001;
+    const MAX_TIP = 0.005;
 
     async function init() {
         const params = new URLSearchParams(window.location.search);
@@ -1726,13 +1861,166 @@ function closeZoom() {
         link.click();
     } catch (err) {
         console.error("Gagal cetak sertifikat:", err);
-        alert("Gagal menyimpan gambar. Pastikan koneksi stabil.");
+        s("Gagal menyimpan gambar. Pastikan koneksi stabil.");
     } finally {
         document.body.removeChild(wrapper);
         btn.innerHTML = originalText;
         btn.disabled = false;
     }
     }
+
+    
+// Fungsi ini yang bertugas mencari "Siapa pemilik wayang ini?" secara real-time dari Blockchain
+async function panggilSawerDetail() {
+    // Ambil ID dari URL browser
+    const params = new URLSearchParams(window.location.search);
+    const id = params.get('id');
+
+    if (!id) return showToast("ID Wayang tidak ditemukan.", 'warning');
+
+    // Ubah icon tombol jadi loading
+    const btn = document.getElementById("btnSawer"); 
+    const originalContent = btn.innerHTML;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+    btn.disabled = true;
+
+    try {
+        // Ambil Nama Wayang dari layar (UI)
+        const namaWayang = document.getElementById("displayName").innerText || "Karya Seni";
+
+        // KONEKSI CEK DATA (Gunakan Provider Publik agar cepat)
+        // Pastikan variabel 'contract' atau 'provider' sudah terinisialisasi di script global Mas
+        // Jika belum, inisialisasi provider standar:
+        // const tempProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org"); 
+        // const tempContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+        
+        // Cek owner langsung ke Smart Contract
+        const ownerAddress = await contract.ownerOf(id);
+
+        // Setelah dapet datanya, BUKA MODAL
+        window.bukaModalSawer(ownerAddress, namaWayang);
+
+    } catch (err) {
+        console.error("Gagal fetch owner:", err);
+        showToast("Gagal memuat data pemilik. Cek koneksi internet.", 'error');
+    } finally {
+        // Balikin tombol jadi normal
+        btn.innerHTML = originalContent;
+        btn.disabled = false;
+    }
+}
+
+// 2. FUNGSI MEMBUKA & ISI MODAL
+window.bukaModalSawer = async function(address, name) {
+    // Cek koneksi wallet user
+    if (typeof userAddress === 'undefined' || !userAddress) {
+        showToast("Harap hubungkan wallet Anda terlebih dahulu!", 'wolf');
+        // connectWallet(); // Panggil fungsi connect jika ada
+        return;
+    }
+
+    if (userAddress.toLowerCase() === address.toLowerCase()) {
+        showToast("Anda tidak bisa menyawer diri sendiri!");
+        return;
+    }
+
+    sawerTargetAddress = address;
+
+    // Isi Text UI
+    document.getElementById("sawerReceiverName").innerText = name;
+    document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 8) + "..." + address.substring(38);
+
+    // Reset Input
+    document.getElementById("sawerAmount").value = "";
+    document.getElementById("sawerMessage").value = "";
+
+    // Cek Saldo User
+    try {
+        const balance = await provider.getBalance(userAddress);
+        const ethVal = ethers.utils.formatEther(balance);
+        document.getElementById("sawerUserBalance").innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+    } catch (e) { console.log("Gagal cek saldo", e); }
+
+    // Tampilkan Modal
+    toggleSawerModal(true);
+}
+
+// 3. LOGIKA TOGGLE & TUTUP MODAL
+function toggleSawerModal(show) {
+    const modal = document.getElementById("sawerModal");
+    if (show) {
+        modal.style.display = "flex";
+        setTimeout(() => modal.classList.add("active"), 10);
+    } else {
+        modal.classList.remove("active");
+        setTimeout(() => modal.style.display = "none", 300);
+    }
+}
+function closeSawer(e) {
+    if (e.target.id === "sawerModal") toggleSawerModal(false);
+}
+
+// 4. LOGIKA PERSENTASE CERDAS
+async function setSawerPercent(percent) {
+    const btn = document.getElementById("btnKirimSawer");
+    btn.innerHTML = `<i class="fas fa-calculator"></i>`;
+    
+    try {
+        const balanceBN = await provider.getBalance(userAddress);
+        let balanceEth = parseFloat(ethers.utils.formatEther(balanceBN));
+        
+        // Sisakan 0.0005 ETH untuk gas fee
+        let maxSafe = balanceEth - 0.0005; 
+        if (maxSafe < 0) maxSafe = 0;
+
+        let amount = (maxSafe * percent) / 100;
+
+        // Batasi sesuai aturan kontrak (Min 0.0001, Max 0.005)
+        if (amount > MAX_TIP) amount = MAX_TIP;
+        if (amount < MIN_TIP) amount = MIN_TIP;
+
+        document.getElementById("sawerAmount").value = amount.toFixed(4);
+    } catch(e) { console.error(e); } 
+    finally { btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`; }
+}
+
+// 5. EKSEKUSI TRANSAKSI KE BLOCKCHAIN
+async function eksekusiSawer() {
+    const amountVal = document.getElementById("sawerAmount").value;
+    const msgVal = document.getElementById("sawerMessage").value;
+    const btn = document.getElementById("btnKirimSawer");
+
+    // Validasi input
+    if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
+        showToast(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`, 'warning');
+        return;
+    }
+
+    try {
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        btn.disabled = true;
+
+        // Koneksi Write ke Contract
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        const amountWei = ethers.utils.parseEther(amountVal.toString());
+
+        // Panggil fungsi sendTip di Smart Contract
+        const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { value: amountWei });
+        
+        toggleSawerModal(false);
+        showToast("Transaksi dikirim! Menunggu konfirmasi...", 'loading');
+        
+        await tx.wait();
+        showToast(`Berhasil mengirim ${amountVal} ETH!`, 'success');
+
+    } catch (err) {
+        console.error(err);
+        showToast("Gagal: " + (err.reason || err.message), 'error');
+    } finally {
+        btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+        btn.disabled = false;
+    }
+}
 
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
