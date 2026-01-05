@@ -846,6 +846,62 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
 .sawer-header {
     border-bottom: none !important;
 }
+
+        /* Overlay Gelap */
+.dl-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.65); backdrop-filter: blur(4px);
+    z-index: 10000; display: none; align-items: center; justify-content: center;
+    opacity: 0; transition: opacity 0.3s;
+}
+.dl-overlay.active { opacity: 1; }
+
+/* Kartu Popup */
+.dl-card {
+    background: white; width: 90%; max-width: 380px;
+    border-radius: 20px; padding: 30px 25px;
+    text-align: center; font-family: 'Rubik', sans-serif;
+    transform: scale(0.9); transition: transform 0.3s cubic-bezier(0.34, 1.56, 0.64, 1);
+    box-shadow: 0 15px 40px rgba(0,0,0,0.25);
+}
+.dl-overlay.active .dl-card { transform: scale(1); }
+
+/* Icon Besar */
+.dl-icon-box {
+    width: 70px; height: 70px; background: #eef2f7; color: #7385a5;
+    border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    font-size: 30px; margin: 0 auto 20px;
+}
+
+/* Teks & Detail File */
+.dl-card h3 { margin: 0 0 10px; color: #2c3e50; font-size: 20px; }
+.dl-card p { margin: 0 0 20px; color: #7f8c8d; font-size: 14px; }
+
+.file-details {
+    background: #f8f9fa; border: 1px solid #e0e0e0;
+    padding: 15px; border-radius: 12px; margin-bottom: 25px;
+    display: flex; flex-direction: column; gap: 5px;
+}
+.fname { font-weight: bold; color: #2c3e50; word-break: break-all; font-size: 14px; }
+.fsize { font-size: 12px; color: #7385a5; font-weight: 600; }
+
+/* Tombol Aksi */
+.dl-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 15px; }
+.btn-no {
+    background: #f1f2f6; color: #7f8c8d; border: none;
+    padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;
+    transition: 0.2s;
+}
+.btn-no:hover { background: #e0e0e0; color: #333; }
+
+.btn-yes {
+    background: #27ae60; color: white; border: none;
+    padding: 12px; border-radius: 10px; font-weight: bold; cursor: pointer;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 4px 15px rgba(39, 174, 96, 0.3);
+    transition: 0.2s;
+}
+.btn-yes:hover { background: #219150; transform: translateY(-2px); }
     </style>
 </head>
 <body>
@@ -1114,6 +1170,28 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
 
     </div>
     </div>
+
+    <div id="confirmDownloadModal" class="dl-overlay">
+    <div class="dl-card">
+        <div class="dl-icon-box">
+            <i class="fas fa-file-image"></i>
+        </div>
+        <h3>Konfirmasi Download</h3>
+        <p>Anda akan mendownload file sertifikat:</p>
+        
+        <div class="file-details">
+            <span id="dlFileName" class="fname">cert_name.png</span>
+            <span id="dlFileSize" class="fsize">0 MB</span>
+        </div>
+
+        <div class="dl-actions">
+            <button class="btn-no" onclick="handleDownloadChoice(false)">Batal</button>
+            <button class="btn-yes" onclick="handleDownloadChoice(true)">
+                <i class="fas fa-download"></i>Simpan
+            </button>
+        </div>
+    </div>
+    </div>
             
 <div id="toast"></div>
 
@@ -1150,8 +1228,9 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     let signer;
     let toastTimeout;
     let sawerTargetAddress = null;
-const MIN_TIP = 0.0001;
-const MAX_TIP = 0.005;
+    let pendingDownloadData = null;
+    const MIN_TIP = 0.0001;
+    const MAX_TIP = 0.005;
 
     async function init() {
         const params = new URLSearchParams(window.location.search);
@@ -1726,220 +1805,119 @@ function closeZoom() {
     }, 300);
 }
 
-    async function downloadSertifikatHD() {
+async function downloadSertifikatHD() {
     const btn = document.getElementById("btnDownloadHD");
     const originalText = btn.innerHTML;
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+    
+    // 1. Ubah tombol jadi Loading (Sedang memproses gambar...)
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Proses...`;
     btn.disabled = true;
 
-    // Ambil data langsung dari elemen yang sudah di-load oleh fungsi loadDetail Anda
-    const nama = document.getElementById("displayName").innerText;
-    const imgElement = document.getElementById("displayImg");
-    const tokenId = document.getElementById("displayId").innerText;
-    const ownerInfo = document.querySelector("#contributor-badge-area span")?.innerText || "Putramas Collector";
-
-    // KUNCI: Gunakan URL asli dari gateway tanpa Weserv khusus untuk sertifikat agar resolusi maksimal
-    const rawImgUrl = imgElement.src.split('?url=')[1] ? decodeURIComponent(imgElement.src.split('?url=')[1].split('&')[0]) : imgElement.src;
-
-    const wrapper = document.createElement("div");
-    wrapper.style.position = "fixed";
-    wrapper.style.left = "-9999px";
-    wrapper.style.top = "0";
-
-    // Template Sertifikat Premium (Tanpa Gepeng)
-    wrapper.innerHTML = `
-<div id="cert-hd"
-     style="
-        width:1000px;
-        background: linear-gradient(180deg, #f9fbff, #f3f6fc);
-        padding:70px;
-        border-radius:18px;
-        border:28px solid #7385a5;
-        box-shadow:
-            0 30px 80px rgba(0,0,0,0.18),
-            inset 0 0 0 1px rgba(255,255,255,0.6);
-        position:relative;
-        font-family:'Rubik', sans-serif;
-     ">
-
-    <!-- INNER FRAME -->
-    <div style="
-        border:1.5px solid rgba(211,84,0,0.65);
-        border-radius:14px;
-        padding:50px;
-        background: #ffffff;
-        box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);
-    ">
-
-        <!-- HEADER -->
-        <h1 style="
-            color:#7385a5;
-            font-size:52px;
-            margin:0;
-            letter-spacing:6px;
-            font-weight:600;
-        ">
-            CERTIFICATE OF AUTHENTICITY
-        </h1>
-
-        <div style="
-            height:2px;
-            width:120px;
-            background:linear-gradient(90deg,#7385a5,#d35400);
-            margin:18px 0 12px;
-        "></div>
-
-        <p style="
-            color:#8a8f9c;
-            text-transform:uppercase;
-            letter-spacing:3px;
-            font-size:13px;
-            margin:0 0 40px;
-        ">
-            Digital Heritage Archive • Wayang Nusantara
-        </p>
-
-        <!-- IMAGE -->
-        <div style="
-            width:100%;
-            height:600px;
-            margin:40px 0;
-            display:flex;
-            align-items:center;
-            justify-content:center;
-            background:
-                linear-gradient(180deg, rgba(115,133,165,0.08), rgba(255,255,255,0.9));
-            border-radius:14px;
-            border:1px solid rgba(115,133,165,0.25);
-            box-shadow:
-                inset 0 0 0 1px rgba(255,255,255,0.7),
-                0 15px 40px rgba(0,0,0,0.08);
-            overflow:hidden;
-        ">
-            <img src="${rawImgUrl}"
-                 crossorigin="anonymous"
-                 style="
-                    max-width:92%;
-                    max-height:92%;
-                    object-fit:contain;
-                    filter: drop-shadow(0 10px 18px rgba(0,0,0,0.15));
-                 ">
-        </div>
-
-        <!-- TITLE -->
-        <h2 style="
-            font-size:46px;
-            color:#2c3e50;
-            margin:15px 0 6px;
-            font-weight:600;
-        ">
-            ${nama}
-        </h2>
-
-        <p style="
-            font-size:17px;
-            color:#7385a5;
-            letter-spacing:1px;
-            margin:0 0 30px;
-        ">
-            Token ID • <strong>#${tokenId}</strong>
-        </p>
-
-        <!-- OWNER -->
-        <div style="
-            margin:35px auto 0;
-            width:82%;
-            border-top:1px dashed rgba(115,133,165,0.35);
-            padding-top:22px;
-            text-align:center;
-        ">
-            <p style="
-                font-size:13px;
-                color:#888;
-                letter-spacing:2px;
-                margin-bottom:6px;
-            ">
-                REGISTERED OWNER
-            </p>
-
-            <p style="
-                font-size:20px;
-                color:#5c6a84;
-                font-family:monospace;
-                margin:0;
-            ">
-                ${ownerInfo}
-            </p>
-        </div>
-
-        <!-- FOOTER -->
-        <div style="
-            margin-top:55px;
-            display:flex;
-            justify-content:center;
-            align-items:center;
-            gap:22px;
-        ">
-            <img src="img/icon-192.png"
-                 style="
-                    width:78px;
-                    height:78px;
-                    border-radius:50%;
-                    box-shadow:0 6px 18px rgba(0,0,0,0.18);
-                 ">
-            <div style="text-align:left;">
-                <p style="
-                    font-weight:600;
-                    color:#7385a5;
-                    margin:0;
-                    font-size:20px;
-                    letter-spacing:1px;
-                ">
-                    PUTRAMAS OFFICIAL
-                </p>
-                <p style="
-                    color:#777;
-                    margin:2px 0 0;
-                    font-size:14px;
-                ">
-                    Verified On-Chain • Base Mainnet
-                </p>
-            </div>
-        </div>
-
-    </div>
-</div>
-`;
-    document.body.appendChild(wrapper);
-
     try {
-        // Tunggu gambar di dalam wrapper selesai loading sebelum di-canvas
+        // --- PROSES GENERATE (Sama seperti sebelumnya) ---
+        const nama = document.getElementById("displayName").innerText;
+        const imgElement = document.getElementById("displayImg");
+        const tokenId = document.getElementById("displayId").innerText;
+        const ownerInfo = document.querySelector("#contributor-badge-area span")?.innerText || "Putramas Collector";
+        
+        // Ambil URL Gambar Asli
+        const rawImgUrl = imgElement.src.split('?url=')[1] ? decodeURIComponent(imgElement.src.split('?url=')[1].split('&')[0]) : imgElement.src;
+
+        const wrapper = document.createElement("div");
+        wrapper.style.position = "fixed"; wrapper.style.left = "-9999px"; wrapper.style.top = "0";
+
+        // Template Sertifikat (Persis kode Mas)
+        wrapper.innerHTML = `
+            <div id="cert-hd" style="width:1000px; background: linear-gradient(180deg, #f9fbff, #f3f6fc); padding:70px; border-radius:18px; border:28px solid #7385a5; box-shadow: 0 30px 80px rgba(0,0,0,0.18), inset 0 0 0 1px rgba(255,255,255,0.6); position:relative; font-family:'Rubik', sans-serif;">
+                <div style="border:1.5px solid rgba(211,84,0,0.65); border-radius:14px; padding:50px; background: #ffffff; box-shadow: inset 0 0 0 1px rgba(0,0,0,0.04);">
+                    <h1 style="color:#7385a5; font-size:52px; margin:0; letter-spacing:6px; font-weight:600;">CERTIFICATE OF AUTHENTICITY</h1>
+                    <div style="height:2px; width:120px; background:linear-gradient(90deg,#7385a5,#d35400); margin:18px 0 12px;"></div>
+                    <p style="color:#8a8f9c; text-transform:uppercase; letter-spacing:3px; font-size:13px; margin:0 0 40px;">Digital Heritage Archive • Wayang Nusantara</p>
+                    <div style="width:100%; height:600px; margin:40px 0; display:flex; align-items:center; justify-content:center; background: linear-gradient(180deg, rgba(115,133,165,0.08), rgba(255,255,255,0.9)); border-radius:14px; border:1px solid rgba(115,133,165,0.25); box-shadow: inset 0 0 0 1px rgba(255,255,255,0.7), 0 15px 40px rgba(0,0,0,0.08); overflow:hidden;">
+                        <img src="${rawImgUrl}" crossorigin="anonymous" style="max-width:92%; max-height:92%; object-fit:contain; filter: drop-shadow(0 10px 18px rgba(0,0,0,0.15));">
+                    </div>
+                    <h2 style="font-size:46px; color:#2c3e50; margin:15px 0 6px; font-weight:600;">${nama}</h2>
+                    <p style="font-size:17px; color:#7385a5; letter-spacing:1px; margin:0 0 30px;">Token ID • <strong>#${tokenId}</strong></p>
+                    <div style="margin:35px auto 0; width:82%; border-top:1px dashed rgba(115,133,165,0.35); padding-top:22px; text-align:center;">
+                        <p style="font-size:13px; color:#888; letter-spacing:2px; margin-bottom:6px;">REGISTERED OWNER</p>
+                        <p style="font-size:20px; color:#5c6a84; font-family:monospace; margin:0;">${ownerInfo}</p>
+                    </div>
+                    <div style="margin-top:55px; display:flex; justify-content:center; align-items:center; gap:22px;">
+                        <img src="img/icon-192.png" style="width:78px; height:78px; border-radius:50%; box-shadow:0 6px 18px rgba(0,0,0,0.18);">
+                        <div style="text-align:left;">
+                            <p style="font-weight:600; color:#7385a5; margin:0; font-size:20px; letter-spacing:1px;">PUTRAMAS OFFICIAL</p>
+                            <p style="color:#777; margin:2px 0 0; font-size:14px;">Verified On-Chain • Base Mainnet</p>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        
+        document.body.appendChild(wrapper);
+
+        // Tunggu gambar load
         const certImg = wrapper.querySelector('img');
         await new Promise((resolve) => {
             if (certImg.complete) resolve();
             certImg.onload = resolve;
-            certImg.onerror = resolve; // Tetap lanjut meski error agar tidak stuck
+            certImg.onerror = resolve; 
         });
 
+        // Convert ke Canvas & DataURL
         const canvas = await html2canvas(document.getElementById("cert-hd"), {
-            useCORS: true,
-            scale: 2, // Resolusi 2x lebih tajam
-            backgroundColor: "#ffffff"
+            useCORS: true, scale: 2, backgroundColor: "#ffffff"
         });
 
-        const link = document.createElement("a");
-        link.download = `Sertifikat_Official_${nama}_${tokenId}.png`;
-        link.href = canvas.toDataURL("image/png", 1.0);
-        link.click();
-    } catch (err) {
-        console.error("Gagal cetak sertifikat:", err);
-        ("Gagal menyimpan gambar. Pastikan koneksi stabil.");
-    } finally {
+        const dataUrl = canvas.toDataURL("image/png", 1.0);
+        
+        // --- MENGHITUNG UKURAN FILE (ESTIMASI DARI STRING BASE64) ---
+        // Rumus: (Panjang String * (3/4)) - padding = Bytes
+        const sizeInBytes = Math.ceil((dataUrl.length * 3) / 4); 
+        const sizeInMB = (sizeInBytes / (1024 * 1024)).toFixed(2); // Convert ke MB (2 desimal)
+        const fileName = `Sertifikat_Official_${nama}_${tokenId}.png`;
+
+        // Simpan data untuk diproses nanti saat tombol "YA" diklik
+        pendingDownloadData = { url: dataUrl, name: fileName };
+
+        // 2. Kembalikan tombol ke semula
         document.body.removeChild(wrapper);
         btn.innerHTML = originalText;
         btn.disabled = false;
+
+        // 3. TAMPILKAN POPUP KONFIRMASI
+        document.getElementById("dlFileName").innerText = fileName;
+        document.getElementById("dlFileSize").innerText = sizeInMB + " MB";
+        
+        const modal = document.getElementById("confirmDownloadModal");
+        modal.style.display = "flex";
+        setTimeout(() => modal.classList.add("active"), 10); // Animasi Fade In
+
+    } catch (err) {
+        console.error("Gagal generate:", err);
+        btn.innerHTML = originalText;
+        btn.disabled = false;
+        alert("Gagal memproses gambar. Coba lagi.");
     }
+}
+
+// FUNGSI HANDLE PILIHAN USER (YA / TIDAK)
+function handleDownloadChoice(isYes) {
+    const modal = document.getElementById("confirmDownloadModal");
+    
+    if (isYes && pendingDownloadData) {
+        // Eksekusi Download
+        const link = document.createElement("a");
+        link.download = pendingDownloadData.name;
+        link.href = pendingDownloadData.url;
+        link.click();
     }
+
+    // Tutup Modal & Reset Data
+    modal.classList.remove("active");
+    setTimeout(() => {
+        modal.style.display = "none";
+        pendingDownloadData = null; // Bersihkan memori
+    }, 300);
+}
 
 // ==========================================
 // 1. FUNGSI UTAMA: PANGGIL POPUP (ON-DEMAND)
