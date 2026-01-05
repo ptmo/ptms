@@ -1079,9 +1079,11 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     let provider;
     let signer;
     let toastTimeout;
-    let sawerTargetAddress = null;
-    const MIN_TIP = 0.0001;
-    const MAX_TIP = 0.005;
+    // --- VARIABEL GLOBAL KHUSUS SAWER ---
+let currentDetailOwner = null; // Menyimpan alamat pemilik wayang
+let currentDetailName = "";    // Menyimpan nama wayang
+const MIN_TIP = 0.0001; 
+const MAX_TIP = 0.005;
 
     async function init() {
         const params = new URLSearchParams(window.location.search);
@@ -1228,12 +1230,14 @@ function disconnectWallet() {
 
         // 1. Ambil Owner & Data (DIUBAH KE DEDICATED)
         const owner = await contract.ownerOf(id);
+        currentDetailOwner = owner;
         const uri = await contract.tokenURI(id);
         
         // Ganti ipfs.io dengan Dedicated Gateway Anda untuk JSON Metadata
         const httpUri = uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         const response = await axios.get(httpUri);
         const meta = response.data;
+        currentDetailName = meta.name;
 
         // 2. Cek User Address (Logika Anda tetap sama)
         if (window.ethereum) {
@@ -1869,176 +1873,59 @@ function closeZoom() {
     }
     }
 
-// 1. FUNGSI PEMICU (Gunakan contractReader yang sudah ada & stabil)
-async function panggilSawerDetail() {
-    const btn = document.getElementById("btnSawer");
-    const originalContent = btn.innerHTML;
-    
-    // Ambil ID dari URL
-    const params = new URLSearchParams(window.location.search);
-    const id = params.get('id');
-
-    if (!id) return showToast("ID Wayang tidak valid.", 'error');
-
-    // UI Loading
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-    btn.disabled = true;
-
-    try {
-        const elNama = document.getElementById("displayName");
-        const namaWayang = elNama ? elNama.innerText : "Karya Seni";
-
-        // --- PERBAIKAN: Gunakan contractReader Global ---
-        // Jangan bikin provider baru. Pakai yang sudah ada di script utama.
-        // contractReader biasanya sudah diset di script utama Mas.
-        let ownerAddress;
-        
-        if (typeof contractReader !== 'undefined') {
-            ownerAddress = await contractReader.ownerOf(id);
-        } else if (typeof contract !== 'undefined') {
-            ownerAddress = await contract.ownerOf(id);
-        } else {
-            throw new Error("Koneksi kontrak belum siap.");
-        }
-
-        // Buka Modal
-        await window.bukaModalSawer(ownerAddress, namaWayang);
-
-    } catch (err) {
-        console.error("Gagal load owner:", err);
-        showToast("Gagal memuat data. Pastikan wallet terhubung / refresh halaman.", 'error');
-    } finally {
-        btn.innerHTML = originalContent;
-        btn.disabled = false;
+    function panggilSawerDetail() {
+    // 1. Cek apakah data sudah siap?
+    if (!currentDetailOwner) {
+        showToast("Tunggu sebentar, data sedang dimuat...", 'loading');
+        return;
     }
-}
 
+    // 2. Langsung Buka Modal dengan data dari memori
+    window.bukaModalSawer(currentDetailOwner, currentDetailName);
+    }
 
-// 2. FUNGSI BUKA MODAL & UPDATE SALDO (Fix Saldo 0)
-window.bukaModalSawer = async function(address, name) {
-    // Cek Login
-    if (!userAddress) {
+    window.bukaModalSawer = async function(address, name) {
+    // A. Cek Login Wallet
+    if (!window.ethereum || !userAddress) {
         showToast("Hubungkan wallet dulu!", 'warning');
-        // Coba panggil connectWallet() jika ada fungsi globalnya
-        if(typeof connectWallet === 'function') connectWallet(); 
+        // connectWallet(); // Opsional: Panggil connect otomatis
         return;
     }
 
+    // B. Cek Self-Tipping
     if (userAddress.toLowerCase() === address.toLowerCase()) {
-        showToast("Anda tidak bisa menyawer diri sendiri!", 'wolf');
+        showToast("Eits! Tidak bisa sawer diri sendiri.", 'wolf');
         return;
     }
 
-    sawerTargetAddress = address;
-    
-    // Isi UI
+    sawerTargetAddress = address; // Set target transfer
+
+    // C. Isi UI Modal
     document.getElementById("sawerReceiverName").innerText = name;
     document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 8) + "..." + address.substring(38);
     document.getElementById("sawerAmount").value = "";
     document.getElementById("sawerMessage").value = "";
 
-    // --- FIX SALDO: Pakai Provider Global ---
+    // D. CEK SALDO (WAJIB PAKAI PROVIDER WALLET)
     try {
-        // Gunakan 'provider' global yang sudah terhubung ke Metamask
-        const balanceBN = await provider.getBalance(userAddress);
+        // Kita paksa pakai provider dari Metamask user agar saldo terbaca
+        const walletProvider = new ethers.providers.Web3Provider(window.ethereum);
+        const balanceBN = await walletProvider.getBalance(userAddress);
         const ethVal = ethers.utils.formatEther(balanceBN);
         
         // Update UI Saldo
         const elSaldo = document.getElementById("sawerUserBalance");
         elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
-        
-        // Simpan saldo asli di atribut data agar tombol persen bisa baca
-        elSaldo.setAttribute('data-balance', ethVal); 
+        elSaldo.setAttribute('data-balance', ethVal); // Simpan untuk kalkulator persen
 
     } catch (e) {
         console.error("Gagal cek saldo:", e);
-        document.getElementById("sawerUserBalance").innerText = "0.0000 ETH";
+        document.getElementById("sawerUserBalance").innerText = "Err";
     }
 
     toggleSawerModal(true);
-}
-
-
-// 3. FUNGSI TOMBOL PERSENTASE (Fix Tombol Mati)
-async function setSawerPercent(percent) {
-    const elSaldo = document.getElementById("sawerUserBalance");
-    // Ambil saldo dari atribut data-balance yang kita simpan tadi
-    let balanceEth = parseFloat(elSaldo.getAttribute('data-balance') || "0");
-
-    // Jika saldo 0, jangan lanjut
-    if (balanceEth <= 0) {
-        showToast("Saldo Anda 0 ETH", 'warning');
-        return;
     }
-
-    // Estimasi Gas Fee (Safety Margin: 0.0005 ETH)
-    let maxSafe = balanceEth - 0.0005; 
-    if (maxSafe < 0) maxSafe = 0;
-
-    // Hitung Nominal
-    let amount = (maxSafe * percent) / 100;
-
-    // Capping (Sesuai Kontrak)
-    if (amount > MAX_TIP) amount = MAX_TIP;
-    if (amount < MIN_TIP) {
-        // Kalau hasil hitungan < min tip, tapi user punya duit, set ke min tip
-        if (maxSafe >= MIN_TIP) amount = MIN_TIP;
-        else amount = 0; 
-    }
-
-    // Tampilkan
-    if (amount > 0) {
-        document.getElementById("sawerAmount").value = amount.toFixed(4);
-    } else {
-        showToast("Saldo tidak cukup untuk gas fee.", 'warning');
-    }
-}
-
-
-// 4. EKSEKUSI TRANSAKSI
-async function eksekusiSawer() {
-    const amountVal = document.getElementById("sawerAmount").value;
-    const msgVal = document.getElementById("sawerMessage").value;
-    const btn = document.getElementById("btnKirimSawer");
-
-    if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
-        showToast(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`, 'warning');
-        return;
-    }
-
-    try {
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
-        btn.disabled = true;
-
-        // Pastikan signer ready
-        if (!signer) {
-            const p = new ethers.providers.Web3Provider(window.ethereum);
-            signer = p.getSigner();
-        }
-
-        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-        const amountWei = ethers.utils.parseEther(amountVal.toString());
-
-        const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { value: amountWei });
-        
-        toggleSawerModal(false);
-        showToast("Transaksi dikirim! Tunggu konfirmasi...", 'loading');
-        
-        await tx.wait();
-        
-        showToast(`Sukses kirim ${amountVal} ETH!`, 'success');
-
-    } catch (err) {
-        console.error(err);
-        let msg = err.reason || err.message;
-        if(msg && msg.includes("insufficient funds")) msg = "Saldo kurang untuk +Gas Fee";
-        showToast("Gagal: " + msg, 'error');
-    } finally {
-        btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
-        btn.disabled = false;
-    }
-}
-
+    
     function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
 
