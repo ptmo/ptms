@@ -1073,8 +1073,18 @@ async function renderCards(ids, container, isSearchMode, requestId) {
     for (const w of cleanResults) {
         const isOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
         const badge = isOfficial 
-            ? `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;">👑 Official</div>`
-            : `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
+            ? `<div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Official"
+                         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
+                         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
+                    </div>`
+            : `<div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Pemilik"
+                         style="background:#3498db; color:white; cursor:pointer;">
+                         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
+                    </div>`;
 
         const html = generateCardHTML(w, badge);
         container.insertAdjacentHTML('beforeend', html);
@@ -1084,31 +1094,105 @@ async function renderCards(ids, container, isSearchMode, requestId) {
     }       
 }
 
-function generateCardHTML(w, badge) {
-    return `
-        <a href="detail?id=${w.id}" class="wayang-card">
-            <div class="wayang-img">
-                ${badge}
-                <div id="loader-${w.id}" class="img-loader"><div class="spinner-circle"></div></div>
-                <img id="img-${w.id}" src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" 
-                     alt="${w.nama}" loading="lazy" style="opacity: 0; transition: opacity 0.3s;">
-                
-                <div class="img-overlay-bar">
-                    <div class="overlay-date">${w.date}</div>
-                    <div class="overlay-stats">
-                        <div class="stat-item">❤️ ${w.likes}</div>
-                        <div class="stat-item">⭐ ${w.rating}</div>
+function generateCardHTML(w, badge, isMine) {
+    
+    // 1. Definisi Tombol Revisi (Edit)
+    const editBtn = `
+        <button onclick="handleEditClick('${w.id}', '${w.owner}')" 
+             title="Revisi Data (Hanya Pemilik)" 
+             style="position:absolute; top:490px; right:12px; z-index:20; 
+             background:#d35400; color:#fff; padding:5px 12px; border-radius:5px; 
+             font-size:9px; font-weight:bold; border:1px solid rgba(255,255,255,0.3); 
+             cursor:pointer; display:inline-flex; align-items:center; gap:5px; 
+             box-shadow: 0 2px 5px rgba(0,0,0,0.3); transition: transform 0.2s;">
+             <i class="fas fa-edit"></i> Revisi
+        </button>`;
+
+    // 2. Logika Tombol Profil Pemilik
+    // Cek apakah address ada isinya untuk menghindari error substring
+    let profileBtn = '';
+    
+    // Pastikan gunakan w.owner atau w.uploader sesuai data smart contract Anda
+    const ownerAddress = w.owner ? w.owner : w.uploader; 
+
+    if (ownerAddress) {
+        const shortAddr = ownerAddress.substring(0, 4) + '...' + ownerAddress.substring(38);
+        
+        profileBtn = `
+        <button onclick="event.stopPropagation(); window.location.href='?page=profile&address=${ownerAddress}'" 
+             style="background:#7385a5; color:#fff; padding:2px 8px; border-radius:4px; 
+             font-size:10px; border:none; cursor:pointer; display:inline-flex; 
+             align-items:center; gap:4px; margin-left:5px; z-index: 10; position: relative;">
+             <i class="fa-solid fa-user"></i> Pemilik: ${shortAddr}
+        </button>`;
+    }
+
+        return `
+            <div class="wayang-card-wrapper" style="position:relative;">
+                ${editBtn}
+                <a href="detail?id=${w.id}" class="wayang-card">
+                    
+                    <div class="wayang-img">
+                        ${badge}
+                        
+                        <div id="loader-${w.id}" class="img-loader">
+                            <div class="spinner-circle"></div>
+                        </div>
+
+                        <img id="img-${w.id}" 
+                             src="https://via.placeholder.com/300x400/2c3e50/2c3e50?text=." 
+                             alt="${w.nama}" 
+                             loading="lazy"
+                             style="opacity: 0; transition: opacity 0.3s;">
+                        
+                        <div class="img-overlay-bar">
+                        <div class="overlay-date">${w.date}</div>
+                        <div class="overlay-stats">
+                            <div class="stat-item">
+                                <i class="fas fa-heart" style="color: #e74c3c;"></i> ${w.likes}
+                            </div>
+                            <div class="stat-item">
+                                <i class="fas fa-star" style="color: #f1c40f;"></i> ${w.rating}
+                            </div>
+                        </div>
                     </div>
                 </div>
-            </div>
-            <div class="card-body">
-                <div class="card-meta">
-                    <span class="gaya-text">${w.gaya}</span>
-                    <span class="date-text">#${w.id}</span>
-                </div>
+                    
+                    <div class="card-body">
+                <div class="card-meta" style="display: flex; justify-content: space-between; align-items: center;">
+    <div style="display: flex; align-items: center;">
+        
+        <span class="gaya-text">${w.gaya}</span>
+        
+        ${profileBtn}
+        
+    </div>
+
+    <span class="date-text">#${w.id}</span>
+</div>
                 <h3>${w.nama}</h3>
-            </div>
-        </a>`;
+                        <div class="stats-row">Klik untuk detail & ulasan</div>
+                    </div>
+                </a> 
+            </div>`;
+    }
+
+    // Fungsi Handler Klik Tombol Revisi
+function handleEditClick(id, owner) {
+    // 1. Cek apakah Wallet sudah terhubung
+    if (!userAddress) {
+        showToast("Hubungkan wallet untuk mengedit!", 'warning');
+        return;
+    }
+
+    // 2. Cek apakah Wallet yang login adalah Pemilik
+    if (userAddress.toLowerCase() !== owner.toLowerCase()) {
+        showToast("Anda bukan pemilik postingan ini!", 'error');
+        return;
+    }
+
+    // 3. Jika Lolos Validasi -> Pindah ke Halaman Revisi
+    window.location.href = `revisi?id=${id}`;
 }
 
 // =========================================
