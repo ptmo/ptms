@@ -1,4 +1,4 @@
-    <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="id">
 <head>
     <meta charset="UTF-8">
@@ -1084,8 +1084,12 @@ async function loadGaleri() {
     const container = document.getElementById("containerGaleri");
     
     // Loader Awal
-    container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Memuat data...</p>`;
-
+    container.innerHTML = `
+    <p style="text-align:center; color:#2C2C2C; grid-column: 1/-1; margin-top: 20px;">
+        <i class="fas fa-circle-notch fa-spin" style="margin-right: 10px; color: #7385a5;"></i> 
+        Memuat data <strong>${currentCategory}</strong>...
+    </p>`;
+    
     try {
         const ids = await contractReader.getIdsByGolongan(currentCategory);
         if (searchRequestId !== currentRequestId) return;
@@ -1111,7 +1115,35 @@ async function loadGaleri() {
         await loadNextBatch();
 
     } catch (err) {
-        if (searchRequestId === currentRequestId) container.innerHTML = `<p style="color:red; text-align:center; grid-column: 1/-1;">Gagal memuat data.</p>`;
+        if (searchRequestId === currentRequestId)
+container.innerHTML = `
+    <style>
+        @keyframes fadeInUpError { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        @keyframes pulseRedGlow { 
+            0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(231, 76, 60, 0.1)); } 
+            50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(231, 76, 60, 0.4)); } 
+            100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(231, 76, 60, 0.1)); } 
+        }
+    </style>
+
+    <div style="grid-column: 1/-1; text-align: center; padding: 50px 20px; animation: fadeInUpError 0.6s cubic-bezier(0.22, 1, 0.36, 1);">
+        
+        <div style="font-size: 50px; color: #e74c3c; margin-bottom: 20px; display: inline-block; animation: pulseRedGlow 2s infinite ease-in-out;">
+            <i class="fas fa-circle-xmark"></i>
+        </div>
+        
+        <h3 style="margin: 0; color: #c0392b; font-size: 20px; font-weight: 600;">
+            Gagal Memuat Data
+        </h3>
+        <p style="margin: 10px 0 0; color: #7f8c8d; font-size: 14px; max-width: 300px; margin-left: auto; margin-right: auto;">
+            Terjadi kendala saat menghubungi jaringan. Pastikan internet Anda stabil.
+        </p>
+
+        <button onclick="loadGaleri()" style="margin-top: 25px; background: #fff; color: #e74c3c; border: 2px solid #e74c3c; padding: 10px 24px; border-radius: 50px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;">
+            <i class="fas fa-rotate-right"></i> Coba Lagi
+        </button>
+
+    </div>`;
     }
 }
 
@@ -1396,7 +1428,7 @@ function disconnectWallet() {
     document.getElementById("modalShortAddress").innerText = "0x...";
     
     // Reload halaman (Sesuai kode Anda sebelumnya, ini cara paling bersih reset state Web3)
-    //window.location.reload(); 
+    window.location.reload(); 
 }
     
 function showToast(msg, type = 'info') {
