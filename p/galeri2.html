@@ -1243,83 +1243,73 @@ function handleEditClick(id, owner) {
     
     if (!imgEl) return;
 
-    // --- LOGIKA TRANSISI HALUS (MODIFIKASI DISINI) ---
+    // --- FITUR BARU: FAIL-SAFE TIMER 10 DETIK ---
+    // Apapun yang terjadi (sukses/gagal/lelet), spinner AKAN MATI di detik ke-10.
+    const maxSpinnerTime = setTimeout(() => {
+        if (loaderEl && loaderEl.style.display !== 'none') {
+            // console.log(`Spinner timeout untuk ID ${id}`); // Debugging opsional
+            loaderEl.style.display = 'none';
+            // Opsional: Jika ingin memberi tanda gambar gagal/lelet
+            // imgEl.alt = "Koneksi lambat..."; 
+        }
+    }, 10000); // 10.000 ms = 10 Detik
+
     const showImage = (url) => {
-        // 1. Pastikan ada transisi CSS agar munculnya halus
-        imgEl.style.transition = "opacity 0.5s ease-out";
-        
-        // 2. Set URL source gambar
         imgEl.src = url;
-
-        // Fungsi yang dijalankan saat gambar selesai diload browser
-        const handleImageLoaded = () => {
-            // A. Munculkan Gambar (Fade In mulai berjalan)
+        
+        imgEl.onload = () => {
+            // Jika gambar sukses dimuat SEBELUM 10 detik:
+            clearTimeout(maxSpinnerTime); // Batalkan timer (biar hemat memori)
+            
             imgEl.style.opacity = 1;     
-
-            // B. Tahan Spinner selama 0.5 detik (500ms), baru hilangkan.
-            // Ini memberikan waktu agar gambar benar-benar terlihat dulu sebelum spinner hilang.
-            if (loaderEl) {
-                setTimeout(() => {
-                    // Opsional: Bisa tambahkan efek fade-out juga ke loader jika mau lebih halus lagi
-                    // loaderEl.style.opacity = 0; 
-                    // setTimeout(() => loaderEl.style.display = 'none', 300);
-                    
-                    // Versi simpel: langsung hide setelah 0.5d
-                    loaderEl.style.display = 'none'; 
-                }, 500); // <-- JEDA 0.5 DETIK DISINI
-            }
+            if(loaderEl) loaderEl.style.display = 'none'; 
         };
 
-        imgEl.onload = handleImageLoaded;
-
-        // Handle jika gambar sudah di-cache browser (langsung complete)
-        if (imgEl.complete && imgEl.naturalWidth > 0) {
-            handleImageLoaded();
-        }
+        imgEl.onerror = () => {
+            // Jika gambar error (link mati):
+            clearTimeout(maxSpinnerTime); // Batalkan timer
+            
+            if(loaderEl) loaderEl.style.display = 'none';
+            // Fallback ke placeholder atau biarkan kosong
+        };
     };
-    // --------------------------------------------------
 
-    // 1. Cek Cache LocalStorage (Instant)
     const cacheKey = `wayang_img_${id}`;
     const cachedUrl = localStorage.getItem(cacheKey);
+
+    // 1. Cek Cache
     if (cachedUrl) {
         showImage(cachedUrl);
         return;
     }
 
     try {
-        // 2. Ambil JSON lewat Dedicated Gateway
+        // 2. Ambil JSON
         let jsonUrl = metaUrl;
         if (jsonUrl.startsWith("ipfs://")) {
             jsonUrl = jsonUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        // Timeout 8 detik
-        const res = await axios.get(jsonUrl, { timeout: 8000 });
+        const res = await axios.get(jsonUrl, { timeout: 8000 }); // Axios timeout 8s, Spinner total 10s
         
-        // 3. Ambil URL Gambar dari JSON
+        // 3. Ambil Gambar
         let rawImgUrl = res.data.image;
         if (rawImgUrl && rawImgUrl.startsWith("ipfs://")) {
             rawImgUrl = rawImgUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        // 4. Optimasi Ukuran dengan Weserv
         const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=75&output=webp`;
 
-        // Simpan & Tampilkan
         localStorage.setItem(cacheKey, optimizedUrl);
         showImage(optimizedUrl);
 
     } catch(e) { 
-        console.warn(`Gagal load ID ${id} via JSON, mencoba fallback...`);
-        // Fallback darurat: Coba tebak CID langsung
-        try {
-             const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
-             if(manualCid) {
-                 showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
-             } else { throw new Error("CID Invalid"); }
-        } catch(errFallback) {
-             if(loaderEl) loaderEl.innerHTML = '<span style="color:#e74c3c; font-size:10px;">Gagal Muat</span>';
+        // Fallback
+        const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
+        if(manualCid) {
+             showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
+        } else {
+             // Jika error total, spinner tetap akan mati di detik ke-10 berkat timer di atas
         }
     }
     }
