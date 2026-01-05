@@ -821,61 +821,77 @@ function resolveIpfs(url) {
     return `${MY_GATEWAY}${cleanPath}`;
 }
 
-// FUNGSI LOAD GAMBAR CERDAS (JSON FIRST)
+// FUNGSI LOAD GAMBAR CERDAS (DENGAN SELF-HEALING CACHE)
 async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
     const loaderEl = document.getElementById(`loader-${id}`);
     
     if (!imgEl) return;
 
-    // A. Cek Cache (Biar gak boros bandwidth)
-    const cacheKey = `img_v5_${id}`;
-    const cached = localStorage.getItem(cacheKey);
-    if (cached) {
-        imgEl.src = cached;
+    const cacheKey = `img_v6_${id}`; // Versi cache baru biar fresh
+    const cachedUrl = localStorage.getItem(cacheKey);
+
+    // 1. STRATEGI LOAD DARI CACHE (DENGAN PENGECEKAN)
+    if (cachedUrl) {
+        imgEl.src = cachedUrl;
         imgEl.style.opacity = 1;
-        if(loaderEl) loaderEl.remove(); // Hapus loader total
-        return;
+        
+        // JIKA GAMBAR CACHE RUSAK/BROKEN -> HAPUS CACHE & ULANGI
+        imgEl.onerror = () => {
+            console.warn(`Cache rusak ID ${id}, mencoba ambil ulang...`);
+            localStorage.removeItem(cacheKey); // Hapus memori rusak
+            if(loaderEl) loaderEl.style.display = 'flex'; // Munculkan loader lagi
+            fetchOptimizedImage(metaUrl, id); // Panggil diri sendiri (Recursive) untuk fetch ulang
+        };
+        
+        // Jika sukses, hilangkan loader
+        imgEl.onload = () => {
+            if(loaderEl) loaderEl.remove();
+        };
+        return; 
     }
 
+    // 2. STRATEGI FETCH BARU (JIKA TIDAK ADA DI CACHE)
     try {
-        // B. Ambil Metadata JSON via Gateway VIP
+        // Ambil JSON Metadata
         const jsonUrl = resolveIpfs(metaUrl);
         const response = await fetch(jsonUrl);
-        if (!response.ok) throw new Error("Gagal fetch JSON");
+        if (!response.ok) throw new Error("JSON 404");
         
         const data = await response.json();
-        
-        // C. Ambil Link Gambar dari dalam JSON
         const rawImage = data.image || data.image_url;
-        if (!rawImage) throw new Error("No image field");
+        if (!rawImage) throw new Error("No Image Data");
 
-        // D. Optimasi Gambar via Wesrv (Source dari Gateway VIP)
+        // Optimasi URL (Lewat Wesrv biar ringan)
         const publicImageUrl = resolveIpfs(rawImage);
         const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicImageUrl)}&w=300&q=75&output=webp`;
 
-        // E. Tampilkan
+        // Terapkan URL ke Gambar
         imgEl.src = optimizedUrl;
-        
+
+        // EVENT: JIKA SUKSES LOAD
         imgEl.onload = () => {
             imgEl.style.opacity = 1;
-            if (loaderEl) loaderEl.remove(); // Loader dihapus
+            if (loaderEl) loaderEl.remove();
+            // Simpan ke cache HANYA jika gambar benar-benar berhasil dimuat
             localStorage.setItem(cacheKey, optimizedUrl);
         };
 
+        // EVENT: JIKA GAGAL LOAD (FALLBACK)
         imgEl.onerror = () => {
-            imgEl.src = publicImageUrl; // Fallback ke gambar asli
+            console.warn(`Wesrv gagal ID ${id}, pakai Raw URL`);
+            imgEl.src = publicImageUrl; // Pakai link asli (Pinata)
+            imgEl.onerror = null; // Hapus handler biar gak loop
             if (loaderEl) loaderEl.remove();
         };
 
     } catch (e) {
-        // Silent fail: loader dihapus biar gak ganggu
+        console.error(`Gagal total ID ${id}`);
         if (loaderEl) loaderEl.remove();
-        imgEl.src = "https://via.placeholder.com/300x400?text=Error";
-        imgEl.style.opacity = 1;
+        imgEl.src = "img/stl.svg"; // Ganti dengan gambar placeholder error jika ada
+        imgEl.style.opacity = 0.5;
     }
 }
-
 
 // =========================================
 // 3. LOGIKA UTAMA
