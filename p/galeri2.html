@@ -1047,32 +1047,31 @@
         async function renderCards(ids, container, isSearchMode, requestId) {
     const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
-    // Flag penanda agar kita tidak menghapus container berkali-kali
-    let isFirstCardInBatch = true; 
+    // Flag Penting: Supaya container cuma dibersihkan SEKALI saat kartu pertama siap
+    let hasClearedLoader = false; 
 
     ids.forEach(async (id) => {
+        // Cek apakah user sudah pindah search/halaman lain
         if (searchRequestId !== requestId) return; 
 
         try {
+            // 1. Ambil Data Dasar
             const info = await contractReader.getInfoWayang(id);
             if (!info.isActive) return;
 
+            // 2. Ambil Owner
             const owner = await contractReader.ownerOf(id);
 
+            // 3. Filter (HANYA SEKALI SAJA)
             if (!isSearchMode) {
                 const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
                 if (currentTab === 'official' && !isOwnerOfficial) return; 
                 if (currentTab === 'public' && isOwnerOfficial) return;   
             }
 
-            const owner = await contractReader.ownerOf(id);
+            // (HAPUS DUPLIKASI KODE YANG TADI ADA DI SINI)
 
-            if (!isSearchMode) {
-                const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-                if (currentTab === 'official' && !isOwnerOfficial) return; 
-                if (currentTab === 'public' && isOwnerOfficial) return;   
-            }
-
+            // 4. Ambil Data Lainnya (Paralel)
             const [likes, ratingRaw, uri] = await Promise.all([
                 contractReader.totalLikes(id),
                 contractReader.getAverageRating(id),
@@ -1087,20 +1086,17 @@
 
             const w = { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
 
+            // 5. Render ke Layar
             if (searchRequestId === requestId) {
                 
-                // --- LOGIKA ANTI-BLANK (RAHASIA AGAR USER BETAH) ---
-                // Jika ini batch awal (offset 0) DAN loader masih ada di layar...
-                // Hapus loader TEPAT saat data kartu ini sudah siap di-render.
-                if (currentOffset === 0) {
-                     // Cek apakah ada elemen loading spinner?
-                     const spinner = container.querySelector('.fa-spinner');
-                     if (spinner) {
-                         container.innerHTML = ""; // HAPUS LOADER SEKARANG!
-                     }
+                // --- LOGIKA ANTI-BLANK YANG BENAR ---
+                // Hanya jalankan jika ini batch pertama (offset 0) DAN loader belum pernah dihapus
+                if (currentOffset === 0 && !hasClearedLoader) {
+                     container.innerHTML = ""; // Hapus Loader "Memuat..."
+                     hasClearedLoader = true;  // Kunci flag agar kartu berikutnya tidak menghapus container lagi
                 }
                 
-                // --- LOGIKA BADGE OWNER (Sesuai V3 Anda) ---
+                // --- LOGIKA BADGE OWNER ---
                 const isMine = userAddress && (w.owner.toLowerCase() === userAddress.toLowerCase());
                 const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
                 
@@ -1123,7 +1119,6 @@
                     </div>`;
                 }
 
-                // Generate HTML
                 const html = generateCardHTML(w, ownerBadge, isMine); 
                 container.insertAdjacentHTML('beforeend', html);
                 
@@ -1132,9 +1127,11 @@
                 }
             }
         } catch (e) { 
+            // Silent error agar satu kartu gagal tidak bikin macet semua
             console.warn(`Skip ID ${id}:`, e.message); 
         }
     });
+        }
 
     
     // --- 3. GENERATE HTML (FIXED) ---
