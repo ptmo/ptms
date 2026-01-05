@@ -963,7 +963,10 @@
         loadGaleri();
     }
     
-    async function loadGaleri() {
+    // --- 1. CONFIG GATEWAY VIP ---
+const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+
+async function loadGaleri() {
     document.getElementById("searchInput").value = "";
 
     searchRequestId++; 
@@ -971,9 +974,11 @@
     const container = document.getElementById("containerGaleri");
     const titleTab = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
     
-    container.innerHTML = `<p style="text-align:center; color:#80db80; grid-column: 1/-1;">
-        <img src="img/load.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> 
-        Memuat ${titleTab} (${currentCategory})...
+    // TAMPILKAN SPINNER AWAL (Biarkan tetap ada, jangan dihapus dulu)
+    container.innerHTML = `<p style="text-align:center; color:#00b300; grid-column: 1/-1; margin-top: 50px;">
+        <i class="fa-solid fa-spinner fa-spin" style="color: #7385a5; font-size: 24px; margin-right: 10px;"></i> 
+        <br><br>
+        <span style="color:#7385a5; font-size:14px;">Memuat ${titleTab} (${currentCategory})...</span>
     </p>`;
 
     try {
@@ -989,7 +994,8 @@
             return;
         }
         
-        container.innerHTML = ""; 
+        // PENTING: Jangan 'container.innerHTML = ""' disini.
+        // Biarkan renderCards yang menghapusnya saat data siap.
         await loadNextBatch();
 
     } catch (err) {
@@ -1000,13 +1006,15 @@
     }
 }
 
-    async function loadNextBatch() {
+async function loadNextBatch() {
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
 
     isFetchingBatch = true;
     const container = document.getElementById("containerGaleri");
     const loaderId = "loader-bottom";
-    if (!document.getElementById(loaderId)) {
+    
+    // Loader kecil hanya untuk scroll ke bawah
+    if (currentOffset > 0 && !document.getElementById(loaderId)) {
         container.insertAdjacentHTML('beforeend', `
             <p id="${loaderId}" style="text-align:center; grid-column: 1/-1; color:#888; font-style:italic; margin-top:20px;">
                 <img src="img/loading.svg" style="width: 25px; height: 25px; vertical-align: middle; margin-right: 10px;"> Memuat data berikutnya...
@@ -1016,7 +1024,10 @@
 
     const batchIds = globalIds.slice(currentOffset, currentOffset + BATCH_SIZE);
 
+    // Panggil renderCards
     await renderCards(batchIds, container, false, searchRequestId);
+    
+    // Hapus loader bawah jika ada
     const loaderEl = document.getElementById(loaderId);
     if (loaderEl) loaderEl.remove();
 
@@ -1026,124 +1037,107 @@
     if (container.children.length === 0 && currentOffset < globalIds.length) {
         loadNextBatch();
     }
-        }
-        
-    async function renderCards(ids, container, isSearchMode, requestId) {
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
-    
-    // --- FLAG PENTING ---
-    // Variabel ini menjaga agar kita cuma menghapus loader SATU KALI saja
+}
+
+// --- FUNGSI RENDER CARDS (VERSI BENAR & CEPAT) ---
+async function renderCards(ids, container, isSearchMode, requestId) {
+    // Flag untuk menghapus spinner awal hanya SATU KALI
     let hasClearedLoader = false; 
 
+    // Kita gunakan forEach (Paralel) agar munculnya pop-up satu per satu (Cepat)
     ids.forEach(async (id) => {
         if (searchRequestId !== requestId) return; 
 
         try {
-            // ... (Proses ambil data blockchain yang memakan waktu 8 detik ada di sini) ...
+            // 1. Ambil Data Dasar
             const info = await contractReader.getInfoWayang(id);
             if (!info.isActive) return;
 
-            // ... (Logika ambil Owner, Likes, URI dll) ...
+            // 2. Ambil Data Owner & Filter
             const owner = await contractReader.ownerOf(id);
-            // ... (Logika filter Tab & Search) ...
-            
-            // ... (Setelah data siap 100%) ...
 
+            if (!isSearchMode) {
+                const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+                if (currentTab === 'official' && !isOwnerOfficial) return;
+                if (currentTab === 'public' && isOwnerOfficial) return;
+            }
+
+            // 3. Ambil Data Lainnya (Paralel)
+            const [likes, ratingRaw, uri] = await Promise.all([
+                contractReader.totalLikes(id),
+                contractReader.getAverageRating(id),
+                contractReader.tokenURI(id)
+            ]);
+
+            const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
+            const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
+            
+            // GUNAKAN DEDICATED GATEWAY (Agar Gambar Muncul)
+            const CID = uri ? uri.replace("ipfs://", "") : null;
+            const httpUri = CID ? `${DEDICATED_GATEWAY}/ipfs/${CID}` : "https://via.placeholder.com/300";
+            
+            const w = { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
+
+            // 4. Render ke Layar
             if (searchRequestId === requestId) {
                 
-                // --- INI KUNCINYA (LOGIKA PENGHANCUR SPINNER) ---
-                // "Apakah ini batch pertama? Dan apakah loader masih ada?"
-                // Jika YA, hapus loader SEKARANG JUGA karena kartu sudah mau ditempel.
+                // --- LOGIKA PENGHAPUS SPINNER ---
+                // Hapus spinner TEPAT saat kartu pertama siap ditempel
                 if (currentOffset === 0 && !hasClearedLoader) {
-                     container.innerHTML = ""; // <--- SPINNER HILANG DISINI
-                     hasClearedLoader = true;  // <--- Kunci biar kartu kedua gak ngehapus lagi
+                    container.innerHTML = ""; // Spinner HILANG
+                    hasClearedLoader = true;  // Kunci flag
                 }
+
+                // Logika Badge
+                const isMine = (typeof userAddress !== 'undefined' && userAddress) && (w.owner.toLowerCase() === userAddress.toLowerCase());
+                const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
                 
-                // Generate & Tempel Kartu
-                // Karena spinner baru saja dihapus di baris atas, 
-                // kartu ini langsung muncul menggantikannya (Tanpa Jeda).
-                const html = generateCardHTML(w, ownerBadge, isMine); 
+                let ownerBadge = "";
+                if (isOwnerOfficial) {
+                    ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;">👑 Official</div>`;
+                } else {
+                    ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
+                }
+
+                // Generate HTML
+                const html = generateCardHTML(w, ownerBadge); 
                 container.insertAdjacentHTML('beforeend', html);
                 
-                if (typeof fetchOptimizedImage === "function") fetchOptimizedImage(w.metaUrl, w.id);
-            }
-        } catch (e) { console.warn(`Skip ID ${id}`, e); }
-    });
-    }
-    
-    async function renderCards(ids, container, isSearchMode, requestId) {
-        const promises = ids.map(async (id) => {
-            try {
-                const [info, owner, likes, ratingRaw, uri] = await Promise.all([
-                    contractReader.getInfoWayang(id),
-                    contractReader.ownerOf(id),
-                    contractReader.totalLikes(id),
-                    contractReader.getAverageRating(id),
-                    contractReader.tokenURI(id)
-                ]);
-
-                if (!info.isActive) return null;
-                if (!isSearchMode) {
-                    const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-                    if (currentTab === 'official' && !isOwnerOfficial) return null;
-                    if (currentTab === 'public' && isOwnerOfficial) return null;
+                // Panggil Loader Gambar
+                if (typeof fetchOptimizedImage === "function") {
+                    fetchOptimizedImage(w.metaUrl, w.id);
                 }
-
-                const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
-                const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
-                const httpUri = uri ? uri.replace("ipfs://", "https://ipfs.io/ipfs/") : "https://via.placeholder.com/300";
-                
-                return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: httpUri, owner };
-            } catch (e) { return null; }
-        });
-
-        const results = await Promise.all(promises);
-
-        if (searchRequestId !== requestId) return;
-        const cleanResults = results.filter(item => item !== null);
-
-        if (cleanResults.length === 0) {
-            if (isSearchMode) {
-                container.innerHTML = `<p style="text-align:center; color:#888; grid-column: 1/-1;">Tidak ada item ditemukan.</p>`;
-            } 
-            return;
+            }
+        } catch (e) { 
+            // Silent error (Skip kartu yang gagal/lemot)
         }
+    });
+}
 
-        for (const w of cleanResults) {
-            let ownerBadge = "";
-            const isOwnerOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
-            if (isOwnerOfficial) {
-                ownerBadge = `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
-                👑 Official</div>`;
-            } else {
-                ownerBadge = `<div class="owner-badge" style="background:#3498db; color:white;">Oleh: ${w.owner.substring(0,6)}...</div>`;
-            }
-
-            const html = generateCardHTML(w, ownerBadge);
-
-            container.insertAdjacentHTML('beforeend', html);
-            if (typeof fetchOptimizedImage === "function") {
-                fetchOptimizedImage(w.metaUrl, w.id);
-            }
-        }       
-    }
-
-    async function fetchOptimizedImage(metaUrl, id) {
+// --- FUNGSI FETCH GAMBAR (VERSI GATEWAY VIP + FAILSAFE) ---
+async function fetchOptimizedImage(metaUrl, id) {
     const imgEl = document.getElementById(`img-${id}`);
     const loaderEl = document.getElementById(`loader-${id}`);
     
     if (!imgEl) return;
 
+    // Fail-Safe: Matikan spinner paksa setelah 10 detik
+    const maxSpinnerTime = setTimeout(() => {
+        if (loaderEl && loaderEl.style.display !== 'none') loaderEl.style.display = 'none';
+    }, 10000);
+
     const showImage = (url) => {
+        imgEl.style.transition = "opacity 0.5s ease-out";
         imgEl.src = url;
-        imgEl.onload = () => {
-            imgEl.style.opacity = 1;
-            if(loaderEl) loaderEl.style.display = 'none';
+        
+        const onComplete = () => {
+            clearTimeout(maxSpinnerTime);
+            imgEl.style.opacity = 1;     
+            if(loaderEl) loaderEl.style.display = 'none'; 
         };
-        if (imgEl.complete) {
-            imgEl.style.opacity = 1;
-            if(loaderEl) loaderEl.style.display = 'none';
-        }
+
+        imgEl.onload = onComplete;
+        if (imgEl.complete) onComplete();
     };
 
     const cacheKey = `wayang_img_${id}`;
@@ -1155,29 +1149,31 @@
     }
 
     try {
+        // Ganti IPFS.IO dengan Dedicated Gateway untuk JSON
         let fetchUrl = metaUrl;
         if (metaUrl.startsWith("ipfs://")) {
-            fetchUrl = metaUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
+            fetchUrl = metaUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        const res = await axios.get(fetchUrl, { timeout: 5000 });
+        const res = await axios.get(fetchUrl, { timeout: 6000 });
         
+        // Ganti IPFS.IO dengan Dedicated Gateway untuk Gambar
         let rawImgUrl = res.data.image;
         if (rawImgUrl.startsWith("ipfs://")) {
-            rawImgUrl = rawImgUrl.replace("ipfs://", "https://ipfs.io/ipfs/");
+            rawImgUrl = rawImgUrl.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
         }
 
-        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=300&q=75&output=webp`;
+        const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImgUrl)}&w=400&q=75&output=webp`;
 
         localStorage.setItem(cacheKey, optimizedUrl);
-
         showImage(optimizedUrl);
 
     } catch(e) { 
-        console.warn("Gagal load gambar id " + id);
-        if(loaderEl) loaderEl.innerHTML = '<span style="color:red; font-size:10px;">Gagal</span>';
+        // Fallback jika JSON gagal
+        const manualCid = metaUrl.replace("ipfs://", "").split('/')[0];
+        if(manualCid) showImage(`${DEDICATED_GATEWAY}/ipfs/${manualCid}`);
     }
-}
+            }
 
 function loadImage(imgEl, url) {
     const tempImg = new Image();
