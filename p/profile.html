@@ -479,7 +479,66 @@
 }
 .action-btn:active { transform: scale(0.98); }
 .action-btn.primary { background: #7385a5; color: white; }
-.action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid
+.action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid}
+
+/* Gaya Kotak Statistik */
+.stat-box-gold, .stat-box-blue {
+    flex: 1;
+    min-width: 140px;
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+}
+
+.stat-box-gold { border-bottom: 3px solid #f1c40f; }
+.stat-box-blue { border-bottom: 3px solid #3498db; }
+
+.stat-icon {
+    width: 40px; height: 40px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 18px;
+}
+.stat-box-gold .stat-icon { background: #fffdf0; color: #f1c40f; }
+.stat-box-blue .stat-icon { background: #f0f7ff; color: #3498db; }
+
+.stat-info h3 { margin: 0; font-size: 16px; color: #2c3e50; }
+.stat-label { font-size: 11px; color: #95a5a6; text-transform: uppercase; letter-spacing: 0.5px; }
+
+/* Gaya Kartu Pesan (Tip Card) */
+.tip-card {
+    background: #fff;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 10px;
+    border-left: 4px solid #f1c40f; /* Aksen Kuning Emas */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.03);
+    animation: fadeIn 0.5s ease;
+}
+
+.tip-header {
+    display: flex; justify-content: space-between; font-size: 12px; color: #888; margin-bottom: 5px;
+}
+
+.tip-amount {
+    font-weight: bold; color: #27ae60; font-size: 13px; display: flex; align-items: center; gap: 5px;
+}
+
+.tip-message {
+    background: #fcfcfc;
+    padding: 10px;
+    border-radius: 8px;
+    font-size: 13px;
+    color: #555;
+    font-style: italic;
+    margin-top: 8px;
+    border: 1px dashed #eee;
+}
      
 </style>
 </head>
@@ -528,6 +587,36 @@
                 <i class="far fa-copy"></i> <span id="btnCopyText">Salin Alamat</span>
             </button>
         </div>
+
+        <div class="stats-container" style="display:flex; gap:15px; margin-top:20px; flex-wrap:wrap;">
+    
+    <div class="stat-box-gold">
+        <div class="stat-icon"><i class="fas fa-coins"></i></div>
+        <div class="stat-info">
+            <span class="stat-label">Total Apresiasi</span>
+            <h3 id="displayTotalEarnings">0 ETH</h3>
+        </div>
+    </div>
+
+    <div class="stat-box-blue">
+        <div class="stat-icon"><i class="fas fa-users"></i></div>
+        <div class="stat-info">
+            <span class="stat-label">Total Dukungan</span>
+            <h3 id="displaySupporterCount">0 Orang</h3>
+        </div>
+    </div>
+
+</div>
+
+<div class="history-section" style="margin-top:25px;">
+    <h3 class="section-title" style="font-size:16px; margin-bottom:15px;">
+        <i class="fas fa-comment-dots" style="color:#f1c40f;"></i> Pesan Semangat Terbaru
+    </h3>
+    
+    <div id="tipHistoryContainer" class="tip-feed">
+        <p style="color:#aaa; font-size:13px; font-style:italic;">Memuat riwayat...</p>
+    </div>
+</div>
 
         <h3 class="section-title"><i class="fas fa-box-open"></i> Koleksi/Karya</h3>
 
@@ -845,6 +934,7 @@ window.unlockGate = function(profileOwnerAddr) {
     
     updateProfileUI(currentAddress);
     loadDataCepat(currentAddress);
+    loadTipData(currentAddress);
 };
 
 window.updateProfileUI = function(addr) {
@@ -855,6 +945,89 @@ window.updateProfileUI = function(addr) {
 
     if(document.getElementById("avatarImg")) {
         document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+    }
+};
+
+// Panggil fungsi ini di dalam unlockGate() atau loadDataCepat()
+window.loadTipData = async function(targetAddress) {
+    const container = document.getElementById("tipHistoryContainer");
+    const elTotal = document.getElementById("displayTotalEarnings");
+    const elCount = document.getElementById("displaySupporterCount");
+
+    // Gunakan Provider Read-Only (Cepat & Gratis)
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+
+    try {
+        // 1. AMBIL TOTAL BALANCE (getTipTotalBalance)
+        const totalWei = await contract.getTipTotalBalance(targetAddress);
+        const totalEth = ethers.utils.formatEther(totalWei);
+        if(elTotal) elTotal.innerText = parseFloat(totalEth).toFixed(4) + " ETH";
+
+        // 2. AMBIL JUMLAH COUNT (getTipCount)
+        const countBN = await contract.getTipCount(targetAddress);
+        const count = parseInt(countBN);
+        if(elCount) elCount.innerText = count + " Orang";
+
+        // 3. AMBIL DATA LIST (getTipByIndex) - Pake Loop
+        if (count === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; background:#fff; border-radius:10px;">
+                <i class="fas fa-comment-slash" style="margin-bottom:5px;"></i><br>Belum ada pesan dukungan.
+            </div>`;
+            return;
+        }
+
+        container.innerHTML = ""; // Bersihkan loading text
+        let html = "";
+
+        // Loop Terbalik: Dari index terakhir (terbaru) ke index 0
+        // Batasi maksimal 5 pesan terbaru saja biar ringan
+        const limit = 5; 
+        const start = Math.max(0, count - limit);
+
+        for (let i = count - 1; i >= start; i--) {
+            try {
+                // Panggil Struct TipRecord
+                const tip = await contract.getTipByIndex(targetAddress, i);
+                
+                // Format Data
+                const senderShort = tip.sender.substring(0,6) + "..." + tip.sender.substring(38);
+                const amount = ethers.utils.formatEther(tip.amount);
+                // Konversi timestamp solidity ke Date JS
+                const dateObj = new Date(tip.timestamp * 1000); 
+                const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' }) + " " + dateObj.toLocaleTimeString("id-ID", { hour: '2-digit', minute:'2-digit' });
+
+                html += `
+                <div class="tip-card">
+                    <div class="tip-header">
+                        <span><i class="fas fa-user-circle"></i> ${senderShort}</span>
+                        <span>${dateStr}</span>
+                    </div>
+                    <div class="tip-amount">
+                        <i class="fas fa-gift"></i> Sawer ${amount} ETH
+                    </div>
+                    <div class="tip-message">
+                        "${tip.message}"
+                    </div>
+                </div>`;
+                
+            } catch (e) {
+                console.error("Skip tip index", i);
+            }
+        }
+        
+        // Render ke layar
+        container.innerHTML = html;
+        
+        // Tombol "Lihat Semua" jika data > 5 (Opsional)
+        if (count > limit) {
+            container.innerHTML += `<div style="text-align:center; font-size:12px; color:#7385a5; margin-top:10px; cursor:pointer;">
+                Lihat ${count - limit} pesan lainnya...
+            </div>`;
+        }
+
+    } catch (err) {
+        console.error("Gagal load tips:", err);
     }
 };
 
