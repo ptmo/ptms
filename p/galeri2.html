@@ -1037,6 +1037,10 @@ let carouselCandidates = [];
 let top100Queue = [];
 let shownIndex = 0;
 let isLoadingBatch = false;
+let globalIds = [];
+let currentOffset = 0
+let isFetchingBatch = false;
+const BATCH_SIZE = 12;
 
 window.filterKategori = filterKategori;
 
@@ -1251,11 +1255,20 @@ function filterKategori(kategori, btnElement) {
 }
 
 async function loadGaleri() {
+    // Reset State
     document.getElementById("searchInput").value = "";
     searchRequestId++; 
     const currentRequestId = searchRequestId;
     const container = document.getElementById("containerGaleri");
     
+    // Reset Data Scroll
+    globalIds = [];
+    currentOffset = 0;
+    isFetchingBatch = false;
+
+    // Matikan sensor scroll lama (biar gak numpuk)
+    window.removeEventListener('scroll', handleInfiniteScroll);
+
     // Loader Awal
     container.innerHTML = `
     <p style="text-align:center; color:#828282; grid-column: 1/-1; margin-top: 20px;">
@@ -1264,75 +1277,95 @@ async function loadGaleri() {
     </p>`;
     
     try {
+        // Ambil SEMUA ID dari Smart Contract (Cepat karena cuma angka)
         const ids = await contractReader.getIdsByGolongan(currentCategory);
+        
         if (searchRequestId !== currentRequestId) return;
         
+        // Simpan ke Global & Balik Urutan (Terbaru diatas)
         globalIds = ids.slice().reverse(); 
-        currentOffset = 0;
-        isFetchingBatch = false;
 
-        // --- BAGIAN STATUS KOSONG (DIUPDATE) ---
+        // --- STATUS KOSONG ---
         if (globalIds.length === 0) {
-            // Cek Tab mana yang aktif untuk menentukan teks belakangnya
             const lokasi = currentTab === 'official' ? "Koleksi Putramas" : "Galeri Nusantara";
-            
             container.innerHTML = `
-                <p style="text-align:center; color:#828282; grid-column: 1/-1; margin-top: 20px;">
-                    Tidak ada hasil <strong>${currentCategory}</strong> di ${lokasi}.
-                </p>`;
+                <div class="state-box" style="grid-column: 1/-1;">
+                    <i class="fas fa-box-open" style="font-size: 40px; margin-bottom:15px; opacity:0.5;"></i>
+                    <p>Tidak ada hasil <strong>${currentCategory}</strong> di ${lokasi}.</p>
+                </div>`;
             return;
         }
-        // ---------------------------------------
         
+        // Bersihkan Container & Load Batch Pertama
         container.innerHTML = ""; 
         await loadNextBatch();
 
+        // HIDUPKAN SENSOR SCROLL (Hanya jika data sukses dimuat)
+        window.addEventListener('scroll', handleInfiniteScroll);
+
     } catch (err) {
-        if (searchRequestId === currentRequestId)
-container.innerHTML = `
-    <style>
-        @keyframes fadeInUpError { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
-        @keyframes pulseRedGlow { 
-            0% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(231, 76, 60, 0.1)); } 
-            50% { transform: scale(1.05); filter: drop-shadow(0 0 15px rgba(231, 76, 60, 0.4)); } 
-            100% { transform: scale(1); filter: drop-shadow(0 0 0 rgba(231, 76, 60, 0.1)); } 
+        if (searchRequestId === currentRequestId) {
+            // Tampilkan Error Keren Punya Mas
+            container.innerHTML = `
+                <div style="grid-column: 1/-1; text-align: center; padding: 50px 20px; animation: fadeInUpError 0.6s;">
+                    <div style="font-size: 50px; color: #e74c3c; margin-bottom: 20px; animation: pulseRedGlow 2s infinite;">
+                        <i class="fas fa-circle-xmark"></i>
+                    </div>
+                    <h3 style="color: #c0392b;">Gagal Memuat Data</h3>
+                    <p style="color: #7f8c8d;">Gagal terhubung ke jaringan Base Sepolia.</p>
+                    <button onclick="loadGaleri()" style="margin-top: 20px; padding: 10px 25px; border-radius: 50px; border: 1px solid #c0392b; background:white; color:#c0392b; cursor:pointer;">
+                        <i class="fas fa-rotate-right"></i> Coba Lagi
+                    </button>
+                </div>`;
         }
-    </style>
+    }
+}
 
-    <div style="grid-column: 1/-1; text-align: center; padding: 50px 20px; animation: fadeInUpError 0.6s cubic-bezier(0.22, 1, 0.36, 1);">
-        
-        <div style="font-size: 50px; color: #e74c3c; margin-bottom: 20px; display: inline-block; animation: pulseRedGlow 2s infinite ease-in-out;">
-            <i class="fas fa-circle-xmark"></i>
-        </div>
-        
-        <h3 style="margin: 0; color: #c0392b; font-size: 20px; font-weight: 600;">
-            Gagal Memuat Data
-        </h3>
-        <p style="margin: 10px 0 0; color: #7f8c8d; font-size: 14px; max-width: 300px; margin-left: auto; margin-right: auto;">
-            Terjadi kendala saat menghubungi jaringan. Pastikan internet Anda stabil.
-        </p>
-
-        <button onclick="loadGaleri()" style="margin-top: 25px; background: #fff; color: #e74c3c; border: 2px solid #e74c3c; padding: 10px 24px; border-radius: 50px; font-weight: bold; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; transition: all 0.2s;">
-            <i class="fas fa-rotate-right"></i> Coba Lagi
-        </button>
-
-    </div>`;
+function handleInfiniteScroll() {
+    // Rumus: (Posisi Scroll + Tinggi Layar) >= (Tinggi Total Dokumen - 100px)
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+        // Jika sudah dekat bawah (sisa 200px), load batch berikutnya
+        loadNextBatch();
     }
 }
 
 async function loadNextBatch() {
+    // 1. Cek Pengaman (Safety Check)
+    // Ditambah: Cek searchInput agar infinite scroll mati saat mode pencarian
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
+
     isFetchingBatch = true;
     const container = document.getElementById("containerGaleri");
-    
+
+    // 2. [UPDATE] Tampilkan Loader Kecil Sementara di Bawah
+    // Ini penting agar user tahu "Sabar, data lagi diambil..."
+    let tempLoader = null;
+    // Hanya munculkan loader jika ini bukan halaman pertama (offset > 0)
+    if (currentOffset > 0) {
+        tempLoader = document.createElement("div");
+        tempLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; font-size: 12px; animation: fadeIn 0.3s;";
+        tempLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat wayang berikutnya...`;
+        container.appendChild(tempLoader);
+    }
+
+    // 3. Ambil Data
     const batchIds = globalIds.slice(currentOffset, currentOffset + BATCH_SIZE);
+    
+    // Panggil RenderCards
     await renderCards(batchIds, container, false, searchRequestId);
     
+    // 4. [UPDATE] Hapus Loader setelah selesai
+    if (tempLoader) tempLoader.remove();
+
+    // 5. Update Status
     currentOffset += BATCH_SIZE;
     isFetchingBatch = false;
 
-    // Auto load next if screen empty
-    if (container.children.length === 0 && currentOffset < globalIds.length) {
+    // 6. [PENTING] Auto Load Jika Kosong (Empty Screen Safety)
+    // Logika Pintar Mas: Jika 12 data diambil tapi semuanya terfilter (misal beda tab),
+    // maka otomatis ambil batch berikutnya sampai layar terisi.
+    // (Kita cek childElementCount karena tempLoader sudah dihapus)
+    if (container.childElementCount === 0 && currentOffset < globalIds.length) {
         loadNextBatch();
     }
 }
@@ -1340,7 +1373,7 @@ async function loadNextBatch() {
 async function renderCards(ids, container, isSearchMode, requestId) {
     const promises = ids.map(async (id) => {
         try {
-            // Kita cuma ambil data ringan di kontrak. URL Gambar biarkan mentah.
+            // Ambil data Blockchain
             const [info, owner, likes, ratingRaw, uri] = await Promise.all([
                 contractReader.getInfoWayang(id),
                 contractReader.ownerOf(id),
@@ -1350,7 +1383,10 @@ async function renderCards(ids, container, isSearchMode, requestId) {
             ]);
 
             if (!info.isActive) return null;
+
+            // Logic Filter Tab (Official vs Public)
             if (!isSearchMode) {
+                // Pastikan variabel OFFICIAL_WALLET sudah didefinisikan di config
                 const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
                 if (currentTab === 'official' && !isOwnerOfficial) return null;
                 if (currentTab === 'public' && isOwnerOfficial) return null;
@@ -1359,40 +1395,62 @@ async function renderCards(ids, container, isSearchMode, requestId) {
             const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
             const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
             
-            // PENTING: Jangan replace string disini. Kirim mentah saja "ipfs://..."
             return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: uri, owner };
         } catch (e) { return null; }
     });
 
     const results = await Promise.all(promises);
+    
+    // Cegah race condition (kalau user pindah tab cepat-cepat)
     if (searchRequestId !== requestId) return;
     
     const cleanResults = results.filter(item => item !== null);
 
+    // Loop data yang sudah bersih
     for (const w of cleanResults) {
+        // 1. Buat Badge Pemilik
         const isOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
         const badge = isOfficial 
-            ? `<div class="owner-badge" 
-                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-                         title="Lihat Profil Official"
-                         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
-                         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
-                    </div>`
-            : `<div class="owner-badge" 
-                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
-                         title="Lihat Profil Pemilik"
-                         style="background:#3498db; color:white; cursor:pointer;">
-                         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
-                    </div>`;
+            ? `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
+                 <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
+               </div>`
+            : `<div class="owner-badge" style="background:#3498db; color:white;">
+                 <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
+               </div>`;
 
-        const html = generateCardHTML(w, badge);
+        // 2. Buat HTML Kartu (Disini letak HTML yang Mas bingung tadi)
+        // Kita kasih ID unik ke img biar bisa di-inject nanti oleh fetchOptimizedImage
+        const imgId = `wayang-img-${w.id}`;
+        
+        const html = `
+            <div class="wayang-card" onclick="window.location.href='detail?id=${w.id}'">
+                <div style="position:relative;">
+                    ${badge}
+                    <img id="${imgId}" src="img/placeholder.jpg" class="card-img" loading="lazy" alt="${w.nama}">
+                </div>
+                <div class="card-body">
+                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                        <span class="card-id">#${w.id}</span>
+                        <span style="font-size:10px; color:#aaa;">${w.date}</span>
+                    </div>
+                    <h4>${w.nama}</h4>
+                    <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:12px; color:#555;">
+                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${w.likes}</span>
+                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${w.rating}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+
+        // 3. Tempel ke Layar (APPEND)
         container.insertAdjacentHTML('beforeend', html);
         
-        // Panggil Loader Gambar Cerdas
+        // 4. Panggil Loader Gambar Cerdas (Agar tidak berat)
+        // Fungsi ini akan mencari elemen #wayang-img-{id} dan mengganti src-nya nanti
         fetchOptimizedImage(w.metaUrl, w.id);
 
+        // 5. Feed ke Carousel (Opsional)
         if (typeof feedToCarousel === "function") {
-            // Kirim w.metaUrl langsung (biar fungsi feeder yang bersihkan)
             feedToCarousel(w.id, w.nama, w.likes, w.rating, w.metaUrl);
         }
     }       
