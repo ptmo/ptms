@@ -614,7 +614,14 @@
     </h3>
     
     <div id="tipHistoryContainer" class="tip-feed">
-        <p style="color:#aaa; font-size:13px; font-style:italic;">Memuat riwayat...</p>
+        <p style="text-align:center; color:#aaa; font-size:13px; font-style:italic;">Memuat riwayat...</p>
+    </div>
+
+    <div id="loadMoreContainer" style="text-align:center; margin-top:15px; display:none;">
+        <button onclick="loadNextTipBatch()" id="btnLoadMoreTips" 
+            style="background:transparent; border:1px solid #7385a5; color:#7385a5; padding:8px 20px; border-radius:20px; cursor:pointer; font-size:12px; transition:0.3s;">
+            <i class="fas fa-arrow-down"></i> Tampilkan 10 Berikutnya
+        </button>
     </div>
 </div>
 
@@ -735,6 +742,9 @@ let profileGlobalIds = [];
 let profileOffset = 0;
 let isProfileFetching = false;
 const PROFILE_BATCH_SIZE = 12;
+let tipCursor = 0;        
+let tipTargetAddr = null;
+let isTipLoading = false;
 
 window.initGatekeeper = async function() {
     if (window.ethereum) {
@@ -1029,6 +1039,135 @@ window.loadTipData = async function(targetAddress) {
     } catch (err) {
         console.error("Gagal load tips:", err);
     }
+};
+
+// 1. FUNGSI UTAMA (Dipanggil saat buka profil)
+window.loadTipData = async function(targetAddress) {
+    const container = document.getElementById("tipHistoryContainer");
+    const loadMoreBox = document.getElementById("loadMoreContainer");
+    const elTotal = document.getElementById("displayTotalEarnings");
+    const elCount = document.getElementById("displaySupporterCount");
+
+    tipTargetAddr = targetAddress;
+    container.innerHTML = `<p style="text-align:center; color:#aaa; font-size:12px;"><i class="fas fa-circle-notch fa-spin"></i> Mengambil data...</p>`;
+    loadMoreBox.style.display = 'none';
+
+    // Gunakan Provider Read-Only (Cepat)
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+
+    try {
+        // A. Ambil Statistik (Total ETH & Jumlah Orang)
+        const [totalWei, countBN] = await Promise.all([
+            contract.getTipTotalBalance(targetAddress),
+            contract.getTipCount(targetAddress)
+        ]);
+
+        // Update UI Statistik
+        if(elTotal) elTotal.innerText = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4) + " ETH";
+        const totalCount = parseInt(countBN);
+        if(elCount) elCount.innerText = totalCount + " Orang";
+
+        // B. Cek Data Kosong
+        if (totalCount === 0) {
+            container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; background:#fff; border-radius:10px; border:1px dashed #ddd;">
+                <i class="fas fa-comment-slash" style="margin-bottom:5px;"></i><br>Belum ada pesan dukungan.
+            </div>`;
+            return;
+        }
+
+        // C. Siapkan Cursor (Mulai dari Index Terakhir/Terbaru)
+        // Array di Smart Contract mulai dari 0 sampai Length-1.
+        // Kita mulai dari yang paling baru (Length-1).
+        tipCursor = totalCount - 1;
+
+        // D. Bersihkan Wadah & Load 5 Pertama
+        container.innerHTML = ""; 
+        await loadBatchTips(5); // Load awal 5 biji
+
+    } catch (err) {
+        console.error("Gagal load tips:", err);
+        container.innerHTML = `<p style="color:red; text-align:center;">Gagal memuat riwayat.</p>`;
+    }
+};
+
+// 2. FUNGSI UNTUK LOAD BATCH (Dipanggil awal & saat klik tombol)
+window.loadBatchTips = async function(batchSize) {
+    if (isTipLoading || tipCursor < 0) return;
+    
+    isTipLoading = true;
+    const container = document.getElementById("tipHistoryContainer");
+    const btn = document.getElementById("btnLoadMoreTips");
+    const loadMoreBox = document.getElementById("loadMoreContainer");
+
+    // Ubah tombol jadi loading
+    const originalBtnText = btn.innerHTML;
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat...`;
+
+    // Gunakan Provider Read-Only
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+
+    // Hitung batas loop (Mundur)
+    // Contoh: Cursor 49, Batch 10 -> Stop di 40
+    let end = tipCursor - batchSize + 1;
+    if (end < 0) end = 0; // Jangan sampai minus
+
+    let htmlBuffer = "";
+
+    // LOOP MUNDUR (Dari Terbaru ke Terlama)
+    for (let i = tipCursor; i >= end; i--) {
+        try {
+            const tip = await contract.getTipByIndex(tipTargetAddr, i);
+            
+            // Format Data
+            const senderShort = tip.sender.substring(0,6) + "..." + tip.sender.substring(38);
+            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
+            const dateObj = new Date(tip.timestamp * 1000); 
+            const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: '2-digit' });
+
+            // HTML Item
+            htmlBuffer += `
+            <div class="tip-card" style="animation: fadeIn 0.5s ease;">
+                <div class="tip-header">
+                    <span style="display:flex; align-items:center; gap:5px;">
+                        <i class="fas fa-user-circle" style="color:#7385a5;"></i> 
+                        <span style="font-weight:600; color:#555;">${senderShort}</span>
+                    </span>
+                    <span style="font-size:11px;">${dateStr}</span>
+                </div>
+                <div class="tip-amount">
+                    <i class="fas fa-gift" style="color:#f1c40f;"></i> Sawer <span style="color:#27ae60;">${amount} ETH</span>
+                </div>
+                <div class="tip-message">
+                    "${tip.message}"
+                </div>
+            </div>`;
+            
+        } catch (e) {
+            console.error("Skip index", i);
+        }
+    }
+
+    // Tempel ke bawah (Append)
+    container.insertAdjacentHTML('beforeend', htmlBuffer);
+
+    // Update Cursor untuk load berikutnya
+    tipCursor = end - 1;
+    isTipLoading = false;
+    btn.innerHTML = originalBtnText;
+
+    // Cek apakah tombol Load More masih perlu ditampilkan?
+    if (tipCursor >= 0) {
+        loadMoreBox.style.display = 'block';
+    } else {
+        loadMoreBox.style.display = 'none'; // Sembunyikan jika data habis
+    }
+};
+
+// 3. EVENT HANDLER TOMBOL
+window.loadNextTipBatch = function() {
+    loadBatchTips(10); // Load 10 berikutnya saat diklik
 };
 
 window.loadDataCepat = async function(targetAddress) {
