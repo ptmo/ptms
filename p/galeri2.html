@@ -1326,17 +1326,14 @@ function handleInfiniteScroll() {
 }
 
 async function loadNextBatch() {
-    // 1. Cek Pengaman (Safety Check)
-    // Ditambah: Cek searchInput agar infinite scroll mati saat mode pencarian
+    // Cek: Sedang loading? Data habis? Atau sedang mode cari?
     if (isFetchingBatch || currentOffset >= globalIds.length || document.getElementById("searchInput").value !== "") return;
 
     isFetchingBatch = true;
     const container = document.getElementById("containerGaleri");
 
-    // 2. [UPDATE] Tampilkan Loader Kecil Sementara di Bawah
-    // Ini penting agar user tahu "Sabar, data lagi diambil..."
+    // Tampilkan Loader Kecil di Bawah (Opsional, visual only)
     let tempLoader = null;
-    // Hanya munculkan loader jika ini bukan halaman pertama (offset > 0)
     if (currentOffset > 0) {
         tempLoader = document.createElement("div");
         tempLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; font-size: 12px; animation: fadeIn 0.3s;";
@@ -1344,23 +1341,20 @@ async function loadNextBatch() {
         container.appendChild(tempLoader);
     }
 
-    // 3. Ambil Data
+    // Ambil 12 ID berikutnya
     const batchIds = globalIds.slice(currentOffset, currentOffset + BATCH_SIZE);
     
-    // Panggil RenderCards
+    // Panggil Render Card ASLI Anda
     await renderCards(batchIds, container, false, searchRequestId);
     
-    // 4. [UPDATE] Hapus Loader setelah selesai
+    // Hapus Loader setelah selesai
     if (tempLoader) tempLoader.remove();
 
-    // 5. Update Status
+    // Update posisi
     currentOffset += BATCH_SIZE;
     isFetchingBatch = false;
 
-    // 6. [PENTING] Auto Load Jika Kosong (Empty Screen Safety)
-    // Logika Pintar Mas: Jika 12 data diambil tapi semuanya terfilter (misal beda tab),
-    // maka otomatis ambil batch berikutnya sampai layar terisi.
-    // (Kita cek childElementCount karena tempLoader sudah dihapus)
+    // Safety: Jika layar masih kosong (misal karena terfilter semua), load lagi otomatis
     if (container.childElementCount === 0 && currentOffset < globalIds.length) {
         loadNextBatch();
     }
@@ -1369,7 +1363,7 @@ async function loadNextBatch() {
 async function renderCards(ids, container, isSearchMode, requestId) {
     const promises = ids.map(async (id) => {
         try {
-            // Ambil data Blockchain
+            // Kita cuma ambil data ringan di kontrak. URL Gambar biarkan mentah.
             const [info, owner, likes, ratingRaw, uri] = await Promise.all([
                 contractReader.getInfoWayang(id),
                 contractReader.ownerOf(id),
@@ -1379,10 +1373,7 @@ async function renderCards(ids, container, isSearchMode, requestId) {
             ]);
 
             if (!info.isActive) return null;
-
-            // Logic Filter Tab (Official vs Public)
             if (!isSearchMode) {
-                // Pastikan variabel OFFICIAL_WALLET sudah didefinisikan di config
                 const isOwnerOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
                 if (currentTab === 'official' && !isOwnerOfficial) return null;
                 if (currentTab === 'public' && isOwnerOfficial) return null;
@@ -1391,62 +1382,40 @@ async function renderCards(ids, container, isSearchMode, requestId) {
             const rating = ratingRaw > 0 ? (ratingRaw / 10).toFixed(1) : "N/A";
             const date = new Date(info.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: 'numeric' });
             
+            // PENTING: Jangan replace string disini. Kirim mentah saja "ipfs://..."
             return { id, nama: info.nama, gaya: info.gaya, likes, rating, date, metaUrl: uri, owner };
         } catch (e) { return null; }
     });
 
     const results = await Promise.all(promises);
-    
-    // Cegah race condition (kalau user pindah tab cepat-cepat)
     if (searchRequestId !== requestId) return;
     
     const cleanResults = results.filter(item => item !== null);
 
-    // Loop data yang sudah bersih
     for (const w of cleanResults) {
-        // 1. Buat Badge Pemilik
         const isOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
         const badge = isOfficial 
-            ? `<div class="owner-badge" style="background:#f1c40f; color:black; border:1px solid #d35400;"> 
-                 <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
-               </div>`
-            : `<div class="owner-badge" style="background:#3498db; color:white;">
-                 <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
-               </div>`;
+            ? `<div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Official"
+                         style="background:#f1c40f; color:black; border:1px solid #d35400; cursor:pointer;"> 
+                         <i class="fas fa-crown" style="color: #7385a5; margin-right: 3px;"></i> Official
+                    </div>`
+            : `<div class="owner-badge" 
+                         onclick="event.stopPropagation(); window.location.href='?page=profile&address=${w.owner}'"
+                         title="Lihat Profil Pemilik"
+                         style="background:#3498db; color:white; cursor:pointer;">
+                         <i class="fas fa-user" style="margin-right: 4px;"></i> Oleh: ${w.owner.substring(0,6)}...
+                    </div>`;
 
-        // 2. Buat HTML Kartu (Disini letak HTML yang Mas bingung tadi)
-        // Kita kasih ID unik ke img biar bisa di-inject nanti oleh fetchOptimizedImage
-        const imgId = `wayang-img-${w.id}`;
-        
-        const html = `
-            <div class="wayang-card" onclick="window.location.href='detail?id=${w.id}'">
-                <div style="position:relative;">
-                    ${badge}
-                    <img id="${imgId}" src="img/placeholder.jpg" class="card-img" loading="lazy" alt="${w.nama}">
-                </div>
-                <div class="card-body">
-                    <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
-                        <span class="card-id">#${w.id}</span>
-                        <span style="font-size:10px; color:#aaa;">${w.date}</span>
-                    </div>
-                    <h4>${w.nama}</h4>
-                    <div style="display:flex; justify-content:space-between; margin-top:10px; font-size:12px; color:#555;">
-                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${w.likes}</span>
-                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${w.rating}</span>
-                    </div>
-                </div>
-            </div>
-        `;
-
-        // 3. Tempel ke Layar (APPEND)
+        const html = generateCardHTML(w, badge);
         container.insertAdjacentHTML('beforeend', html);
         
-        // 4. Panggil Loader Gambar Cerdas (Agar tidak berat)
-        // Fungsi ini akan mencari elemen #wayang-img-{id} dan mengganti src-nya nanti
+        // Panggil Loader Gambar Cerdas
         fetchOptimizedImage(w.metaUrl, w.id);
 
-        // 5. Feed ke Carousel (Opsional)
         if (typeof feedToCarousel === "function") {
+            // Kirim w.metaUrl langsung (biar fungsi feeder yang bersihkan)
             feedToCarousel(w.id, w.nama, w.likes, w.rating, w.metaUrl);
         }
     }       
