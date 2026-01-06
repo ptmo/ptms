@@ -642,6 +642,10 @@ const MIN_TIP = 0.0001;
 const MAX_TIP = 0.005;
 let sawerTargetAddress = null;
 let toastTimeout;
+let profileGlobalIds = [];
+let profileOffset = 0;
+let isProfileFetching = false;
+const PROFILE_BATCH_SIZE = 12;
 
 window.initGatekeeper = async function() {
     if (window.ethereum) {
@@ -859,7 +863,15 @@ window.loadDataCepat = async function(targetAddress) {
     const loading = document.getElementById("loading");
     const empty = document.getElementById("emptyState");
     
+    // 1. Reset State & UI
     container.innerHTML = "";
+    profileGlobalIds = [];
+    profileOffset = 0;
+    isProfileFetching = false;
+    
+    // Matikan sensor lama biar gak numpuk
+    window.removeEventListener('scroll', handleProfileScroll);
+
     if(loading) loading.style.display = 'block';
     if(empty) empty.style.display = 'none';
 
@@ -871,7 +883,9 @@ window.loadDataCepat = async function(targetAddress) {
     try {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
         
+        // 2. Ambil SEMUA ID milik user (Cepat karena cuma angka)
         const tokenIds = await contract.walletOfOwner(targetAddress);
+        
         if(document.getElementById("totalItems")) {
             document.getElementById("totalItems").innerText = tokenIds.length;
         }
@@ -882,31 +896,81 @@ window.loadDataCepat = async function(targetAddress) {
             return;
         }
 
-        const recentIds = tokenIds.slice().reverse().slice(0, 50);
+        // 3. Simpan ID ke Global Variable & Balik Urutan (Terbaru diatas)
+        profileGlobalIds = tokenIds.slice().reverse();
 
-        const promises = recentIds.map(async (id) => {
-            try {
-                const uri = await contract.tokenURI(id);
-                const meta = await fetchMetadata(uri);
-                return { id: id.toString(), meta: meta };
-            } catch (e) {
-                return null;
-            }
-        });
-
-        const results = await Promise.all(promises);
-
+        // 4. Sembunyikan Loading Besar
         if(loading) loading.style.display = 'none';
 
-        results.forEach(item => {
-            if (item) {
-                renderCard(item.id, item.meta.name, item.meta.image, container);
-            }
-        });
+        // 5. Panggil Batch Pertama
+        await loadNextProfileBatch();
+
+        // 6. Hidupkan Sensor Scroll
+        window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
         console.error("Gagal load data:", err);
         if(loading) loading.innerHTML = `<p style="color:red">Gagal memuat data Blockchain.</p>`;
+    }
+};
+
+window.loadNextProfileBatch = async function() {
+    // Cek Pengaman
+    if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
+
+    isProfileFetching = true;
+    const container = document.getElementById("collectionContainer");
+
+    // Tampilkan Loader Kecil di Bawah
+    let bottomLoader = null;
+    if (profileOffset > 0) {
+        bottomLoader = document.createElement("div");
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
+        container.appendChild(bottomLoader);
+    }
+
+    // Ambil Potongan ID (Slice)
+    const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
+
+    // Setup Provider (Read Only juga oke buat metadata)
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+
+    // Fetch Metadata Secara Paralel
+    const promises = batchIds.map(async (id) => {
+        try {
+            const uri = await contract.tokenURI(id);
+            const meta = await fetchMetadata(uri);
+            return { id: id.toString(), meta: meta };
+        } catch (e) { return null; }
+    });
+
+    const results = await Promise.all(promises);
+
+    // Hapus Loader Kecil
+    if (bottomLoader) bottomLoader.remove();
+
+    // Render Kartu
+    results.forEach(item => {
+        if (item) {
+            renderCard(item.id, item.meta.name, item.meta.image, container);
+        }
+    });
+
+    // Update Posisi
+    profileOffset += PROFILE_BATCH_SIZE;
+    isProfileFetching = false;
+    
+    // Auto-fill jika layar besar tapi data masih sedikit
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
+         loadNextProfileBatch();
+    }
+};
+
+window.handleProfileScroll = function() {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+        loadNextProfileBatch();
     }
 };
 
@@ -922,11 +986,13 @@ window.fetchMetadata = async function(tokenURI) {
     }
 };
 
-
 window.renderCard = function(id, name, img, container) {
     let isMyProfile = false;
     if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
-        isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+        // Pastikan tidak error jika salah satu null
+        if(viewerAddress && currentAddress) {
+            isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+        }
     }
 
     let badgeHtml = isMyProfile 
@@ -938,10 +1004,11 @@ window.renderCard = function(id, name, img, container) {
         : ``;
 
     const html = `
-        <div class="wayang-card">
+        <div class="wayang-card" style="animation: fadeIn 0.5s ease;">
             <div style="position:relative;">
                 ${badgeHtml} 
-                <img src="${img}" class="card-img" loading="lazy" alt="${name}">
+                <img src="${img}" class="card-img" loading="lazy" alt="${name}" 
+                     onerror="this.src='img/placeholder.jpg'">
             </div>
             <div class="card-body">
                 <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
@@ -967,7 +1034,8 @@ window.renderCard = function(id, name, img, container) {
         </div>
     `;
 
-    container.innerHTML += html;
+    // PERUBAHAN UTAMA DISINI: Gunakan insertAdjacentHTML agar tidak berat
+    container.insertAdjacentHTML('beforeend', html);
 };
 
 window.panggilSawerDetail = async function(address, name) {
