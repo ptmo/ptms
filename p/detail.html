@@ -1011,9 +1011,10 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
             </button>
 
             <button onclick="panggilSawerDetail()" id="btnSawer" class="btn-action-premium" title="Sawer">
-                <i class="fas fa-gift"></i>
+               <i class="fas fa-gift"></i>
+               <span id="sawerCount" style="font-size: 15px; margin-left: 5px;">0</span>
             </button>
-
+            
             <button onclick="downloadSertifikatHD()" id="btnDownloadHD" class="btn-action-premium" title="Simpan">
                 <i class="fas fa-file-download"></i>
             </button>
@@ -1397,6 +1398,7 @@ function disconnectWallet() {
 
         // 1. Ambil Owner & Data (DIUBAH KE DEDICATED)
         const owner = await contract.ownerOf(id);
+        updateSawerCount(owner);
         currentDetailOwner = owner;
         const uri = await contract.tokenURI(id);
         
@@ -2174,6 +2176,27 @@ function toggleSawerModal(show = true) { // Default true jika dipanggil tanpa ar
 function closeSawer(event) {
     if (event.target.id === "sawerModal") {
         toggleSawerModal(false);
+    }
+}
+
+    // Fungsi untuk update angka di tombol Sawer
+async function updateSawerCount(ownerAddress) {
+    try {
+        // Gunakan Provider Ringan (RPC Publik)
+        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        const readContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+
+        // Panggil fungsi getTipCount dari Smart Contract
+        const countBN = await readContract.getTipCount(ownerAddress);
+        
+        // Update tampilan tombol
+        const el = document.getElementById("sawerCount");
+        if(el) {
+            el.innerText = countBN.toString();
+        }
+
+    } catch (e) {
+        console.warn("Gagal load sawer count:", e);
     }
 }
     
