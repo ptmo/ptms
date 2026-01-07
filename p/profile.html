@@ -998,8 +998,9 @@ window.toggleWalletModal = function() {
     } else {
         modal.style.display = "block";
         setTimeout(() => { modal.classList.add("active"); }, 10);
-        if (typeof userAddress !== 'undefined' && userAddress) {
-            updateModalWalletData(userAddress);
+        const targetAddr = userAddress || viewerAddress; 
+        if (targetAddr) {
+            updateModalWalletData(targetAddr);
         }
     }
 };
@@ -1549,44 +1550,54 @@ window.eksekusiSawer = async function() {
 };
 
 // 1. FUNGSI UPDATE DATA MODAL (Panggil ini saat Toggle Modal / Connect)
-async function updateModalWalletData(userAddress) {
-    if(!userAddress) return;
-    modalUserAddr = userAddress;
+async function updateModalWalletData(addr) {
+    if(!addr) return;
+    modalUserAddr = addr;
 
-    // Reset UI
-    document.getElementById("modalHistoryList").innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
-    document.getElementById("btnModalLoadMore").style.display = 'none';
+    // Reset UI Loader
+    const listEl = document.getElementById("modalHistoryList");
+    const balEl = document.getElementById("modalTipBalance");
+    const badgeEl = document.getElementById("modalTipCountBadge");
+    
+    // Pastikan elemen ada dulu
+    if(listEl) listEl.innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
+    const btnMore = document.getElementById("btnModalLoadMore");
+    if(btnMore) btnMore.style.display = 'none';
 
     try {
-        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        const rpcProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
-        // A. AMBIL TOTAL PENDAPATAN (getTipTotalBalance)
-        const totalWei = await contract.getTipTotalBalance(userAddress);
+        // A. Total Pendapatan
+        const totalWei = await contract.getTipTotalBalance(addr);
         const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4);
-        document.getElementById("modalTipBalance").innerText = totalEth + " ETH";
+        if(balEl) balEl.innerText = totalEth + " ETH";
 
-        // B. AMBIL JUMLAH HISTORY (getTipCount)
-        const countBN = await contract.getTipCount(userAddress);
-        const count = parseInt(countBN);
-        document.getElementById("modalTipCountBadge").innerText = count;
+        // B. Jumlah History
+        const countBN = await contract.getTipCount(addr);
+        
+        // --- FIX DISINI: Pakai toString() sebelum parseInt ---
+        const count = parseInt(countBN.toString()); 
+        
+        if(badgeEl) badgeEl.innerText = count;
 
         if (count === 0) {
-            document.getElementById("modalHistoryList").innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
+            if(listEl) listEl.innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
-        // C. SIAPKAN BATCH PERTAMA (Reverse Order)
-        modalTipCursor = count - 1; // Mulai dari yang terbaru
-        document.getElementById("modalHistoryList").innerHTML = ""; // Bersihkan loader
+        // C. Load Batch Pertama
+        modalTipCursor = count - 1; 
+        if(listEl) listEl.innerHTML = ""; 
         
-        await loadNextModalTips(); // Load 5 pertama
+        await loadNextModalTips(); 
 
     } catch (e) {
         console.error("Gagal update modal data:", e);
+        if(listEl) listEl.innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal memuat data.</p>`;
     }
 }
-
+            
 // 2. FUNGSI LOAD BATCH MODAL (5 Item per klik)
 async function loadNextModalTips() {
     if(isModalFetching || modalTipCursor < 0) return;
