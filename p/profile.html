@@ -1550,51 +1550,46 @@ window.eksekusiSawer = async function() {
 };
 
 // 1. FUNGSI UPDATE DATA MODAL (Panggil ini saat Toggle Modal / Connect)
-async function updateModalWalletData(addr) {
-    if(!addr) return;
-    modalUserAddr = addr;
+async function updateModalWalletData(userAddress) {
+    if(!userAddress) return;
+    modalUserAddr = userAddress;
 
-    // Reset UI Loader
-    const listEl = document.getElementById("modalHistoryList");
-    const balEl = document.getElementById("modalTipBalance");
-    const badgeEl = document.getElementById("modalTipCountBadge");
-    
-    // Pastikan elemen ada dulu
-    if(listEl) listEl.innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
-    const btnMore = document.getElementById("btnModalLoadMore");
-    if(btnMore) btnMore.style.display = 'none';
+    // Reset UI ke Loading
+    document.getElementById("modalHistoryList").innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
+    document.getElementById("btnModalLoadMore").style.display = 'none';
 
     try {
-        const rpcProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
-        // A. Total Pendapatan
-        const totalWei = await contract.getTipTotalBalance(addr);
+        // A. AMBIL TOTAL PENDAPATAN
+        const totalWei = await contract.getTipTotalBalance(userAddress);
         const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4);
-        if(balEl) balEl.innerText = totalEth + " ETH";
+        document.getElementById("modalTipBalance").innerText = totalEth + " ETH";
 
-        // B. Jumlah History
-        const countBN = await contract.getTipCount(addr);
+        // B. AMBIL JUMLAH HISTORY
+        const countBN = await contract.getTipCount(userAddress);
         
-        // --- FIX DISINI: Pakai toString() sebelum parseInt ---
+        // --- PERBAIKAN DISINI ---
+        // Menggunakan .toString() dulu agar aman
         const count = parseInt(countBN.toString()); 
         
-        if(badgeEl) badgeEl.innerText = count;
+        document.getElementById("modalTipCountBadge").innerText = count;
 
         if (count === 0) {
-            if(listEl) listEl.innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
+            document.getElementById("modalHistoryList").innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
-        // C. Load Batch Pertama
+        // C. SIAPKAN BATCH PERTAMA
         modalTipCursor = count - 1; 
-        if(listEl) listEl.innerHTML = ""; 
+        document.getElementById("modalHistoryList").innerHTML = ""; 
         
         await loadNextModalTips(); 
 
     } catch (e) {
         console.error("Gagal update modal data:", e);
-        if(listEl) listEl.innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal memuat data.</p>`;
+        document.getElementById("modalHistoryList").innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal memuat data.</p>`;
     }
 }
             
