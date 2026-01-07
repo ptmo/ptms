@@ -1719,7 +1719,7 @@ async function loadNextModalTips() {
             document.getElementById("displayName").insertAdjacentHTML('beforeend', newGayaBadge);
         }
         
-        // Cek Pemilik dengan aman
+        // Cek Pemilik
         const isMyItem = (currentUser && currentUser.toLowerCase() === owner.toLowerCase());
 
         // 3. Buat HTML Badge Kontributor (Di Bawah Judul)
@@ -1772,33 +1772,32 @@ async function loadNextModalTips() {
             </div>`;
 
         // 4. Buat HTML Tombol Revisi (Icon Only)
-        // Menggunakan insertAdjacentHTML agar lebih aman daripada innerHTML+=
         const editIconHTML = `
             <button onclick="handleEditClick('${id}', '${owner}')" title="Revisi Data"
-                style="background:#d35400; padding:4px 12px; border:2pxsolid#d35400; border-radius:50px; cursor:pointer; color:#fff; font-size:11px; font-weight:600; border:none; margin-left:10px; vertical-align:middle; transition:0.2s;"
-                onmouseover="this.style.transform='scale(1.2)'" 
+                style="background:#d35400; padding:4px 12px; border:2px solid #d35400; border-radius:50px; cursor:pointer; color:#fff; font-size:11px; font-weight:600; margin-left:10px; vertical-align:middle; transition:0.2s;"
+                onmouseover="this.style.transform='scale(1.1)'" 
                 onmouseout="this.style.transform='scale(1)'">
-                <i class="fas fa-pen-to-square"></i>Revisi
+                <i class="fas fa-pen-to-square"></i> Revisi
             </button>
         `;
 
-        // 5. EKSEKUSI RENDER
+        // 5. EKSEKUSI RENDER (PERBAIKAN DISINI)
         
-        // A. Masukkan Kontributor (Cek dulu biar tidak dobel)
-        if (!document.getElementById('contributor-badge-area')) {
-            // Masukkan SETELAH elemen judul (h2)
-            titleElement.insertAdjacentHTML('afterend', contributorHTML);
-        }
-
-        // B. Masukkan Tombol Edit (Di DALAM judul, sebelah teks)
-        if (isMyItem) {
-            // Cek apakah tombol sudah ada? Kalau belum, masukkan.
-            if (!document.querySelector('.owner-stat-card')) {
+        // A. Masukkan Owner Card (UNTUK SEMUA ORANG)
+        // Kita keluarkan dari logika 'isMyItem' agar pengunjung juga bisa lihat profil pemilik
+        if (!document.querySelector('.owner-stat-card')) {
             titleElement.insertAdjacentHTML('afterend', ownerCardHTML);
         }
 
-        // PANGGIL FUNGSI LOAD DATA (Asynchronous)
+        // B. Panggil Data Statistik (UNTUK SEMUA ORANG)
         loadOwnerStats(owner);
+
+        // C. Masukkan Tombol Edit (HANYA UNTUK PEMILIK)
+        if (isMyItem) {
+            // Cek apakah tombol sudah ada? Kalau belum, masukkan ke dalam judul
+            if (!titleElement.querySelector('button')) {
+                titleElement.insertAdjacentHTML('beforeend', editIconHTML);
+            }
         }
         
         // --- LANJUT DATA LAINNYA ---
