@@ -741,7 +741,8 @@ Koleksi Wayang Kulit
     const PINATA_API_KEY = "d209d53257fcc57219af";    
     const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
 
-    const BASE_SEPOLIA_ID = '0x14a34'; 
+    const BASE_SEPOLIA_ID = '0x14a34';
+    const BASE_SEPOLIA_RPC = 'https://sepolia.base.org';
 
     // 2. KONFIGURASI RPC (Untuk Auto-Add)
     const BASE_SEPOLIA_CONFIG = {
@@ -882,63 +883,82 @@ let isModalFetching = false; // Kunci loading
         setTimeout(() => window.location.reload(), 500);
     }
 
-    async function updateModalWalletData(userAddress) {
+    // --- UPDATE FUNGSI INI DI HALAMAN UPLOAD ---
+
+async function updateModalWalletData(userAddress) {
     if(!userAddress) return;
     modalUserAddr = userAddress;
 
     // Reset UI ke Loading
-    document.getElementById("modalHistoryList").innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
-    document.getElementById("btnModalLoadMore").style.display = 'none';
+    const listEl = document.getElementById("modalHistoryList");
+    const balEl = document.getElementById("modalTipBalance");
+    const badgeEl = document.getElementById("modalTipCountBadge");
+    const btnMore = document.getElementById("btnModalLoadMore");
+
+    if(listEl) listEl.innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i> Memuat...</div>`;
+    if(btnMore) btnMore.style.display = 'none';
 
     try {
-        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+        // 1. DETEKSI PROVIDER (Pakai Metamask biar tidak error)
+        let readProvider;
+        if (typeof provider !== 'undefined' && provider) {
+            readProvider = provider; 
+        } else {
+            readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        }
+
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
 
         // A. AMBIL TOTAL PENDAPATAN
         const totalWei = await contract.getTipTotalBalance(userAddress);
         const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4);
-        document.getElementById("modalTipBalance").innerText = totalEth + " ETH";
+        if(balEl) {
+            balEl.innerText = totalEth + " ETH";
+            balEl.style.color = parseFloat(totalEth) > 0 ? "#27ae60" : "#d35400";
+        }
 
         // B. AMBIL JUMLAH HISTORY
         const countBN = await contract.getTipCount(userAddress);
-        
-        // --- PERBAIKAN DISINI ---
-        // Menggunakan .toString() dulu agar aman
         const count = parseInt(countBN.toString()); 
         
-        document.getElementById("modalTipCountBadge").innerText = count;
+        if(badgeEl) badgeEl.innerText = count;
 
         if (count === 0) {
-            document.getElementById("modalHistoryList").innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
+            if(listEl) listEl.innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
         // C. SIAPKAN BATCH PERTAMA
         modalTipCursor = count - 1; 
-        document.getElementById("modalHistoryList").innerHTML = ""; 
+        if(listEl) listEl.innerHTML = ""; 
         
         await loadNextModalTips(); 
 
     } catch (e) {
         console.error("Gagal update modal data:", e);
-        document.getElementById("modalHistoryList").innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal memuat data.</p>`;
+        if(listEl) listEl.innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal memuat data.</p>`;
     }
-    }
+}
 
-    async function loadNextModalTips() {
+async function loadNextModalTips() {
     if(isModalFetching || modalTipCursor < 0) return;
     
     isModalFetching = true;
     const container = document.getElementById("modalHistoryList");
     const btnMore = document.getElementById("btnModalLoadMore");
     
-    // Matikan tombol sementara
     if(btnMore) btnMore.innerHTML = "Memuat...";
 
-    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+    // 1. DETEKSI PROVIDER (Sama seperti di atas)
+    let readProvider;
+    if (typeof provider !== 'undefined' && provider) {
+        readProvider = provider;
+    } else {
+        readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+    }
 
-    // Hitung mundur 5 langkah
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
+
     let end = modalTipCursor - 5 + 1;
     if(end < 0) end = 0;
 
@@ -947,8 +967,6 @@ let isModalFetching = false; // Kunci loading
     for (let i = modalTipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(modalUserAddr, i);
-            
-            // Format Data
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const msg = tip.message || "Tanpa pesan";
@@ -964,20 +982,16 @@ let isModalFetching = false; // Kunci loading
         } catch (e) {}
     }
 
-    // Append (Tempel ke bawah)
     container.insertAdjacentHTML('beforeend', html);
-
-    // Update Status
     modalTipCursor = end - 1;
     isModalFetching = false;
 
-    // Cek Tombol Load More
     if(btnMore) {
         if(modalTipCursor >= 0) {
             btnMore.style.display = 'block';
             btnMore.innerHTML = `Muat 5 Lama <i class="fas fa-chevron-down"></i>`;
         } else {
-            btnMore.style.display = 'none'; // Data habis
+            btnMore.style.display = 'none';
         }
     }
 }
