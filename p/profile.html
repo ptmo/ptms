@@ -1517,23 +1517,35 @@ window.eksekusiSawer = async function() {
         btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
         btn.disabled = true;
 
+        // 1. Siapkan Data Angka & Pesan
         const amountWei = ethers.utils.parseEther(amountVal.toString());
+        
+        // Ambil pesan dari inputan (default "-" jika kosong)
+        const messageVal = document.getElementById("sawerMessage").value || "-";
 
-        const tx = await signer.sendTransaction({
-            to: sawerTargetAddress,
+        // 2. Definisi Kontrak Write (Wajib pakai Signer)
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+
+        // 3. EKSEKUSI YANG BENAR
+        // Urutannya: (Alamat Penerima, Pesan String, { value: Jumlah ETH })
+        const tx = await contractWrite.sendTip(sawerTargetAddress, messageVal, {
             value: amountWei
         });
         
         window.toggleSawerModal(false); 
-        window.showToast("Transaksi dikirim! Menunggu konfirmasi...", 'info');
+        window.showToast("Transaksi dikirim! Menunggu konfirmasi...", 'loading');
 
         await tx.wait();
         
         window.showToast(`Sukses kirim ${amountVal} ETH!`, 'success');
 
-        window.updateModalData(viewerAddress);
+        // Update modal jika ada fungsi update
+        if(typeof updateModalWalletData === 'function' && viewerAddress) {
+            window.updateModalWalletData(viewerAddress);
+        }
 
-    } catch (err) {
+    }
+    catch (err) {
         console.error(err);
         let msg = err.reason || err.message;
         if(err.code === "ACTION_REJECTED" || err.code === 4001) msg = "Dibatalkan user.";
