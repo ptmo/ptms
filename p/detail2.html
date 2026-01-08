@@ -2459,6 +2459,10 @@ async function eksekusiSawer() {
         
         showToast(`Berhasil mengirim ${amountVal} ETH!`, 'success');
 
+        if (typeof userAddress !== 'undefined' && userAddress) {
+            refreshUserBalance(userAddress); 
+        }
+
     } catch (err) {
         console.error("Detail Error:", err);
         let msg = err.reason || err.message;
@@ -2475,6 +2479,31 @@ async function eksekusiSawer() {
     }
 }
 
+
+async function refreshUserBalance(address) {
+    try {
+        const walletProvider = new ethers.providers.Web3Provider(window.ethereum);
+        const balanceBN = await walletProvider.getBalance(address);
+        const ethVal = ethers.utils.formatEther(balanceBN);
+        
+        // Update elemen Saldo di Modal Sawer
+        const elSaldoSawer = document.getElementById("sawerUserBalance");
+        if(elSaldoSawer) {
+            elSaldoSawer.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+            elSaldoSawer.setAttribute('data-balance', ethVal);
+        }
+
+        // Jika Anda punya modal Wallet Info (modalBalance), update juga disana
+        const elSaldoModal = document.getElementById("modalBalance");
+        if(elSaldoModal) {
+            elSaldoModal.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+        }
+
+        console.log("Saldo berhasil diupdate otomatis!");
+    } catch (e) {
+        console.error("Gagal refresh saldo:", e);
+    }
+}
 
 // ==========================================
 // 5. HELPER UI (BUKA/TUTUP)
