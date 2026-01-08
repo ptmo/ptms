@@ -1106,17 +1106,47 @@ async function loadNextModalTips() {
             const tx = await contract.uploadPublik(tokenURI, nama, gol, gaya, { value: fee });
             
             statusEl.innerHTML = `${loadingIcon} Menunggu Konfirmasi Blockchain...`;
-            await tx.wait(); 
+            
+            // 1. TANGKAP RECEIPT (BUKTI TRANSAKSI)
+            const receipt = await tx.wait(); 
 
-            // SUCCESS
+            // 2. CARI TOKEN ID DARI EVENT LOG
+            // Kita cari event 'WayangLahir' (args[0] biasanya ID) atau 'Transfer' (args[2] biasanya ID)
+            let newTokenId = "";
+            
+            if (receipt.events) {
+                // Coba cari event spesifik 'WayangLahir' dulu
+                const lahirEvent = receipt.events.find(e => e.event === "WayangLahir");
+                if (lahirEvent && lahirEvent.args) {
+                    newTokenId = lahirEvent.args[0].toString();
+                } 
+                // Jika tidak ketemu, cari event 'Transfer' standar (Minting = Transfer dari 0x0 ke User)
+                else {
+                    const transferEvent = receipt.events.find(e => e.event === "Transfer");
+                    if (transferEvent && transferEvent.args) {
+                        // Di ERC721 standard, tokenId biasanya ada di index ke-2 (from, to, tokenId)
+                        newTokenId = transferEvent.args[2].toString();
+                    }
+                }
+            }
+
+            // SUCCESS UI
             statusEl.className = "status success";
             statusEl.innerHTML = `
                 <i class="fas fa-check-circle" style="font-size: 24px; margin-bottom: 10px;"></i><br>
                 SUKSES!<br>
                 <span style="font-weight:normal; font-size:13px;">Koleksi Anda sudah berhasil dicetak.</span><br>
-                <a href="https://basescan.org/tx/${tx.hash}" target="_blank" style="color:#7385a5; text-decoration:underline; font-size:13px; font-weight:bold;">
-                    <i class="fas fa-external-link-alt"></i> Lihat Transaksi
-                </a>`;
+                
+                ${newTokenId ? `
+                    <a href="detail?id=${newTokenId}" style="color:#27ae60; text-decoration:underline; font-weight:bold;">
+                        <i class="fas fa-eye"></i> Lihat Koleksi
+                    </a>` : ''}
+                
+                <div style="margin-top:15px; display:flex; gap:20px; justify-content:center; align-items:center; font-size:13px;">
+                    <a href="https://basescan.org/tx/${tx.hash}" target="_blank" style="color:#7385a5; text-decoration:underline; font-weight:bold;">
+                        <i class="fas fa-external-link-alt"></i> Lihat Transaksi
+                    </a>
+                </div>`;
             // Reset Form
             document.getElementById("inputNama").value = "";
             document.getElementById("inputGambar").value = "";
