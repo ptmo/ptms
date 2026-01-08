@@ -2659,10 +2659,10 @@ async function updateSawerCount(ownerAddress) {
     }
 }
 
-    // --- FITUR REKOMENDASI (FIXED: PARSE JSON IMAGE) ---
+    // --- FITUR REKOMENDASI (WESERV + JSON PARSING) ---
 async function loadRelatedWayang(currentId, golongan, currentGaya) {
-    // Definisi Placeholder Aman
-    let safePlaceholder = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23ddd%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23888%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
+    // Placeholder Aman (Data URI)
+    let safePlaceholder = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f0f0f0%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23aaa%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
 
     // 1. CARI WADAH
     const anchorElement = 
@@ -2730,53 +2730,55 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
 
         grid.innerHTML = ""; 
 
-        // Gateway Cloudflare
-        const SAFE_GATEWAY = "https://ipfs.io/ipfs/";
+        // Gateway Stabil untuk Metadata
+        const SAFE_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
 
-        // 4. RENDER FINAL
+        // 4. RENDER FINAL (DENGAN WESERV)
         const renderPromises = finalSelection.map(async (item) => {
             try {
-                // A. Ambil Link Metadata (JSON) dari Blockchain
+                // A. Ambil Link Metadata
                 const uri = await contract.tokenURI(item.id);
                 const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
                 const metaUrl = `${SAFE_GATEWAY}${cid}`;
                 
-                let imgUrl = safePlaceholder;
+                let finalImgSrc = safePlaceholder; // Default sebelum loading selesai
 
-                // B. Fetch JSON Metadata
                 try {
+                    // B. Download JSON Metadata Dulu!
                     const controller = new AbortController();
-                    const timeoutId = setTimeout(() => controller.abort(), 3000);
+                    const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 detik timeout
                     
-                    // Download file JSON-nya dulu!
                     const res = await fetch(metaUrl, { signal: controller.signal });
                     clearTimeout(timeoutId);
                     
                     if (res.ok) {
-                        const meta = await res.json(); // Parsing JSON
-                        
-                        // C. Ambil Link Gambar dari properti "image" di dalam JSON
+                        const meta = await res.json();
                         const rawImg = meta.image || meta.image_url;
                         
                         if (rawImg) {
+                            // C. Bersihkan Link Gambar Asli
                             const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-                            // D. Masukkan link gambar yang sudah bersih
-                            imgUrl = `${SAFE_GATEWAY}${imgCid}`;
+                            const publicImgUrl = `${SAFE_GATEWAY}${imgCid}`;
+                            
+                            // D. BUNGKUS DENGAN WESERV (Proxy)
+                            // Encode URL agar karakter khusus aman
+                            finalImgSrc = `https://wsrv.nl/?url=${encodeURIComponent(publicImgUrl)}&w=200&h=200&fit=cover&a=top&output=webp`;
                         }
                     }
                 } catch(e) {
-                    // Silent fail
+                    // Silent fail, tetap pakai placeholder
                 }
 
                 const sameBadge = (item.info.gaya === currentGaya) 
                     ? `<span style="font-size:8px; background:#e1f5fe; color:#0288d1; padding:2px 4px; border-radius:3px; margin-left:4px;">${item.info.gaya}</span>` 
                     : "";
 
+                // Perhatikan: onerror akan menghapus atribut onerror agar tidak looping, lalu set src ke placeholder aman
                 return `
                     <a href="detail?id=${item.id}" class="mini-rel-card" title="${item.info.nama}">
                         <div style="position:relative;">
-                            <img src="${imgUrl}" class="mini-rel-img" loading="lazy" 
-                                 onerror="this.src='${safePlaceholder}'">
+                            <img src="${finalImgSrc}" class="mini-rel-img" loading="lazy" 
+                                 onerror="this.onerror=null;this.src='${safePlaceholder}';">
                         </div>
                         <div class="mini-rel-info">
                             <span class="mini-rel-name">${item.info.nama}</span>
