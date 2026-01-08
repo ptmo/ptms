@@ -2356,54 +2356,59 @@ async function bukaModalSawer(address, name, autoMsg = "") {
 // 3. LOGIKA TOMBOL PERSENTASE (PERBAIKAN LOGIKA)
 // ==========================================
 function setSawerPercent(percent) {
+    // 1. Pastikan Konstanta Terdefinisi (Hardcode jika perlu untuk keamanan)
+    const LIMIT_MIN = 0.0001;
+    const LIMIT_MAX = 0.005;
+    const GAS_RESERVE = 0.0000055; // Cadangan gas fee lebih efisien 0.0003 ETH
+
     const elSaldo = document.getElementById("sawerUserBalance");
-    const rawBalance = elSaldo.getAttribute('data-balance');
+    const rawBalance = elSaldo ? elSaldo.getAttribute('data-balance') : null;
     
-    if (!rawBalance) {
-        showToast("Saldo belum terbaca, tunggu sebentar.", 'info');
+    if (!rawBalance || isNaN(parseFloat(rawBalance))) {
+        showToast("Saldo belum terbaca, harap hubungkan wallet.", 'info');
         return;
     }
 
     let balanceEth = parseFloat(rawBalance);
     
-    // 1. Tentukan Batas Atas (Ceiling)
-    // Batasnya adalah angka TERKECIL antara: 
-    // (Saldo User - Gas) ATAU (Max Tip Kontrak 0.005)
-    let maxSafeUser = balanceEth - 0.0005; // Saldo aman
+    // 2. Hitung Saldo Aman (Saldo - Estimasi Gas)
+    let maxSafeUser = balanceEth - GAS_RESERVE; 
     if (maxSafeUser < 0) maxSafeUser = 0;
 
-    // Ini kuncinya: Jangan hitung % dari saldo dompet kalau dompetnya tebal.
-    // Hitung % dari Batas Maksimal Sawer (0.005).
-    let effectiveLimit = Math.min(maxSafeUser, MAX_TIP); 
+    // 3. Tentukan Limit Efektif
+    // Kita tidak boleh menyawer lebih dari LIMIT_MAX (0.005) 
+    // dan tidak bisa lebih dari saldo aman user
+    let effectiveLimit = Math.min(maxSafeUser, LIMIT_MAX); 
 
     let amount = 0;
 
-    // 2. Hitung Nominal
+    // 4. Logika Perhitungan Berdasarkan Tombol
     if (percent === 'MIN') {
-        amount = MIN_TIP; // Set langsung ke 0.0001
+        amount = LIMIT_MIN;
     } else {
-        // Hitung persentase dari Limit Efektif
+        // Hitung persentase (25, 50, 75, 100) dari limit efektif
         amount = (effectiveLimit * percent) / 100;
     }
 
-    // 3. Validasi Akhir (Clamping)
-    // Pastikan tidak kurang dari minimum kontrak
-    if (amount < MIN_TIP) {
-        // Jika user maksa pencet 25% tapi hasilnya dibawah min, 
-        // kita bulatkan ke min (kecuali saldo emang 0)
-        if (maxSafeUser >= MIN_TIP) amount = MIN_TIP;
-        else amount = 0;
+    // 5. Clamping (Validasi Batas Bawah dan Atas)
+    // Jika hasil hitung di bawah MIN, bulatkan ke MIN selama saldo cukup
+    if (amount < LIMIT_MIN && maxSafeUser >= LIMIT_MIN) {
+        amount = LIMIT_MIN;
+    }
+    
+    // Pastikan tidak melebihi saldo aman user
+    if (amount > maxSafeUser) {
+        amount = maxSafeUser;
     }
 
-    // Pastikan tidak lebih dari limit
-    if (amount > effectiveLimit) amount = effectiveLimit;
-
-    // 4. Render ke Input
-    if (amount > 0) {
-        // Gunakan toFixed(4) tapi hilangkan nol berlebih di belakang (opsional)
-        document.getElementById("sawerAmount").value = parseFloat(amount.toFixed(5)); 
+    // 6. Update Input Field
+    const inputAmount = document.getElementById("sawerAmount");
+    if (amount >= LIMIT_MIN) {
+        // Menggunakan toFixed(6) untuk akurasi presisi ETH lalu parseFloat untuk hapus nol mubazir
+        inputAmount.value = parseFloat(amount.toFixed(6)); 
     } else {
-        showToast("Saldo tidak cukup untuk gas fee.", 'error');
+        inputAmount.value = "";
+        showToast("Saldo Anda tidak cukup (Minimal + Gas Fee).", 'warning');
     }
 }
 
