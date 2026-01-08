@@ -2417,6 +2417,14 @@ async function eksekusiSawer() {
     const msgVal = document.getElementById("sawerMessage").value;
     const btn = document.getElementById("btnKirimSawer");
 
+    // --- PERBAIKAN KRITIS: Ambil target dari window atau global ---
+    const target = window.sawerTargetAddress || sawerTargetAddress;
+
+    if (!target || target === "0x0000000000000000000000000000000000000000") {
+        showToast("Error: Alamat penerima tidak valid atau hilang.", 'error');
+        return;
+    }
+
     if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
         showToast(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`, 'warning');
         return;
@@ -2426,32 +2434,37 @@ async function eksekusiSawer() {
         btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
         btn.disabled = true;
 
-        // Siapkan Signer
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
+        
+        // Pastikan CONTRACT_ADDRESS dan CONTRACT_ABI sudah benar-benar terdefinisi di atas
         const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
 
-        // Parse ke Wei
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
-        // Kirim Transaksi
-        const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { value: amountWei });
+        // EKSEKUSI: Pastikan urutan parameter sesuai ABI: _receiver (address), _message (string)
+        const tx = await contractWrite.sendTip(target, msgVal, { 
+            value: amountWei,
+            // Opsional: Tambahkan gasLimit jika sering gagal di mobile
+            gasLimit: 150000 
+        });
         
-        toggleSawerModal(false); // Tutup modal biar lihat notif
-        
-        // (Opsional) Tampilkan Toast Loading disini jika ada fungsi toast
-        showToast("Transaksi dikirim...", 'load');
+        toggleSawerModal(false); 
+        showToast("Transaksi dikirim ke Blockchain...", 'load');
 
         await tx.wait();
         
         showToast(`Berhasil mengirim ${amountVal} ETH!`, 'success');
-        
-        // location.reload(); // Refresh halaman (opsional)
 
     } catch (err) {
-        console.error(err);
+        console.error("Detail Error:", err);
         let msg = err.reason || err.message;
-        if(msg.includes("insufficient funds")) msg = "Saldo kurang untuk membayar Gas Fee.";
+        
+        // Handling error umum agar user tidak bingung
+        if (msg.includes("invalid address")) msg = "Alamat tujuan salah atau tidak terbaca.";
+        if (msg.includes("insufficient funds")) msg = "Saldo tidak cukup (termasuk Gas Fee).";
+        if (err.code === 4001) msg = "Transaksi dibatalkan oleh pengguna.";
+        
         showToast("Gagal: " + msg, 'error');
     } finally {
         btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
