@@ -2660,18 +2660,32 @@ async function updateSawerCount(ownerAddress) {
 }
 
     async function loadRelatedWayang(currentId, golongan, currentGaya) {
-    // PASTIKAN: Gateway tidak diakhiri /ipfs/ jika pembersihan CID tidak konsisten
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    const safePlaceholder = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f8f9fa%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23ccc%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
+    // 1. Definisikan Gateway & Placeholder dengan BENAR
+    const PINATA_GW = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    const safePlaceholder = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22200%22%20viewBox%3D%220%200%20200%20200%22%3E%3Crect%20fill%3D%22%23f8f9fa%22%20width%3D%22200%22%20height%3D%22200%22%2F%3E%3Ctext%20fill%3D%22%23ccc%22%20font-family%3D%22sans-serif%22%20font-size%3D%2210%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3EWayang%3C%2Ftext%3E%3C%2Fsvg%3E";
 
+    // Fungsi sakti pembersih CID (Menghapus link sampah agar tidak dobel gateway)
+    const getPureCid = (url) => {
+        if(!url) return "";
+        return url.replace("ipfs://", "")
+                  .replace("https://ipfs.io/ipfs/", "")
+                  .replace("https://gateway.pinata.cloud/ipfs/", "")
+                  .replace(PINATA_GW, "");
+    };
+
+    // Cari lokasi suntik section
     const anchor = document.querySelector('.owner-stat-card') || document.getElementById('displayImg');
+    if (!anchor) return;
+
     if (!document.getElementById('relatedSection')) {
         const section = document.createElement('div');
         section.id = 'relatedSection';
         section.className = 'related-section';
         section.innerHTML = `
-            <div class="related-title"><i class="fas fa-project-diagram"></i> Kerabat & ${golongan} Lainnya</div>
-            <div id="relatedGrid" class="related-grid"></div>
+            <div class="related-title" style="font-weight:bold; margin-bottom:15px; color:#7385a5;">
+                <i class="fas fa-project-diagram"></i> Kerabat & ${golongan} Lainnya
+            </div>
+            <div id="relatedGrid" class="related-grid" style="display:grid; grid-template-columns: repeat(4, 1fr); gap:10px;"></div>
         `;
         anchor.parentNode.insertBefore(section, anchor.nextSibling);
     }
@@ -2681,70 +2695,58 @@ async function updateSawerCount(ownerAddress) {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
         const ids = await contract.getIdsByGolongan(golongan);
-        let candidates = ids.filter(id => id.toString() !== currentId.toString()).sort(() => 0.5 - Math.random()).slice(0, 6);
+        let candidates = ids.filter(id => id.toString() !== currentId.toString()).sort(() => 0.5 - Math.random()).slice(0, 4);
 
-        const infoResults = await Promise.all(candidates.map(async (id) => {
-            try { return { id, info: await contract.getInfoWayang(id) }; } catch(e) { return null; }
-        }));
-
-        let validItems = infoResults.filter(i => i && i.info.isActive).slice(0, 4);
         const grid = document.getElementById('relatedGrid');
-        if (validItems.length === 0) { document.getElementById('relatedSection').style.display = 'none'; return; }
-
-        grid.innerHTML = validItems.map(item => `
-            <a href="detail?id=${item.id}" class="mini-rel-card" id="rel-card-${item.id}">
-                <div class="img-container" style="background:#f8f9fa; height:120px; display:flex; align-items:center; justify-content:center; overflow:hidden; border-radius:8px;">
-                    <img src="${safePlaceholder}" id="rel-img-${item.id}" class="mini-rel-img" style="max-width:100%; max-height:100%; object-fit:contain; transition: opacity 0.3s;">
+        
+        // Render Rangka Dulu
+        grid.innerHTML = candidates.map(id => `
+            <a href="detail?id=${id}" class="mini-rel-card" id="rel-card-${id}" style="text-decoration:none;">
+                <div class="img-container" style="background:#f8f9fa; height:110px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                    <img src="${safePlaceholder}" id="rel-img-${id}" style="max-width:100%; max-height:100%; object-fit:contain; opacity:0.5; transition:0.3s;">
                 </div>
-                <div class="mini-rel-info" style="padding:8px 4px;">
-                    <span class="mini-rel-name" style="font-size:12px; font-weight:600; color:#5c6a84; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${item.info.nama}</span>
-                    <div style="margin-top:2px; display:flex; align-items:center; gap:4px;">
-                        <span style="font-size:9px; color:#999;">#${item.id}</span>
-                        ${item.info.gaya === currentGaya ? `<span style="font-size:8px; background:#e9f0ff; color:#7385a5; padding:1px 4px; border-radius:4px; border:1px solid #7385a5;">${item.info.gaya}</span>` : ""}
-                    </div>
+                <div id="rel-info-${id}" style="padding:5px 0; text-align:center;">
+                    <span style="font-size:11px; font-weight:bold; color:#5c6a84;">Memuat...</span>
                 </div>
             </a>
         `).join("");
 
-        validItems.forEach(async (item) => {
+        // Load Data & Gambar satu per satu
+        candidates.forEach(async (id) => {
             try {
-                const uri = await contract.tokenURI(item.id);
+                const info = await contract.getInfoWayang(id);
+                const uri = await contract.tokenURI(id);
                 
-                // PERBAIKAN 1: Pembersihan CID yang lebih tangguh
-                const cleanCid = (url) => url.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://cloudflare-ipfs.com/ipfs/", "");
-                
-                const metaCid = cleanCid(uri);
-                
-                // Fetch Metadata
-                const res = await fetch(`${DEDICATED_GATEWAY}${metaCid}`);
+                // 1. Update Nama Dulu
+                const infoEl = document.getElementById(`rel-info-${id}`);
+                if(infoEl) infoEl.innerHTML = `<span style="font-size:11px; font-weight:bold; color:#5c6a84;">${info.nama}</span>`;
+
+                // 2. Fetch Metadata untuk Gambar
+                const metaCid = getPureCid(uri);
+                const res = await fetch(`${PINATA_GW}${metaCid}`);
                 const meta = await res.json();
                 const rawImg = meta.image || meta.image_url;
 
                 if (rawImg) {
-                    // PERBAIKAN 2: Gunakan CID murni untuk disambungkan ke Gateway
-                    const imgCid = cleanCid(rawImg);
-                    const publicUrl = `${DEDICATED_GATEWAY}${imgCid}`;
-                    
-                    // PERBAIKAN 3: Gunakan Weserv dengan fallback jika gambar gagal load
-                    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicUrl)}&w=300&h=300&fit=contain&output=webp`;
-                    
-                    const imgEl = document.getElementById(`rel-img-${item.id}`);
+                    const imgCid = getPureCid(rawImg);
+                    const finalUrl = `${PINATA_GW}${imgCid}`;
+                    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalUrl)}&w=200&h=200&fit=contain&output=webp`;
+
+                    const imgEl = document.getElementById(`rel-img-${id}`);
                     if (imgEl) {
-                        imgEl.style.opacity = "0";
                         imgEl.src = optimizedUrl;
-                        imgEl.onload = () => imgEl.style.opacity = "1";
-                        // Jika Weserv gagal, coba langsung dari Gateway
-                        imgEl.onerror = () => { imgEl.src = publicUrl; imgEl.style.opacity = "1"; };
+                        imgEl.style.opacity = "1";
+                        // HENTIKAN INFINITE LOOP: Onerror hanya boleh dipanggil sekali
+                        imgEl.onerror = function() {
+                            this.onerror = null; // Penting! Matikan handler agar tidak looping
+                            this.src = finalUrl; // Coba jalur lurus tanpa weserv
+                        };
                     }
                 }
-            } catch (e) {
-                console.warn(`Gagal load gambar #${item.id}`, e);
-            }
+            } catch (err) { console.warn("Skip item", id); }
         });
 
-    } catch (e) {
-        console.error("Rekomendasi Error:", e);
-    }
+    } catch (e) { console.error("Rekomendasi Error", e); }
     }
     
     function showToast(msg, type = 'info') {
