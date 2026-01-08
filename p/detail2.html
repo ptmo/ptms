@@ -1026,118 +1026,140 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
             outline: none;
         }
 
-        /* Container Rekomendasi */
+        /* Container Utama Rekomendasi */
 .related-section {
-    margin-top: 25px;
-    padding-top: 20px;
+    margin-top: 30px;
+    padding-top: 25px;
     border-top: 1px dashed #d1d9e6;
     animation: fadeIn 0.8s ease;
 }
 
 .related-title {
-    font-size: 12px;
+    font-size: 13px;
     font-weight: 700;
     color: #7385a5;
-    margin-bottom: 10px;
+    margin-bottom: 15px;
     text-transform: uppercase;
     letter-spacing: 1px;
     display: flex;
     align-items: center;
-    gap: 8px;
-}
-
-.related-grid {
-    display: flex;
     gap: 10px;
-    justify-content: space-between;
 }
 
-.mini-rel-card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 5px 15px rgba(0,0,0,0.1);
-    border-color: #b0b8c4;
+/* Grid Layout (Fleksibel & Rapi) */
+.related-grid {
+    display: grid;
+    /* PC: 4 Kolom Rata */
+    grid-template-columns: repeat(4, 1fr); 
+    gap: 15px;
 }
 
-/* Container pembungkus gambar dibuat lebih tinggi (Portrait) */
-.img-container {
-    width: 100%;
-    height: 180px; /* Kita tinggikan agar wayang tidak sesak */
-    background: #f8f9fa;
-    display: flex;
-    align-items: center;    /* Tengah Vertikal */
-    justify-content: center; /* Tengah Horizontal */
-    overflow: hidden;
-    border-bottom: 1px solid #eee;
-    padding: 10px; /* Beri ruang napas agar tidak mentok pinggir */
-    box-sizing: border-box;
-}
-
-/* Gambar Wayang - Gunakan CONTAIN agar proporsi asli terjaga */
-.mini-rel-img {
-    max-width: 100%;
-    max-height: 100%;
-    object-fit: contain; /* INI KUNCINYA: Tidak akan gepeng/terpotong */
-    opacity: 0.5; 
-    transition: opacity 0.3s ease, transform 0.3s ease;
-}
-
-/* Biar kartu tidak terlalu lebar di PC */
+/* Kartu Mini (Card) */
 .mini-rel-card {
-    flex: 1;
-    min-width: 140px; /* Beri batas minimal lebar */
     background: #fff;
     border-radius: 12px;
     border: 1px solid #eee;
     overflow: hidden;
-    transition: 0.3s;
+    cursor: pointer;
+    text-decoration: none;
+    transition: transform 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275), box-shadow 0.3s;
+    display: flex;
+    flex-direction: column; /* Susun vertikal */
+    position: relative;
 }
 
+.mini-rel-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 10px 20px rgba(115, 133, 165, 0.15);
+    border-color: #b0b8c4;
+}
+
+/* Container Gambar (Agar Proporsional) */
+.img-container {
+    width: 100%;
+    /* Tinggi Fix agar sejajar, tapi cukup tinggi untuk wayang */
+    height: 180px; 
+    background: #f8f9fa; /* Latar abu muda */
+    display: flex;
+    align-items: center;    /* Tengah Vertikal */
+    justify-content: center; /* Tengah Horizontal */
+    overflow: hidden;
+    border-bottom: 1px solid #f0f0f0;
+    padding: 10px; /* Padding dalam agar wayang tidak mentok pinggir */
+    box-sizing: border-box;
+    position: relative;
+}
+
+/* Gambar Wayang (Inti Perbaikan) */
+.mini-rel-img {
+    max-width: 100%;
+    max-height: 100%;
+    width: auto;  /* Biarkan lebar menyesuaikan */
+    height: auto; /* Biarkan tinggi menyesuaikan */
+    object-fit: contain; /* KUNCI: Gambar utuh, tidak terpotong, menyesuaikan wadah */
+    object-position: center bottom; /* Fokus dari kaki ke atas (biasanya wayang berdiri) */
+    opacity: 0; /* Default hidden, nanti JS ubah jadi 1 */
+    transition: opacity 0.5s ease, transform 0.5s ease;
+    filter: drop-shadow(0 5px 5px rgba(0,0,0,0.1)); /* Bayangan wayang agar pop-up */
+}
+
+/* Efek Zoom Halus Saat Hover */
 .mini-rel-card:hover .mini-rel-img {
-    transform: scale(1.1); /* Efek zoom tipis saat hover */
+    transform: scale(1.1); 
 }
 
-/* Update Mini Rel Info agar lebih rapi */
+/* Info Text di Bawah Gambar */
 .mini-rel-info {
-    padding: 8px 5px;
+    padding: 12px 10px;
     background: #fff;
     text-align: center;
+    flex-grow: 1; /* Isi sisa ruang */
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
 .mini-rel-name {
-    font-size: 11px;
+    font-size: 12px;
     font-weight: 700;
     color: #5c6a84;
     white-space: nowrap;
     overflow: hidden;
-    text-overflow: ellipsis;
+    text-overflow: ellipsis; /* Titik-titik jika kepanjangan */
     display: block;
-    margin-bottom: 2px;
+    margin-bottom: 4px;
 }
 
-/* --- TAMBAHAN: Animasi Skeleton (Loading) --- */
-.mini-rel-card.skeleton {
-    height: 160px; /* Tinggi total kartu saat loading */
+.mini-rel-id {
+    font-size: 10px;
+    color: #999;
+    font-weight: 500;
     background: #f0f2f5;
-    background: linear-gradient(90deg, #f0f2f5 25%, #e6e8eb 50%, #f0f2f5 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.5s infinite;
-    border: none;
+    padding: 2px 8px;
+    border-radius: 10px;
+    display: inline-block;
+}
+
+/* --- Responsive Mobile (HP) --- */
+@media (max-width: 768px) {
+    .related-grid {
+        /* Di HP jadi 2 kolom (Grid 2x2) */
+        grid-template-columns: repeat(2, 1fr); 
+        gap: 10px;
+    }
+    
+    .img-container {
+        height: 150px; /* Sedikit lebih pendek di HP */
+    }
+    
+    .mini-rel-card {
+        min-width: 0; /* Reset */
+    }
 }
 
 @keyframes shimmer {
     0% { background-position: 200% 0; }
     100% { background-position: -200% 0; }
-}
-
-/* Responsif HP */
-@media (max-width: 768px) {
-    .related-grid {
-        flex-wrap: wrap; 
-    }
-    .mini-rel-card {
-        min-width: 45%; /* Jadi 2 baris di HP */
-        max-width: 48%;
-    }
 }
     </style>
 </head>
