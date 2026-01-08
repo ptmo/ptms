@@ -2741,17 +2741,17 @@ async function updateSawerCount(ownerAddress) {
 
         const grid = document.getElementById('relatedGrid');
         
+        // Render Rangka Dulu
         grid.innerHTML = candidates.map(id => `
-    <a href="detail?id=${id}" class="mini-rel-card" id="rel-card-${id}">
-        <div class="img-container">
-            <img src="${safePlaceholder}" id="rel-img-${id}" class="mini-rel-img">
-        </div>
-        <div class="mini-rel-info" id="rel-info-${id}">
-            <span class="mini-rel-name">Memuat...</span>
-            <div style="font-size:9px; color:#999; margin-top:2px;">#${id}</div>
-        </div>
-    </a>
-`).join("");
+            <a href="detail?id=${id}" class="mini-rel-card" id="rel-card-${id}" style="text-decoration:none;">
+                <div class="img-container" style="background:#f8f9fa; height:110px; border-radius:8px; overflow:hidden; display:flex; align-items:center; justify-content:center;">
+                    <img src="${safePlaceholder}" id="rel-img-${id}" style="max-width:100%; max-height:100%; object-fit:contain; opacity:0.5; transition:0.3s;">
+                </div>
+                <div id="rel-info-${id}" style="padding:5px 0; text-align:center;">
+                    <span style="font-size:11px; font-weight:bold; color:#5c6a84;">Memuat...</span>
+                </div>
+            </a>
+        `).join("");
 
         // Load Data & Gambar satu per satu
         candidates.forEach(async (id) => {
@@ -2774,19 +2774,16 @@ async function updateSawerCount(ownerAddress) {
                     const finalUrl = `${PINATA_GW}${imgCid}`;
                     const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(finalUrl)}&w=200&h=200&fit=contain&output=webp`;
 
-                    // Di dalam loop candidates.forEach Anda:
-const imgEl = document.getElementById(`rel-img-${id}`);
-if (imgEl) {
-    imgEl.src = optimizedUrl;
-    imgEl.onload = () => {
-        imgEl.style.opacity = "1"; // Muncul halus setelah loading selesai
-    };
-    imgEl.onerror = function() {
-        this.onerror = null;
-        this.src = finalUrl; // Jalur cadangan
-        this.style.opacity = "1";
-    };
-}
+                    const imgEl = document.getElementById(`rel-img-${id}`);
+                    if (imgEl) {
+                        imgEl.src = optimizedUrl;
+                        imgEl.style.opacity = "1";
+                        // HENTIKAN INFINITE LOOP: Onerror hanya boleh dipanggil sekali
+                        imgEl.onerror = function() {
+                            this.onerror = null; // Penting! Matikan handler agar tidak looping
+                            this.src = finalUrl; // Coba jalur lurus tanpa weserv
+                        };
+                    }
                 }
             } catch (err) { console.warn("Skip item", id); }
         });
