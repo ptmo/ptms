@@ -2653,17 +2653,18 @@ async function updateSawerCount(ownerAddress) {
 
     // --- FITUR REKOMENDASI (SILSILAH & KERABAT) ---
 async function loadRelatedWayang(currentId, golongan, currentGaya) {
-    // 1. Siapkan Wadah (Inject HTML)
-    // Kita cari elemen wrapper gambar untuk menyisipkan section ini di bawahnya
-    const imgWrapper = document.querySelector('.wayang-card-wrapper') || 
-                       document.querySelector('.wayang-display-card') || 
-                       document.getElementById('displayImg').parentElement;
+    // 1. CARI WADAH PENYISIPAN YANG KUAT
+    // Kita coba cari elemen gambar, atau card statistik, atau container utama
+    const anchorElement = 
+        document.querySelector('.owner-stat-card') || // Coba cari kartu pemilik (biasanya di bawah judul)
+        document.getElementById('displayImg') ||      // Coba cari gambar langsung
+        document.querySelector('.wayang-display-card'); // Coba cari wrapper gambar
 
+    // Cek apakah section sudah ada (biar gak dobel)
     if (!document.getElementById('relatedSection')) {
         const section = document.createElement('div');
         section.id = 'relatedSection';
         section.className = 'related-section';
-        // Judul lebih dinamis sesuai golongan
         section.innerHTML = `
             <div class="related-title">
                 <i class="fas fa-project-diagram"></i> Kerabat & ${golongan} Lainnya
@@ -2672,9 +2673,28 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
                 ${'<div class="mini-rel-card skeleton"></div>'.repeat(4)}
             </div>
         `;
-        // Masukkan elemen SETELAH wrapper gambar
-        if(imgWrapper && imgWrapper.parentNode) {
-            imgWrapper.parentNode.insertBefore(section, imgWrapper.nextSibling);
+
+        // LOGIKA PENYISIPAN:
+        // Jika ketemu 'owner-stat-card', kita taruh SETELAHNYA (ini posisi paling ideal, di bawah data pemilik)
+        if (anchorElement && anchorElement.classList.contains('owner-stat-card')) {
+            anchorElement.parentNode.insertBefore(section, anchorElement.nextSibling);
+        }
+        // Jika cuma ketemu gambar, taruh SETELAH parent gambar
+        else if (anchorElement && anchorElement.id === 'displayImg') {
+            const parent = anchorElement.parentElement; // Wrapper gambar
+            if (parent && parent.parentNode) {
+                parent.parentNode.insertBefore(section, parent.nextSibling);
+            }
+        }
+        // Fallback: Jika tidak ketemu apapun, taruh di bawah container utama konten
+        else {
+            const mainContent = document.getElementById('content'); // ID container utama detail
+            if (mainContent) {
+                mainContent.appendChild(section);
+            } else {
+                console.warn("Gagal menemukan tempat untuk related section");
+                return;
+            }
         }
     }
 
@@ -2682,21 +2702,14 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
         const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
 
-        // 2. Ambil ID berdasarkan Golongan (Satu Klan/Ras)
+        // 2. FETCH DATA ON-CHAIN
         const ids = await contract.getIdsByGolongan(golongan);
         
-        // 3. Filter & Prioritas
-        // Kita butuh fetch info dasar untuk cek Gaya (Region)
-        // Agar cepat, kita ambil sampel acak dulu max 10 item, baru kita filter gaya
         let candidates = ids.filter(id => id.toString() !== currentId);
-        
-        // Acak Total dulu
         candidates.sort(() => 0.5 - Math.random());
         
-        // Ambil 8 kandidat teratas untuk diperiksa kecocokannya
         const rawBatch = candidates.slice(0, 8);
 
-        // Fetch Info Dasar (Nama & Gaya) secara paralel
         const infoPromises = rawBatch.map(async (id) => {
             try {
                 const info = await contract.getInfoWayang(id);
@@ -2707,39 +2720,33 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
         const results = await Promise.all(infoPromises);
         let validItems = results.filter(i => i !== null && i.info.isActive);
 
-        // 4. ALGORITMA SORTING RELEVANSI
-        // Prioritaskan yang 'Gaya'-nya sama (Satu Negara/Daerah biasanya satu Gaya)
+        // 3. SORTING BY GAYA (PRIORITAS)
         validItems.sort((a, b) => {
             const aScore = (a.info.gaya === currentGaya) ? 1 : 0;
             const bScore = (b.info.gaya === currentGaya) ? 1 : 0;
-            return bScore - aScore; // Yang skornya tinggi (sama gaya) naik ke atas
+            return bScore - aScore;
         });
 
-        // 5. Potong Maksimal 4 (Tanpa Default Satria!)
         const finalSelection = validItems.slice(0, 4);
-
         const grid = document.getElementById('relatedGrid');
         
-        // Jika tidak ada hasil sama sekali (sangat jarang), sembunyikan section
         if (finalSelection.length === 0) {
             document.getElementById('relatedSection').style.display = 'none';
             return;
         }
 
-        grid.innerHTML = ""; // Bersihkan skeleton
+        grid.innerHTML = ""; 
 
-        // Gunakan Gateway Cloudflare (Stabil)
         const SAFE_GATEWAY = "https://cloudflare-ipfs.com/ipfs/";
 
-        // 6. Render Final
+        // 4. RENDER FINAL
         const renderPromises = finalSelection.map(async (item) => {
             try {
                 const uri = await contract.tokenURI(item.id);
                 const cid = uri.replace("ipfs://", "");
-                
-                // Gunakan Metadata Cloudflare
                 const metaUrl = `${SAFE_GATEWAY}${cid}`;
-                let imgUrl = "https://via.placeholder.com/150?text=...";
+                
+                let imgUrl = "https://via.placeholder.com/150?text=Loading";
 
                 try {
                     const res = await fetch(metaUrl);
@@ -2748,14 +2755,11 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
                     
                     if (rawImg) {
                         const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-                        // Direct Cloudflare URL (Paling aman)
                         const directUrl = `${SAFE_GATEWAY}${imgCid}`;
-                        // Optimized via Weserv
                         imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&h=200&fit=cover&a=top&output=webp`;
                     }
                 } catch(e) {}
 
-                // Badge jika Gaya sama (Tanda relevansi tinggi)
                 const sameBadge = (item.info.gaya === currentGaya) 
                     ? `<span style="font-size:8px; background:#e1f5fe; color:#0288d1; padding:2px 4px; border-radius:3px; margin-left:4px;">${item.info.gaya}</span>` 
                     : "";
@@ -2782,7 +2786,6 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
 
     } catch (e) {
         console.warn("Gagal load rekomendasi:", e);
-        // Jangan tampilkan error ke user, cukup sembunyikan section
         const sec = document.getElementById('relatedSection');
         if(sec) sec.style.display = 'none';
     }
