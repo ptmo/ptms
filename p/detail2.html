@@ -2278,9 +2278,9 @@ async function panggilSawerDetail() {
 // ==========================================
 // 2. LOGIKA BUKA MODAL & CEK SALDO
 // ==========================================
-async function bukaModalSawer(address, name) {
-    // Cek apakah user sudah connect wallet?
-    // Asumsi variabel global 'userAddress' ada. Jika tidak, cek window.ethereum
+// Tambahkan parameter 'autoMsg' agar bisa menerima pesan otomatis dari halaman detail
+async function bukaModalSawer(address, name, autoMsg = "") {
+    // 1. Pastikan userAddress terdeteksi
     let currentUser = typeof userAddress !== 'undefined' ? userAddress : null;
     
     if (!currentUser && window.ethereum) {
@@ -2295,46 +2295,64 @@ async function bukaModalSawer(address, name) {
         return;
     }
 
+    // 2. Validasi alamat pemilik (Mencegah error 'Gagal memuat data pemilik')
+    if (!address || address === "0x0000000000000000000000000000000000000000") {
+        showToast("Data pemilik tidak valid.", 'error');
+        return;
+    }
+
     // Cek Self-Tipping
     if (currentUser.toLowerCase() === address.toLowerCase()) {
         showToast("Tidak bisa menyawer diri sendiri!", 'warning');
         return;
     }
 
-    sawerTargetAddress = address;
+    // Gunakan window agar terbaca oleh fungsi eksekusiSawer
+    window.sawerTargetAddress = address;
 
-    // Isi Data ke HTML
-    document.getElementById("sawerReceiverName").innerText = name;
-    document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 8) + "..." + address.substring(38);
-    document.getElementById("sawerAmount").value = "";
-    document.getElementById("sawerMessage").value = "";
+    // 3. Update UI Modal dengan pengamanan (Optional Chaining)
+    const elName = document.getElementById("sawerReceiverName");
+    const elAddr = document.getElementById("sawerReceiverAddr");
+    const elAmount = document.getElementById("sawerAmount");
+    const elMsg = document.getElementById("sawerMessage");
 
-    const msgArea = document.getElementById("sawerMessage");
-    if(msgArea) {
-        msgArea.value = autoMessage;
-        // Opsional: Buat read-only kalau mau maksa pesannya fix
-        msgArea.readOnly = false; 
+    if(elName) elName.innerText = name;
+    if(elAddr) elAddr.innerText = address.substring(0, 8) + "..." + address.substring(38);
+    if(elAmount) elAmount.value = "";
+
+    // PERBAIKAN: Ganti 'defaultMsg' yang tidak ada menjadi 'autoMsg'
+    if(elMsg) {
+        // Otomatis terisi pesan dari detail: "Saweran untuk: Arjuna #1"
+        elMsg.value = autoMsg; 
+        
+        // Opsional: Set true agar user tidak bisa menghapus/mengubah pesan otomatis ini
+        elMsg.readOnly = true; 
+        
+        // Tambahkan styling visual agar user tahu ini field otomatis
+        elMsg.style.backgroundColor = "#f0f2f5"; 
     }
 
-    // Cek Saldo User (Pakai Provider Wallet User)
+    // 4. Cek Saldo User
     try {
         const walletProvider = new ethers.providers.Web3Provider(window.ethereum);
         const balanceBN = await walletProvider.getBalance(currentUser);
         const ethVal = ethers.utils.formatEther(balanceBN);
         
         const elSaldo = document.getElementById("sawerUserBalance");
-        elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
-        elSaldo.setAttribute('data-balance', ethVal); // Simpan untuk hitung persen
-
+        if(elSaldo) {
+            elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+            elSaldo.setAttribute('data-balance', ethVal);
+        }
     } catch (e) {
         console.error("Gagal cek saldo:", e);
-        document.getElementById("sawerUserBalance").innerText = "Err";
+        if(document.getElementById("sawerUserBalance")) {
+            document.getElementById("sawerUserBalance").innerText = "Err";
+        }
     }
 
     // Tampilkan Modal
     toggleSawerModal(true);
 }
-
 
 // ==========================================
 // 3. LOGIKA TOMBOL PERSENTASE (PERBAIKAN LOGIKA)
