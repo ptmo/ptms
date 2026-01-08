@@ -2659,59 +2659,53 @@ async function updateSawerCount(ownerAddress) {
     }
 }
 
- // --- FITUR REKOMENDASI (Auto-Fetch dari Blockchain) ---
+    // --- FITUR REKOMENDASI (SILSILAH & KERABAT) ---
 async function loadRelatedWayang(currentId, golongan, currentGaya) {
-    // 1. CARI POSISI UNTUK MENYISIPKAN FITUR INI
-    // Kita cari elemen gambar utama atau statistik pemilik
+    // Definisi Placeholder Lokal (Abu-abu polos) agar anti-error DNS
+    const PLACEHOLDER_IMG = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 200'%3E%3Crect width='200' height='200' fill='%23e0e0e0'/%3E%3Ctext x='50%25' y='50%25' dominant-baseline='middle' text-anchor='middle' font-family='sans-serif' font-size='12' fill='%23888'%3ELoading...%3C/text%3E%3C/svg%3E";
+
+    // 1. CARI WADAH PENYISIPAN
     const anchorElement = 
         document.querySelector('.owner-stat-card') || 
         document.getElementById('displayImg') ||      
         document.querySelector('.wayang-display-card');
 
-    // Cek agar tidak render dobel
-    if (document.getElementById('relatedSection')) return;
+    if (!document.getElementById('relatedSection')) {
+        const section = document.createElement('div');
+        section.id = 'relatedSection';
+        section.className = 'related-section';
+        section.innerHTML = `
+            <div class="related-title">
+                <i class="fas fa-project-diagram"></i> Kerabat & ${golongan} Lainnya
+            </div>
+            <div id="relatedGrid" class="related-grid">
+                ${'<div class="mini-rel-card skeleton"></div>'.repeat(4)}
+            </div>
+        `;
 
-    // Buat Wadah HTML
-    const section = document.createElement('div');
-    section.id = 'relatedSection';
-    section.className = 'related-section';
-    section.innerHTML = `
-        <div class="related-title">
-            <i class="fas fa-project-diagram"></i> Kerabat & ${golongan} Lainnya
-        </div>
-        <div id="relatedGrid" class="related-grid">
-            ${'<div class="mini-rel-card skeleton"></div>'.repeat(4)}
-        </div>
-    `;
-
-    // Sisipkan wadah ke halaman (Di bawah elemen yang ditemukan)
-    if (anchorElement && anchorElement.parentNode) {
-        anchorElement.parentNode.insertBefore(section, anchorElement.nextSibling);
-    } else {
-        // Fallback: Masukkan ke container utama jika elemen lain tidak ketemu
-        document.getElementById('content').appendChild(section);
+        if (anchorElement && anchorElement.parentNode) {
+            // Sisipkan tepat setelah elemen jangkar
+            anchorElement.parentNode.insertBefore(section, anchorElement.nextSibling);
+        } else {
+            // Fallback ke container utama
+            const content = document.getElementById('content');
+            if (content) content.appendChild(section);
+        }
     }
 
     try {
-        // 2. KONEKSI MANDIRI KE BLOCKCHAIN (Tanpa perlu data Index.html)
-        // Pastikan variabel BASE_SEPOLIA_RPC sudah didefinisikan di bagian atas script Anda
+        // Gunakan RPC yang sudah didefinisikan di atas (BASE_SEPOLIA_RPC)
         const readProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
 
-        // 3. MINTA DATA: "Carikan semua ID yang golongannya sama"
+        // 2. FETCH DATA
         const ids = await contract.getIdsByGolongan(golongan);
         
-        // 4. FILTER CERDAS
-        // Hapus wayang yang sedang dilihat sekarang dari daftar
         let candidates = ids.filter(id => id.toString() !== currentId);
-        
-        // Acak urutannya biar user tidak bosan (Randomize)
         candidates.sort(() => 0.5 - Math.random());
         
-        // Ambil sampel 8 wayang untuk dicek detailnya (biar loading gak berat)
         const rawBatch = candidates.slice(0, 8);
 
-        // Ambil Info Dasar (Nama & Gaya)
         const infoPromises = rawBatch.map(async (id) => {
             try {
                 const info = await contract.getInfoWayang(id);
@@ -2722,60 +2716,73 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
         const results = await Promise.all(infoPromises);
         let validItems = results.filter(i => i !== null && i.info.isActive);
 
-        // 5. PRIORITASKAN YANG "GAYA"-NYA SAMA (Satu Negara/Daerah)
+        // 3. SORTING BY GAYA
         validItems.sort((a, b) => {
             const aScore = (a.info.gaya === currentGaya) ? 1 : 0;
             const bScore = (b.info.gaya === currentGaya) ? 1 : 0;
-            return bScore - aScore; // Yang satu daerah naik ke atas
+            return bScore - aScore;
         });
 
-        // Potong jadi 4 Wayang terbaik untuk ditampilkan
         const finalSelection = validItems.slice(0, 4);
+        const grid = document.getElementById('relatedGrid');
         
-        // Jika tidak ada hasil, sembunyikan section
         if (finalSelection.length === 0) {
-            section.style.display = 'none';
+            document.getElementById('relatedSection').style.display = 'none';
             return;
         }
 
-        // 6. RENDER KARTU (Tampilkan Gambar)
-        const grid = document.getElementById('relatedGrid');
         grid.innerHTML = ""; 
 
-        const SAFE_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+        // Gunakan Gateway Stabil (Cloudflare)
+        const SAFE_GATEWAY = "https://cloudflare-ipfs.com/ipfs/";
 
+        // 4. RENDER FINAL
         const renderPromises = finalSelection.map(async (item) => {
             try {
                 const uri = await contract.tokenURI(item.id);
-                const cid = uri.replace("ipfs://", "");
-                const metaUrl = `${SAFE_GATEWAY}${cid}`;
+                const cid = uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
                 
-                let imgUrl = "https://via.placeholder.com/150?text=Loading";
+                // Set default awal ke placeholder aman
+                let imgUrl = PLACEHOLDER_IMG; 
 
-                // Ambil Gambar
+                // Ambil Metadata
                 try {
-                    const res = await fetch(metaUrl);
-                    const meta = await res.json();
-                    const rawImg = meta.image || meta.image_url;
+                    // Gunakan AbortController untuk timeout fetch metadata (3 detik)
+                    const controller = new AbortController();
+                    const timeoutId = setTimeout(() => controller.abort(), 3000);
                     
-                    if (rawImg) {
-                        const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-                        // Pakai Cloudflare Direct + Weserv agar cepat
-                        const directUrl = `${SAFE_GATEWAY}${imgCid}`;
-                        imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&h=200&fit=cover&a=top&output=webp`;
+                    const res = await fetch(`${SAFE_GATEWAY}${cid}`, { signal: controller.signal });
+                    clearTimeout(timeoutId);
+                    
+                    if (res.ok) {
+                        const meta = await res.json();
+                        const rawImg = meta.image || meta.image_url;
+                        
+                        if (rawImg) {
+                            const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+                            
+                            // Strategi URL Gambar:
+                            // 1. Coba pakai Cloudflare Direct (Paling stabil)
+                            imgUrl = `${SAFE_GATEWAY}${imgCid}`;
+                            
+                            // Opsional: Jika ingin resize pakai Weserv, uncomment baris bawah ini:
+                            // imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=200&h=200&fit=cover&a=top&output=webp`;
+                        }
                     }
-                } catch(e) {}
+                } catch(e) {
+                    // Silent fail, tetap pakai placeholder
+                }
 
-                // Badge kecil jika satu daerah (Gaya sama)
                 const sameBadge = (item.info.gaya === currentGaya) 
                     ? `<span style="font-size:8px; background:#e1f5fe; color:#0288d1; padding:2px 4px; border-radius:3px; margin-left:4px;">${item.info.gaya}</span>` 
                     : "";
 
+                // Perhatikan atribut onerror di bawah: Menggunakan PLACEHOLDER_IMG lokal
                 return `
                     <a href="detail?id=${item.id}" class="mini-rel-card" title="${item.info.nama}">
                         <div style="position:relative;">
                             <img src="${imgUrl}" class="mini-rel-img" loading="lazy" 
-                                 onerror="this.src='https://via.placeholder.com/150?text=N/A'">
+                                 onerror="this.src='${PLACEHOLDER_IMG}'">
                         </div>
                         <div class="mini-rel-info">
                             <span class="mini-rel-name">${item.info.nama}</span>
@@ -2794,9 +2801,8 @@ async function loadRelatedWayang(currentId, golongan, currentGaya) {
 
     } catch (e) {
         console.warn("Gagal load rekomendasi:", e);
-        if(document.getElementById('relatedSection')) {
-            document.getElementById('relatedSection').style.display = 'none';
-        }
+        const sec = document.getElementById('relatedSection');
+        if(sec) sec.style.display = 'none';
     }
 }
     
