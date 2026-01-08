@@ -45,7 +45,13 @@
         .collection-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 15px; }
         .wayang-card { background: white; border-radius: 15px; overflow: hidden; box-shadow: 0 2px 10px rgba(0,0,0,0.05); transition: 0.3s; border: 1px solid #eee; position: relative; }
         .wayang-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
-        .card-img { width: 100%; height: 180px; object-fit: cover; background: #eee; }
+        .card-img { 
+    width: 100%; 
+    height: 180px; 
+    object-fit: contain; /* Ubah ke contain agar gambar wayang tidak terpotong */
+    background: #f8f9fa; 
+    padding: 10px;
+        }
         .card-body { padding: 12px; }
         .card-title { font-size: 11px; font-weight: bold; color: #5c6a84; margin: 0; }
         .card-id { font-size: 11px; color: #999; margin-bottom: 8px; display: block; }
@@ -1339,13 +1345,15 @@ window.loadNextProfileBatch = async function() {
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
     // Fetch Metadata Secara Paralel
-    const promises = batchIds.map(async (id) => {
-        try {
-            const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri);
-            return { id: id.toString(), meta: meta };
-        } catch (e) { return null; }
-    });
+    // Di dalam fungsi window.loadNextProfileBatch, pastikan bagian pemetaan seperti ini:
+const promises = batchIds.map(async (id) => {
+    try {
+        const uri = await contract.tokenURI(id);
+        const meta = await fetchMetadata(uri);
+        // Pastikan id asli tetap dibawa untuk tombol detail
+        return { id: id.toString(), meta: meta }; 
+    } catch (e) { return null; }
+});
 
     const results = await Promise.all(promises);
 
@@ -1376,14 +1384,45 @@ window.handleProfileScroll = function() {
 };
 
 window.fetchMetadata = async function(tokenURI) {
+    // Gunakan Dedicated Gateway Pinata agar tidak broken/loading lama
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    
     try {
-        let url = tokenURI.replace("ipfs://", "https://ipfs.io/ipfs/");
-        const response = await fetch(url);
+        // Bersihkan tokenURI dari prefix ipfs://
+        const cid = tokenURI.replace("ipfs://", "");
+        const url = `${PINATA_GATEWAY}${cid}`;
+        
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
+        
         const json = await response.json();
-        let img = json.image ? json.image.replace("ipfs://", "https://ipfs.io/ipfs/") : "img/placeholder.jpg";
-        return { name: json.name || `Wayang #${json.id}`, image: img };
+        
+        // Perbaiki link gambar
+        let img = json.image || json.image_url;
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
+        }
+
+        return { 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
+        };
     } catch (e) {
-        return { name: "Data Error", image: "img/placeholder.jpg" };
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+        // Fallback ke Cloudflare jika Pinata bermasalah
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
 
