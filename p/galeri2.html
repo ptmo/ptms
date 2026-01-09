@@ -1861,14 +1861,17 @@ async function loadTopEngagement() {
     }
 }
 
-// --- TAHAP 2: RENDER PER 10 ITEM (METADATA LOAD) ---
+// --- TAHAP 2: RENDER PER 10 ITEM (VERSI TURBO - STABIL) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
-    isLoadingBatch = true; // Kunci biar gak dobel
+    // DEFINISI PLACEHOLDER AMAN (Data URI - Abu Polos)
+    // Ini anti-error karena tidak butuh koneksi internet
+    const SAFE_PLACEHOLDER = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22300%22%20viewBox%3D%220%200%20200%20300%22%3E%3Crect%20fill%3D%22%23f0f0f0%22%20width%3D%22200%22%20height%3D%22300%22%2F%3E%3Ctext%20fill%3D%22%23aaa%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
 
-    // Ambil potongan 10 item berikutnya dari antrian
+    isLoadingBatch = true; 
+
+    // Ambil potongan 10 item
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
     
     if (batch.length === 0) {
@@ -1876,52 +1879,50 @@ async function renderNextBatch() {
         return;
     }
 
-    // Tampilkan Skeleton sementara di ujung kanan (Feedback Visual)
+    // Skeleton sementara
     const tempSkeleton = document.createElement("div");
     tempSkeleton.className = "mini-card-skeleton";
     tempSkeleton.id = "temp-loader";
     track.appendChild(tempSkeleton);
 
-    // Fetch Metadata (Gambar & Nama) untuk 10 item ini
+    // Fetch DATA ON-CHAIN (Nama & Score)
     const batchPromises = batch.map(async (item) => {
         try {
-            const info = await contractReader.getInfoWayang(item.id);
-            const uri = await contractReader.tokenURI(item.id);
+            const [info, uri] = await Promise.all([
+                contractReader.getInfoWayang(item.id),
+                contractReader.tokenURI(item.id)
+            ]);
             
-            let finalImgUrl = "https://via.placeholder.com/150x200?text=No+Image";
-            
-            try {
-                const jsonUrl = uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
-                const res = await axios.get(jsonUrl, { timeout: 5000 });
-                const rawImage = res.data.image || res.data.image_url;
-                
-                if (rawImage) {
-                     const cleanImg = rawImage.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
-                     finalImgUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanImg)}&w=200&q=80&output=webp`;
-                }
-            } catch(e) {
-                const cid = uri.replace("ipfs://", "").split('/')[0];
-                finalImgUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
-            }
-
-            return { ...item, nama: info.nama, imgUrl: finalImgUrl };
+            return { 
+                ...item, 
+                nama: info.nama, 
+                uri: uri 
+            };
         } catch(e) { return null; }
     });
 
     const readyItems = await Promise.all(batchPromises);
 
-    // Hapus Skeleton Sementara
-    const loader = document.getElementById("temp-loader");
-    if(loader) loader.remove();
+    // Hapus Skeleton
+    if(document.getElementById("temp-loader")) document.getElementById("temp-loader").remove();
 
-    // Append Kartu Jadi ke Track
+    // Render HTML
     let html = "";
     readyItems.forEach(item => {
         if(item) {
+            const imgId = `carousel-img-${item.id}`;
+            
+            // PERBAIKAN PENTING:
+            // 1. src awal menggunakan SAFE_PLACEHOLDER (Data URI) -> Dijamin muncul abu-abu, bukan error.
+            // 2. Menghapus onerror="this.src=..." yang menyebabkan loop error placeholder.
+            // 3. Menambahkan class 'img-loading' untuk efek transisi.
+            
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <img src="${item.imgUrl}" loading="lazy" 
-                     onerror="this.src='https://via.placeholder.com/140x200?text=Error'">
+                <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
+                     class="carousel-img-lazy"
+                     style="transition: opacity 0.5s; opacity: 0.6; object-fit: cover;">
+                     
                 <div class="mini-badge">
                     <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
                         ${item.nama}
@@ -1932,44 +1933,76 @@ async function renderNextBatch() {
                     </div>
                 </div>
             </div>`;
+            
+            // Fetch gambar asli di background
+            fetchImageInBackground(item.id, item.uri, imgId);
         }
     });
 
-    // Masukkan HTML baru tanpa menghapus yang lama (+=)
-    // Tapi karena innerHTML += mereset scroll, kita pakai insertAdjacentHTML
     track.insertAdjacentHTML('beforeend', html);
 
-    // Update index & Buka kunci
     shownIndex += 10;
     isLoadingBatch = false;
 }
 
-// Export agar bisa dipanggil
-window.loadTopEngagement = loadTopEngagement;
+// FUNGSI FETCH GAMBAR (PERBAIKAN LOGIKA GATEWAY)
+async function fetchImageInBackground(id, tokenUri, imgElementId) {
+    // Gunakan Gateway Anda yang sudah terbukti jalan di Detail page
+    const MY_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
-// Disconnect Wallet
-function disconnectWallet() {
-    userAddress = null;
-    signer = null;
-    
-    const btn = document.getElementById("btn-connect");
-    
-    // 1. Reset Teks Tombol
-    btn.innerHTML = `Connect Wallet`; // Atau teks awal Anda
-    btn.classList.remove("connected");
-    
-    // 2. KEMBALIKAN FUNGSI KLIK -> Jadi connectWallet lagi
-    btn.onclick = connectWallet; 
-    
-    // 3. Tutup Modal
-    toggleWalletModal();
-    
-    // 4. Reset Data di Modal (Opsional, biar bersih)
-    document.getElementById("modalBalance").innerText = "Loading...";
-    document.getElementById("modalShortAddress").innerText = "0x...";
-    
-    // Reload halaman (Sesuai kode Anda sebelumnya, ini cara paling bersih reset state Web3)
-    window.location.reload(); 
+    try {
+        const imgEl = document.getElementById(imgElementId);
+        if (!imgEl) return;
+
+        // 1. Cek Cache Browser
+        const cacheKey = `carousel_img_${id}`;
+        const cachedUrl = localStorage.getItem(cacheKey);
+        
+        if (cachedUrl) {
+            imgEl.src = cachedUrl;
+            imgEl.style.opacity = "1";
+            return;
+        }
+
+        // 2. Fetch Metadata
+        // Bersihkan URI IPFS agar formatnya benar untuk fetch
+        const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const metadataUrl = `${MY_GATEWAY}${cleanUri}`;
+
+        const res = await axios.get(metadataUrl, { timeout: 10000 }); // Timeout 10 detik
+        const rawImage = res.data.image || res.data.image_url;
+        
+        if (rawImage) {
+             const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+             const directUrl = `${MY_GATEWAY}${cleanImg}`;
+             
+             // Pakai Weserv untuk resize & compress (WebP)
+             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
+             
+             // Update Gambar di UI
+             // Kita pakai Image object dulu untuk preload (biar mulus)
+             const tempImg = new Image();
+             tempImg.src = finalUrl;
+             tempImg.onload = () => {
+                 if(imgEl) {
+                     imgEl.src = finalUrl;
+                     imgEl.style.opacity = "1"; // Fade in
+                     localStorage.setItem(cacheKey, finalUrl); // Simpan cache
+                 }
+             };
+             
+             // Fallback jika Weserv gagal -> Pakai direct URL
+             tempImg.onerror = () => {
+                 if(imgEl) {
+                     imgEl.src = directUrl;
+                     imgEl.style.opacity = "1";
+                 }
+             };
+        }
+    } catch(e) {
+        // Silent fail, biarkan tetap placeholder abu-abu
+        // console.warn(`Skip image ${id}`);
+    }
 }
     
 function showToast(msg, type = 'info') {
