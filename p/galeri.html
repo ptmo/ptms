@@ -1917,43 +1917,55 @@ async function renderNextBatch() {
 }
 
 async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // 1. Definisikan Gateway TANPA /ipfs/ di ujung untuk kontrol manual yang lebih baik
+    const GATEWAY_BASE = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
         const imgEl = document.getElementById(imgElementId);
         if (!imgEl) return;
 
-        // Bersihkan CID
-        const cleanCid = (url) => url.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://cloudflare-ipfs.com/ipfs/", "");
-        const metaCid = cleanCid(tokenUri);
+        // Fungsi sakti untuk mengambil CID murni
+        const toPureCid = (url) => {
+            if(!url) return "";
+            return url.replace("ipfs://", "")
+                      .replace("https://ipfs.io/ipfs/", "")
+                      .replace("https://cloudflare-ipfs.com/ipfs/", "")
+                      .replace(GATEWAY_BASE, "");
+        };
 
-        // Fetch Metadata
-        const res = await fetch(`${DEDICATED_GATEWAY}${metaCid}`);
-        const meta = await res.json();
+        const metaCid = toPureCid(tokenUri);
+
+        // 2. Fetch Metadata JSON
+        const response = await fetch(`${GATEWAY_BASE}${metaCid}`);
+        if (!response.ok) throw new Error("Metadata Not Found");
+        
+        const meta = await response.json();
         const rawImage = meta.image || meta.image_url;
         
         if (rawImage) {
-             const imgCid = cleanCid(rawImage);
-             const publicUrl = `${DEDICATED_GATEWAY}${imgCid}`;
+             const imgCid = toPureCid(rawImage);
+             const publicUrl = `${GATEWAY_BASE}${imgCid}`;
              
-             // Gunakan Weserv untuk optimasi
+             // 3. Optimasi dengan Weserv
              const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicUrl)}&w=300&fit=contain&output=webp`;
              
-             // Update Gambar dengan Safety
+             // 4. Proses Loading Gambar ke UI
              const tempImg = new Image();
-             tempImg.src = optimizedUrl;
              tempImg.onload = () => {
                  imgEl.src = optimizedUrl;
                  imgEl.style.opacity = "1";
              };
-             // Jika Weserv gagal, langsung tembak ke Gateway Pinata
+             
              tempImg.onerror = () => {
+                 // Fallback: Jika Weserv gagal, langsung gunakan URL Gateway asli
                  imgEl.src = publicUrl;
                  imgEl.style.opacity = "1";
              };
+
+             tempImg.src = optimizedUrl;
         }
     } catch(e) {
-        console.warn(`Gagal load gambar carousel ${id}`);
+        console.warn(`Gagal load gambar carousel #${id}:`, e.message);
     }
 }
     
