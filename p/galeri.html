@@ -1862,18 +1862,16 @@ async function loadTopEngagement() {
 }
 
 
-    // --- TAHAP 2: RENDER INSTANT (TURBO + CACHE) ---
+// --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
     
-    // Placeholder Base64 (Kotak Abu-abu PNG)
-    // Ini format standar gambar, browser tidak akan komplain "Tidak Aman"
-    const PLACEHOLDER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
+    // Placeholder Base64 (Kotak Abu Polos - Dijamin Anti Error)
+    // Ini bukan link website, tapi kode gambar yang ditanam.
+    const SAFE_PLACEHOLDER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
 
-    if (isLoadingBatch) return;
     isLoadingBatch = true; 
 
-    // Ambil 10 antrian
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
     
     if (batch.length === 0) {
@@ -1881,42 +1879,44 @@ async function renderNextBatch() {
         return;
     }
 
-    // Loader Skeleton
-    const tempLoader = document.createElement("div");
-    tempLoader.className = "mini-card-skeleton";
-    tempLoader.id = "temp-loader";
-    track.appendChild(tempLoader);
+    // Skeleton sementara
+    const tempSkeleton = document.createElement("div");
+    tempSkeleton.className = "mini-card-skeleton";
+    tempSkeleton.id = "temp-loader";
+    track.appendChild(tempSkeleton);
 
-    // Ambil Data Blockchain (Nama & URI)
+    // Fetch DATA ON-CHAIN SAJA (Nama & URI)
     const batchPromises = batch.map(async (item) => {
         try {
             const [info, uri] = await Promise.all([
                 contractReader.getInfoWayang(item.id),
                 contractReader.tokenURI(item.id)
             ]);
+            
             return { ...item, nama: info.nama, uri: uri };
         } catch(e) { return null; }
     });
 
     const readyItems = await Promise.all(batchPromises);
 
-    // Hapus Skeleton
     if(document.getElementById("temp-loader")) document.getElementById("temp-loader").remove();
 
-    // Render HTML Kartu
     let html = "";
     readyItems.forEach(item => {
         if(item) {
             const imgId = `carousel-img-${item.id}`;
             
+            // PERBAIKAN: 
+            // 1. src pakai SAFE_PLACEHOLDER (Base64).
+            // 2. HAPUS atribut 'onerror'. Jika gambar gagal, biarkan tetap placeholder abu (lebih rapi daripada icon broken).
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <div style="background:#eeeeee; width:100%; height:100%;">
-                    <img id="${imgId}" src="${PLACEHOLDER}" 
+                <div style="background:#eeeeee; height:100%; width:100%;">
+                    <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
                          style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
                 </div>
                 <div class="mini-badge">
-                    <div style="font-weight:bold; margin-bottom:4px; font-size:10px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">
+                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
                         ${item.nama}
                     </div>
                     <div style="display:flex; justify-content:space-between; color:#555; font-size:10px;">
@@ -1926,8 +1926,8 @@ async function renderNextBatch() {
                 </div>
             </div>`;
             
-            // Panggil Proses Cache & Gambar
-            processImageCache(item.id, item.uri, imgId);
+            // Panggil Fetcher Background
+            fetchImageInBackground(item.id, item.uri, imgId);
         }
     });
 
@@ -1937,78 +1937,73 @@ async function renderNextBatch() {
     isLoadingBatch = false;
 }
 
-// --- TAHAP 3: PROSES GAMBAR & CACHE (ANTI BROKEN) ---
-async function processImageCache(id, tokenUri, imgElementId) {
-    const imgEl = document.getElementById(imgElementId);
-    if (!imgEl) return;
-
-    // KUNCI CACHE: Gunakan prefix unik
-    const CACHE_KEY = `cache_img_v1_${id}`;
-    
-    // 1. CEK LOCAL STORAGE (Super Cepat)
-    const cachedUrl = localStorage.getItem(CACHE_KEY);
-    if (cachedUrl) {
-        imgEl.src = cachedUrl;
-        imgEl.style.opacity = "1";
-        return; // Selesai, tidak perlu download lagi
-    }
-
-    // 2. JIKA TIDAK ADA DI CACHE -> DOWNLOAD BARU
-    // Gunakan Gateway Cloudflare untuk Metadata (Cepat & Stabil)
-    const CF_GATEWAY = "https://ipfs.io/ipfs/";
+// --- TAHAP 3: FETCH GAMBAR BACKGROUND (ANTI BROKEN) ---
+async function fetchImageInBackground(id, tokenUri, imgElementId) {
+    // Gunakan Gateway Cloudflare (Paling Stabil & Cepat untuk Metadata)
+    const CF_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Gunakan Pinata untuk Gambar (Backup jika Cloudflare lambat me-render gambar baru)
     const PINATA_GW = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-
+    
     try {
-        // Bersihkan URI
-        const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        const metaUrl = `${CF_GATEWAY}${cleanUri}`;
+        const imgEl = document.getElementById(imgElementId);
+        if (!imgEl) return;
 
-        // Fetch Metadata JSON
-        const res = await fetch(metaUrl);
-        if (!res.ok) throw new Error("Metadata Gagal");
+        // 1. Cek Cache Browser
+        const cacheKey = `carousel_img_v2_${id}`;
+        const cachedUrl = localStorage.getItem(cacheKey);
         
+        if (cachedUrl) {
+            imgEl.src = cachedUrl;
+            imgEl.style.opacity = "1";
+            return;
+        }
+
+        // 2. Fetch Metadata (Pakai Cloudflare biar cepat)
+        // Bersihkan URI IPFS
+        const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const metadataUrl = `${CF_GATEWAY}${cleanUri}`;
+
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 detik timeout
+
+        const res = await fetch(metadataUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if(!res.ok) return; // Silent fail (tetap abu-abu)
+
         const data = await res.json();
         const rawImage = data.image || data.image_url;
-
+        
         if (rawImage) {
-            const imgHash = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-            
-            // STRATEGI:
-            // Link Utama: Pinata (Milik Anda) -> Lewat Weserv (Biar Kecil & Cepat)
-            // Link Cadangan: Pinata Langsung (Jika Weserv Gagal)
-            
-            const directUrl = `${PINATA_GW}${imgHash}`;
-            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
-
-            // PRELOAD GAMBAR
-            // Kita coba load versi cepat (optimized) dulu di background
-            const tempImg = new Image();
-            tempImg.src = optimizedUrl;
-
-            // Jika Berhasil Load
-            tempImg.onload = () => {
-                if (imgEl) {
-                    imgEl.src = optimizedUrl;
-                    imgEl.style.opacity = "1";
-                    // SIMPAN KE LOCAL STORAGE
-                    localStorage.setItem(CACHE_KEY, optimizedUrl);
-                }
-            };
-
-            // Jika Gagal (Error Weserv) -> Pakai Link Langsung (Fallback)
-            tempImg.onerror = () => {
-                console.warn(`Weserv gagal ID ${id}, pakai direct.`);
-                if (imgEl) {
-                    imgEl.src = directUrl; // Pakai link asli
-                    imgEl.style.opacity = "1";
-                    // Simpan link asli ke cache agar besok tidak error lagi
-                    localStorage.setItem(CACHE_KEY, directUrl);
-                }
-            };
+             const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+             // Gunakan Gateway Pinata Anda untuk gambar (Biasanya lebih reliable untuk aset pribadi)
+             const directUrl = `${PINATA_GW}${cleanImg}`;
+             
+             // Pakai Weserv (Kompresi WebP & Resize)
+             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
+             
+             // Preload Image (Biar munculnya mulus)
+             const tempImg = new Image();
+             tempImg.src = finalUrl;
+             
+             tempImg.onload = () => {
+                 if(imgEl) {
+                     imgEl.src = finalUrl;
+                     imgEl.style.opacity = "1"; 
+                     localStorage.setItem(cacheKey, finalUrl);
+                 }
+             };
+             
+             // Jika Weserv gagal, fallback ke Pinata langsung
+             tempImg.onerror = () => {
+                 if(imgEl) {
+                     imgEl.src = directUrl;
+                     imgEl.style.opacity = "1";
+                 }
+             };
         }
-    } catch (e) {
-        // Jika Metadata Gagal total, biarkan placeholder (jangan bikin error merah)
-        console.warn(`Gagal load metadata ID ${id}`);
+    } catch(e) {
+        // Biarkan tetap abu-abu jika gagal, jangan bikin error merah di console
     }
 }
     
