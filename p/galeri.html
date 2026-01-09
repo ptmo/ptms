@@ -1862,12 +1862,19 @@ async function loadTopEngagement() {
 }
 
 // --- TAHAP 2: RENDER PER 10 ITEM (VERSI TURBO - STABIL) ---
+
+    shownIndex += 10;
+    isLoadingBatch = false;
+}
+
+// FUNGSI FETCH GAMBAR (PERBAIKAN LOGIKA GATEWAY)
+// --- KONSTANTA PLACEHOLDER (Anti Error DNS) ---
+const SAFE_PLACEHOLDER = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22300%22%20viewBox%3D%220%200%20200%20300%22%3E%3Crect%20fill%3D%22%23f0f0f0%22%20width%3D%22200%22%20height%3D%22300%22%2F%3E%3Ctext%20fill%3D%22%23aaa%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
+
+// --- TAHAP 2: RENDER INSTANT (TURBO) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
     
-    // DEFINISI PLACEHOLDER AMAN (Data URI - Abu Polos)
-    // Ini anti-error karena tidak butuh koneksi internet
-    const SAFE_PLACEHOLDER = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/"
     isLoadingBatch = true; 
 
     // Ambil potongan 10 item
@@ -1878,13 +1885,14 @@ async function renderNextBatch() {
         return;
     }
 
-    // Skeleton sementara
+    // Skeleton sementara (Visual only)
     const tempSkeleton = document.createElement("div");
     tempSkeleton.className = "mini-card-skeleton";
     tempSkeleton.id = "temp-loader";
     track.appendChild(tempSkeleton);
 
-    // Fetch DATA ON-CHAIN (Nama & Score)
+    // Fetch DATA ON-CHAIN SAJA (Nama & URI)
+    // KITA TIDAK DOWNLOAD GAMBAR DISINI BIAR CEPAT
     const batchPromises = batch.map(async (item) => {
         try {
             const [info, uri] = await Promise.all([
@@ -1911,11 +1919,7 @@ async function renderNextBatch() {
         if(item) {
             const imgId = `carousel-img-${item.id}`;
             
-            // PERBAIKAN PENTING:
-            // 1. src awal menggunakan SAFE_PLACEHOLDER (Data URI) -> Dijamin muncul abu-abu, bukan error.
-            // 2. Menghapus onerror="this.src=..." yang menyebabkan loop error placeholder.
-            // 3. Menambahkan class 'img-loading' untuk efek transisi.
-            
+            // PERHATIKAN: SRC pakai SAFE_PLACEHOLDER. Tidak ada onerror via.placeholder.
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
                 <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
@@ -1933,7 +1937,7 @@ async function renderNextBatch() {
                 </div>
             </div>`;
             
-            // Fetch gambar asli di background
+            // PENTING: Panggil fungsi background fetch di sini!
             fetchImageInBackground(item.id, item.uri, imgId);
         }
     });
@@ -1944,9 +1948,9 @@ async function renderNextBatch() {
     isLoadingBatch = false;
 }
 
-// FUNGSI FETCH GAMBAR (PERBAIKAN LOGIKA GATEWAY)
+// --- TAHAP 3: FETCH GAMBAR BACKGROUND (MAINNET SAFE) ---
 async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    // Gunakan Gateway Anda yang sudah terbukti jalan di Detail page
+    // Gunakan Cloudflare (Paling Stabil untuk Mainnet)
     const MY_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
@@ -1954,7 +1958,7 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
         if (!imgEl) return;
 
         // 1. Cek Cache Browser
-        const cacheKey = `carousel_img_${id}`;
+        const cacheKey = `carousel_mainnet_v1_${id}`;
         const cachedUrl = localStorage.getItem(cacheKey);
         
         if (cachedUrl) {
@@ -1964,24 +1968,31 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
         }
 
         // 2. Fetch Metadata
-        // Bersihkan URI IPFS agar formatnya benar untuk fetch
         const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
         const metadataUrl = `${MY_GATEWAY}${cleanUri}`;
 
-        const res = await axios.get(metadataUrl, { timeout: 10000 }); // Timeout 10 detik
-        const rawImage = res.data.image || res.data.image_url;
+        // Timeout 5 Detik
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 5000);
+
+        const res = await fetch(metadataUrl, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if(!res.ok) throw new Error("404");
+        const data = await res.json();
+        const rawImage = data.image || data.image_url;
         
         if (rawImage) {
              const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
              const directUrl = `${MY_GATEWAY}${cleanImg}`;
              
-             // Pakai Weserv untuk resize & compress (WebP)
+             // Pakai Weserv (Kompresi)
              const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
              
-             // Update Gambar di UI
-             // Kita pakai Image object dulu untuk preload (biar mulus)
+             // Update Gambar di UI (Teknik Preload)
              const tempImg = new Image();
              tempImg.src = finalUrl;
+             
              tempImg.onload = () => {
                  if(imgEl) {
                      imgEl.src = finalUrl;
@@ -1990,17 +2001,16 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
                  }
              };
              
-             // Fallback jika Weserv gagal -> Pakai direct URL
+             // Fallback jika Weserv gagal
              tempImg.onerror = () => {
                  if(imgEl) {
-                     imgEl.src = directUrl;
+                     imgEl.src = directUrl; // Pakai link langsung
                      imgEl.style.opacity = "1";
                  }
              };
         }
     } catch(e) {
-        // Silent fail, biarkan tetap placeholder abu-abu
-        // console.warn(`Skip image ${id}`);
+        // Silent fail: Gambar tetap abu-abu (Loading...), tidak error merah.
     }
 }
     
