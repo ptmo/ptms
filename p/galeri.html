@@ -1906,26 +1906,29 @@ async function renderNextBatch() {
             const imgId = `carousel-img-${item.id}`;
             
             html += `
-            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <div style="background:#eeeeee; height:100%; width:100%;">
-                    <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
-                         style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
-                </div>
-                <div class="mini-badge">
-                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
-                        ${item.nama}
-                    </div>
-                    <div style="display:flex; justify-content:space-between; color:#555; font-size:10px;">
-                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
-                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
-                    </div>
-                </div>
-            </div>`;
+<div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
+    <div style="background:#eeeeee; height:100%; width:100%;">
+        <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
+             style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
+    </div>
+    <div class="mini-badge">
+        <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
+            ${item.nama}
+        </div>
+        <div style="display:flex; justify-content:space-between; color:#555; font-size:10px;">
+            <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+            <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+        </div>
+    </div>
+</div>`;
             
-            // Panggil Fetcher Background
-            fetchImageInBackground(item.id, item.uri, imgId);
-        }
-    });
+            track.insertAdjacentHTML('beforeend', html);
+
+readyItems.forEach(item => {
+    if (item) {
+        fetchImageInBackground(item.id, item.uri, `carousel-img-${item.id}`);
+    }
+});
 
     track.insertAdjacentHTML('beforeend', html);
 
@@ -1960,12 +1963,15 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
         }
 
         // 2. Bersihkan URI IPFS
-        const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-
+        const cleanUri = tokenUri.startsWith("ipfs://")
+    ? tokenUri.replace("ipfs://", "")
+    : tokenUri;
         // 3. Coba fetch metadata dari setiap gateway secara berurutan
         let data = null;
         for (let i = 0; i < GATEWAYS.length; i++) {
-            const metadataUrl = `\( {GATEWAYS[i]} \){cleanUri}`;
+            const metadataUrl = cleanUri.startsWith("http")
+    ? cleanUri
+    : `${GATEWAYS[i]}${cleanUri}`;
             console.log(`Trying metadata for ID ${id}: ${metadataUrl}`); // Log untuk debug
 
             try {
@@ -2000,7 +2006,7 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
             // 4. Coba gambar dari gateway (prioritas custom Pinata)
             let finalUrl = null;
             for (let i = 0; i < GATEWAYS.length; i++) {
-                const directUrl = `\( {GATEWAYS[i]} \){cleanImg}`;
+                const directUrl = `${GATEWAYS[i]}${cleanImg}`;
                 console.log(`Trying image for ID ${id}: ${directUrl}`);
 
                 // Preload untuk test
