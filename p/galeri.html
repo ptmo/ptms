@@ -1863,193 +1863,146 @@ async function loadTopEngagement() {
 
 
     // --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
-async function renderNextBatch() {
+    async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
     if (isLoadingBatch) return;
 
-    const SAFE_PLACEHOLDER =
+    const PLACEHOLDER =
         "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
     isLoadingBatch = true;
 
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
-    if (batch.length === 0) {
+    if (!batch.length) {
         isLoadingBatch = false;
         return;
     }
 
-    // skeleton
-    const tempSkeleton = document.createElement("div");
-    tempSkeleton.className = "mini-card-skeleton";
-    tempSkeleton.id = "temp-loader";
-    track.appendChild(tempSkeleton);
+    const loader = document.createElement("div");
+    loader.className = "mini-card-skeleton";
+    track.appendChild(loader);
 
-    // fetch on-chain
-    const readyItems = await Promise.all(
-        batch.map(async (item) => {
+    const items = await Promise.all(
+        batch.map(async (it) => {
             try {
                 const [info, uri] = await Promise.all([
-                    contractReader.getInfoWayang(item.id),
-                    contractReader.tokenURI(item.id),
+                    contractReader.getInfoWayang(it.id),
+                    contractReader.tokenURI(it.id),
                 ]);
-                return { ...item, nama: info.nama, uri };
+                return { ...it, nama: info.nama, uri };
             } catch {
                 return null;
             }
         })
     );
 
-    tempSkeleton.remove();
+    loader.remove();
 
-    // 1️⃣ BUILD HTML
     let html = "";
-    readyItems.forEach((item) => {
-        if (!item) return;
+    items.forEach((it) => {
+        if (!it) return;
         html += `
-<div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-    <div style="background:#eee;width:100%;height:100%;">
-        <img id="carousel-img-${item.id}"
-             src="${SAFE_PLACEHOLDER}"
+<div class="mini-card" onclick="location.href='detail?id=${it.id}'">
+    <div style="background:#eee;width:100%;height:100%">
+        <img id="img-${it.id}" src="${PLACEHOLDER}"
              style="width:100%;height:100%;object-fit:cover;opacity:.5;transition:.4s">
     </div>
     <div class="mini-badge">
-        <div style="font-weight:600;font-size:10px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">
-            ${item.nama}
+        <div style="font-weight:600;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+            ${it.nama}
         </div>
         <div style="display:flex;justify-content:space-between;font-size:10px">
-            <span>❤️ ${item.likes}</span>
-            <span>⭐ ${item.rating}</span>
+            <span>❤️ ${it.likes}</span>
+            <span>⭐ ${it.rating}</span>
         </div>
     </div>
 </div>`;
     });
 
-    // 2️⃣ INSERT SEKALI
     track.insertAdjacentHTML("beforeend", html);
 
-    // 3️⃣ FETCH IMAGE SETELAH DOM ADA
-    readyItems.forEach((item) => {
-        if (item) {
-            fetchImageInBackground(
-                item.id,
-                item.uri,
-                `carousel-img-${item.id}`
-            );
-        }
+    items.forEach((it) => {
+        if (it) fetchImageFinally(it.id, it.uri);
     });
 
     shownIndex += 10;
     isLoadingBatch = false;
-}
-
-// --- TAHAP 3: FETCH GAMBAR BACKGROUND (ANTI BROKEN) ---
-async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    // Multiple Gateways (Fallback jika satu gagal)
-    const GATEWAYS = [
-        "https://gateway.pinata.cloud/ipfs/",  // Public Pinata (stabil & gratis)
-        "https://ipfs.io/ipfs/",               // Default IPFS
-        "https://dweb.link/ipfs/"              // Alternatif cepat
-    ];
-    
-    // Custom Pinata mu sebagai prioritas (jika work)
-    GATEWAYS.unshift("https://magenta-secondary-guan-686.mypinata.cloud/ipfs/");
-    
-    try {
-        const imgEl = document.getElementById(imgElementId);
-        if (!imgEl) return;
-
-        // 1. Cek Cache Browser (Update key biar refresh)
-        const cacheKey = `carousel_img_v3_${id}`;
-        const cachedUrl = localStorage.getItem(cacheKey);
-        
-        if (cachedUrl) {
-            imgEl.src = cachedUrl;
-            imgEl.style.opacity = "1";
-            return;
-        }
-
-        // 2. Bersihkan URI IPFS
-        const cleanUri = tokenUri.startsWith("ipfs://")
-    ? tokenUri.replace("ipfs://", "")
-    : tokenUri;
-        // 3. Coba fetch metadata dari setiap gateway secara berurutan
-        let data = null;
-        for (let i = 0; i < GATEWAYS.length; i++) {
-            const metadataUrl = cleanUri.startsWith("http")
-    ? cleanUri
-    : `${GATEWAYS[i]}${cleanUri}`;
-            console.log(`Trying metadata for ID ${id}: ${metadataUrl}`); // Log untuk debug
-
-            try {
-                const controller = new AbortController();
-                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 detik timeout
-
-                const res = await fetch(metadataUrl, { signal: controller.signal });
-                clearTimeout(timeoutId);
-
-                if (res.ok) {
-                    data = await res.json();
-                    console.log(`Metadata success for ID ${id} from gateway ${i}`);
-                    break; // Berhasil, lanjut
-                } else {
-                    console.warn(`Metadata fail for ID ${id} from gateway ${i}: Status ${res.status}`);
-                }
-            } catch (e) {
-                console.error(`Metadata error for ID ${id} from gateway ${i}: ${e.message}`);
-            }
-        }
-
-        if (!data) {
-            console.error(`All gateways failed for metadata ID ${id}`);
-            return; // Gagal total, tetap placeholder
-        }
-
-        const rawImage = data.image || data.image_url;
-        
-        if (rawImage) {
-            const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-            
-            // 4. Coba gambar dari gateway (prioritas custom Pinata)
-            let finalUrl = null;
-            for (let i = 0; i < GATEWAYS.length; i++) {
-                const directUrl = `${GATEWAYS[i]}${cleanImg}`;
-                console.log(`Trying image for ID ${id}: ${directUrl}`);
-
-                // Preload untuk test
-                const tempImg = new Image();
-                tempImg.src = directUrl;
-
-                // Tunggu onload/onerror dengan promise
-                const loaded = await new Promise((resolve) => {
-                    tempImg.onload = () => resolve(true);
-                    tempImg.onerror = () => resolve(false);
-                });
-
-                if (loaded) {
-                    // Optimasi Weserv jika direct sukses
-                    finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
-                    break;
-                } else {
-                    console.warn(`Image fail from gateway ${i} for ID ${id}`);
-                }
-            }
-
-            if (finalUrl) {
-                // Load final
-                imgEl.src = finalUrl;
-                imgEl.style.opacity = "1"; 
-                localStorage.setItem(cacheKey, finalUrl);
-                console.log(`Image loaded for ID ${id}: ${finalUrl}`);
-            } else {
-                console.error(`All image gateways failed for ID ${id}`);
-            }
-        } else {
-            console.error(`No image field in metadata for ID ${id}`);
-        }
-    } catch(e) {
-        console.error(`General error for ID ${id}: ${e.message}`);
     }
-}
+
+    async function fetchImageFinally(id, tokenUri) {
+    const img = document.getElementById(`img-${id}`);
+    if (!img) return;
+
+    const CACHE_KEY = `nft_img_${id}`;
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+        img.src = cached;
+        img.style.opacity = "1";
+        return;
+    }
+
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://ipfs.io/ipfs/",
+        "https://dweb.link/ipfs/"
+    ];
+
+    let uri = tokenUri;
+    if (uri.startsWith("ipfs://")) uri = uri.replace("ipfs://", "");
+
+    let imageSrc = null;
+
+    // CASE 1 — tokenURI langsung IMAGE
+    if (uri.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {
+        imageSrc = uri;
+    }
+
+    // CASE 2 — tokenURI metadata JSON
+    if (!imageSrc) {
+        for (const gw of GATEWAYS) {
+            const metaUrl = uri.startsWith("http") ? uri : gw + uri;
+            try {
+                const r = await fetch(metaUrl);
+                if (!r.ok) continue;
+                const j = await r.json();
+                imageSrc = j.image || j.image_url;
+                if (imageSrc) break;
+            } catch {}
+        }
+    }
+
+    if (!imageSrc) return;
+
+    if (imageSrc.startsWith("ipfs://"))
+        imageSrc = imageSrc.replace("ipfs://", "");
+
+    let finalUrl = null;
+
+    for (const gw of GATEWAYS) {
+        const direct = imageSrc.startsWith("http")
+            ? imageSrc
+            : gw + imageSrc;
+
+        const ok = await new Promise((res) => {
+            const t = new Image();
+            t.onload = () => res(true);
+            t.onerror = () => res(false);
+            t.src = direct;
+        });
+
+        if (ok) {
+            finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(direct)}&w=300&q=75&output=webp`;
+            break;
+        }
+    }
+
+    if (finalUrl) {
+        img.src = finalUrl;
+        img.style.opacity = "1";
+        localStorage.setItem(CACHE_KEY, finalUrl);
+    }
+                      }
     
 // Disconnect Wallet
 function disconnectWallet() {
