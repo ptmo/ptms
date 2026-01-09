@@ -1863,143 +1863,144 @@ async function loadTopEngagement() {
 
 // --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
 async function renderNextBatch() {
-const track = document.getElementById("topEngagementTrack");
-if (isLoadingBatch) return;
+    const track = document.getElementById("topEngagementTrack");
+    if (isLoadingBatch) return;
 
-const PLACEHOLDER =  
-    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";  
+    const PLACEHOLDER =
+        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
-isLoadingBatch = true;  
+    isLoadingBatch = true;
 
-const batch = top100Queue.slice(shownIndex, shownIndex + 10);  
-if (!batch.length) {  
-    isLoadingBatch = false;  
-    return;  
-}  
+    const batch = top100Queue.slice(shownIndex, shownIndex + 10);
+    if (!batch.length) {
+        isLoadingBatch = false;
+        return;
+    }
 
-const loader = document.createElement("div");  
-loader.className = "mini-card-skeleton";  
-track.appendChild(loader);  
+    const loader = document.createElement("div");
+    loader.className = "mini-card-skeleton";
+    track.appendChild(loader);
 
-const items = await Promise.all(  
-    batch.map(async (it) => {  
-        try {  
-            const [info, uri] = await Promise.all([  
-                contractReader.getInfoWayang(it.id),  
-                contractReader.tokenURI(it.id),  
-            ]);  
-            return { ...it, nama: info.nama, uri };  
-        } catch {  
-            return null;  
-        }  
-    })  
-);  
+    const items = await Promise.all(
+        batch.map(async (it) => {
+            try {
+                const [info, uri] = await Promise.all([
+                    contractReader.getInfoWayang(it.id),
+                    contractReader.tokenURI(it.id),
+                ]);
+                return { ...it, nama: info.nama, uri };
+            } catch {
+                return null;
+            }
+        })
+    );
 
-loader.remove();  
+    loader.remove();
 
-let html = "";  
-items.forEach((it) => {  
-    if (!it) return;  
-    html += `
-
-<div class="mini-card" onclick="location.href='detail?id=${it.id}'">  
-    <div style="background:#eee;width:100%;height:100%">  
-        <img id="img-${it.id}" src="${PLACEHOLDER}"  
-             style="width:100%;height:100%;object-fit:cover;opacity:.5;transition:.4s">  
-    </div>  
-    <div class="mini-badge">  
-        <div style="font-weight:600;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">  
-            ${it.nama}  
-        </div>  
-            <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;">  
-            <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${it.likes}</span>  
-             <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${it.rating}</span>  
+    let html = "";
+    items.forEach((it) => {
+        if (!it) return;
+        html += `
+<div class="mini-card" onclick="location.href='detail?id=${it.id}'">
+    <div style="background:#eee;width:100%;height:100%">
+        <img id="img-${it.id}" src="${PLACEHOLDER}"
+             style="width:100%;height:100%;object-fit:cover;opacity:.5;transition:.4s">
+    </div>
+    <div class="mini-badge">
+        <div style="font-weight:600;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
+            ${it.nama}
         </div>
-    </div>  
-</div>`;  
-    });  track.insertAdjacentHTML("beforeend", html);  
+        <div style="display:flex;justify-content:space-between;font-size:10px">
+            <span>❤️ ${it.likes}</span>
+            <span>⭐ ${it.rating}</span>
+        </div>
+    </div>
+</div>`;
+    });
 
-items.forEach((it) => {  
-    if (it) fetchImageFinally(it.id, it.uri);  
-});  
+    track.insertAdjacentHTML("beforeend", html);
 
-shownIndex += 10;  
-isLoadingBatch = false;  
-}  
+    items.forEach((it) => {
+        if (it) fetchImageFinally(it.id, it.uri);
+    });
 
-async function fetchImageFinally(id, tokenUri) {  
-const img = document.getElementById(`img-${id}`);  
-if (!img) return;  
+    shownIndex += 10;
+    isLoadingBatch = false;
+}
 
-const CACHE_KEY = `nft_img_${id}`;  
-const cached = localStorage.getItem(CACHE_KEY);  
-if (cached) {  
-    img.src = cached;  
-    img.style.opacity = "1";  
-    return;  
-}  
+async function fetchImageFinally(id, tokenUri) {
+    const img = document.getElementById(`img-${id}`);
+    if (!img) return;
 
-const GATEWAYS = [  
-    "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",  
-    "https://gateway.pinata.cloud/ipfs/",  
-    "https://ipfs.io/ipfs/",  
-    "https://dweb.link/ipfs/"  
-];  
+    const CACHE_KEY = `nft_img_${id}`;
+    const cached = localStorage.getItem(CACHE_KEY);
+    if (cached) {
+        img.src = cached;
+        img.style.opacity = "1";
+        return;
+    }
 
-let uri = tokenUri;  
-if (uri.startsWith("ipfs://")) uri = uri.replace("ipfs://", "");  
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://ipfs.io/ipfs/",
+        "https://dweb.link/ipfs/"
+    ];
 
-let imageSrc = null;  
+    let uri = tokenUri;
+    if (uri.startsWith("ipfs://")) uri = uri.replace("ipfs://", "");
 
-// CASE 1 — tokenURI langsung IMAGE  
-if (uri.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {  
-    imageSrc = uri;  
-}  
+    let imageSrc = null;
 
-// CASE 2 — tokenURI metadata JSON  
-if (!imageSrc) {  
-    for (const gw of GATEWAYS) {  
-        const metaUrl = uri.startsWith("http") ? uri : gw + uri;  
-        try {  
-            const r = await fetch(metaUrl);  
-            if (!r.ok) continue;  
-            const j = await r.json();  
-            imageSrc = j.image || j.image_url;  
-            if (imageSrc) break;  
-        } catch {}  
-    }  
-}  
+    // CASE 1 — tokenURI langsung IMAGE
+    if (uri.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {
+        imageSrc = uri;
+    }
 
-if (!imageSrc) return;  
+    // CASE 2 — tokenURI metadata JSON
+    if (!imageSrc) {
+        for (const gw of GATEWAYS) {
+            const metaUrl = uri.startsWith("http") ? uri : gw + uri;
+            try {
+                const r = await fetch(metaUrl);
+                if (!r.ok) continue;
+                const j = await r.json();
+                imageSrc = j.image || j.image_url;
+                if (imageSrc) break;
+            } catch {}
+        }
+    }
 
-if (imageSrc.startsWith("ipfs://"))  
-    imageSrc = imageSrc.replace("ipfs://", "");  
+    if (!imageSrc) return;
 
-let finalUrl = null;  
+    if (imageSrc.startsWith("ipfs://"))
+        imageSrc = imageSrc.replace("ipfs://", "");
 
-for (const gw of GATEWAYS) {  
-    const direct = imageSrc.startsWith("http")  
-        ? imageSrc  
-        : gw + imageSrc;  
+    let finalUrl = null;
 
-    const ok = await new Promise((res) => {  
-        const t = new Image();  
-        t.onload = () => res(true);  
-        t.onerror = () => res(false);  
-        t.src = direct;  
-    });  
+    for (const gw of GATEWAYS) {
+        const direct = imageSrc.startsWith("http")
+            ? imageSrc
+            : gw + imageSrc;
 
-    if (ok) {  
-        finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(direct)}&w=300&q=75&output=webp`;  
-        break;  
-    }  
-}  
+        const ok = await new Promise((res) => {
+            const t = new Image();
+            t.onload = () => res(true);
+            t.onerror = () => res(false);
+            t.src = direct;
+        });
 
-if (finalUrl) {  
-    img.src = finalUrl;  
-    img.style.opacity = "1";  
-    localStorage.setItem(CACHE_KEY, finalUrl);  
-}  
+        if (ok) {
+            finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(direct)}&w=300&q=75&output=webp`;
+            break;
+        }
+    }
+
+    if (finalUrl) {
+        img.src = finalUrl;
+        img.style.opacity = "1";
+        localStorage.setItem(CACHE_KEY, finalUrl);
+    }
 }
     
 // Disconnect Wallet
