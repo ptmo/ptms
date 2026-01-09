@@ -1861,17 +1861,14 @@ async function loadTopEngagement() {
     }
 }
 
-// --- TAHAP 2: RENDER PER 10 ITEM (VERSI TURBO - STABIL) ---
+// --- TAHAP 2: RENDER PER 10 ITEM (METADATA LOAD) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
     
-    // DEFINISI PLACEHOLDER AMAN (Data URI - Abu Polos)
-    // Ini anti-error karena tidak butuh koneksi internet
-    const SAFE_PLACEHOLDER = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22300%22%20viewBox%3D%220%200%20200%20300%22%3E%3Crect%20fill%3D%22%23f0f0f0%22%20width%3D%22200%22%20height%3D%22300%22%2F%3E%3Ctext%20fill%3D%22%23aaa%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
+    isLoadingBatch = true; // Kunci biar gak dobel
 
-    isLoadingBatch = true; 
-
-    // Ambil potongan 10 item
+    // Ambil potongan 10 item berikutnya dari antrian
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
     
     if (batch.length === 0) {
@@ -1879,50 +1876,52 @@ async function renderNextBatch() {
         return;
     }
 
-    // Skeleton sementara
+    // Tampilkan Skeleton sementara di ujung kanan (Feedback Visual)
     const tempSkeleton = document.createElement("div");
     tempSkeleton.className = "mini-card-skeleton";
     tempSkeleton.id = "temp-loader";
     track.appendChild(tempSkeleton);
 
-    // Fetch DATA ON-CHAIN (Nama & Score)
+    // Fetch Metadata (Gambar & Nama) untuk 10 item ini
     const batchPromises = batch.map(async (item) => {
         try {
-            const [info, uri] = await Promise.all([
-                contractReader.getInfoWayang(item.id),
-                contractReader.tokenURI(item.id)
-            ]);
+            const info = await contractReader.getInfoWayang(item.id);
+            const uri = await contractReader.tokenURI(item.id);
             
-            return { 
-                ...item, 
-                nama: info.nama, 
-                uri: uri 
-            };
+            let finalImgUrl = "https://via.placeholder.com/150x200?text=No+Image";
+            
+            try {
+                const jsonUrl = uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+                const res = await axios.get(jsonUrl, { timeout: 5000 });
+                const rawImage = res.data.image || res.data.image_url;
+                
+                if (rawImage) {
+                     const cleanImg = rawImage.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+                     finalImgUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanImg)}&w=200&q=80&output=webp`;
+                }
+            } catch(e) {
+                const cid = uri.replace("ipfs://", "").split('/')[0];
+                finalImgUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
+            }
+
+            return { ...item, nama: info.nama, imgUrl: finalImgUrl };
         } catch(e) { return null; }
     });
 
     const readyItems = await Promise.all(batchPromises);
 
-    // Hapus Skeleton
-    if(document.getElementById("temp-loader")) document.getElementById("temp-loader").remove();
+    // Hapus Skeleton Sementara
+    const loader = document.getElementById("temp-loader");
+    if(loader) loader.remove();
 
-    // Render HTML
+    // Append Kartu Jadi ke Track
     let html = "";
     readyItems.forEach(item => {
         if(item) {
-            const imgId = `carousel-img-${item.id}`;
-            
-            // PERBAIKAN PENTING:
-            // 1. src awal menggunakan SAFE_PLACEHOLDER (Data URI) -> Dijamin muncul abu-abu, bukan error.
-            // 2. Menghapus onerror="this.src=..." yang menyebabkan loop error placeholder.
-            // 3. Menambahkan class 'img-loading' untuk efek transisi.
-            
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
-                     class="carousel-img-lazy"
-                     style="transition: opacity 0.5s; opacity: 0.6; object-fit: cover;">
-                     
+                <img src="${item.imgUrl}" loading="lazy" 
+                     onerror="this.src='https://via.placeholder.com/140x200?text=Error'">
                 <div class="mini-badge">
                     <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
                         ${item.nama}
@@ -1933,14 +1932,14 @@ async function renderNextBatch() {
                     </div>
                 </div>
             </div>`;
-            
-            // Fetch gambar asli di background
-            fetchImageInBackground(item.id, item.uri, imgId);
         }
     });
 
+    // Masukkan HTML baru tanpa menghapus yang lama (+=)
+    // Tapi karena innerHTML += mereset scroll, kita pakai insertAdjacentHTML
     track.insertAdjacentHTML('beforeend', html);
 
+    // Update index & Buka kunci
     shownIndex += 10;
     isLoadingBatch = false;
 }
