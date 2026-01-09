@@ -1861,12 +1861,12 @@ async function loadTopEngagement() {
     }
 }
 
-// --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
+
+    // --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
     
     // Placeholder Base64 (Kotak Abu Polos - Dijamin Anti Error)
-    // Ini bukan link website, tapi kode gambar yang ditanam.
     const SAFE_PLACEHOLDER = "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
 
     isLoadingBatch = true; 
@@ -1905,13 +1905,10 @@ async function renderNextBatch() {
         if(item) {
             const imgId = `carousel-img-${item.id}`;
             
-            // PERBAIKAN: 
-            // 1. src pakai SAFE_PLACEHOLDER (Base64).
-            // 2. HAPUS atribut 'onerror'. Jika gambar gagal, biarkan tetap placeholder abu (lebih rapi daripada icon broken).
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
                 <div style="background:#eeeeee; height:100%; width:100%;">
-                    <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
+                    <img id="\( {imgId}" src=" \){SAFE_PLACEHOLDER}" 
                          style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
                 </div>
                 <div class="mini-badge">
@@ -1938,17 +1935,22 @@ async function renderNextBatch() {
 
 // --- TAHAP 3: FETCH GAMBAR BACKGROUND (ANTI BROKEN) ---
 async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    // Gunakan Gateway Cloudflare (Paling Stabil & Cepat untuk Metadata)
-    const CF_GATEWAY = "https://gateway.mypinata.cloud/ipfs/";
-    // Gunakan Pinata untuk Gambar (Backup jika Cloudflare lambat me-render gambar baru)
-    const PINATA_GW = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Multiple Gateways (Fallback jika satu gagal)
+    const GATEWAYS = [
+        "https://gateway.pinata.cloud/ipfs/",  // Public Pinata (stabil & gratis)
+        "https://ipfs.io/ipfs/",               // Default IPFS
+        "https://dweb.link/ipfs/"              // Alternatif cepat
+    ];
+    
+    // Custom Pinata mu sebagai prioritas (jika work)
+    GATEWAYS.unshift("https://magenta-secondary-guan-686.mypinata.cloud/ipfs/");
     
     try {
         const imgEl = document.getElementById(imgElementId);
         if (!imgEl) return;
 
-        // 1. Cek Cache Browser
-        const cacheKey = `carousel_img_v2_${id}`;
+        // 1. Cek Cache Browser (Update key biar refresh)
+        const cacheKey = `carousel_img_v3_${id}`;
         const cachedUrl = localStorage.getItem(cacheKey);
         
         if (cachedUrl) {
@@ -1957,52 +1959,83 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
             return;
         }
 
-        // 2. Fetch Metadata (Pakai Cloudflare biar cepat)
-        // Bersihkan URI IPFS
+        // 2. Bersihkan URI IPFS
         const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        const metadataUrl = `${CF_GATEWAY}${cleanUri}`;
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 detik timeout
+        // 3. Coba fetch metadata dari setiap gateway secara berurutan
+        let data = null;
+        for (let i = 0; i < GATEWAYS.length; i++) {
+            const metadataUrl = `\( {GATEWAYS[i]} \){cleanUri}`;
+            console.log(`Trying metadata for ID ${id}: ${metadataUrl}`); // Log untuk debug
 
-        const res = await fetch(metadataUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
+            try {
+                const controller = new AbortController();
+                const timeoutId = setTimeout(() => controller.abort(), 8000); // 8 detik timeout
 
-        if(!res.ok) return; // Silent fail (tetap abu-abu)
+                const res = await fetch(metadataUrl, { signal: controller.signal });
+                clearTimeout(timeoutId);
 
-        const data = await res.json();
+                if (res.ok) {
+                    data = await res.json();
+                    console.log(`Metadata success for ID ${id} from gateway ${i}`);
+                    break; // Berhasil, lanjut
+                } else {
+                    console.warn(`Metadata fail for ID ${id} from gateway ${i}: Status ${res.status}`);
+                }
+            } catch (e) {
+                console.error(`Metadata error for ID ${id} from gateway ${i}: ${e.message}`);
+            }
+        }
+
+        if (!data) {
+            console.error(`All gateways failed for metadata ID ${id}`);
+            return; // Gagal total, tetap placeholder
+        }
+
         const rawImage = data.image || data.image_url;
         
         if (rawImage) {
-             const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-             // Gunakan Gateway Pinata Anda untuk gambar (Biasanya lebih reliable untuk aset pribadi)
-             const directUrl = `${PINATA_GW}${cleanImg}`;
-             
-             // Pakai Weserv (Kompresi WebP & Resize)
-             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
-             
-             // Preload Image (Biar munculnya mulus)
-             const tempImg = new Image();
-             tempImg.src = finalUrl;
-             
-             tempImg.onload = () => {
-                 if(imgEl) {
-                     imgEl.src = finalUrl;
-                     imgEl.style.opacity = "1"; 
-                     localStorage.setItem(cacheKey, finalUrl);
-                 }
-             };
-             
-             // Jika Weserv gagal, fallback ke Pinata langsung
-             tempImg.onerror = () => {
-                 if(imgEl) {
-                     imgEl.src = directUrl;
-                     imgEl.style.opacity = "1";
-                 }
-             };
+            const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+            
+            // 4. Coba gambar dari gateway (prioritas custom Pinata)
+            let finalUrl = null;
+            for (let i = 0; i < GATEWAYS.length; i++) {
+                const directUrl = `\( {GATEWAYS[i]} \){cleanImg}`;
+                console.log(`Trying image for ID ${id}: ${directUrl}`);
+
+                // Preload untuk test
+                const tempImg = new Image();
+                tempImg.src = directUrl;
+
+                // Tunggu onload/onerror dengan promise
+                const loaded = await new Promise((resolve) => {
+                    tempImg.onload = () => resolve(true);
+                    tempImg.onerror = () => resolve(false);
+                });
+
+                if (loaded) {
+                    // Optimasi Weserv jika direct sukses
+                    finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
+                    break;
+                } else {
+                    console.warn(`Image fail from gateway ${i} for ID ${id}`);
+                }
+            }
+
+            if (finalUrl) {
+                // Load final
+                imgEl.src = finalUrl;
+                imgEl.style.opacity = "1"; 
+                localStorage.setItem(cacheKey, finalUrl);
+                console.log(`Image loaded for ID ${id}: ${finalUrl}`);
+            } else {
+                console.error(`All image gateways failed for ID ${id}`);
+            }
+        } else {
+            console.error(`No image field in metadata for ID ${id}`);
         }
     } catch(e) {
-        // Biarkan tetap abu-abu jika gagal, jangan bikin error merah di console
+        console.error(`General error for ID ${id}: ${e.message}`);
     }
 }
     
