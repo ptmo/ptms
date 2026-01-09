@@ -1861,150 +1861,145 @@ async function loadTopEngagement() {
     }
 }
 
-
 // --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
 async function renderNextBatch() {
-    const track = document.getElementById("topEngagementTrack");
-    
-    // Placeholder Base64 (Kotak Abu Polos - Dijamin Anti Error)
-    // Ini bukan link website, tapi kode gambar yang ditanam.
-    const SAFE_PLACEHOLDER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
+const track = document.getElementById("topEngagementTrack");
+if (isLoadingBatch) return;
 
-    isLoadingBatch = true; 
+const PLACEHOLDER =  
+    "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";  
 
-    const batch = top100Queue.slice(shownIndex, shownIndex + 10);
-    
-    if (batch.length === 0) {
-        isLoadingBatch = false;
-        return;
-    }
+isLoadingBatch = true;  
 
-    // Skeleton sementara
-    const tempSkeleton = document.createElement("div");
-    tempSkeleton.className = "mini-card-skeleton";
-    tempSkeleton.id = "temp-loader";
-    track.appendChild(tempSkeleton);
+const batch = top100Queue.slice(shownIndex, shownIndex + 10);  
+if (!batch.length) {  
+    isLoadingBatch = false;  
+    return;  
+}  
 
-    // Fetch DATA ON-CHAIN SAJA (Nama & URI)
-    const batchPromises = batch.map(async (item) => {
-        try {
-            const [info, uri] = await Promise.all([
-                contractReader.getInfoWayang(item.id),
-                contractReader.tokenURI(item.id)
-            ]);
-            
-            return { ...item, nama: info.nama, uri: uri };
-        } catch(e) { return null; }
-    });
+const loader = document.createElement("div");  
+loader.className = "mini-card-skeleton";  
+track.appendChild(loader);  
 
-    const readyItems = await Promise.all(batchPromises);
+const items = await Promise.all(  
+    batch.map(async (it) => {  
+        try {  
+            const [info, uri] = await Promise.all([  
+                contractReader.getInfoWayang(it.id),  
+                contractReader.tokenURI(it.id),  
+            ]);  
+            return { ...it, nama: info.nama, uri };  
+        } catch {  
+            return null;  
+        }  
+    })  
+);  
 
-    if(document.getElementById("temp-loader")) document.getElementById("temp-loader").remove();
+loader.remove();  
 
-    let html = "";
-    readyItems.forEach(item => {
-        if(item) {
-            const imgId = `carousel-img-${item.id}`;
-            
-            // PERBAIKAN: 
-            // 1. src pakai SAFE_PLACEHOLDER (Base64).
-            // 2. HAPUS atribut 'onerror'. Jika gambar gagal, biarkan tetap placeholder abu (lebih rapi daripada icon broken).
-            html += `
-            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <div style="background:#eeeeee; height:100%; width:100%;">
-                    <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
-                         style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
-                </div>
-                <div class="mini-badge">
-                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
-                        ${item.nama}
-                    </div>
-                    <div style="display:flex; justify-content:space-between; color:#555; font-size:10px;">
-                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
-                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
-                    </div>
-                </div>
-            </div>`;
-            
-            // Panggil Fetcher Background
-            fetchImageInBackground(item.id, item.uri, imgId);
-        }
-    });
+let html = "";  
+items.forEach((it) => {  
+    if (!it) return;  
+    html += `
 
-    track.insertAdjacentHTML('beforeend', html);
+<div class="mini-card" onclick="location.href='detail?id=${it.id}'">  
+    <div style="background:#eee;width:100%;height:100%">  
+        <img id="img-${it.id}" src="${PLACEHOLDER}"  
+             style="width:100%;height:100%;object-fit:cover;opacity:.5;transition:.4s">  
+    </div>  
+    <div class="mini-badge">  
+        <div style="font-weight:600;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">  
+            ${it.nama}  
+        </div>  
+            <div style="display:flex;justify-content:space-between;font-size:10px;color:#555;">  
+            <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${it.likes}</span>  
+             <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${it.rating}</span>  
+        </div>
+    </div>  
+</div>`;  
+    });  track.insertAdjacentHTML("beforeend", html);  
 
-    shownIndex += 10;
-    isLoadingBatch = false;
-}
+items.forEach((it) => {  
+    if (it) fetchImageFinally(it.id, it.uri);  
+});  
 
-// --- TAHAP 3: FETCH GAMBAR BACKGROUND (ANTI BROKEN) ---
-async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    // Gunakan Gateway Cloudflare (Paling Stabil & Cepat untuk Metadata)
-    const CF_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    // Gunakan Pinata untuk Gambar (Backup jika Cloudflare lambat me-render gambar baru)
-    const PINATA_GW = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    
-    try {
-        const imgEl = document.getElementById(imgElementId);
-        if (!imgEl) return;
+shownIndex += 10;  
+isLoadingBatch = false;  
+}  
 
-        // 1. Cek Cache Browser
-        const cacheKey = `carousel_img_v2_${id}`;
-        const cachedUrl = localStorage.getItem(cacheKey);
-        
-        if (cachedUrl) {
-            imgEl.src = cachedUrl;
-            imgEl.style.opacity = "1";
-            return;
-        }
+async function fetchImageFinally(id, tokenUri) {  
+const img = document.getElementById(`img-${id}`);  
+if (!img) return;  
 
-        // 2. Fetch Metadata (Pakai Cloudflare biar cepat)
-        // Bersihkan URI IPFS
-        const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        const metadataUrl = `${CF_GATEWAY}${cleanUri}`;
+const CACHE_KEY = `nft_img_${id}`;  
+const cached = localStorage.getItem(CACHE_KEY);  
+if (cached) {  
+    img.src = cached;  
+    img.style.opacity = "1";  
+    return;  
+}  
 
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 detik timeout
+const GATEWAYS = [  
+    "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",  
+    "https://gateway.pinata.cloud/ipfs/",  
+    "https://ipfs.io/ipfs/",  
+    "https://dweb.link/ipfs/"  
+];  
 
-        const res = await fetch(metadataUrl, { signal: controller.signal });
-        clearTimeout(timeoutId);
+let uri = tokenUri;  
+if (uri.startsWith("ipfs://")) uri = uri.replace("ipfs://", "");  
 
-        if(!res.ok) return; // Silent fail (tetap abu-abu)
+let imageSrc = null;  
 
-        const data = await res.json();
-        const rawImage = data.image || data.image_url;
-        
-        if (rawImage) {
-             const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-             // Gunakan Gateway Pinata Anda untuk gambar (Biasanya lebih reliable untuk aset pribadi)
-             const directUrl = `${PINATA_GW}${cleanImg}`;
-             
-             // Pakai Weserv (Kompresi WebP & Resize)
-             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
-             
-             // Preload Image (Biar munculnya mulus)
-             const tempImg = new Image();
-             tempImg.src = finalUrl;
-             
-             tempImg.onload = () => {
-                 if(imgEl) {
-                     imgEl.src = finalUrl;
-                     imgEl.style.opacity = "1"; 
-                     localStorage.setItem(cacheKey, finalUrl);
-                 }
-             };
-             
-             // Jika Weserv gagal, fallback ke Pinata langsung
-             tempImg.onerror = () => {
-                 if(imgEl) {
-                     imgEl.src = directUrl;
-                     imgEl.style.opacity = "1";
-                 }
-             };
-        }
-    } catch(e) {
-        // Biarkan tetap abu-abu jika gagal, jangan bikin error merah di console
-    }
+// CASE 1 — tokenURI langsung IMAGE  
+if (uri.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {  
+    imageSrc = uri;  
+}  
+
+// CASE 2 — tokenURI metadata JSON  
+if (!imageSrc) {  
+    for (const gw of GATEWAYS) {  
+        const metaUrl = uri.startsWith("http") ? uri : gw + uri;  
+        try {  
+            const r = await fetch(metaUrl);  
+            if (!r.ok) continue;  
+            const j = await r.json();  
+            imageSrc = j.image || j.image_url;  
+            if (imageSrc) break;  
+        } catch {}  
+    }  
+}  
+
+if (!imageSrc) return;  
+
+if (imageSrc.startsWith("ipfs://"))  
+    imageSrc = imageSrc.replace("ipfs://", "");  
+
+let finalUrl = null;  
+
+for (const gw of GATEWAYS) {  
+    const direct = imageSrc.startsWith("http")  
+        ? imageSrc  
+        : gw + imageSrc;  
+
+    const ok = await new Promise((res) => {  
+        const t = new Image();  
+        t.onload = () => res(true);  
+        t.onerror = () => res(false);  
+        t.src = direct;  
+    });  
+
+    if (ok) {  
+        finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(direct)}&w=300&q=75&output=webp`;  
+        break;  
+    }  
+}  
+
+if (finalUrl) {  
+    img.src = finalUrl;  
+    img.style.opacity = "1";  
+    localStorage.setItem(CACHE_KEY, finalUrl);  
+}  
 }
     
 // Disconnect Wallet
