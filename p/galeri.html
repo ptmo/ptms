@@ -1963,9 +1963,10 @@ async function renderNextBatch() {
     isLoadingBatch = false;
 }
 
-// FUNGSI BARU: FETCH GAMBAR BACKGROUND (RAHASIA KECEPATAN)
+// FUNGSI BARU: FETCH GAMBAR BACKGROUND (RAHASIA KECEPATAN & KETEPATAN)
 async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+    // GATEWAY UTAMA (VIP) - Pastikan tidak ada slash di akhir jika logic replace tidak menghandle
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
         const imgEl = document.getElementById(imgElementId);
@@ -1981,27 +1982,60 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
             return;
         }
 
-        // 2. Jika tidak ada cache, baru fetch Metadata
-        const jsonUrl = tokenUri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
-        const res = await axios.get(jsonUrl, { timeout: 8000 }); // Timeout agak lama gapapa krn background
-        const rawImage = res.data.image || res.data.image_url;
+        // 2. Bersihkan URI untuk mendapatkan CID Murni
+        // Ini langkah krusial agar kita bisa menempelkan gateway kita sendiri
+        let cid = tokenUri.replace("ipfs://", "")
+                          .replace("https://ipfs.io/ipfs/", "")
+                          .replace("https://gateway.pinata.cloud/ipfs/", "")
+                          .replace(DEDICATED_GATEWAY, ""); // Hapus gateway jika sudah ada
+
+        // Konstruksi URL Metadata yang Benar
+        const jsonUrl = `${DEDICATED_GATEWAY}${cid}`;
+
+        // 3. Fetch Metadata
+        const res = await axios.get(jsonUrl, { timeout: 10000 }); // Timeout 10 detik
+        const data = res.data;
+        
+        // Ambil properti gambar (bisa 'image' atau 'image_url')
+        let rawImage = data.image || data.image_url;
         
         if (rawImage) {
-             const cleanImg = rawImage.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
-             // Pakai Weserv untuk resize & compress otomatis (Super Ringan)
-             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanImg)}&w=200&q=70&output=webp`;
+             // Bersihkan lagi URL gambar dari metadata untuk dapat CID gambar
+             let imgCid = rawImage.replace("ipfs://", "")
+                                  .replace("https://ipfs.io/ipfs/", "")
+                                  .replace("https://gateway.pinata.cloud/ipfs/", "")
+                                  .replace(DEDICATED_GATEWAY, "");
+
+             // Konstruksi URL Gambar Publik via Gateway VIP
+             const publicImageUrl = `${DEDICATED_GATEWAY}${imgCid}`;
+
+             // 4. Optimasi via Weserv (Resize & Convert ke WebP)
+             // EncodeURIComponent wajib agar Weserv bisa memproses URL dengan benar
+             const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicImageUrl)}&w=200&q=70&output=webp`;
              
-             // Update Gambar
+             // Update Gambar di DOM
              imgEl.src = finalUrl;
-             imgEl.style.opacity = "1";
              
-             // Simpan ke Cache biar besok2 instant
-             localStorage.setItem(cacheKey, finalUrl);
+             // Event Listener untuk memastikan gambar benar-benar dimuat sebelum cache & opacity
+             imgEl.onload = () => {
+                 imgEl.style.opacity = "1";
+                 localStorage.setItem(cacheKey, finalUrl); // Simpan hanya jika sukses load
+             };
+
+             // Fallback jika Weserv gagal (misal timeout), coba direct gateway
+             imgEl.onerror = () => {
+                 console.warn("Weserv failed, falling back to direct gateway");
+                 imgEl.src = publicImageUrl;
+                 imgEl.style.opacity = "1";
+             };
         }
     } catch(e) {
-        console.warn(`Gagal load gambar carousel ${id}`);
+        console.warn(`Gagal load gambar carousel ${id}:`, e.message);
+        // Opsi: Set gambar default jika gagal total
+        // const imgEl = document.getElementById(imgElementId);
+        // if(imgEl) imgEl.src = "img/placeholder-wayang.jpg"; 
     }
-        }
+}
     
 // Disconnect Wallet
 function disconnectWallet() {
