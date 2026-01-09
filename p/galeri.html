@@ -1861,17 +1861,16 @@ async function loadTopEngagement() {
     }
 }
 
-// FUNGSI FETCH GAMBAR (PERBAIKAN LOGIKA GATEWAY)
-// --- KONSTANTA PLACEHOLDER (Anti Error DNS) ---
-const SAFE_PLACEHOLDER = "data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22200%22%20height%3D%22300%22%20viewBox%3D%220%200%20200%20300%22%3E%3Crect%20fill%3D%22%23f0f0f0%22%20width%3D%22200%22%20height%3D%22300%22%2F%3E%3Ctext%20fill%3D%22%23aaa%22%20font-family%3D%22sans-serif%22%20font-size%3D%2212%22%20x%3D%2250%25%22%20y%3D%2250%25%22%20text-anchor%3D%22middle%22%3ELoading...%3C%2Ftext%3E%3C%2Fsvg%3E";
-
-// --- TAHAP 2: RENDER INSTANT (TURBO) ---
+// --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
     
+    // Placeholder Base64 (Kotak Abu Polos - Dijamin Anti Error)
+    // Ini bukan link website, tapi kode gambar yang ditanam.
+    const SAFE_PLACEHOLDER = "data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAwMCAO+ip1sAAAAASUVORK5CYII=";
+
     isLoadingBatch = true; 
 
-    // Ambil potongan 10 item
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
     
     if (batch.length === 0) {
@@ -1879,14 +1878,13 @@ async function renderNextBatch() {
         return;
     }
 
-    // Skeleton sementara (Visual only)
+    // Skeleton sementara
     const tempSkeleton = document.createElement("div");
     tempSkeleton.className = "mini-card-skeleton";
     tempSkeleton.id = "temp-loader";
     track.appendChild(tempSkeleton);
 
     // Fetch DATA ON-CHAIN SAJA (Nama & URI)
-    // KITA TIDAK DOWNLOAD GAMBAR DISINI BIAR CEPAT
     const batchPromises = batch.map(async (item) => {
         try {
             const [info, uri] = await Promise.all([
@@ -1894,32 +1892,28 @@ async function renderNextBatch() {
                 contractReader.tokenURI(item.id)
             ]);
             
-            return { 
-                ...item, 
-                nama: info.nama, 
-                uri: uri 
-            };
+            return { ...item, nama: info.nama, uri: uri };
         } catch(e) { return null; }
     });
 
     const readyItems = await Promise.all(batchPromises);
 
-    // Hapus Skeleton
     if(document.getElementById("temp-loader")) document.getElementById("temp-loader").remove();
 
-    // Render HTML
     let html = "";
     readyItems.forEach(item => {
         if(item) {
             const imgId = `carousel-img-${item.id}`;
             
-            // PERHATIKAN: SRC pakai SAFE_PLACEHOLDER. Tidak ada onerror via.placeholder.
+            // PERBAIKAN: 
+            // 1. src pakai SAFE_PLACEHOLDER (Base64).
+            // 2. HAPUS atribut 'onerror'. Jika gambar gagal, biarkan tetap placeholder abu (lebih rapi daripada icon broken).
             html += `
             <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
-                <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
-                     class="carousel-img-lazy"
-                     style="transition: opacity 0.5s; opacity: 0.6; object-fit: cover;">
-                     
+                <div style="background:#eeeeee; height:100%; width:100%;">
+                    <img id="${imgId}" src="${SAFE_PLACEHOLDER}" 
+                         style="width:100%; height:100%; object-fit:cover; opacity:0.5; transition: opacity 0.5s;">
+                </div>
                 <div class="mini-badge">
                     <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
                         ${item.nama}
@@ -1931,7 +1925,7 @@ async function renderNextBatch() {
                 </div>
             </div>`;
             
-            // PENTING: Panggil fungsi background fetch di sini!
+            // Panggil Fetcher Background
             fetchImageInBackground(item.id, item.uri, imgId);
         }
     });
@@ -1942,17 +1936,19 @@ async function renderNextBatch() {
     isLoadingBatch = false;
 }
 
-// --- TAHAP 3: FETCH GAMBAR BACKGROUND (MAINNET SAFE) ---
+// --- TAHAP 3: FETCH GAMBAR BACKGROUND (ANTI BROKEN) ---
 async function fetchImageInBackground(id, tokenUri, imgElementId) {
-    // Gunakan Cloudflare (Paling Stabil untuk Mainnet)
-    const MY_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Gunakan Gateway Cloudflare (Paling Stabil & Cepat untuk Metadata)
+    const CF_GATEWAY = "https://peach-above-swan-831.mypinata.cloud/ipfs/";
+    // Gunakan Pinata untuk Gambar (Backup jika Cloudflare lambat me-render gambar baru)
+    const PINATA_GW = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
         const imgEl = document.getElementById(imgElementId);
         if (!imgEl) return;
 
         // 1. Cek Cache Browser
-        const cacheKey = `carousel_mainnet_v1_${id}`;
+        const cacheKey = `carousel_img_v2_${id}`;
         const cachedUrl = localStorage.getItem(cacheKey);
         
         if (cachedUrl) {
@@ -1961,50 +1957,52 @@ async function fetchImageInBackground(id, tokenUri, imgElementId) {
             return;
         }
 
-        // 2. Fetch Metadata
+        // 2. Fetch Metadata (Pakai Cloudflare biar cepat)
+        // Bersihkan URI IPFS
         const cleanUri = tokenUri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        const metadataUrl = `${MY_GATEWAY}${cleanUri}`;
+        const metadataUrl = `${CF_GATEWAY}${cleanUri}`;
 
-        // Timeout 5 Detik
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 5000);
+        const timeoutId = setTimeout(() => controller.abort(), 6000); // 6 detik timeout
 
         const res = await fetch(metadataUrl, { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if(!res.ok) throw new Error("404");
+        if(!res.ok) return; // Silent fail (tetap abu-abu)
+
         const data = await res.json();
         const rawImage = data.image || data.image_url;
         
         if (rawImage) {
              const cleanImg = rawImage.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-             const directUrl = `${MY_GATEWAY}${cleanImg}`;
+             // Gunakan Gateway Pinata Anda untuk gambar (Biasanya lebih reliable untuk aset pribadi)
+             const directUrl = `${PINATA_GW}${cleanImg}`;
              
-             // Pakai Weserv (Kompresi)
+             // Pakai Weserv (Kompresi WebP & Resize)
              const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(directUrl)}&w=200&q=75&output=webp`;
              
-             // Update Gambar di UI (Teknik Preload)
+             // Preload Image (Biar munculnya mulus)
              const tempImg = new Image();
              tempImg.src = finalUrl;
              
              tempImg.onload = () => {
                  if(imgEl) {
                      imgEl.src = finalUrl;
-                     imgEl.style.opacity = "1"; // Fade in
-                     localStorage.setItem(cacheKey, finalUrl); // Simpan cache
+                     imgEl.style.opacity = "1"; 
+                     localStorage.setItem(cacheKey, finalUrl);
                  }
              };
              
-             // Fallback jika Weserv gagal
+             // Jika Weserv gagal, fallback ke Pinata langsung
              tempImg.onerror = () => {
                  if(imgEl) {
-                     imgEl.src = directUrl; // Pakai link langsung
+                     imgEl.src = directUrl;
                      imgEl.style.opacity = "1";
                  }
              };
         }
     } catch(e) {
-        // Silent fail: Gambar tetap abu-abu (Loading...), tidak error merah.
+        // Biarkan tetap abu-abu jika gagal, jangan bikin error merah di console
     }
 }
     
