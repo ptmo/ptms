@@ -1110,7 +1110,10 @@ let isLoadingBatch = false;
 let modalTipCursor = 0;      
 let modalUserAddr = null;    
 let isModalFetching = false; 
-
+// Baru
+const CACHE_TOP_KEY = "cache_top100_queue_v1";
+const CACHE_EXPIRY_MS = 60 * 60 * 1000; 
+    
 
 window.filterKategori = filterKategori;
 
@@ -1777,11 +1780,30 @@ function copyAddress() {
 // ==========================================
 // FUNGSI PENAMPUNG (FEEDER) VERSI FINAL
 // ==========================================
-
+// Konfigurasi Cache
+    
 async function loadTopEngagement() {
     const track = document.getElementById("topEngagementTrack");
     
-    // 1. Reset Wadah
+    // 1. CEK CACHE LIST (Supaya tidak perlu scan ulang setiap refresh)
+    const cachedList = localStorage.getItem(CACHE_TOP_KEY);
+    if (cachedList) {
+        try {
+            const parsed = JSON.parse(cachedList);
+            // Jika cache belum kadaluarsa (kurang dari 1 jam)
+            if (Date.now() - parsed.timestamp < CACHE_EXPIRY_MS) {
+                console.log("⚡ Turbo Mode: Menggunakan Cache Top 100");
+                top100Queue = parsed.data;
+                track.innerHTML = "";
+                shownIndex = 0;
+                renderNextBatch(); // Langsung render tanpa scan
+                setupScrollListener(track); // Pasang scroll
+                return; // STOP DISINI
+            }
+        } catch(e) { localStorage.removeItem(CACHE_TOP_KEY); }
+    }
+
+    // 2. JIKA CACHE TIDAK ADA, SCANNING NORMAL (Seperti kode asli)
     track.innerHTML = `
         <div class="mini-card-skeleton"></div>
         <div class="mini-card-skeleton"></div>
@@ -1789,18 +1811,13 @@ async function loadTopEngagement() {
     `;
 
     try {
-        // --- TAHAP 1: SCANNING SKOR (CEPAT) ---
-        // Kita scan 100 wayang terbaru untuk mencari siapa yang paling populer
-        // (Hanya ambil data angka, belum ambil gambar)
-        
         let candidateIds = [];
         if (typeof globalIds !== 'undefined' && globalIds.length > 0) {
-            candidateIds = globalIds.slice(0, 100); // Scan 100 item terbaru
+            candidateIds = globalIds.slice(0, 100); 
         } else {
             candidateIds = Array.from({length: 50}, (_, i) => i + 1).reverse();
         }
 
-        // Fetch Score secara paralel
         const scorePromises = candidateIds.map(async (id) => {
             try {
                 const [likes, ratingRaw] = await Promise.all([
@@ -1811,10 +1828,8 @@ async function loadTopEngagement() {
                 const likeCount = parseInt(likes);
                 const ratingVal = parseInt(ratingRaw);
                 
-                // Hanya masukkan yang ada interaksi
                 if (likeCount === 0 && ratingVal === 0) return null;
 
-                // Hitung Skor
                 return {
                     id: id,
                     likes: likeCount,
@@ -1825,35 +1840,26 @@ async function loadTopEngagement() {
         });
 
         const results = await Promise.all(scorePromises);
-        
-        // Bersihkan null & Urutkan Ranking (Juara 1 di atas)
         let validItems = results.filter(i => i !== null);
         validItems.sort((a, b) => b.score - a.score);
 
-        // SIMPAN KE GLOBAL QUEUE (Maksimal 100 Juara)
         top100Queue = validItems.slice(0, 100);
+        
+        // SIMPAN HASIL SCAN KE CACHE (Biar besok2 ngebut)
+        localStorage.setItem(CACHE_TOP_KEY, JSON.stringify({
+            timestamp: Date.now(),
+            data: top100Queue
+        }));
         
         if (top100Queue.length === 0) {
              track.innerHTML = `<span style="padding:20px; color:#aaa; font-size:12px;">Menunggu interaksi pertama...</span>`;
              return;
         }
 
-        // Bersihkan Skeleton, Siap Render Batch Pertama
         track.innerHTML = "";
         shownIndex = 0; 
-
-        // Render 10 Pertama
         await renderNextBatch();
-
-        // --- PASANG SENSOR SCROLL (INFINITE LOAD) ---
-        track.addEventListener('scroll', () => {
-            // Jika sisa scroll kanan tinggal dikit (< 100px) & tidak sedang loading
-            if (track.scrollLeft + track.clientWidth >= track.scrollWidth - 100) {
-                if (!isLoadingBatch && shownIndex < top100Queue.length) {
-                    renderNextBatch();
-                }
-            }
-        });
+        setupScrollListener(track);
 
     } catch (err) {
         console.warn("Carousel error:", err);
@@ -1861,146 +1867,109 @@ async function loadTopEngagement() {
     }
 }
 
-// --- TAHAP 2: RENDER INSTANT (TURBO & BERSIH) ---
+// Helper untuk sensor scroll
+function setupScrollListener(track) {
+    track.addEventListener('scroll', () => {
+        if (track.scrollLeft + track.clientWidth >= track.scrollWidth - 100) {
+            if (!isLoadingBatch && shownIndex < top100Queue.length) {
+                renderNextBatch();
+            }
+        }
+    });
+}
+
 async function renderNextBatch() {
     const track = document.getElementById("topEngagementTrack");
-    if (isLoadingBatch) return;
-
-    const PLACEHOLDER =
-        "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7";
-
-    isLoadingBatch = true;
+    // Gateway Tetap Sama (Sesuai Permintaan)
+    const DEDICATED_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud";
+    
+    isLoadingBatch = true; 
 
     const batch = top100Queue.slice(shownIndex, shownIndex + 10);
-    if (!batch.length) {
+    
+    if (batch.length === 0) {
         isLoadingBatch = false;
         return;
     }
 
-    const loader = document.createElement("div");
-    loader.className = "mini-card-skeleton";
-    track.appendChild(loader);
+    const tempSkeleton = document.createElement("div");
+    tempSkeleton.className = "mini-card-skeleton";
+    tempSkeleton.id = "temp-loader";
+    track.appendChild(tempSkeleton);
 
-    const items = await Promise.all(
-        batch.map(async (it) => {
+    const batchPromises = batch.map(async (item) => {
+        // --- LOGIKA CACHE ITEM ---
+        // Cek apakah data item ini sudah pernah diambil sebelumnya?
+        const itemCacheKey = `meta_cache_v1_${item.id}`;
+        const cachedItem = localStorage.getItem(itemCacheKey);
+        
+        if (cachedItem) {
+            // Jika ada di cache, pakai langsung! (Speed: 0ms)
+            return JSON.parse(cachedItem);
+        }
+
+        // --- JIKA TIDAK ADA DI CACHE, FETCH BARU (LOGIKA ASLI) ---
+        try {
+            const info = await contractReader.getInfoWayang(item.id);
+            const uri = await contractReader.tokenURI(item.id);
+            
+            let finalImgUrl = "https://via.placeholder.com/150x200?text=No+Image";
+            
             try {
-                const [info, uri] = await Promise.all([
-                    contractReader.getInfoWayang(it.id),
-                    contractReader.tokenURI(it.id),
-                ]);
-                return { ...it, nama: info.nama, uri };
-            } catch {
-                return null;
+                const jsonUrl = uri.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+                const res = await axios.get(jsonUrl, { timeout: 5000 });
+                const rawImage = res.data.image || res.data.image_url;
+                
+                if (rawImage) {
+                     const cleanImg = rawImage.replace("ipfs://", `${DEDICATED_GATEWAY}/ipfs/`);
+                     finalImgUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanImg)}&w=200&q=80&output=webp`;
+                }
+            } catch(e) {
+                const cid = uri.replace("ipfs://", "").split('/')[0];
+                finalImgUrl = `${DEDICATED_GATEWAY}/ipfs/${cid}`;
             }
-        })
-    );
 
-    loader.remove();
+            const resultObj = { ...item, nama: info.nama, imgUrl: finalImgUrl };
+
+            // SIMPAN KE CACHE (Supaya next time tidak perlu fetch lagi)
+            try {
+                localStorage.setItem(itemCacheKey, JSON.stringify(resultObj));
+            } catch(e) { console.warn("Storage penuh"); }
+
+            return resultObj;
+
+        } catch(e) { return null; }
+    });
+
+    const readyItems = await Promise.all(batchPromises);
+
+    const loader = document.getElementById("temp-loader");
+    if(loader) loader.remove();
 
     let html = "";
-    items.forEach((it) => {
-        if (!it) return;
-        html += `
-<div class="mini-card" onclick="location.href='detail?id=${it.id}'">
-    <div style="background:#eee;width:100%;height:100%">
-        <img id="img-${it.id}" src="${PLACEHOLDER}"
-             style="width:100%;height:100%;object-fit:cover;opacity:.5;transition:.4s">
-    </div>
-    <div class="mini-badge">
-        <div style="font-weight:600;font-size:10px;overflow:hidden;white-space:nowrap;text-overflow:ellipsis">
-            ${it.nama}
-        </div>
-        <div style="display:flex;justify-content:space-between;font-size:10px">
-            <span>😂 ${it.likes}</span>
-            <span>🥵 ${it.rating}</span>
-        </div>
-    </div>
-</div>`;
+    readyItems.forEach(item => {
+        if(item) {
+            html += `
+            <div class="mini-card" onclick="window.location.href='detail?id=${item.id}'">
+                <img src="${item.imgUrl}" loading="lazy" 
+                     onerror="this.src='https://via.placeholder.com/140x200?text=Error'">
+                <div class="mini-badge">
+                    <div style="font-weight:bold; margin-bottom:4px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; font-size:10px;">
+                        ${item.nama}
+                    </div>
+                    <div style="display:flex; justify-content:space-between; color:#555; font-size:10px;">
+                        <span><i class="fas fa-heart" style="color:#e74c3c;"></i> ${item.likes}</span>
+                        <span><i class="fas fa-star" style="color:#f1c40f;"></i> ${item.rating}</span>
+                    </div>
+                </div>
+            </div>`;
+        }
     });
 
-    track.insertAdjacentHTML("beforeend", html);
-
-    items.forEach((it) => {
-        if (it) fetchImageFinally(it.id, it.uri);
-    });
+    track.insertAdjacentHTML('beforeend', html);
 
     shownIndex += 10;
     isLoadingBatch = false;
-}
-
-async function fetchImageFinally(id, tokenUri) {
-    const img = document.getElementById(`img-${id}`);
-    if (!img) return;
-
-    const CACHE_KEY = `nft_img_${id}`;
-    const cached = localStorage.getItem(CACHE_KEY);
-    if (cached) {
-        img.src = cached;
-        img.style.opacity = "1";
-        return;
-    }
-
-    const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
-        "https://gateway.pinata.cloud/ipfs/",
-        "https://ipfs.io/ipfs/",
-        "https://dweb.link/ipfs/"
-    ];
-
-    let uri = tokenUri;
-    if (uri.startsWith("ipfs://")) uri = uri.replace("ipfs://", "");
-
-    let imageSrc = null;
-
-    // CASE 1 — tokenURI langsung IMAGE
-    if (uri.match(/\.(png|jpg|jpeg|webp|gif)$/i)) {
-        imageSrc = uri;
-    }
-
-    // CASE 2 — tokenURI metadata JSON
-    if (!imageSrc) {
-        for (const gw of GATEWAYS) {
-            const metaUrl = uri.startsWith("http") ? uri : gw + uri;
-            try {
-                const r = await fetch(metaUrl);
-                if (!r.ok) continue;
-                const j = await r.json();
-                imageSrc = j.image || j.image_url;
-                if (imageSrc) break;
-            } catch {}
-        }
-    }
-
-    if (!imageSrc) return;
-
-    if (imageSrc.startsWith("ipfs://"))
-        imageSrc = imageSrc.replace("ipfs://", "");
-
-    let finalUrl = null;
-
-    for (const gw of GATEWAYS) {
-        const direct = imageSrc.startsWith("http")
-            ? imageSrc
-            : gw + imageSrc;
-
-        const ok = await new Promise((res) => {
-            const t = new Image();
-            t.onload = () => res(true);
-            t.onerror = () => res(false);
-            t.src = direct;
-        });
-
-        if (ok) {
-            finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(direct)}&w=300&q=75&output=webp`;
-            break;
-        }
-    }
-
-    if (finalUrl) {
-        img.src = finalUrl;
-        img.style.opacity = "1";
-        localStorage.setItem(CACHE_KEY, finalUrl);
-    }
 }
     
 // Disconnect Wallet
