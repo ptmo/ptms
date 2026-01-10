@@ -973,6 +973,36 @@
 .main-container {
     min-height: auto !important;
 }
+
+/* Efek Hover Gambar Kartu Mini */
+.mini-card img {
+    transition: transform 0.6s cubic-bezier(0.165, 0.84, 0.44, 1);
+}
+
+.mini-card:hover img {
+    transform: scale(1.1);
+}
+
+/* Badge Waktu (Timestamp) */
+.time-badge {
+    font-size: 9px;
+    color: #7385a5;
+    background: #f0f4f8;
+    padding: 2px 6px;
+    border-radius: 4px;
+    display: inline-block;
+    margin-top: 4px;
+}
+
+/* Animasi Fade In Smooth untuk kartu baru */
+@keyframes softFadeIn {
+    from { opacity: 0; transform: translateX(10px); }
+    to { opacity: 1; transform: translateX(0); }
+}
+
+.latest-card-ready {
+    animation: softFadeIn 0.8s ease forwards;
+}
 </style>
        <nav class="navbar">
         <div class="nav-left">
@@ -1034,6 +1064,21 @@
         <span>Batik Nusantara</span>
     </button>
 </div>
+    <div class="carousel-area" style="margin-top: 20px;">
+    <div class="carousel-label">
+        <i class="fas fa-sparkles" style="color:#f1c40f;"></i> Koleksi Terbaru
+    </div>
+
+    <div class="marquee-container">
+        <div class="marquee-track" id="latestMintTrack">
+            <div class="mini-card-skeleton"></div>
+            <div class="mini-card-skeleton"></div>
+            <div class="mini-card-skeleton"></div>
+            <div class="mini-card-skeleton"></div>
+            <div class="mini-card-skeleton"></div>
+        </div>
+    </div>
+    </div>
     </div>
     </section>
 
@@ -1976,6 +2021,124 @@ function disconnectWallet() {
     document.getElementById("modalShortAddress").innerText = "0x...";
     window.location.reload(); 
 }
+
+// --- ALGORITMA KOLEKSI TERBARU ---
+
+// 1. Fungsi Helper Format Waktu (Timestamp Logic)
+function formatRelativeTime(timestamp) {
+    const now = Math.floor(Date.now() / 1000);
+    const diff = now - timestamp;
+
+    if (diff < 60) return 'Baru saja';
+    if (diff < 3600) return Math.floor(diff / 60) + ' menit lalu';
+    if (diff < 86400) return Math.floor(diff / 3600) + ' jam lalu';
+    
+    // Jika kurang dari 7 hari
+    if (diff < 604800) return Math.floor(diff / 86400) + ' hari lalu';
+
+    // Jika lebih dari 1 minggu, gunakan format tanggal
+    const d = new Date(timestamp * 1000);
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Agu', 'Sep', 'Okt', 'Nov', 'Des'];
+    return `${d.getDate()} ${months[d.getMonth()]} ${d.getFullYear()}`;
+}
+
+// 2. Fungsi Utama Load Koleksi Terbaru
+async function loadLatestMints() {
+    const track = document.getElementById("latestMintTrack");
+    if (!track) return;
+
+    try {
+        // Kita ambil 10 ID terakhir yang terdaftar di contract
+        // Karena globalIds di script Anda sudah di-reverse (terbaru di depan)
+        // Kita tunggu sampai globalIds tersedia atau ambil langsung dari contract
+        
+        // Versi Turbo: Jika globalIds belum ada, kita fetch manual 10 terakhir
+        // Asumsi: Kita melakukan looping mundur dari ID tertinggi
+        const latestIdBN = await contractReader.arsipWayang.length; // Tergantung fungsi counter di contract
+        // Atau cara termudah: gunakan globalIds yang sudah ada di script Anda
+        
+        if (!globalIds || globalIds.length === 0) {
+            // Re-fetch jika belum ada
+            const ids = await contractReader.getIdsByGolongan('Satria'); // Contoh satu kategori
+            globalIds = ids.slice().reverse();
+        }
+
+        const latestIds = globalIds.slice(0, 10);
+        track.innerHTML = ""; // Bersihkan skeleton
+
+        for (const id of latestIds) {
+            fetchLatestCardData(id, track);
+        }
+
+    } catch (err) {
+        console.error("Gagal load latest mints:", err);
+        track.innerHTML = `<p style="font-size:10px; color:#aaa; padding:20px;">Gagal memuat data terbaru</p>`;
+    }
+}
+
+// 3. Fungsi Render Per Card (Async Background)
+async function fetchLatestCardData(id, container) {
+    try {
+        const [info, uri] = await Promise.all([
+            contractReader.getInfoWayang(id),
+            contractReader.tokenURI(id)
+        ]);
+
+        if (!info.isActive) return;
+
+        const timeStr = formatRelativeTime(parseInt(info.timestamp));
+        const imgId = `latest-img-${id}`;
+        
+        const cardHtml = `
+            <div class="mini-card latest-card-ready" onclick="window.location.href='detail?id=${id}'">
+                <div style="height:140px; overflow:hidden; background:#f4f4f4;">
+                    <img id="${imgId}" src="data:image/svg+xml;charset=UTF-8,%3Csvg%20xmlns%3D%22http%3A%2F%2Fwww.w3.org%2F2000%2Fsvg%22%20width%3D%22140%22%20height%3D%22140%22%3E%3Crect%20fill%3D%22%23eee%22%20width%3D%22140%22%20height%3D%22140%22%2F%3E%3C/svg%3E" 
+                         loading="lazy" style="opacity:0.5;">
+                </div>
+                <div class="mini-badge" style="bottom: 5px; height: 50px;">
+                    <div style="font-weight:bold; color:#7385a5; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${info.nama}</div>
+                    <div class="time-badge"><i class="far fa-clock"></i> ${timeStr}</div>
+                </div>
+            </div>
+        `;
+        
+        container.insertAdjacentHTML('beforeend', cardHtml);
+
+        // Fetch gambar lewat Weserv (Proxy turbo)
+        fetchCarouselImage(uri, imgId);
+
+    } catch (e) {
+        console.warn("Skip card terbaru:", id);
+    }
+}
+
+// Helper fetch gambar (menggunakan logika wsrv.nl Anda)
+async function fetchCarouselImage(uri, imgElementId) {
+    try {
+        const jsonUrl = resolveIpfs(uri);
+        const res = await fetch(jsonUrl);
+        const data = await res.json();
+        const rawImg = data.image || data.image_url;
+        
+        if (rawImg) {
+            const publicUrl = resolveIpfs(rawImg);
+            const optimized = `https://wsrv.nl/?url=${encodeURIComponent(publicUrl)}&w=200&q=80&output=webp`;
+            
+            const el = document.getElementById(imgElementId);
+            if (el) {
+                el.src = optimized;
+                el.style.opacity = "1";
+            }
+        }
+    } catch (e) {}
+}
+
+// Tambahkan pemicu di window.onload
+const originalOnload = window.onload;
+window.onload = async function() {
+    await originalOnload(); // Jalankan onload asli Anda
+    loadLatestMints();      // Jalankan algoritma koleksi terbaru
+};
     
 function showToast(msg, type = 'info') {
     const x = document.getElementById("toast");
