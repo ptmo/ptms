@@ -2062,10 +2062,18 @@ async function loadLatestMints() {
         // Atau cara termudah: gunakan globalIds yang sudah ada di script Anda
         
         if (!globalIds || globalIds.length === 0) {
-            // Re-fetch jika belum ada
-            const ids = await contractReader.getIdsByGolongan('Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman');
-            globalIds = ids.slice().reverse();
-        }
+            console.log("Mencari koleksi terbaru dari semua kategori...");
+            const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+            
+            // Ambil ID dari semua golongan secara paralel
+            const allPromises = golongans.map(gol => contractReader.getIdsByGolongan(gol));
+            const results = await Promise.all(allPromises);
+            
+            // Gabungkan semua ID menjadi satu array, hilangkan duplikat, dan urutkan dari yang terbesar (terbaru)
+            let combinedIds = results.flat().map(id => parseInt(id.toString()));
+            // Hapus duplikat dan sortir descending (ID besar = terbaru)
+            globalIds = [...new Set(combinedIds)].sort((a, b) => b - a);
+}
 
         const latestIds = globalIds.slice(0, 10);
         track.innerHTML = ""; // Bersihkan skeleton
