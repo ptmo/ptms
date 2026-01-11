@@ -237,18 +237,26 @@
     </nav>
 
     <script>
+
+        const CHAIN_ID_BASE = "0x2105"; // Hex dari 8453
+const CHAIN_ID_DECIMAL = 8453;
+
+const BASE_MAINNET_CONFIG = {
+    chainId: CHAIN_ID_BASE,
+    chainName: 'Base',
+    nativeCurrency: {
+        name: 'Ethereum',
+        symbol: 'ETH',
+        decimals: 18
+    },
+    rpcUrls: ['https://mainnet.base.org'], // RPC Resmi
+    blockExplorerUrls: ['https://basescan.org']
+};
+        
         const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
         const OFFICIAL_WALLET = "0xBAcc1F6e717bF03dB0c40E3044DA47318C369B70";
         // ABI Minimal untuk Read Data + Upload
-        const ABI = [
-            "function getInfoWayang(uint256 tokenId) view returns (tuple(string nama, string golongan, string gaya, uint256 timestamp, bool isActive, bool isOfficial, address creator))",
-            "function tokenURI(uint256 tokenId) view returns (string)",
-            "function ownerOf(uint256 tokenId) view returns (address)",
-            "function totalLikes(uint256 tokenId) view returns (uint256)",
-            "function uploadPublik(string _tokenURI, string _nama, string _golongan, string _gaya) payable",
-            "function publicMintFee() view returns (uint256)",
-            "function getIdsByGolongan(string golongan) view returns (uint256[])"
-        ];
+        const ABI = ;
         
         const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
         let provider, contractReader, signer;
@@ -274,11 +282,76 @@
         };
 
         async function connectWallet() {
-            if(!window.ethereum) return alert("Pasang Metamask!");
-            const web3 = new ethers.providers.Web3Provider(window.ethereum);
-            await web3.send("eth_requestAccounts", []);
-            location.reload();
+    if (!window.ethereum) return alert("Metamask tidak terdeteksi! Harap install terlebih dahulu.");
+    
+    const btnConnect = document.getElementById("btn-connect"); // Sesuaikan ID tombol Anda
+    const originalText = btnConnect ? btnConnect.innerHTML : "Connect";
+
+    if(btnConnect) btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+
+    try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // 1. Request Akses Akun
+        await provider.send("eth_requestAccounts", []);
+
+        // 2. Cek Jaringan Saat Ini
+        const network = await provider.getNetwork();
+
+        // 3. Jika BUKAN Base Mainnet (8453), Paksa Ganti
+        if (network.chainId !== CHAIN_ID_DECIMAL) {
+            await switchNetwork();
+            // Reload provider setelah ganti network agar state update
+            return connectWallet(); 
         }
+
+        // 4. Jika Sudah Benar, Ambil Data User
+        const signer = provider.getSigner();
+        const userAddress = await signer.getAddress();
+        
+        // Update UI (Contoh)
+        if(btnConnect) {
+            btnConnect.innerHTML = `<i class="fas fa-wallet"></i> ${userAddress.substring(0,6)}...`;
+            btnConnect.classList.add("connected");
+        }
+        
+        // Simpan state atau buka modal (sesuai logika aplikasi Bapak)
+        console.log("Terhubung ke Base Mainnet:", userAddress);
+        // toggleWalletModal(); // Jika ada
+
+    } catch (err) { 
+        console.error("Koneksi Gagal:", err);
+        if(btnConnect) btnConnect.innerHTML = originalText;
+        alert("Gagal konek: " + (err.message || "User menolak request."));
+    }
+}
+
+async function switchNetwork() {
+    try {
+        // Coba perintah ganti network
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: CHAIN_ID_BASE }],
+        });
+    } catch (switchError) {
+        // Kode 4902 artinya Network Belum Ada di Metamask User
+        if (switchError.code === 4902) {
+            try {
+                // Perintah pasang RPC otomatis
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [BASE_MAINNET_CONFIG],
+                });
+            } catch (addError) {
+                console.error("User menolak pasang RPC Base:", addError);
+                throw addError;
+            }
+        } else {
+            console.error("Gagal ganti network:", switchError);
+            throw switchError;
+        }
+    }
+}
 
         // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
         async function loadFeed() {
