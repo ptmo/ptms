@@ -288,110 +288,300 @@
 
                 // 3. Ambil 20 Terbaru (Pagination sederhana)
                 const feedIds = allIds.slice(0, 20);
+<script>
+    // --- KONFIGURASI NETWORK (BASE MAINNET) ---
+    const CHAIN_ID_BASE = "0x2105"; // 8453
+    const BASE_RPC = "https://mainnet.base.org"; // RPC Mainnet Stabil
+    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
+    const OFFICIAL_WALLET = "0xBAcc1F6e717bF03dB0c40E3044DA47318C369B70";
 
-                if(feedIds.length === 0) {
-                    container.innerHTML = "<p style='text-align:center;'>Belum ada postingan.</p>";
-                    return;
-                }
+    // KUNCI CACHE (Ganti versi jika Anda update struktur data nanti)
+    const CACHE_FEED_KEY = "PUTRAMAS_FEED_V1_MAINNET"; 
+    const CACHE_EXPIRY = 24 * 60 * 60 * 1000; // Cache valid 24 jam (tapi tetap auto-update)
 
-                container.innerHTML = ""; // Bersihkan loading
+    // ABI Minimal
+    const ABI = [
+        "function getInfoWayang(uint256 tokenId) view returns (tuple(string nama, string golongan, string gaya, uint256 timestamp, bool isActive, bool isOfficial, address creator))",
+        "function tokenURI(uint256 tokenId) view returns (string)",
+        "function ownerOf(uint256 tokenId) view returns (address)",
+        "function totalLikes(uint256 tokenId) view returns (uint256)",
+        "function getIdsByGolongan(string golongan) view returns (uint256[])",
+        "function uploadPublik(string _tokenURI, string _nama, string _golongan, string _gaya) payable",
+        "function publicMintFee() view returns (uint256)"
+    ];
+    
+    let contractReader;
+    let feedData = []; // Penampung data di RAM
 
-                // 4. Render Kartu
-                for(let id of feedIds) {
-                    await renderCard(id, container);
-                }
+    // --- INIT ---
+    window.onload = async () => {
+        // 1. Setup Provider (Tanpa Wallet dulu biar cepat)
+        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC);
+        contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
+        
+        // 2. Cek Login Wallet (UI Only)
+        checkWalletConnection();
 
-            } catch(e) {
-                console.error(e);
-                container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
-            }
-        }
+        // 3. JALANKAN TURBO LOAD
+        loadFeedTurbo();
+    };
 
-        async function renderCard(id, container) {
+    // --- FUNGSI TURBO LOAD (INTI KECEPATAN) ---
+    async function loadFeedTurbo() {
+        const container = document.getElementById("feedContent");
+        
+        // LANGKAH 1: Cek Cache HP (Kecepatan Cahaya)
+        const cachedRaw = localStorage.getItem(CACHE_FEED_KEY);
+        let hasCache = false;
+
+        if (cachedRaw) {
             try {
-                const [info, uri, owner, likes] = await Promise.all([
-                    contractReader.getInfoWayang(id),
-                    contractReader.tokenURI(id),
-                    contractReader.ownerOf(id),
-                    contractReader.totalLikes(id)
-                ]);
-
-                if(!info.isActive) return;
-
-                // Proses Gambar & Metadata
-                let imgUrl = "img/loading.gif";
-                try {
-                    const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
-                    const res = await axios.get(jsonUrl);
-                    const rawImg = res.data.image || res.data.image_url;
-                    imgUrl = rawImg.replace("ipfs://", PINATA_GATEWAY);
-                    // Pakai Weserv biar cepat
-                    imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=500&q=75&output=webp`;
-                } catch(e) {}
-
-                // Cek Official
-                const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-                const badge = isOfficial 
-                    ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
-                    : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
-                
-                const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
-                const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
-
-                // Template HTML Kartu
-                const html = `
-                <div class="feed-card">
-                    <div class="card-header">
-                        <div class="user-info">
-                            <img src="${avatar}" class="user-pic">
-                            <div>
-                                <div class="user-name">${senderName} ${badge}</div>
-                                <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
-                            </div>
-                        </div>
-                        <i class="fas fa-ellipsis-h" style="color:#ccc;"></i>
-                    </div>
-                    
-                    <div class="card-content">
-                        <h3 class="wayang-title">${info.nama}</h3>
-                        <div class="wayang-desc">
-                            Wayang golongan <span class="tag-badge">${info.golongan}</span> 
-                            gaya <span class="tag-badge">${info.gaya}</span>
-                        </div>
-                    </div>
-
-                    <div class="card-image" onclick="window.location.href='detail?id=${id}'" style="cursor:pointer;">
-                        <img src="${imgUrl}" loading="lazy">
-                    </div>
-
-                    <div class="card-actions">
-                        <button class="action-btn"><i class="far fa-heart"></i> ${likes} Suka</button>
-                        <button class="action-btn" onclick="window.location.href='detail?id=${id}'"><i class="far fa-comment"></i> Ulasan</button>
-                        <button class="action-btn"><i class="fas fa-share"></i> Bagikan</button>
-                    </div>
-                </div>`;
-
-                container.insertAdjacentHTML('beforeend', html);
-
-            } catch(e) { console.log("Skip error id", id); }
-        }
-
-        // --- LOGIKA UPLOAD INSTAN ---
-        function toggleForm() {
-            document.getElementById("uploadBox").classList.toggle("open");
-        }
-
-        function previewImage() {
-            const file = document.getElementById("fileUpload").files[0];
-            const reader = new FileReader();
-            reader.onload = (e) => {
-                document.getElementById("imgPreview").src = e.target.result;
-                document.getElementById("imgPreview").style.display = "block";
-                document.getElementById("textPreview").style.display = "none";
+                const cached = JSON.parse(cachedRaw);
+                // Render langsung apa yang ada di memori
+                if (cached.data && cached.data.length > 0) {
+                    console.log("🚀 Turbo Mode: Menampilkan data dari Cache");
+                    feedData = cached.data;
+                    renderFeedFromArray(feedData);
+                    hasCache = true;
+                }
+            } catch (e) {
+                console.warn("Cache rusak, hapus.");
+                localStorage.removeItem(CACHE_FEED_KEY);
             }
-            reader.readAsDataURL(file);
         }
 
+        // Jika tidak ada cache, tampilkan Skeleton Loading
+        if (!hasCache) {
+            container.innerHTML = `
+            <div style="text-align:center; padding:40px; color:#aaa;">
+                <i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>Memuat dari Blockchain...
+            </div>`;
+        }
+
+        // LANGKAH 2: Cek Update di Background (Diam-diam)
+        // User sudah bisa baca konten lama sambil kita ambil konten baru
+        await syncBackgroundData(hasCache);
+    }
+
+    // --- SINKRONISASI DATA BARU (BACKGROUND) ---
+    async function syncBackgroundData(isSilentMode) {
+        const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+
+        try {
+            // Ambil semua ID terbaru dari Blockchain
+            const promises = golongans.map(gol => contractReader.getIdsByGolongan(gol));
+            const results = await Promise.all(promises);
+            
+            let allIds = results.flat().map(id => parseInt(id));
+            // Urutkan ID Besar ke Kecil (Terbaru)
+            allIds = [...new Set(allIds)].sort((a, b) => b - a);
+
+            // Ambil 20 ID Teratas saja untuk Feed Utama
+            const top20Ids = allIds.slice(0, 20);
+
+            // LOGIKA SMART UPDATE:
+            // Cek apakah ID paling atas di Blockchain BEDA dengan yang ada di Cache?
+            const currentTopId = feedData.length > 0 ? feedData[0].id : -1;
+            const blockchainTopId = top20Ids.length > 0 ? top20Ids[0] : -1;
+
+            if (blockchainTopId === currentTopId) {
+                console.log("✅ Data sudah paling update. Tidak perlu fetch ulang.");
+                return; // Stop, hemat kuota user
+            }
+
+            console.log("🔄 Ada data baru! Mengambil detail...");
+            if (!isSilentMode) {
+                // Jika tadi tidak ada cache, kosongkan loader
+                document.getElementById("feedContent").innerHTML = ""; 
+            }
+
+            // Fetch Detail Data Baru
+            const freshData = [];
+            for (let id of top20Ids) {
+                // Cek apakah ID ini sudah ada di cache kita? Kalau ada pakai yg lama biar cepat
+                const existingItem = feedData.find(item => item.id === id);
+                if (existingItem) {
+                    freshData.push(existingItem);
+                } else {
+                    // Kalau belum ada, baru fetch dari Blockchain
+                    const item = await fetchWayangDetail(id);
+                    if (item) freshData.push(item);
+                }
+            }
+
+            // Simpan Data Baru ke RAM & Cache
+            feedData = freshData;
+            localStorage.setItem(CACHE_FEED_KEY, JSON.stringify({
+                timestamp: Date.now(),
+                data: feedData
+            }));
+
+            // Render Ulang dengan Data Terbaru (Tanpa kedip berlebihan)
+            renderFeedFromArray(feedData);
+            
+            // Beri notifikasi kecil jika user sedang membaca (Opsional)
+            if (isSilentMode) {
+                // Bisa tambah toast "Feed diperbarui" di sini
+                console.log("UI Diperbarui dengan data baru.");
+            }
+
+        } catch (e) {
+            console.error("Gagal sinkronisasi background:", e);
+        }
+    }
+
+    // --- HELPER FETCH SATUAN ---
+    async function fetchWayangDetail(id) {
+        try {
+            const [info, uri, owner, likes] = await Promise.all([
+                contractReader.getInfoWayang(id),
+                contractReader.tokenURI(id),
+                contractReader.ownerOf(id),
+                contractReader.totalLikes(id)
+            ]);
+
+            if (!info.isActive) return null;
+
+            // Optimasi Gambar
+            let imgUrl = "img/loading.gif";
+            try {
+                // Resolusi gateway IPFS
+                let cleanUri = uri.replace("ipfs://", "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/");
+                
+                // Ambil Metadata JSON
+                const res = await axios.get(cleanUri); 
+                let rawImg = res.data.image || res.data.image_url;
+                
+                // Bersihkan URL Gambar
+                rawImg = rawImg.replace("ipfs://", "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/");
+                
+                // Pakai Weserv untuk Kompresi & Cache CDN
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg)}&w=500&q=75&output=webp`;
+            } catch (e) { console.log("Gagal ambil gambar ID " + id); }
+
+            // Cek Official
+            const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+            
+            // Format Waktu
+            const dateObj = new Date(info.timestamp * 1000);
+            const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
+
+            return {
+                id: id,
+                nama: info.nama,
+                golongan: info.golongan,
+                gaya: info.gaya,
+                owner: owner,
+                isOfficial: isOfficial,
+                likes: parseInt(likes),
+                imgUrl: imgUrl,
+                dateStr: dateStr,
+                timestamp: info.timestamp
+            };
+        } catch (e) { return null; }
+    }
+
+    // --- FUNGSI RENDER (MENAMPILKAN ARRAY DATA KE HTML) ---
+    function renderFeedFromArray(dataArray) {
+        const container = document.getElementById("feedContent");
+        let html = "";
+
+        dataArray.forEach(item => {
+            const badge = item.isOfficial 
+                ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
+                : `<i class="fas fa-check-circle verified-badge" title="Verified"></i>`;
+            
+            const senderName = item.isOfficial 
+                ? "Putramas Official" 
+                : item.owner.substring(0,6) + "..." + item.owner.slice(-4);
+            
+            const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${item.owner}`;
+
+            html += `
+            <div class="feed-card">
+                <div class="card-header">
+                    <div class="user-info">
+                        <img src="${avatar}" class="user-pic">
+                        <div>
+                            <div class="user-name">${senderName} ${badge}</div>
+                            <div class="post-time">${item.dateStr} • ID #${item.id}</div>
+                        </div>
+                    </div>
+                    <i class="fas fa-ellipsis-h" style="color:#ccc; cursor:pointer;"></i>
+                </div>
+                
+                <div class="card-content">
+                    <h3 class="wayang-title">${item.nama}</h3>
+                    <div class="wayang-desc">
+                        <span class="tag-badge">${item.golongan}</span> 
+                        <span class="tag-badge" style="background:#fef3c7; color:#d97706;">${item.gaya}</span>
+                    </div>
+                </div>
+
+                <div class="card-image" onclick="window.location.href='detail?id=${item.id}'" style="cursor:pointer;">
+                    <img src="${item.imgUrl}" loading="lazy" alt="${item.nama}">
+                </div>
+
+                <div class="card-actions">
+                    <button class="action-btn"><i class="far fa-heart"></i> ${item.likes}</button>
+                    <button class="action-btn" onclick="window.location.href='detail?id=${item.id}'"><i class="far fa-comment"></i> Ulasan</button>
+                    <button class="action-btn"><i class="fas fa-share"></i> Bagikan</button>
+                </div>
+            </div>`;
+        });
+
+        container.innerHTML = html;
+    }
+
+    // --- WALLET & UPLOAD LOGIC ---
+    async function checkWalletConnection() {
+        if(window.ethereum) {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const accounts = await provider.listAccounts();
+            if(accounts.length > 0) {
+                const btn = document.getElementById("btnConnect");
+                btn.innerHTML = `<i class="fas fa-user-check"></i> Connected`;
+                btn.classList.add("connected");
+            }
+        }
+    }
+
+    async function connectWallet() {
+        if(!window.ethereum) return alert("Metamask tidak ditemukan!");
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        
+        // Cek Network Mainnet
+        const net = await provider.getNetwork();
+        if(net.chainId !== 8453) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: CHAIN_ID_BASE }],
+                });
+            } catch(e) {
+                // Jika belum ada network, tambahkan (Add Chain Logic here)
+                alert("Harap ganti ke Base Mainnet!");
+            }
+        }
+        location.reload();
+    }
+
+    function toggleForm() {
+        document.getElementById("uploadBox").classList.toggle("open");
+    }
+
+    function previewImage() {
+        const file = document.getElementById("fileUpload").files[0];
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            document.getElementById("imgPreview").src = e.target.result;
+            document.getElementById("imgPreview").style.display = "block";
+            document.getElementById("textPreview").style.display = "none";
+        }
+        reader.readAsDataURL(file);
+    }
+                
         async function uploadWayang() {
             // (Anda perlu memasukkan fungsi helper compressImage, uploadIPFS, uploadJSON di sini atau load dari file external)
             // Untuk demo ini, saya alert saja karena fungsinya panjang
