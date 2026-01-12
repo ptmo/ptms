@@ -1,33 +1,277 @@
 <!DOCTYPE html>
-<html>
-<body>
-    <h3>Cek Latensi RPC</h3>
-    <input type="text" id="rpcUrl" placeholder="Masukkan URL RPC..." style="width: 300px;" value="https://mainnet.base.org">
-    <button onclick="testLatency()">Tes Ping</button>
-    <p id="result">Hasil: -</p>
-
-    <script>
-        async function testLatency() {
-            const url = document.getElementById('rpcUrl').value;
-            const output = document.getElementById('result');
-            output.innerHTML = "Menguji...";
-            
-            const start = Date.now();
-            try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1})
-                });
-                const end = Date.now();
-                const duration = end - start;
-                
-                let color = duration < 200 ? "green" : (duration < 500 ? "orange" : "red");
-                output.innerHTML = `Hasil: <b style="color:${color}">${duration} ms</b>`;
-            } catch (err) {
-                output.innerHTML = "Error: Tidak bisa terhubung (Cek CORS atau URL)";
-            }
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>RPC Speedway | Base Network Analyzer</title>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg: #0b0e14;
+            --card: #151a23;
+            --accent: #0052ff; /* Base Blue */
+            --accent-glow: rgba(0, 82, 255, 0.4);
+            --text: #e2e8f0;
+            --green: #10b981;
+            --yellow: #f59e0b;
+            --red: #ef4444;
         }
-    </script>
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            font-family: 'Inter', sans-serif;
+            margin: 0; padding: 20px;
+            display: flex; justify-content: center;
+        }
+
+        .container {
+            width: 100%; max-width: 800px;
+        }
+
+        /* HEADER */
+        .header {
+            text-align: center; margin-bottom: 30px;
+            border-bottom: 1px solid #333; padding-bottom: 20px;
+        }
+        h1 {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 32px; text-transform: uppercase;
+            margin: 0; color: var(--accent);
+            text-shadow: 0 0 20px var(--accent-glow);
+        }
+        .subtitle { font-size: 14px; color: #64748b; margin-top: 5px; }
+
+        /* CONTROLS */
+        .controls { display: flex; gap: 10px; margin-bottom: 20px; }
+        
+        .btn {
+            flex: 1; padding: 15px; border: none; border-radius: 8px;
+            font-weight: bold; cursor: pointer; text-transform: uppercase;
+            font-family: 'Rajdhani', sans-serif; letter-spacing: 1px; font-size: 16px;
+            transition: 0.3s;
+        }
+        
+        .btn-run {
+            background: linear-gradient(135deg, var(--accent), #0038b3);
+            color: white; box-shadow: 0 4px 15px var(--accent-glow);
+        }
+        .btn-run:hover { transform: translateY(-2px); box-shadow: 0 6px 20px var(--accent-glow); }
+        .btn-run:disabled { background: #334155; cursor: wait; transform: none; box-shadow: none; }
+
+        /* WINNER BOX */
+        .winner-box {
+            background: rgba(16, 185, 129, 0.1);
+            border: 1px solid var(--green);
+            padding: 15px; border-radius: 10px;
+            margin-bottom: 20px; display: none;
+            align-items: center; justify-content: space-between;
+            animation: slideDown 0.5s ease;
+        }
+        .winner-title { color: var(--green); font-weight: bold; display: flex; align-items: center; gap: 10px; }
+        .winner-url { font-family: monospace; background: #000; padding: 5px 10px; border-radius: 5px; color: #fff; cursor: pointer; }
+
+        /* LIST */
+        .rpc-list { display: flex; flex-direction: column; gap: 10px; }
+
+        .rpc-card {
+            background: var(--card);
+            padding: 15px; border-radius: 8px;
+            display: grid; grid-template-columns: 40px 1fr auto auto;
+            align-items: center; gap: 15px;
+            border: 1px solid transparent;
+            transition: 0.2s;
+        }
+        
+        .rpc-card:hover { border-color: #334155; transform: translateX(5px); }
+
+        .rank { 
+            font-family: 'Rajdhani', sans-serif; font-size: 24px; font-weight: bold; 
+            color: #475569; text-align: center; 
+        }
+        
+        .rpc-info h3 { margin: 0; font-size: 14px; color: #fff; }
+        .rpc-info small { color: #64748b; font-size: 11px; font-family: monospace; }
+
+        .metrics { text-align: right; }
+        .ping-val { font-size: 18px; font-weight: bold; }
+        .block-val { font-size: 11px; color: #64748b; display: block; }
+
+        .status-dot { width: 10px; height: 10px; border-radius: 50%; background: #334155; }
+
+        /* COLORS */
+        .fast { color: var(--green); }
+        .med { color: var(--yellow); }
+        .slow { color: var(--red); }
+        .bg-fast { background: var(--green); box-shadow: 0 0 10px var(--green); }
+        .bg-med { background: var(--yellow); }
+        .bg-slow { background: var(--red); }
+
+        @keyframes slideDown { from {opacity: 0; transform: translateY(-10px);} to {opacity: 1; transform: translateY(0);} }
+        
+        .out-of-sync { color: var(--red); font-weight: bold; font-size: 10px; border: 1px solid var(--red); padding: 2px 5px; border-radius: 4px; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header">
+        <h1><i class="fas fa-tachometer-alt"></i> RPC Speedway</h1>
+        <div class="subtitle">Base Mainnet Latency & Sync Analyzer</div>
+    </div>
+
+    <div class="controls">
+        <button class="btn btn-run" id="btnRace" onclick="startRace()">
+            <i class="fas fa-flag-checkered"></i> Mulai Balapan
+        </button>
+    </div>
+
+    <div id="winnerDisplay" class="winner-box">
+        <div class="winner-title"><i class="fas fa-trophy"></i> RPC Tercepat</div>
+        <div class="winner-url" id="winnerUrl" onclick="copyWinner()" title="Klik untuk Copy">https://...</div>
+    </div>
+
+    <div class="rpc-list" id="rpcList">
+        </div>
+</div>
+
+<script>
+    // DATA: Daftar RPC Base Paling Populer (Free Tier)
+    const rpcList = [
+        { name: "Base Official", url: "https://mainnet.base.org" },
+        { name: "PublicNode", url: "https://base-rpc.publicnode.com" },
+        { name: "LlamaNodes", url: "https://base.llamanodes.com" },
+        { name: "1RPC", url: "https://1rpc.io/base" },
+        { name: "Ankr", url: "https://rpc.ankr.com/base" },
+        { name: "BlastAPI", url: "https://base-mainnet.public.blastapi.io" },
+        { name: "DRPC", url: "https://base.drpc.org" },
+        { name: "MeowRPC", url: "https://base.meowrpc.com" },
+        { name: "OnFinality", url: "https://base.api.onfinality.io/public" },
+        { name: "Omnia", url: "https://endpoints.omniatech.io/v1/base/mainnet/public" }
+    ];
+
+    async function checkRPC(rpc) {
+        const start = performance.now();
+        try {
+            // Kita request Block Number untuk cek latensi + status sync
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 5000); // 5 detik timeout
+
+            const res = await fetch(rpc.url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1 }),
+                signal: controller.signal
+            });
+            
+            clearTimeout(timeoutId);
+            const end = performance.now();
+            
+            if(!res.ok) throw new Error("HTTP Error");
+            
+            const json = await res.json();
+            const blockHeight = parseInt(json.result, 16);
+            
+            return {
+                ...rpc,
+                latency: Math.round(end - start),
+                block: blockHeight,
+                status: 'ok'
+            };
+
+        } catch (e) {
+            return { ...rpc, latency: 9999, block: 0, status: 'error', msg: e.message };
+        }
+    }
+
+    async function startRace() {
+        const btn = document.getElementById('btnRace');
+        const listContainer = document.getElementById('rpcList');
+        const winnerBox = document.getElementById('winnerDisplay');
+        
+        btn.disabled = true;
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Sedang Balapan...`;
+        listContainer.innerHTML = `<div style="text-align:center; padding:20px; color:#64748b;">Menguji ${rpcList.length} node secara paralel...</div>`;
+        winnerBox.style.display = "none";
+
+        // 1. Jalankan SEMUA request secara paralel (Async Race)
+        const promises = rpcList.map(rpc => checkRPC(rpc));
+        const results = await Promise.all(promises);
+
+        // 2. Analisis Blok Tertinggi (Untuk deteksi node yg ketinggalan/out of sync)
+        const maxBlock = Math.max(...results.map(r => r.block));
+
+        // 3. Urutkan: Error paling bawah -> Latency tercepat -> Block Sync
+        results.sort((a, b) => {
+            if (a.status === 'error') return 1;
+            if (b.status === 'error') return -1;
+            // Penalti untuk node yang ketinggalan blok (walaupun cepat ping-nya)
+            const aDiff = maxBlock - a.block;
+            const bDiff = maxBlock - b.block;
+            if (aDiff > 10) return 1; // Kalau ketinggalan > 10 blok, lempar ke bawah
+            if (bDiff > 10) return -1;
+            return a.latency - b.latency;
+        });
+
+        // 4. Render Hasil
+        listContainer.innerHTML = "";
+        
+        results.forEach((res, index) => {
+            if(res.status === 'error') return; // Skip error items (opsional, atau taruh bawah)
+
+            // Hitung warna & status
+            let colorClass = "slow";
+            let dotClass = "bg-slow";
+            
+            if (res.latency < 150) { colorClass = "fast"; dotClass = "bg-fast"; }
+            else if (res.latency < 400) { colorClass = "med"; dotClass = "bg-med"; }
+
+            // Cek Sync Status
+            const blockDiff = maxBlock - res.block;
+            let syncWarning = "";
+            if (blockDiff > 5) {
+                syncWarning = `<span class="out-of-sync" title="Node ini tertinggal ${blockDiff} blok">⚠️ TELAT ${blockDiff} BLOK</span>`;
+                colorClass = "slow"; // Penalti visual
+                dotClass = "bg-slow";
+            }
+
+            const html = `
+            <div class="rpc-card">
+                <div class="rank">#${index + 1}</div>
+                <div class="rpc-info">
+                    <h3>${res.name} ${syncWarning}</h3>
+                    <small>${res.url}</small>
+                </div>
+                <div class="metrics">
+                    <div class="ping-val ${colorClass}">${res.latency} ms</div>
+                    <span class="block-val">Blok: ${res.block.toLocaleString()}</span>
+                </div>
+                <div class="status-dot ${dotClass}"></div>
+            </div>`;
+            
+            listContainer.insertAdjacentHTML('beforeend', html);
+        });
+
+        // 5. Tampilkan Pemenang
+        const winner = results[0];
+        if (winner && winner.status !== 'error') {
+            winnerBox.style.display = "flex";
+            document.getElementById('winnerUrl').innerText = winner.url;
+        }
+
+        btn.disabled = false;
+        btn.innerHTML = `<i class="fas fa-flag-checkered"></i> Mulai Balapan Lagi`;
+    }
+
+    function copyWinner() {
+        const text = document.getElementById('winnerUrl').innerText;
+        navigator.clipboard.writeText(text).then(() => {
+            alert("URL RPC Tercepat disalin: " + text);
+        });
+    }
+</script>
+
 </body>
 </html>
