@@ -270,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri" onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -547,23 +547,26 @@ async function switchNetwork() {
     }
 }
 
-        // --- LOGIKA PENCARIAN PINTAR (AGRESIF) ---
+        // --- SNIPPET JS: LOGIKA PENCARIAN PINTAR ---
+
 function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
 
-    // 1. Logika Tombol Hapus (X)
+    // 1. Kontrol Tombol Silang (X)
     if (query.length > 0) {
         clearBtn.style.display = "block";
     } else {
         clearBtn.style.display = "none";
-        renderFeedFromArray(feedData); // Reset ke tampilan awal (data penuh)
+        // Jika kosong, kembalikan semua data asli
+        renderFeedFromArray(feedData); 
         return;
     }
 
     query = query.toLowerCase();
 
     // 2. Filter Agresif (Mencari di Nama, Golongan, Gaya, atau ID)
+    // Menggunakan 'feedData' yang sudah ada di memori (Turbo)
     const results = feedData.filter(item => {
         return (item.nama && item.nama.toLowerCase().includes(query)) || 
                (item.golongan && item.golongan.toLowerCase().includes(query)) ||
@@ -571,24 +574,27 @@ function smartSearch(query) {
                (item.id.toString() === query);
     });
 
-    // 3. Render Ulang Hasil Filter
+    // 3. Tampilkan Hasil
     if (results.length > 0) {
+        // Gunakan fungsi render bawaan script Anda
         renderFeedFromArray(results);
     } else {
-        // Tampilan Jika Kosong
+        // Tampilan Jika Tidak Ditemukan
         container.innerHTML = `
-        <div style="text-align:center; padding:40px; color:#aaa;">
-            <i class="fas fa-search" style="font-size:30px; margin-bottom:15px; opacity:0.5;"></i><br>
-            Tidak ditemukan wayang dengan kata kunci: <br>
-            <strong>"${query}"</strong>
+        <div style="text-align:center; padding:40px; color:#aaa; animation: fadeIn 0.3s;">
+            <i class="fas fa-search" style="font-size:40px; margin-bottom:15px; opacity:0.3;"></i><br>
+            Tidak ditemukan wayang dengan kata kunci:<br>
+            <strong style="color:#333;">"${query}"</strong>
         </div>`;
     }
 }
 
-// Fungsi Reset Pencarian
+// Fungsi Reset (Tombol X)
 function clearSearch() {
-    document.getElementById("searchInput").value = "";
-    smartSearch(""); 
+    const input = document.getElementById("searchInput");
+    input.value = "";
+    input.focus(); // Kembalikan kursor ke input
+    smartSearch(""); // Reset tampilan ke awal
 }
         
         // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
