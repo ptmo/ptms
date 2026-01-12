@@ -270,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri Wayang..." onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -662,62 +662,6 @@ function clearSearch() {
             }
         }
 
-        // --- DEEP INDEXER (Jalan di Background) ---
-async function initDeepIndexer() {
-    // 1. Cek apakah sudah punya index di HP?
-    const cachedIndex = localStorage.getItem(INDEX_STORAGE_KEY);
-    if (cachedIndex) {
-        globalSearchIndex = JSON.parse(cachedIndex);
-        console.log("✅ Index loaded:", globalSearchIndex.length, "items");
-    }
-
-    // 2. Mulai Crawling Data Baru (Diam-diam)
-    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
-    
-    let tempIndex = [];
-    
-    // Ambil semua ID dari semua golongan
-    for (const gol of golongans) {
-        try {
-            const ids = await contractReader.getIdsByGolongan(gol);
-            // Kita cuma butuh ID dan Nama (Ringan)
-            const promises = ids.map(async (idBig) => {
-                const id = parseInt(idBig);
-                
-                // Cek jika ID ini sudah ada di index lama, skip biar cepat
-                const existing = globalSearchIndex.find(x => x.id === id);
-                if (existing) {
-                    tempIndex.push(existing);
-                    return;
-                }
-
-                // Jika belum ada, ambil infonya
-                try {
-                    const info = await contractReader.getInfoWayang(id);
-                    if (info.isActive) {
-                        tempIndex.push({
-                            id: id,
-                            nama: info.nama.toLowerCase(), // Simpan huruf kecil biar gampang dicari
-                            golongan: info.golongan,
-                            gaya: info.gaya
-                        });
-                    }
-                } catch (e) {}
-            });
-            
-            // Tunggu batch ini selesai (Paralel per golongan)
-            await Promise.all(promises);
-            
-        } catch (e) {}
-    }
-
-    // 3. Simpan Update Terbaru ke HP
-    if (tempIndex.length > 0) {
-        globalSearchIndex = tempIndex.sort((a,b) => b.id - a.id);
-        localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(globalSearchIndex));
-        console.log("🔄 Deep Index Updated:", globalSearchIndex.length);
-    }
-}
 
         async function renderCard(id, container) {
             try {
@@ -749,6 +693,14 @@ async function initDeepIndexer() {
                 
                 const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
                 const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
+
+                feedData.push({
+            id: id,
+            nama: info.nama,
+            golongan: info.golongan,
+            gaya: info.gaya,
+            html: null // Placeholder
+        });
 
                 // Template HTML Kartu
                 const html = `
