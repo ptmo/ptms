@@ -2282,6 +2282,34 @@ window.bukaRevisi = bukaRevisi;
 window.showToast = showToast;
 window.loadTopEngagement = loadTopEngagement;
 
+// Fungsi untuk inisialisasi dApp saat pertama kali dimuat
+async function init() {
+    console.log("🚀 Inisialisasi Sistem...");
+    try {
+        // 1. Jalankan fungsi utama (load data awal)
+        if (typeof loadFeed === "function") await loadFeed();
+        
+        // 2. Jalankan indexer pencarian agar tidak ngaco
+        if (typeof initDeepIndexer === "function") initDeepIndexer();
+
+        // 3. Cek apakah user sudah login sebelumnya
+        if (window.ethereum) {
+            const provider = new ethers.providers.Web3Provider(window.ethereum);
+            const accounts = await provider.listAccounts();
+            if (accounts.length > 0) {
+                // Jika sudah konek, update tampilan wallet di sidebar/navbar
+                updateSidebarWallet(accounts[0]);
+            }
+        }
+        console.log("✅ Sistem Siap!");
+    } catch (error) {
+        console.error("Gagal memulai sistem:", error);
+    }
+}
+
+// Baris pemanggil (yang tadi error)
+init();
+
 init();
 
     </script>
