@@ -1,31 +1,332 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Ultimate RPC Analyzer | Putramas Tools</title>
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <style>
+        :root {
+            --bg: #0f172a;
+            --card: #1e293b;
+            --text: #f8fafc;
+            --accent: #3b82f6;
+            --success: #22c55e;
+            --warning: #eab308;
+            --danger: #ef4444;
+            --border: #334155;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+        }
+
+        .dashboard {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card);
+            border-radius: 20px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5);
+            border: 1px solid var(--border);
+            padding: 30px;
+        }
+
+        h2 { margin-top: 0; font-weight: 700; color: var(--accent); display: flex; align-items: center; gap: 10px; }
+
+        /* Input Area */
+        .input-group {
+            margin-bottom: 25px;
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 12px;
+            border: 1px solid var(--border);
+        }
+
+        label { font-size: 12px; color: #94a3b8; font-weight: 600; display: block; margin-bottom: 8px; }
+        
+        select, input {
+            width: 100%;
+            padding: 12px;
+            background: #1e293b;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            color: #fff;
+            font-family: 'JetBrains Mono', monospace;
+            margin-bottom: 10px;
+            outline: none;
+        }
+
+        select:focus, input:focus { border-color: var(--accent); }
+
+        button {
+            width: 100%;
+            padding: 14px;
+            background: var(--accent);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 16px;
+        }
+
+        button:hover { filter: brightness(1.1); transform: translateY(-1px); }
+        button:disabled { background: #475569; cursor: not-allowed; transform: none; }
+
+        /* Results Grid */
+        .stats-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 25px;
+            display: none; /* Hidden by default */
+        }
+
+        .stat-card {
+            background: #0f172a;
+            padding: 15px;
+            border-radius: 10px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .stat-value {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 20px;
+            font-weight: 700;
+            margin-top: 5px;
+            display: block;
+        }
+
+        .stat-label { font-size: 11px; color: #64748b; text-transform: uppercase; letter-spacing: 1px; }
+
+        /* Log Terminal */
+        .terminal {
+            margin-top: 20px;
+            background: #000;
+            border-radius: 8px;
+            padding: 15px;
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 12px;
+            height: 150px;
+            overflow-y: auto;
+            border: 1px solid #333;
+            color: #33ff00;
+            display: none;
+        }
+
+        .log-line { margin-bottom: 4px; }
+        .log-error { color: #ff3333; }
+        .log-info { color: #3b82f6; }
+
+        /* Quality Badge */
+        .verdict {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 10px;
+            text-align: center;
+            font-weight: bold;
+            display: none;
+        }
+
+    </style>
+</head>
 <body>
-    <h3>Cek Latensi RPC</h3>
-    <input type="text" id="rpcUrl" placeholder="Masukkan URL RPC..." style="width: 300px;" value="https://mainnet.base.org">
-    <button onclick="testLatency()">Tes Ping</button>
-    <p id="result">Hasil: -</p>
+
+    <div class="dashboard">
+        <h2><i class="fas fa-network-wired"></i> RPC Health Analyzer</h2>
+        
+        <div class="input-group">
+            <label>PILIH PRESET ATAU KUSTOM:</label>
+            <select id="rpcSelect" onchange="updateInput()">
+                <option value="https://mainnet.base.org">Base Official (Mainnet)</option>
+                <option value="https://base-rpc.publicnode.com">PublicNode (Base)</option>
+                <option value="https://base.llamanodes.com">LlamaNodes (Base)</option>
+                <option value="https://1rpc.io/base">1RPC (Base)</option>
+                <option value="custom">-- URL Kustom --</option>
+            </select>
+            
+            <input type="text" id="rpcUrl" value="https://mainnet.base.org" placeholder="https://...">
+            
+            <button id="btnTest" onclick="startAnalysis()">
+                <i class="fas fa-rocket"></i> Mulai Analisis Cerdas
+            </button>
+        </div>
+
+        <div id="terminal" class="terminal"></div>
+
+        <div id="statsGrid" class="stats-grid">
+            <div class="stat-card">
+                <span class="stat-label">Rata-rata Latensi</span>
+                <span id="avgLatency" class="stat-value">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Block Height</span>
+                <span id="blockHeight" class="stat-value">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Chain ID</span>
+                <span id="chainId" class="stat-value">-</span>
+            </div>
+            <div class="stat-card">
+                <span class="stat-label">Stabilitas</span>
+                <span id="stability" class="stat-value">-</span>
+            </div>
+        </div>
+
+        <div id="verdictBox" class="verdict"></div>
+    </div>
 
     <script>
-        async function testLatency() {
-            const url = document.getElementById('rpcUrl').value;
-            const output = document.getElementById('result');
-            output.innerHTML = "Menguji...";
+        function updateInput() {
+            const select = document.getElementById('rpcSelect');
+            const input = document.getElementById('rpcUrl');
+            if (select.value !== 'custom') {
+                input.value = select.value;
+            } else {
+                input.value = "";
+                input.focus();
+            }
+        }
+
+        function log(msg, type = 'normal') {
+            const term = document.getElementById('terminal');
+            const line = document.createElement('div');
+            line.className = 'log-line';
+            if(type === 'error') line.className += ' log-error';
+            if(type === 'info') line.className += ' log-info';
             
-            const start = Date.now();
+            const time = new Date().toLocaleTimeString().split(' ')[0];
+            line.innerText = `[${time}] ${msg}`;
+            term.appendChild(line);
+            term.scrollTop = term.scrollHeight;
+        }
+
+        async function rpcCall(url, method, params = []) {
+            const start = performance.now();
+            const res = await fetch(url, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({
+                    jsonrpc: "2.0",
+                    method: method,
+                    params: params,
+                    id: Date.now()
+                })
+            });
+            const end = performance.now();
+            if(!res.ok) throw new Error(`HTTP Error ${res.status}`);
+            const json = await res.json();
+            if(json.error) throw new Error(json.error.message);
+            return { result: json.result, time: end - start };
+        }
+
+        async function startAnalysis() {
+            const url = document.getElementById('rpcUrl').value;
+            const btn = document.getElementById('btnTest');
+            const term = document.getElementById('terminal');
+            const grid = document.getElementById('statsGrid');
+            const verdictBox = document.getElementById('verdictBox');
+
+            // Reset UI
+            btn.disabled = true;
+            btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menganalisa...`;
+            term.innerHTML = "";
+            term.style.display = "block";
+            grid.style.display = "none";
+            verdictBox.style.display = "none";
+
+            let latencies = [];
+            let blockNum = 0;
+            let chainIdHex = "";
+
             try {
-                const res = await fetch(url, {
-                    method: 'POST',
-                    headers: {'Content-Type': 'application/json'},
-                    body: JSON.stringify({jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1})
-                });
-                const end = Date.now();
-                const duration = end - start;
+                log(`Memulai koneksi ke: ${url}`, 'info');
+
+                // 1. Cek Chain ID (Validasi Network)
+                log("🔍 Memverifikasi Chain ID...");
+                const chainData = await rpcCall(url, "eth_chainId");
+                chainIdHex = chainData.result;
+                const chainIdDec = parseInt(chainIdHex, 16);
+                log(`✅ Chain ID: ${chainIdDec} (${chainIdHex})`);
+
+                if (chainIdDec === 8453) log("✅ Network Terkonfirmasi: BASE Mainnet", 'info');
+                else log(`⚠️ Warning: Bukan Base Mainnet (ID: ${chainIdDec})`, 'error');
+
+                // 2. Cek Block Height (Apakah sync?)
+                log("🔍 Mengambil Block Height...");
+                const blockData = await rpcCall(url, "eth_blockNumber");
+                blockNum = parseInt(blockData.result, 16);
+                log(`📦 Blok Terbaru: #${blockNum.toLocaleString()}`);
+
+                // 3. Stress Test Latency (3x Ping)
+                log("🚀 Melakukan Stress Test (3x Ping)...");
                 
-                let color = duration < 200 ? "green" : (duration < 500 ? "orange" : "red");
-                output.innerHTML = `Hasil: <b style="color:${color}">${duration} ms</b>`;
+                for(let i=1; i<=3; i++) {
+                    const ping = await rpcCall(url, "eth_blockNumber"); // Ringan
+                    latencies.push(ping.time);
+                    log(`➤ Ping #${i}: ${ping.time.toFixed(2)} ms`);
+                    await new Promise(r => setTimeout(r, 500)); // Delay dikit
+                }
+
+                // Kalkulasi
+                const avg = latencies.reduce((a, b) => a + b, 0) / latencies.length;
+                const min = Math.min(...latencies);
+                const max = Math.max(...latencies);
+                const jitter = max - min; // Kestabilan
+
+                // Tampilkan Hasil
+                grid.style.display = "grid";
+                document.getElementById('avgLatency').innerText = avg.toFixed(0) + " ms";
+                document.getElementById('avgLatency').style.color = avg < 200 ? "#22c55e" : (avg < 500 ? "#eab308" : "#ef4444");
+                
+                document.getElementById('blockHeight').innerText = "#" + blockNum.toLocaleString();
+                document.getElementById('chainId').innerText = parseInt(chainIdHex, 16);
+                
+                // Indikator Jitter (Semakin kecil semakin stabil)
+                document.getElementById('stability').innerText = jitter < 50 ? "Stabil" : "Fluktuatif";
+                document.getElementById('stability').style.color = jitter < 50 ? "#22c55e" : "#ef4444";
+
+                // KESIMPULAN CERDAS
+                verdictBox.style.display = "block";
+                if (avg < 150 && jitter < 50) {
+                    verdictBox.style.background = "rgba(34, 197, 94, 0.2)";
+                    verdictBox.style.color = "#22c55e";
+                    verdictBox.innerHTML = `<i class="fas fa-check-circle"></i> SANGAT DIREKOMENDASIKAN<br><small>RPC ini Turbo & Stabil untuk DApp Anda.</small>`;
+                } else if (avg < 500) {
+                    verdictBox.style.background = "rgba(234, 179, 8, 0.2)";
+                    verdictBox.style.color = "#eab308";
+                    verdictBox.innerHTML = `<i class="fas fa-exclamation-circle"></i> CUKUP BAIK<br><small>Bisa dipakai, tapi mungkin ada sedikit delay.</small>`;
+                } else {
+                    verdictBox.style.background = "rgba(239, 68, 68, 0.2)";
+                    verdictBox.style.color = "#ef4444";
+                    verdictBox.innerHTML = `<i class="fas fa-times-circle"></i> TIDAK DISARANKAN<br><small>Terlalu lambat, cari RPC lain.</small>`;
+                }
+
+                log("🏁 Analisis Selesai.", 'info');
+
             } catch (err) {
-                output.innerHTML = "Error: Tidak bisa terhubung (Cek CORS atau URL)";
+                log(`❌ FATAL ERROR: ${err.message}`, 'error');
+                verdictBox.style.display = "block";
+                verdictBox.style.background = "rgba(239, 68, 68, 0.2)";
+                verdictBox.style.color = "#ef4444";
+                verdictBox.innerHTML = "GAGAL TERHUBUNG (Cek URL / CORS)";
+            } finally {
+                btn.disabled = false;
+                btn.innerHTML = `<i class="fas fa-rocket"></i> Mulai Analisis Cerdas`;
             }
         }
     </script>
