@@ -56,9 +56,21 @@
         }
         
         
-        /* CONTAINER UTAMA */
-        .feed-container { max-width: 600px; margin: 0 auto; padding: 10px; }
+        /* CONTAINER UTAMA (Feed Tengah) */
+.feed-container { 
+    width: 100%;            /* Biar fleksibel mengikuti kolom Grid */
+    max-width: 700px;       /* Lebar feed sedikit diperluas agar lega di PC */
+    margin: 0;              /* Hapus 'auto' agar tidak lari ke tengah sendiri di PC */
+    padding: 10px; 
+}
 
+/* Responsif: Di HP tetap ke tengah */
+@media (max-width: 900px) {
+    .feed-container {
+        max-width: 600px;
+        margin: 0 auto;     /* Kembali ke tengah saat mode HP */
+    }
+}
         /* --- 1. FITUR UPLOAD INSTAN (DROPDOWN) --- */
         .upload-trigger {
             background: #fff; padding: 15px; border-radius: 12px;
@@ -429,6 +441,89 @@ label {
         padding: 10px 15%; /* Lebih lebar ke tengah di PC */
     }
 }
+
+        /* Layout Wrapper: 2 Kolom (Sidebar 300px + Feed 1fr) */
+.layout-wrapper { 
+    display: grid; 
+    grid-template-columns: 300px 1fr; 
+    gap: 25px; 
+    max-width: 1200px; 
+    margin: 0 auto;
+    padding: 20px 15px;
+    align-items: start;
+}
+
+/* Sidebar Kiri Sticky di PC */
+.sidebar-left {
+    position: sticky;
+    top: 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+
+/* Menu Card Sidebar */
+.menu-card {
+    background: #ffffff;
+    border-radius: 20px;
+    padding: 15px;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.03);
+    border: 1px solid rgba(115, 133, 165, 0.1);
+}
+
+.sidebar-item {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 12px 18px;
+    border-radius: 12px;
+    text-decoration: none;
+    color: #4b5563;
+    font-weight: 500;
+    margin-bottom: 5px;
+    transition: all 0.25s;
+}
+
+.sidebar-item:hover, .sidebar-item.active {
+    background: #f0f7ff;
+    color: #7385a5;
+    transform: translateX(5px);
+}
+
+.sidebar-item i { font-size: 20px; width: 25px; text-align: center; }
+
+/* Wallet Mini Info Styling */
+.wallet-mini-info {
+    padding: 10px 5px;
+    text-align: center;
+}
+
+.balance-display {
+    font-size: 24px;
+    font-weight: 800;
+    color: #1c1e21;
+    margin: 10px 0;
+}
+
+.address-short {
+    font-family: monospace;
+    font-size: 12px;
+    color: #94a3b8;
+    background: #f8fafc;
+    padding: 5px;
+    border-radius: 6px;
+}
+
+/* RESPONSIF: Atur Sembunyi/Muncul */
+@media (max-width: 900px) {
+    .layout-wrapper { grid-template-columns: 1fr; padding-bottom: 100px; }
+    .sidebar-left { display: none !important; } /* Sembunyi di HP */
+    .bottom-nav { display: flex !important; }   /* Muncul di HP */
+}
+
+@media (min-width: 901px) {
+    .bottom-nav { display: none !important; }   /* Sembunyi di PC */
+}
     </style>
 </head>
 <body>
@@ -445,64 +540,56 @@ label {
     </button>
 </nav>
 
-<div class="main-wrapper">
+<div class="layout-wrapper">
     <aside class="sidebar-left">
-        <div class="sidebar-item active" onclick="location.reload()"><i class="fas fa-home"></i> Beranda</div>
-        <div class="sidebar-item" onclick="window.location.href='profile'"><i class="fas fa-user-circle"></i> Profil Saya</div>
-        <div class="sidebar-item"><i class="fas fa-bookmark"></i> Tersimpan</div>
-        <hr>
-        <div class="sidebar-label">Grup Populer</div>
-        <div class="sidebar-item"><img src="img/icon-192.png" width="24"> Komunitas Wayang</div>
+        <div class="menu-card">
+            <div class="sidebar-label">Navigasi Utama</div>
+            <a href="index" class="sidebar-item active">
+                <i class="fas fa-globe-asia"></i> <span>Beranda</span>
+            </a>
+            <a href="galeri" class="sidebar-item">
+                <i class="fa fa-university"></i> <span>Galeri</span>
+            </a>
+            <a href="profile" class="sidebar-item">
+                <i class="fas fa-user"></i> <span>Profile</span>
+            </a>
+            <div class="sidebar-item" onclick="window.scrollTo(0,0); toggleForm();" style="cursor:pointer;">
+                <i class="fa fa-cloud-upload"></i> <span>Upload Koleksi</span>
+            </div>
+        </div>
+
+        <div class="menu-card" style="margin-top: 20px;">
+            <div class="sidebar-label">Dompet Digital</div>
+            <div class="wallet-mini-info">
+                <div class="status-pill">
+                    <span class="pulse-dot"></span> <span id="networkName">Base Mainnet</span>
+                </div>
+                <div class="balance-display">
+                    <span id="userBalance">0.0000</span> <small>ETH</small>
+                </div>
+                <div class="address-short" id="userAddrMini">0x...</div>
+            </div>
+        </div>
     </aside>
 
-    <main class="feed-container">
+    <main class="main-feed">
         <div class="search-google-style">
             <i class="fas fa-search search-icon-g"></i>
-            <input type="text" id="searchInput" placeholder="Telusuri wayang..." onkeyup="smartSearch(this.value)">
-            <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
+            <input type="text" id="searchInput" placeholder="Telusuri Wayang..." onkeyup="smartSearch(this.value)">
         </div>
         
-        <div class="upload-trigger" onclick="toggleForm()">
-            <img src="img/ps-logo.png" class="my-avatar">
-            <div class="fake-input">Apa wayang terbaru Anda? Upload di sini...</div>
-            <i class="fas fa-images" style="color: #45bd62; font-size: 20px;"></i>
-        </div>
-
-        <div class="upload-form-box" id="uploadBox">
-            <div class="form-card">
-                <button class="btn-post" id="btnSubmit" onclick="uploadWayang()">
-                    <i class="fas fa-paper-plane"></i> Posting ke Blockchain
-                </button>
-            </div>
-        </div>
-
         <div id="feedContent">
-            <div style="text-align:center; padding:40px; color:#aaa;">
-                <i class="fas fa-circle-notch fa-spin fa-2x"></i><br><br>
-                Memuat riwayat wayang...
             </div>
-        </div>
     </main>
-
-    <aside class="sidebar-right">
-        <div class="sidebar-label">Info Galeri</div>
-        <div class="ad-card">
-            <img src="img/icon-192.png" alt="Ad">
-            <p><b>Putramas Official</b><br>Arsip Wayang Desentralisasi Pertama di Base Network.</p>
-        </div>
-        <hr>
-        <div class="sidebar-label">Kontak Admin</div>
-        <div class="contact-item">
-            <div class="status-online"></div> Putramas Studio
-        </div>
-    </aside>
 </div>
 
 <nav class="bottom-nav">
     <a href="index" class="nav-link active"><i class="fas fa-globe-asia"></i><span>Beranda</span></a>
     <a href="galeri" class="nav-link"><i class="fa fa-university"></i><span>Galeri</span></a>
     <a href="profile" class="nav-link"><i class="fas fa-user"></i><span>Profile</span></a>
-    <button class="nav-link" onclick="window.scrollTo(0,0); toggleForm();"><i class="fa fa-cloud-upload"></i><span>Upload</span></button>
+    <button class="nav-link" onclick="window.scrollTo(0,0); toggleForm();">
+        <i class="fa fa-cloud-upload"></i><span>Upload</span>
+    </button>
 </nav>
     
     <script>
