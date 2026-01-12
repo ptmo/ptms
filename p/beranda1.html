@@ -270,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri..." onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -455,6 +455,9 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
         let provider, contractReader, signer;
         let feedData = [];
+        // --- VARIABEL TAMBAHAN ---
+let globalSearchIndex = []; // Buku telepon (Index) semua wayang
+const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
 
         // --- INIT ---
         window.onload = async () => {
@@ -474,6 +477,7 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
 
             // Load Feed
             loadFeed();
+            setTimeout(initDeepIndexer, 3000);
         };
 
         async function connectWallet() {
@@ -548,39 +552,71 @@ async function switchNetwork() {
     }
 }
 
-        // --- FITUR PENCARIAN PINTAR ---
-function smartSearch(query) {
+        // --- PENCARIAN AGRESIF (DEEP SEARCH) ---
+async function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
 
-    // 1. Tombol Clear
-    if(query.length > 0) {
+    if (query.length > 0) {
         clearBtn.style.display = "block";
-        isSearchActive = true;
     } else {
         clearBtn.style.display = "none";
-        isSearchActive = false;
-        renderFeedFromArray(feedData); // Balik ke tampilan normal
+        renderFeedFromArray(feedData); // Reset
         return;
     }
 
     query = query.toLowerCase();
 
-    // 2. Filter Data dari Memori (feedData)
-    const results = feedData.filter(item => {
+    // TAHAP 1: Cari di data yang SUDAH TAMPIL (Instant)
+    const localResults = feedData.filter(item => {
         return (item.nama && item.nama.toLowerCase().includes(query)) || 
                (item.golongan && item.golongan.toLowerCase().includes(query)) ||
                (item.gaya && item.gaya.toLowerCase().includes(query));
     });
 
-    // 3. Tampilkan Hasil
-    if(results.length > 0) {
-        renderFeedFromArray(results);
+    if (localResults.length > 0) {
+        renderFeedFromArray(localResults);
+        return;
+    }
+
+    // TAHAP 2: DEEP SEARCH (Cari di Database Index Global)
+    // Jika tidak ketemu di layar, kita cari di "Buku Telepon"
+    container.innerHTML = `<div style="text-align:center; padding:40px; color:#aaa;"><i class="fas fa-satellite-dish fa-spin"></i><br>Mencari di arsip global...</div>`;
+
+    const deepMatches = globalSearchIndex.filter(item => item.nama.includes(query));
+
+    if (deepMatches.length > 0) {
+        // KETEMU! Tapi kita belum punya gambarnya. Ayo ambil.
+        // Batasi maksimal 5 hasil biar gak loading lama
+        const targetIds = deepMatches.slice(0, 5).map(x => x.id);
+        
+        let deepResults = [];
+        for (let id of targetIds) {
+            // Cek lagi siapa tau udah ada di feedData
+            const exist = feedData.find(x => x.id === id);
+            if (exist) {
+                deepResults.push(exist);
+            } else {
+                // Fetch Khusus (Panggil fungsi fetchWayangDetail yg sudah ada)
+                const item = await fetchWayangDetail(id);
+                if (item) {
+                    deepResults.push(item);
+                    feedData.push(item); // Simpan ke memori utama
+                }
+            }
+        }
+        
+        // Render Hasil Temuan Deep Search
+        renderFeedFromArray(deepResults);
+        
     } else {
+        // TAHAP 3: MENYERAH (Benar-benar tidak ada)
         container.innerHTML = `
         <div style="text-align:center; padding:40px; color:#aaa;">
             <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
-            Tidak ditemukan. Coba scroll ke bawah untuk memuat lebih banyak data.
+            Tidak ditemukan wayang dengan kata kunci: <br>
+            <strong>"${query}"</strong><br>
+            <small>Coba kata kunci lain atau cek ejaan.</small>
         </div>`;
     }
 }
@@ -589,6 +625,7 @@ function clearSearch() {
     document.getElementById("searchInput").value = "";
     smartSearch(""); 
 }
+
         
         // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
         async function loadFeed() {
@@ -624,6 +661,63 @@ function clearSearch() {
                 container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
             }
         }
+
+        // --- DEEP INDEXER (Jalan di Background) ---
+async function initDeepIndexer() {
+    // 1. Cek apakah sudah punya index di HP?
+    const cachedIndex = localStorage.getItem(INDEX_STORAGE_KEY);
+    if (cachedIndex) {
+        globalSearchIndex = JSON.parse(cachedIndex);
+        console.log("✅ Index loaded:", globalSearchIndex.length, "items");
+    }
+
+    // 2. Mulai Crawling Data Baru (Diam-diam)
+    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+    
+    let tempIndex = [];
+    
+    // Ambil semua ID dari semua golongan
+    for (const gol of golongans) {
+        try {
+            const ids = await contractReader.getIdsByGolongan(gol);
+            // Kita cuma butuh ID dan Nama (Ringan)
+            const promises = ids.map(async (idBig) => {
+                const id = parseInt(idBig);
+                
+                // Cek jika ID ini sudah ada di index lama, skip biar cepat
+                const existing = globalSearchIndex.find(x => x.id === id);
+                if (existing) {
+                    tempIndex.push(existing);
+                    return;
+                }
+
+                // Jika belum ada, ambil infonya
+                try {
+                    const info = await contractReader.getInfoWayang(id);
+                    if (info.isActive) {
+                        tempIndex.push({
+                            id: id,
+                            nama: info.nama.toLowerCase(), // Simpan huruf kecil biar gampang dicari
+                            golongan: info.golongan,
+                            gaya: info.gaya
+                        });
+                    }
+                } catch (e) {}
+            });
+            
+            // Tunggu batch ini selesai (Paralel per golongan)
+            await Promise.all(promises);
+            
+        } catch (e) {}
+    }
+
+    // 3. Simpan Update Terbaru ke HP
+    if (tempIndex.length > 0) {
+        globalSearchIndex = tempIndex.sort((a,b) => b.id - a.id);
+        localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(globalSearchIndex));
+        console.log("🔄 Deep Index Updated:", globalSearchIndex.length);
+    }
+}
 
         async function renderCard(id, container) {
             try {
@@ -693,6 +787,63 @@ function clearSearch() {
 
             } catch(e) { console.log("Skip error id", id); }
         }
+
+        // --- DEEP INDEXER (Jalan di Background) ---
+async function initDeepIndexer() {
+    // 1. Cek apakah sudah punya index di HP?
+    const cachedIndex = localStorage.getItem(INDEX_STORAGE_KEY);
+    if (cachedIndex) {
+        globalSearchIndex = JSON.parse(cachedIndex);
+        console.log("✅ Index loaded:", globalSearchIndex.length, "items");
+    }
+
+    // 2. Mulai Crawling Data Baru (Diam-diam)
+    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+    
+    let tempIndex = [];
+    
+    // Ambil semua ID dari semua golongan
+    for (const gol of golongans) {
+        try {
+            const ids = await contractReader.getIdsByGolongan(gol);
+            // Kita cuma butuh ID dan Nama (Ringan)
+            const promises = ids.map(async (idBig) => {
+                const id = parseInt(idBig);
+                
+                // Cek jika ID ini sudah ada di index lama, skip biar cepat
+                const existing = globalSearchIndex.find(x => x.id === id);
+                if (existing) {
+                    tempIndex.push(existing);
+                    return;
+                }
+
+                // Jika belum ada, ambil infonya
+                try {
+                    const info = await contractReader.getInfoWayang(id);
+                    if (info.isActive) {
+                        tempIndex.push({
+                            id: id,
+                            nama: info.nama.toLowerCase(), // Simpan huruf kecil biar gampang dicari
+                            golongan: info.golongan,
+                            gaya: info.gaya
+                        });
+                    }
+                } catch (e) {}
+            });
+            
+            // Tunggu batch ini selesai (Paralel per golongan)
+            await Promise.all(promises);
+            
+        } catch (e) {}
+    }
+
+    // 3. Simpan Update Terbaru ke HP
+    if (tempIndex.length > 0) {
+        globalSearchIndex = tempIndex.sort((a,b) => b.id - a.id);
+        localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(globalSearchIndex));
+        console.log("🔄 Deep Index Updated:", globalSearchIndex.length);
+    }
+}
 
 // --- HELPER VALUE (Untuk ambil data form) ---
 function getVal(id) {
