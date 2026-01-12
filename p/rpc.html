@@ -1,0 +1,33 @@
+<!DOCTYPE html>
+<html>
+<body>
+    <h3>Cek Latensi RPC</h3>
+    <input type="text" id="rpcUrl" placeholder="Masukkan URL RPC..." style="width: 300px;" value="https://mainnet.base.org">
+    <button onclick="testLatency()">Tes Ping</button>
+    <p id="result">Hasil: -</p>
+
+    <script>
+        async function testLatency() {
+            const url = document.getElementById('rpcUrl').value;
+            const output = document.getElementById('result');
+            output.innerHTML = "Menguji...";
+            
+            const start = Date.now();
+            try {
+                const res = await fetch(url, {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({jsonrpc: "2.0", method: "eth_blockNumber", params: [], id: 1})
+                });
+                const end = Date.now();
+                const duration = end - start;
+                
+                let color = duration < 200 ? "green" : (duration < 500 ? "orange" : "red");
+                output.innerHTML = `Hasil: <b style="color:${color}">${duration} ms</b>`;
+            } catch (err) {
+                output.innerHTML = "Error: Tidak bisa terhubung (Cek CORS atau URL)";
+            }
+        }
+    </script>
+</body>
+</html>
