@@ -210,19 +210,19 @@ label {
         /* --- STYLE PENCARIAN GOOGLE --- */
 .search-google-style {
     background: #fff;
-    border-radius: 30px; /* Bulat ala Google */
-    padding: 5px 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Shadow halus */
+    border-radius: 30px; /* Membulat ala Google */
+    padding: 8px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Bayangan halus */
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     border: 1px solid transparent;
     transition: all 0.3s ease;
 }
 
 .search-google-style:focus-within {
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* Shadow tebal saat diketik */
-    border-color: #eee;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Bayangan menebal saat diketik */
+    border-color: #dfe1e5;
 }
 
 .search-google-style input {
@@ -239,7 +239,7 @@ label {
 .search-icon-g { 
     color: #9aa0a6; 
     font-size: 18px; 
-    margin-right: 5px; 
+    margin-right: 10px; 
 }
 
 .search-clear-g { 
@@ -248,7 +248,10 @@ label {
     font-size: 16px; 
     padding: 5px; 
     display: none; /* Sembunyi default */
+    transition: color 0.2s;
 }
+
+.search-clear-g:hover { color: #333; }
     </style>
 </head>
 <body>
@@ -267,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri..." onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -424,146 +427,227 @@ label {
         </button>
     </nav>
 
-<script>
-// --- KONFIGURASI ---
-const CHAIN_ID_BASE = "0x2105"; 
-const BASE_RPC = "https://mainnet.base.org"; 
-const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
-const OFFICIAL_WALLET = "0xBAcc1F6e717bF03dB0c40E3044DA47318C369B70";
+    <script>
 
-// PINATA (Untuk Upload)
-const PINATA_API_KEY = "d209d53257fcc57219af";    
-const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
-const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+        const CHAIN_ID_BASE = "0x2105"; // Hex dari 8453
+const CHAIN_ID_DECIMAL = 8453;
 
-const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
-    
-let contractReader;
-let feedData = []; // MEMORI PENYIMPANAN DATA (PENTING UNTUK SEARCH)
-let isSearchActive = false;
-
-window.onload = async () => {
-    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC);
-    contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
-    
-    checkWalletConnection();
-    loadFeed(); // Mulai Load Data
+const BASE_MAINNET_CONFIG = {
+    chainId: CHAIN_ID_BASE,
+    chainName: 'Base',
+    nativeCurrency: {
+        name: 'Ethereum',
+        symbol: 'ETH',
+        decimals: 18
+    },
+    rpcUrls: ['https://mainnet.base.org'], // RPC Resmi
+    blockExplorerUrls: ['https://basescan.org']
 };
+        
+        const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
+        const OFFICIAL_WALLET = "0xBAcc1F6e717bF03dB0c40E3044DA47318C369B70";
+        // ABI Minimal untuk Read Data + Upload
+        const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+        
+        const PINATA_API_KEY = "d209d53257fcc57219af";    
+const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
 
-// --- PENCARIAN AGRESIF (DEEP SEARCH) ---
+        const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+        let provider, contractReader, signer;
+        let feedData = [];
+        // --- VARIABEL TAMBAHAN ---
+let globalSearchIndex = []; // Buku telepon (Index) semua wayang
+const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
+        let currentSearchTicket = 0;
+
+        // --- INIT ---
+        window.onload = async () => {
+            // Setup Read Provider (Tanpa Wallet)
+            const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+            contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+            
+            // Cek Login
+            if(window.ethereum) {
+                const web3 = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await web3.listAccounts();
+                if(accounts.length > 0) {
+                    document.getElementById("btnConnect").innerHTML = "Terhubung";
+                    document.getElementById("btnConnect").classList.add("connected");
+                }
+            }
+
+            // Load Feed
+            loadFeed();
+            setTimeout(initDeepIndexer, 3000);
+        };
+
+        async function connectWallet() {
+    if (!window.ethereum) return alert("Metamask tidak terdeteksi! Harap install terlebih dahulu.");
+    
+    const btnConnect = document.getElementById("btn-connect"); // Sesuaikan ID tombol Anda
+    const originalText = btnConnect ? btnConnect.innerHTML : "Connect";
+
+    if(btnConnect) btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+
+    try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        
+        // 1. Request Akses Akun
+        await provider.send("eth_requestAccounts", []);
+
+        // 2. Cek Jaringan Saat Ini
+        const network = await provider.getNetwork();
+
+        // 3. Jika BUKAN Base Mainnet (8453), Paksa Ganti
+        if (network.chainId !== CHAIN_ID_DECIMAL) {
+            await switchNetwork();
+            // Reload provider setelah ganti network agar state update
+            return connectWallet(); 
+        }
+
+        // 4. Jika Sudah Benar, Ambil Data User
+        const signer = provider.getSigner();
+        const userAddress = await signer.getAddress();
+        
+        // Update UI (Contoh)
+        if(btnConnect) {
+            btnConnect.innerHTML = `<i class="fas fa-wallet"></i> ${userAddress.substring(0,6)}...`;
+            btnConnect.classList.add("connected");
+        }
+        
+        // Simpan state atau buka modal (sesuai logika aplikasi Bapak)
+        console.log("Terhubung ke Base Mainnet:", userAddress);
+        // toggleWalletModal(); // Jika ada
+
+    } catch (err) { 
+        console.error("Koneksi Gagal:", err);
+        if(btnConnect) btnConnect.innerHTML = originalText;
+        alert("Gagal konek: " + (err.message || "User menolak request."));
+    }
+}
+
+async function switchNetwork() {
+    try {
+        // Coba perintah ganti network
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId: CHAIN_ID_BASE }],
+        });
+    } catch (switchError) {
+        // Kode 4902 artinya Network Belum Ada di Metamask User
+        if (switchError.code === 4902) {
+            try {
+                // Perintah pasang RPC otomatis
+                await window.ethereum.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [BASE_MAINNET_CONFIG],
+                });
+            } catch (addError) {
+                console.error("User menolak pasang RPC Base:", addError);
+                throw addError;
+            }
+        } else {
+            console.error("Gagal ganti network:", switchError);
+            throw switchError;
+        }
+    }
+}
+
+        // --- PENCARIAN AGRESIF (DEEP SEARCH) ---
 async function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
+    
+    // Tiket pencarian baru
+    currentSearchTicket++;
+    const myTicket = currentSearchTicket;
 
-    if (query.length > 0) {
-        clearBtn.style.display = "block";
-    } else {
+    if (query.length === 0) {
         clearBtn.style.display = "none";
-        renderFeedFromArray(feedData); // Reset
+        container.innerHTML = "";
+        loadFeed(); // Kembali ke feed awal
         return;
     }
 
-    query = query.toLowerCase();
+    clearBtn.style.display = "block";
+    query = query.toLowerCase().trim();
 
-    // TAHAP 1: Cari di data yang SUDAH TAMPIL (Instant)
-    const localResults = feedData.filter(item => {
-        return (item.nama && item.nama.toLowerCase().includes(query)) || 
-               (item.golongan && item.golongan.toLowerCase().includes(query)) ||
-               (item.gaya && item.gaya.toLowerCase().includes(query));
-    });
+    // Tampilkan Loading
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa;"><i class="fas fa-circle-notch fa-spin"></i> Mencari...</div>`;
 
-    if (localResults.length > 0) {
-        renderFeedFromArray(localResults);
+    // 1. FILTER UNIK dari Index
+    // Kita filter dulu ID-nya agar tidak ada ID yang sama masuk ke proses render
+    const matchedItems = globalSearchIndex.filter(item => 
+        item.nama.includes(query) || 
+        (item.id.toString() === query)
+    );
+
+    // Ambil ID Unik
+    const uniqueMatchedIds = [...new Set(matchedItems.map(item => item.id))];
+
+    // Jika tidak ada hasil
+    if (uniqueMatchedIds.length === 0) {
+        container.innerHTML = `<div style="text-align:center; padding:40px; color:#aaa;">Tidak ditemukan "${query}"</div>`;
         return;
     }
 
-    // TAHAP 2: DEEP SEARCH (Cari di Database Index Global)
-    // Jika tidak ketemu di layar, kita cari di "Buku Telepon"
-    container.innerHTML = `<div style="text-align:center; padding:40px; color:#aaa;"><i class="fas fa-satellite-dish fa-spin"></i><br>Mencari di arsip global...</div>`;
+    // 2. RENDER HASIL
+    container.innerHTML = ""; // Bersihkan loading
+    
+    // Ambil maksimal 10 hasil teratas untuk performa
+    const targetIds = uniqueMatchedIds.slice(0, 10);
 
-    const deepMatches = globalSearchIndex.filter(item => item.nama.includes(query));
-
-    if (deepMatches.length > 0) {
-        // KETEMU! Tapi kita belum punya gambarnya. Ayo ambil.
-        // Batasi maksimal 5 hasil biar gak loading lama
-        const targetIds = deepMatches.slice(0, 5).map(x => x.id);
-        
-        let deepResults = [];
-        for (let id of targetIds) {
-            // Cek lagi siapa tau udah ada di feedData
-            const exist = feedData.find(x => x.id === id);
-            if (exist) {
-                deepResults.push(exist);
-            } else {
-                // Fetch Khusus (Panggil fungsi fetchWayangDetail yg sudah ada)
-                const item = await fetchWayangDetail(id);
-                if (item) {
-                    deepResults.push(item);
-                    feedData.push(item); // Simpan ke memori utama
-                }
-            }
-        }
-        
-        // Render Hasil Temuan Deep Search
-        renderFeedFromArray(deepResults);
-        
-    } else {
-        // TAHAP 3: MENYERAH (Benar-benar tidak ada)
-        container.innerHTML = `
-        <div style="text-align:center; padding:40px; color:#aaa;">
-            <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
-            Tidak ditemukan wayang dengan kata kunci: <br>
-            <strong>"${query}"</strong><br>
-            <small>Coba kata kunci lain atau cek ejaan.</small>
-        </div>`;
+    for (let id of targetIds) {
+        // Cek apakah tiket masih valid (user belum mengetik huruf baru)
+        if (myTicket !== currentSearchTicket) return; 
+        await renderCard(id, container);
     }
 }
-    
+
 function clearSearch() {
     document.getElementById("searchInput").value = "";
     smartSearch(""); 
 }
 
-// --- LOGIKA FEED ---
-async function loadFeed() {
+        
+        // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
+        async function loadFeed() {
     const container = document.getElementById("feedContent");
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
     try {
-        // Ambil ID dari Blockchain
-        const promises = golongans.map(gol => contractReader.getIdsByGolongan(gol));
-        const results = await Promise.all(promises);
+        // Parallel Fetch ID dari semua golongan
+        const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
         
+        // MENGHILANGKAN DUPLIKAT SEJAK AWAL
         let allIds = results.flat().map(id => parseInt(id));
-        allIds = [...new Set(allIds)].sort((a, b) => b - a); // Urutkan Terbaru
+        const finalUniqueIds = [...new Set(allIds)].sort((a, b) => b - a);
 
-        const feedIds = allIds.slice(0, 30); // Ambil 30 Teratas
+        const feedIds = finalUniqueIds.slice(0, 15); // Ambil 15 terbaru saja agar cepat
 
         if(feedIds.length === 0) {
-            container.innerHTML = "<p style='text-align:center;'>Belum ada postingan.</p>";
+            container.innerHTML = "<p style='text-align:center; padding:20px;'>Belum ada postingan.</p>";
             return;
         }
 
-        container.innerHTML = ""; // Bersihkan Loading
+        container.innerHTML = ""; 
 
-        // Render Kartu Satu per Satu
+        // Render satu per satu secara sekuensial agar urutan terjaga
         for(let id of feedIds) {
-            await processAndRenderCard(id, container);
+            await renderCard(id, container);
         }
 
     } catch(e) {
         console.error(e);
         container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
     }
-}
+        }
 
-// Fungsi Proses Data & Render
-async function processAndRenderCard(id, container) {
+        async function renderCard(id, container) {
+    // Mencegah duplikasi visual: Cek apakah ID ini sudah dirender di layar
+    if (document.getElementById(`card-${id}`)) return;
+
     try {
-        // Cek apakah data sudah ada di memori? (Biar gak dobel)
-        if (feedData.find(x => x.id === id)) return;
-
-        // Ambil Data dari Blockchain
         const [info, uri, owner, likes] = await Promise.all([
             contractReader.getInfoWayang(id),
             contractReader.tokenURI(id),
@@ -573,148 +657,196 @@ async function processAndRenderCard(id, container) {
 
         if(!info.isActive) return;
 
-        // Proses Gambar
-        let imgUrl = "img/loading.gif";
+        let imgUrl = "img/loading-placeholder.gif"; // Gunakan placeholder lokal
         try {
-            const cleanUri = uri.replace("ipfs://", PINATA_GATEWAY);
-            const res = await axios.get(cleanUri);
+            const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
+            const res = await axios.get(jsonUrl, { timeout: 5000 });
             const rawImg = res.data.image || res.data.image_url;
-            const ipfsImg = rawImg.replace("ipfs://", PINATA_GATEWAY);
-            imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(ipfsImg)}&w=500&q=75&output=webp`;
-        } catch(e) {}
-
-        const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-        const dateStr = new Date(info.timestamp * 1000).toLocaleDateString("id-ID");
-
-        // Object Data Wayang
-        const item = {
-            id: id,
-            nama: info.nama,
-            golongan: info.golongan,
-            gaya: info.gaya,
-            owner: owner,
-            isOfficial: isOfficial,
-            likes: parseInt(likes),
-            imgUrl: imgUrl,
-            dateStr: dateStr
-        };
-
-        // 1. SIMPAN KE MEMORI (PENTING UNTUK SEARCH!)
-        feedData.push(item);
-
-        // 2. TAMPILKAN KE LAYAR (Hanya jika tidak sedang mencari)
-        if (!isSearchActive) {
-            const html = makeCardHTML(item);
-            container.insertAdjacentHTML('beforeend', html);
+            imgUrl = rawImg.replace("ipfs://", PINATA_GATEWAY);
+            imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=500&q=75&output=webp`;
+        } catch(e) {
+            console.warn("Gagal ambil metadata/gambar untuk ID:", id);
         }
 
-    } catch(e) { console.log("Skip error id", id); }
-}
+        const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+        const badge = isOfficial 
+            ? `<i class="fas fa-check-circle verified-gold"></i>` 
+            : `<i class="fas fa-check-circle verified-badge"></i>`;
+        
+        const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
+        const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
 
-// Helper Render Array (Untuk Search)
-function renderFeedFromArray(arr) {
-    const container = document.getElementById("feedContent");
-    let fullHtml = "";
-    arr.forEach(item => {
-        fullHtml += makeCardHTML(item);
-    });
-    container.innerHTML = fullHtml;
-}
-
-// Template HTML Kartu
-function makeCardHTML(item) {
-    const badge = item.isOfficial 
-        ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
-        : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
-    
-    const senderName = item.isOfficial ? "Putramas Official" : item.owner.substring(0,6) + "...";
-    const avatar = `https://api.dicebear.com/7.x/identicon/svg?seed=${item.owner}`;
-
-    return `
-    <div class="feed-card">
-        <div class="card-header">
-            <div class="user-info">
-                <img src="${avatar}" class="user-pic">
-                <div>
-                    <div class="user-name">${senderName} ${badge}</div>
-                    <div class="post-time">${item.dateStr} • ID #${item.id}</div>
+        // Tambahkan ID pada div terluar kartu: id="card-${id}"
+        const html = `
+        <div class="feed-card" id="card-${id}">
+            <div class="card-header">
+                <div class="user-info">
+                    <img src="${avatar}" class="user-pic">
+                    <div>
+                        <div class="user-name">${senderName} ${badge}</div>
+                        <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
+                    </div>
                 </div>
             </div>
-            <i class="fas fa-ellipsis-h" style="color:#ccc;"></i>
-        </div>
-        
-        <div class="card-content">
-            <h3 class="wayang-title">${item.nama}</h3>
-            <div class="wayang-desc">
-                Wayang golongan <span class="tag-badge">${item.golongan}</span> 
-                gaya <span class="tag-badge">${item.gaya}</span>
+            <div class="card-content">
+                <h3 class="wayang-title">${info.nama}</h3>
+                <div class="wayang-desc">
+                    Wayang <span class="tag-badge">${info.golongan}</span> gaya <span class="tag-badge">${info.gaya}</span>
+                </div>
             </div>
-        </div>
+            <div class="card-image" onclick="window.location.href='detail?id=${id}'">
+                <img src="${imgUrl}" alt="${info.nama}" onerror="this.src='img/default-wayang.png'">
+            </div>
+            <div class="card-actions">
+                <button class="action-btn"><i class="far fa-heart"></i> ${likes}</button>
+                <button class="action-btn" onclick="window.location.href='detail?id=${id}'"><i class="far fa-comment"></i> Ulasan</button>
+            </div>
+        </div>`;
 
-        <div class="card-image" onclick="window.location.href='detail?id=${item.id}'" style="cursor:pointer;">
-            <img src="${item.imgUrl}" loading="lazy">
-        </div>
+        container.insertAdjacentHTML('beforeend', html);
+    } catch(e) { 
+        console.log("Gagal render kartu ID", id); 
+    }
+        }
 
-        <div class="card-actions">
-            <button class="action-btn"><i class="far fa-heart"></i> ${item.likes} Suka</button>
-            <button class="action-btn" onclick="window.location.href='detail?id=${item.id}'"><i class="far fa-comment"></i> Ulasan</button>
-            <button class="action-btn"><i class="fas fa-share"></i> Bagikan</button>
-        </div>
-    </div>`;
+        // --- DEEP INDEXER (JALAN DI BACKGROUND - ANTI DUPLIKAT) ---
+async function initDeepIndexer() {
+    // 1. Load index lama dari storage agar crawling lebih cepat
+    const cachedIndex = localStorage.getItem(INDEX_STORAGE_KEY);
+    if (cachedIndex) {
+        globalSearchIndex = JSON.parse(cachedIndex);
+        console.log("✅ Index awal dimuat:", globalSearchIndex.length, "items");
+    }
+
+    const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
+    let tempIndex = [...globalSearchIndex]; // Mulai dengan data yang sudah ada
+
+    // 2. Crawling Data Baru secara Paralel
+    for (const gol of golongans) {
+        try {
+            const ids = await contractReader.getIdsByGolongan(gol);
+            
+            const promises = ids.map(async (idBig) => {
+                const id = parseInt(idBig);
+                
+                // Cek apakah ID sudah ada di index? Kalau sudah, tidak perlu fetch lagi
+                if (tempIndex.some(x => x.id === id)) return;
+
+                try {
+                    const info = await contractReader.getInfoWayang(id);
+                    if (info.isActive) {
+                        tempIndex.push({
+                            id: id,
+                            nama: info.nama.toLowerCase(),
+                            golongan: info.golongan,
+                            gaya: info.gaya
+                        });
+                    }
+                } catch (e) {}
+            });
+            
+            await Promise.all(promises);
+        } catch (e) {}
+    }
+
+    // 3. PEMBERSIHAN DUPLIKAT FINAL (Penting!)
+    // Kita gunakan Map untuk memastikan satu ID hanya punya satu entri data
+    const uniqueIndex = Array.from(new Map(tempIndex.map(item => [item.id, item])).values());
+    
+    // Sortir terbaru di atas (ID Besar ke Kecil)
+    globalSearchIndex = uniqueIndex.sort((a, b) => b.id - a.id);
+
+    // 4. Simpan ke HP hanya data yang sudah unik dan rapi
+    if (globalSearchIndex.length > 0) {
+        localStorage.setItem(INDEX_STORAGE_KEY, JSON.stringify(globalSearchIndex));
+        console.log("🔄 Deep Index Sinkron:", globalSearchIndex.length, "items unik");
+    }
 }
 
-// --- FUNGSI UPLOAD & WALLET (TETAP SAMA) ---
-function getVal(id) { const el = document.getElementById(id); return (el && el.value.trim() !== "") ? el.value.trim() : "-"; }
-
+// --- FUNGSI UPLOAD UTAMA ---
 async function uploadWayang() {
     const btn = document.getElementById("btnSubmit");
+    
+    // 1. PERBAIKAN ID DISINI (Sesuaikan dengan HTML)
     const nama = document.getElementById("inputNama").value;
-    const gol = document.getElementById("inputGolongan").value;
+    const gol = document.getElementById("inputGolongan").value; // Dulu inputGol
     const gaya = document.getElementById("inputGaya").value;
-    const fileInput = document.getElementById("inputGambar"); // Pastikan ID ini ada di HTML
+    const fileInput = document.getElementById("fileUpload");    // Dulu inputGambar
     const deskripsi = document.getElementById("inputDeskripsi").value || "Koleksi Wayang Nusantara";
 
+    // 2. Validasi
     if (!window.ethereum) return alert("Wajib install Metamask!");
-    if (!nama || fileInput.files.length === 0) return alert("Nama dan Foto wajib diisi!");
+    if (!nama || fileInput.files.length === 0) {
+        return alert("Nama Tokoh dan Foto WAJIB diisi!");
+    }
 
     try {
         btn.disabled = true;
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> 1/4 Mengompres...`;
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         const userAddress = await signer.getAddress();
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
+        // --- STAGE 1: KOMPRESI ---
         const compressedFile = await compressImage(fileInput.files[0], 300);
+
+        // --- STAGE 2: IPFS GAMBAR ---
+        btn.innerHTML = `<i class="fas fa-cloud-upload-alt"></i> 2/4 Upload Foto...`;
         const imgUrl = await uploadToIPFS(compressedFile);
 
+        // --- STAGE 3: METADATA LENGKAP ---
+        btn.innerHTML = `<i class="fas fa-file-alt"></i> 3/4 Metadata...`;
+
         const metadata = {
-            name: nama, description: deskripsi, image: imgUrl,
+            name: nama,
+            description: deskripsi,
+            image: imgUrl,
             attributes: [
-                { trait_type: "Golongan", value: gol }, { trait_type: "Gaya", value: gaya },
-                { trait_type: "Wanda", value: getVal("inputWanda") }, { trait_type: "Material Kulit", value: getVal("inputKulit") },
-                { trait_type: "Material Gapit", value: getVal("inputGapit") }, { trait_type: "Penatah", value: getVal("inputPenatah") },
-                { trait_type: "Penyungging", value: getVal("inputPenyungging") }, { trait_type: "Tahun Pembuatan", value: getVal("inputTahun") },
-                { trait_type: "Kolektor", value: getVal("inputKolektor") }, { trait_type: "Ayah", value: getVal("inputAyah") },
-                { trait_type: "Ibu", value: getVal("inputIbu") }, { trait_type: "Negara", value: getVal("inputNegara") },
-                { trait_type: "Pusaka", value: getVal("inputPusaka") }, { trait_type: "Creator", value: userAddress },
+                // Identitas
+                { trait_type: "Golongan", value: gol },
+                { trait_type: "Gaya", value: gaya },
+                // Fisik (Menggunakan helper getVal)
+                { trait_type: "Wanda", value: getVal("inputWanda") },
+                { trait_type: "Material Kulit", value: getVal("inputKulit") },
+                { trait_type: "Material Gapit", value: getVal("inputGapit") },
+                { trait_type: "Penatah", value: getVal("inputPenatah") },
+                { trait_type: "Penyungging", value: getVal("inputPenyungging") },
+                { trait_type: "Tahun Pembuatan", value: getVal("inputTahun") },
+                { trait_type: "Kolektor", value: getVal("inputKolektor") },
+                // Silsilah
+                { trait_type: "Ayah", value: getVal("inputAyah") },
+                { trait_type: "Ibu", value: getVal("inputIbu") },
+                { trait_type: "Negara", value: getVal("inputNegara") },
+                { trait_type: "Pusaka", value: getVal("inputPusaka") },
+                // System
+                { trait_type: "Creator", value: userAddress },
                 { trait_type: "Type", value: "Full Metadata Upload" }
             ]
         };
 
         const tokenURI = await uploadJSON(metadata);
+
+        // --- STAGE 4: BLOCKCHAIN ---
+        btn.innerHTML = `<i class="fas fa-signature"></i> 4/4 Konfirmasi Wallet...`;
         
-        btn.innerHTML = `<i class="fas fa-signature"></i> Konfirmasi Wallet...`;
         const fee = await contract.publicMintFee();
         const tx = await contract.uploadPublik(tokenURI, nama, gol, gaya, { value: fee });
         
         btn.innerHTML = `<i class="fas fa-cog fa-spin"></i> Mining...`;
         await tx.wait();
 
-        alert("✅ Upload Berhasil!");
-        toggleForm();
-        location.reload(); // Reload untuk update feed
+        // SUKSES
+        alert("✅ Upload Berhasil! Data lengkap sudah tersimpan.");
+        toggleForm(); 
+        
+        // Refresh Feed jika fungsi tersedia
+        if(typeof loadFeedTurbo === 'function') {
+            loadFeedTurbo();
+        } else {
+            location.reload();
+        }
 
     } catch (err) {
         console.error(err);
@@ -725,18 +857,23 @@ async function uploadWayang() {
     }
 }
 
-// Helper IPFS & Image
+// --- HELPER LAINNYA (JANGAN DIHAPUS) ---
+
 async function uploadToIPFS(file) {
     const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
     let data = new FormData();
     data.append('file', file);
-    const res = await axios.post(url, data, { headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY, "Content-Type": "multipart/form-data"} });
+    const res = await axios.post(url, data, {
+        headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY, "Content-Type": "multipart/form-data"}
+    });
     return `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
 }
 
 async function uploadJSON(jsonData) {
     const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
-    const res = await axios.post(url, jsonData, { headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY} });
+    const res = await axios.post(url, jsonData, {
+        headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY}
+    });
     return `ipfs://${res.data.IpfsHash}`;
 }
 
@@ -754,7 +891,8 @@ async function compressImage(file, maxSizeKB = 300) {
                 const MAX = 1200; 
                 if (w > MAX || h > MAX) {
                     const ratio = w / h;
-                    if (w > h) { w = MAX; h = MAX / ratio; } else { h = MAX; w = MAX * ratio; }
+                    if (w > h) { w = MAX; h = MAX / ratio; }
+                    else { h = MAX; w = MAX * ratio; }
                 }
                 canvas.width = w; canvas.height = h;
                 const ctx = canvas.getContext('2d');
@@ -762,9 +900,13 @@ async function compressImage(file, maxSizeKB = 300) {
                 let quality = 0.9;
                 const recursiveCompress = () => {
                     canvas.toBlob((blob) => {
-                        if (!blob) return reject("Gagal");
-                        if (blob.size <= maxSizeKB * 1024 || quality <= 0.1) resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
-                        else { quality -= 0.1; recursiveCompress(); }
+                        if (!blob) return reject("Gagal kompresi");
+                        if (blob.size <= maxSizeKB * 1024 || quality <= 0.1) {
+                            resolve(new File([blob], file.name, { type: 'image/jpeg', lastModified: Date.now() }));
+                        } else {
+                            quality -= 0.1;
+                            recursiveCompress();
+                        }
                     }, 'image/jpeg', quality);
                 };
                 recursiveCompress();
@@ -774,9 +916,9 @@ async function compressImage(file, maxSizeKB = 300) {
     });
 }
 
-function toggleForm() { document.getElementById("uploadBox").classList.toggle("open"); }
+// Helper UI Preview (Pastikan ID fileUpload sesuai HTML)
 function previewImage() {
-    const file = document.getElementById("inputGambar").files[0];
+    const file = document.getElementById("fileUpload").files[0];
     const reader = new FileReader();
     reader.onload = (e) => {
         document.getElementById("imgPreview").src = e.target.result;
@@ -786,22 +928,9 @@ function previewImage() {
     if(file) reader.readAsDataURL(file);
 }
 
-async function checkWalletConnection() {
-    if(window.ethereum) {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        if(accounts.length > 0) document.getElementById("btnConnect").classList.add("connected");
-    }
+function toggleForm() { 
+    document.getElementById("uploadBox").classList.toggle("open"); 
 }
-
-async function connectWallet() {
-    if(!window.ethereum) return alert("Metamask tidak ada!");
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    await provider.send("eth_requestAccounts", []);
-    const net = await provider.getNetwork();
-    if(net.chainId !== 8453) {
-        try { await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: CHAIN_ID_BASE }] }); } catch(e) { alert("Pindah ke Base Mainnet!"); }
-    }
-    location.reload();
-}
-    </script>
+</script>
+</body>
+                                                     </html>
