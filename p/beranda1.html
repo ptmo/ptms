@@ -206,6 +206,49 @@ label {
     font-family: 'Rubik', sans-serif;
 }
 .form-input:focus { border-color: #7385a5; outline: none; }
+
+        /* --- STYLE PENCARIAN GOOGLE --- */
+.search-google-style {
+    background: #fff;
+    border-radius: 30px; /* Bulat ala Google */
+    padding: 5px 15px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Shadow halus */
+    display: flex;
+    align-items: center;
+    margin-bottom: 20px;
+    border: 1px solid transparent;
+    transition: all 0.3s ease;
+}
+
+.search-google-style:focus-within {
+    box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* Shadow tebal saat diketik */
+    border-color: #eee;
+}
+
+.search-google-style input {
+    flex: 1;
+    border: none;
+    padding: 10px;
+    font-size: 15px;
+    outline: none;
+    color: #333;
+    font-family: 'Rubik', sans-serif;
+    background: transparent;
+}
+
+.search-icon-g { 
+    color: #9aa0a6; 
+    font-size: 18px; 
+    margin-right: 5px; 
+}
+
+.search-clear-g { 
+    color: #5f6368; 
+    cursor: pointer; 
+    font-size: 16px; 
+    padding: 5px; 
+    display: none; /* Sembunyi default */
+}
     </style>
 </head>
 <body>
@@ -221,6 +264,12 @@ label {
     </nav>
 
     <div class="feed-container">
+        
+        <div class="search-google-style">
+    <i class="fas fa-search search-icon-g"></i>
+    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
+    <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
+        </div>
         
         <div class="upload-trigger" onclick="toggleForm()">
             <img src="https://api.dicebear.com/7.x/avataaars/svg?seed=User" class="my-avatar">
@@ -495,6 +544,43 @@ async function switchNetwork() {
     }
 }
 
+        // --- LOGIKA PENCARIAN PINTAR (INSTANT) ---
+function smartSearch(query) {
+    const clearBtn = document.getElementById("clearBtn");
+    const container = document.getElementById("feedContent");
+
+    // Tampilkan/Sembunyikan tombol silang (X)
+    if (query.length > 0) clearBtn.style.display = "block";
+    else clearBtn.style.display = "none";
+
+    query = query.toLowerCase();
+
+    // Filter Agresif dari Data Memori (feedData)
+    // Mencocokkan Nama, Golongan, ATAU Gaya
+    const results = feedData.filter(item => {
+        return (item.nama && item.nama.toLowerCase().includes(query)) || 
+               (item.golongan && item.golongan.toLowerCase().includes(query)) ||
+               (item.gaya && item.gaya.toLowerCase().includes(query));
+    });
+
+    // Render Ulang Hasil
+    if (results.length > 0) {
+        renderFeedFromArray(results);
+    } else {
+        // Tampilan Jika Kosong
+        container.innerHTML = `
+        <div style="text-align:center; padding:40px; color:#aaa;">
+            <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
+            Tidak ditemukan. Coba kata kunci lain.
+        </div>`;
+    }
+}
+
+function clearSearch() {
+    document.getElementById("searchInput").value = "";
+    smartSearch(""); // Reset ke semua data
+}
+        
         // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
         async function loadFeed() {
             const container = document.getElementById("feedContent");
