@@ -270,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri Wayang..." onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri..." onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -553,36 +553,48 @@ async function switchNetwork() {
 }
 
         // --- PENCARIAN AGRESIF (DEEP SEARCH) ---
+// --- PERBAIKAN SMART SEARCH (ANTI DUPLIKAT) ---
 async function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
 
-    if (query.length > 0) clearBtn.style.display = "block";
-    else {
+    // 1. Logika Tombol Clear
+    if (query.length > 0) {
+        clearBtn.style.display = "block";
+    } else {
         clearBtn.style.display = "none";
-        // Reset: Kosongkan dan load ulang feed awal
         container.innerHTML = "";
-        feedData = []; // Reset memori layar
+        feedData = []; 
         loadFeed(); 
         return;
     }
 
     query = query.toLowerCase();
-    container.innerHTML = ""; // Bersihkan layar
+    container.innerHTML = ""; // Bersihkan layar sebelum hasil baru
 
-    // 1. CARI DI GLOBAL INDEX (Deep Search)
+    // 2. CARI DI GLOBAL INDEX
     const matches = globalSearchIndex.filter(item => item.nama.includes(query));
 
     if (matches.length > 0) {
-        // Ambil 5 hasil teratas saja biar cepat
-        const targetIds = matches.slice(0, 5).map(x => x.id);
+        // --- PERBAIKAN DISINI ---
+        // 1. Ambil semua ID yang cocok
+        const rawIds = matches.map(x => x.id);
+        
+        // 2. Hapus ID kembar pakai 'Set' (Filter Unik)
+        const uniqueIds = [...new Set(rawIds)];
+
+        // 3. Ambil 5 ID unik teratas saja
+        const targetIds = uniqueIds.slice(0, 5);
         
         for (let id of targetIds) {
-            // Panggil renderCard khusus untuk ID yang ketemu
             await renderCard(id, container);
         }
     } else {
-        container.innerHTML = `<p style="text-align:center; margin-top:20px;">Tidak ditemukan "${query}" di database.</p>`;
+        container.innerHTML = `
+        <div style="text-align:center; padding:40px; color:#aaa;">
+            <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
+            Tidak ditemukan "${query}" di database.
+        </div>`;
     }
 }
 
