@@ -210,19 +210,19 @@ label {
         /* --- STYLE PENCARIAN GOOGLE --- */
 .search-google-style {
     background: #fff;
-    border-radius: 30px; /* Bulat ala Google */
-    padding: 5px 15px;
-    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Shadow halus */
+    border-radius: 30px; /* Membulat ala Google */
+    padding: 8px 20px;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Bayangan halus */
     display: flex;
     align-items: center;
-    margin-bottom: 20px;
+    margin-bottom: 25px;
     border: 1px solid transparent;
     transition: all 0.3s ease;
 }
 
 .search-google-style:focus-within {
-    box-shadow: 0 4px 10px rgba(0,0,0,0.15); /* Shadow tebal saat diketik */
-    border-color: #eee;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.15); /* Bayangan menebal saat diketik */
+    border-color: #dfe1e5;
 }
 
 .search-google-style input {
@@ -239,7 +239,7 @@ label {
 .search-icon-g { 
     color: #9aa0a6; 
     font-size: 18px; 
-    margin-right: 5px; 
+    margin-right: 10px; 
 }
 
 .search-clear-g { 
@@ -248,7 +248,10 @@ label {
     font-size: 16px; 
     padding: 5px; 
     display: none; /* Sembunyi default */
+    transition: color 0.2s;
 }
+
+.search-clear-g:hover { color: #333; }
     </style>
 </head>
 <body>
@@ -267,7 +270,7 @@ label {
         
         <div class="search-google-style">
     <i class="fas fa-search search-icon-g"></i>
-    <input type="text" id="searchInput" placeholder="Telusuri Wayang, Dalang, atau Gaya..." onkeyup="smartSearch(this.value)">
+    <input type="text" id="searchInput" placeholder="Telusuri" onkeyup="smartSearch(this.value)">
     <i class="fas fa-times search-clear-g" id="clearBtn" onclick="clearSearch()"></i>
         </div>
         
@@ -544,41 +547,48 @@ async function switchNetwork() {
     }
 }
 
-        // --- LOGIKA PENCARIAN PINTAR (INSTANT) ---
+        // --- LOGIKA PENCARIAN PINTAR (AGRESIF) ---
 function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
 
-    // Tampilkan/Sembunyikan tombol silang (X)
-    if (query.length > 0) clearBtn.style.display = "block";
-    else clearBtn.style.display = "none";
+    // 1. Logika Tombol Hapus (X)
+    if (query.length > 0) {
+        clearBtn.style.display = "block";
+    } else {
+        clearBtn.style.display = "none";
+        renderFeedFromArray(feedData); // Reset ke tampilan awal (data penuh)
+        return;
+    }
 
     query = query.toLowerCase();
 
-    // Filter Agresif dari Data Memori (feedData)
-    // Mencocokkan Nama, Golongan, ATAU Gaya
+    // 2. Filter Agresif (Mencari di Nama, Golongan, Gaya, atau ID)
     const results = feedData.filter(item => {
         return (item.nama && item.nama.toLowerCase().includes(query)) || 
                (item.golongan && item.golongan.toLowerCase().includes(query)) ||
-               (item.gaya && item.gaya.toLowerCase().includes(query));
+               (item.gaya && item.gaya.toLowerCase().includes(query)) ||
+               (item.id.toString() === query);
     });
 
-    // Render Ulang Hasil
+    // 3. Render Ulang Hasil Filter
     if (results.length > 0) {
         renderFeedFromArray(results);
     } else {
         // Tampilan Jika Kosong
         container.innerHTML = `
         <div style="text-align:center; padding:40px; color:#aaa;">
-            <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
-            Tidak ditemukan. Coba kata kunci lain.
+            <i class="fas fa-search" style="font-size:30px; margin-bottom:15px; opacity:0.5;"></i><br>
+            Tidak ditemukan wayang dengan kata kunci: <br>
+            <strong>"${query}"</strong>
         </div>`;
     }
 }
 
+// Fungsi Reset Pencarian
 function clearSearch() {
     document.getElementById("searchInput").value = "";
-    smartSearch(""); // Reset ke semua data
+    smartSearch(""); 
 }
         
         // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
