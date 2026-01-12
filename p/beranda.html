@@ -450,43 +450,75 @@ window.onload = async () => {
     loadFeed(); // Mulai Load Data
 };
 
-// --- FITUR PENCARIAN PINTAR ---
-function smartSearch(query) {
+// --- PENCARIAN AGRESIF (DEEP SEARCH) ---
+async function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
     const container = document.getElementById("feedContent");
 
-    // 1. Tombol Clear
-    if(query.length > 0) {
+    if (query.length > 0) {
         clearBtn.style.display = "block";
-        isSearchActive = true;
     } else {
         clearBtn.style.display = "none";
-        isSearchActive = false;
-        renderFeedFromArray(feedData); // Balik ke tampilan normal
+        renderFeedFromArray(feedData); // Reset
         return;
     }
 
     query = query.toLowerCase();
 
-    // 2. Filter Data dari Memori (feedData)
-    const results = feedData.filter(item => {
+    // TAHAP 1: Cari di data yang SUDAH TAMPIL (Instant)
+    const localResults = feedData.filter(item => {
         return (item.nama && item.nama.toLowerCase().includes(query)) || 
                (item.golongan && item.golongan.toLowerCase().includes(query)) ||
                (item.gaya && item.gaya.toLowerCase().includes(query));
     });
 
-    // 3. Tampilkan Hasil
-    if(results.length > 0) {
-        renderFeedFromArray(results);
+    if (localResults.length > 0) {
+        renderFeedFromArray(localResults);
+        return;
+    }
+
+    // TAHAP 2: DEEP SEARCH (Cari di Database Index Global)
+    // Jika tidak ketemu di layar, kita cari di "Buku Telepon"
+    container.innerHTML = `<div style="text-align:center; padding:40px; color:#aaa;"><i class="fas fa-satellite-dish fa-spin"></i><br>Mencari di arsip global...</div>`;
+
+    const deepMatches = globalSearchIndex.filter(item => item.nama.includes(query));
+
+    if (deepMatches.length > 0) {
+        // KETEMU! Tapi kita belum punya gambarnya. Ayo ambil.
+        // Batasi maksimal 5 hasil biar gak loading lama
+        const targetIds = deepMatches.slice(0, 5).map(x => x.id);
+        
+        let deepResults = [];
+        for (let id of targetIds) {
+            // Cek lagi siapa tau udah ada di feedData
+            const exist = feedData.find(x => x.id === id);
+            if (exist) {
+                deepResults.push(exist);
+            } else {
+                // Fetch Khusus (Panggil fungsi fetchWayangDetail yg sudah ada)
+                const item = await fetchWayangDetail(id);
+                if (item) {
+                    deepResults.push(item);
+                    feedData.push(item); // Simpan ke memori utama
+                }
+            }
+        }
+        
+        // Render Hasil Temuan Deep Search
+        renderFeedFromArray(deepResults);
+        
     } else {
+        // TAHAP 3: MENYERAH (Benar-benar tidak ada)
         container.innerHTML = `
         <div style="text-align:center; padding:40px; color:#aaa;">
             <i class="fas fa-search" style="font-size:30px; margin-bottom:10px; opacity:0.5;"></i><br>
-            Tidak ditemukan. Coba scroll ke bawah untuk memuat lebih banyak data.
+            Tidak ditemukan wayang dengan kata kunci: <br>
+            <strong>"${query}"</strong><br>
+            <small>Coba kata kunci lain atau cek ejaan.</small>
         </div>`;
     }
 }
-
+    
 function clearSearch() {
     document.getElementById("searchInput").value = "";
     smartSearch(""); 
