@@ -599,21 +599,21 @@ async function switchNetwork() {
             } catch(e) { console.log("Skip error id", id); }
         }
 
-// --- HELPER VALUE ---
+// --- HELPER VALUE (Untuk ambil data form) ---
 function getVal(id) {
     const el = document.getElementById(id);
     return (el && el.value.trim() !== "") ? el.value.trim() : "-";
 }
 
-// --- FUNGSI UPLOAD METADATA LENGKAP ---
+// --- FUNGSI UPLOAD UTAMA ---
 async function uploadWayang() {
     const btn = document.getElementById("btnSubmit");
     
-    // 1. Ambil Data Wajib
+    // 1. PERBAIKAN ID DISINI (Sesuaikan dengan HTML)
     const nama = document.getElementById("inputNama").value;
-    const gol = document.getElementById("inputGolongan").value;
+    const gol = document.getElementById("inputGolongan").value; // Dulu inputGol
     const gaya = document.getElementById("inputGaya").value;
-    const fileInput = document.getElementById("inputGambar");
+    const fileInput = document.getElementById("fileUpload");    // Dulu inputGambar
     const deskripsi = document.getElementById("inputDeskripsi").value || "Koleksi Wayang Nusantara";
 
     // 2. Validasi
@@ -649,7 +649,7 @@ async function uploadWayang() {
                 // Identitas
                 { trait_type: "Golongan", value: gol },
                 { trait_type: "Gaya", value: gaya },
-                // Fisik
+                // Fisik (Menggunakan helper getVal)
                 { trait_type: "Wanda", value: getVal("inputWanda") },
                 { trait_type: "Material Kulit", value: getVal("inputKulit") },
                 { trait_type: "Material Gapit", value: getVal("inputGapit") },
@@ -680,9 +680,15 @@ async function uploadWayang() {
         await tx.wait();
 
         // SUKSES
-        alert("✅ Upload Berhasil! Data lengkap sudah tersimpan di Blockchain.");
-        toggleForm(); // Tutup form
-        loadFeedTurbo(); // Refresh feed
+        alert("✅ Upload Berhasil! Data lengkap sudah tersimpan.");
+        toggleForm(); 
+        
+        // Refresh Feed jika fungsi tersedia
+        if(typeof loadFeedTurbo === 'function') {
+            loadFeedTurbo();
+        } else {
+            location.reload();
+        }
 
     } catch (err) {
         console.error(err);
@@ -693,35 +699,26 @@ async function uploadWayang() {
     }
 }
 
-// --- HELPER 1: UPLOAD FILE KE PINATA ---
+// --- HELPER LAINNYA (JANGAN DIHAPUS) ---
+
 async function uploadToIPFS(file) {
     const url = `https://api.pinata.cloud/pinning/pinFileToIPFS`;
     let data = new FormData();
     data.append('file', file);
-    
     const res = await axios.post(url, data, {
-        headers: {
-            'pinata_api_key': PINATA_API_KEY, 
-            'pinata_secret_api_key': PINATA_SECRET_KEY, 
-            "Content-Type": "multipart/form-data"
-        }
+        headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY, "Content-Type": "multipart/form-data"}
     });
     return `https://gateway.pinata.cloud/ipfs/${res.data.IpfsHash}`;
 }
 
-// --- HELPER 2: UPLOAD JSON KE PINATA ---
 async function uploadJSON(jsonData) {
     const url = `https://api.pinata.cloud/pinning/pinJSONToIPFS`;
     const res = await axios.post(url, jsonData, {
-        headers: {
-            'pinata_api_key': PINATA_API_KEY, 
-            'pinata_secret_api_key': PINATA_SECRET_KEY
-        }
+        headers: {'pinata_api_key': PINATA_API_KEY, 'pinata_secret_api_key': PINATA_SECRET_KEY}
     });
     return `ipfs://${res.data.IpfsHash}`;
 }
 
-// --- HELPER 3: KOMPRESI GAMBAR (Wajib ada biar cepat) ---
 async function compressImage(file, maxSizeKB = 300) {
     if (file.size <= maxSizeKB * 1024) return file;
     return new Promise((resolve, reject) => {
@@ -733,7 +730,6 @@ async function compressImage(file, maxSizeKB = 300) {
             img.onload = () => {
                 const canvas = document.createElement('canvas');
                 let w = img.width, h = img.height;
-                // Resize jika terlalu besar (max lebar 1200px)
                 const MAX = 1200; 
                 if (w > MAX || h > MAX) {
                     const ratio = w / h;
@@ -743,8 +739,6 @@ async function compressImage(file, maxSizeKB = 300) {
                 canvas.width = w; canvas.height = h;
                 const ctx = canvas.getContext('2d');
                 ctx.drawImage(img, 0, 0, w, h);
-                
-                // Kompresi rekursif
                 let quality = 0.9;
                 const recursiveCompress = () => {
                     canvas.toBlob((blob) => {
@@ -764,11 +758,7 @@ async function compressImage(file, maxSizeKB = 300) {
     });
 }
 
-// Helper UI
-function toggleForm() { 
-    document.getElementById("uploadBox").classList.toggle("open"); 
-}
-
+// Helper UI Preview (Pastikan ID fileUpload sesuai HTML)
 function previewImage() {
     const file = document.getElementById("fileUpload").files[0];
     const reader = new FileReader();
@@ -780,8 +770,9 @@ function previewImage() {
     if(file) reader.readAsDataURL(file);
 }
 
-
+function toggleForm() { 
+    document.getElementById("uploadBox").classList.toggle("open"); 
+}
 </script>
-    </script>
 </body>
                                                                    </html>
