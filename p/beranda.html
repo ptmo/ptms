@@ -2505,24 +2505,27 @@ function renderTokenList() {
 }
 
 // ==========================================
-// 2. UPDATE FUNGSI REFRESH (LEBIH AGRESIF)
+// 2. UPDATE FUNGSI REFRESH (Visual & Perhitungan)
 // ==========================================
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // Cek apakah perlu update harga
+    // Cek apakah perlu update harga (Setiap 15 detik)
     const now = Date.now();
-    // LOGIC BARU: Jika harga masih 0 (belum pernah load), PAKSA update sekarang juga
-    if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0) {
+    // LOGIC BARU: Jika harga ETH masih 0 ATAU harga Token masih kosong, PAKSA update
+    const isTokenPriceEmpty = Object.keys(cachedTokenPrices).length === 0 && myTokens.length > 0;
+    
+    if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0 || isTokenPriceEmpty) {
+        // Jangan await di sini agar UI tidak macet, biarkan jalan di background
         updateMarketPrices(); 
     }
 
     let currentTotalUsd = 0;
 
-    // Helper: Bikin HTML Warna Warni Persentase
+    // Helper: HTML Warna Warni
     const getChangeHtml = (changeVal) => {
-        if(!changeVal) return `<span style="color:#777;">(0%)</span>`;
+        if(!changeVal && changeVal !== 0) return `<span style="color:#777;">(0%)</span>`;
         const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; 
         const sign = changeVal >= 0 ? '+' : '';
         return `<span style="color:${color}; font-weight:bold;">(${sign}${changeVal.toFixed(2)}%)</span>`;
@@ -2537,7 +2540,6 @@ async function refreshAllTokenBalances() {
         const elEth = document.getElementById("staticEthBalance");
         if(elEth) elEth.innerText = ethVal.toFixed(8);
 
-        // Pakai harga cached (bisa dari localStorage atau baru)
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
@@ -2558,6 +2560,7 @@ async function refreshAllTokenBalances() {
             const el = document.getElementById(`bal-${token.address}`);
             if(el) el.innerText = balFloat.toFixed(4);
 
+            // [PENTING] Normalisasi alamat ke huruf kecil agar cocok dengan key dari CoinGecko
             const lowerAddr = token.address.toLowerCase();
             let price = 0;
             let change24h = 0;
@@ -2572,6 +2575,7 @@ async function refreshAllTokenBalances() {
 
             const elVal = document.getElementById(`val-${token.address}`);
             if(elVal) {
+                 // Tampilkan harga meskipun saldo 0 (biar user tau harga pasar)
                  elVal.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#666666">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
         } catch(e) { }
@@ -2580,20 +2584,30 @@ async function refreshAllTokenBalances() {
     // --- C. TOTAL HEADER ---
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        // Tampilkan total, meskipun pakai data lama (localStorage) biar user gak nunggu
         usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
     }
 }
 
 
 // ==========================================
-// 3. UPDATE FUNGSI FETCH (SIMPAN KE LOCALSTORAGE)
+// 3. UPDATE FUNGSI FETCH (Logic Perbaikan Token)
 // ==========================================
 async function updateMarketPrices() {
-    // Agar tidak double fetch dalam waktu singkat
+    // Agar tidak double fetch dalam waktu singkat (2 detik)
     if(Date.now() - lastPriceFetchTime < 2000) return; 
 
     console.log("🔄 Fetch Market Data...");
+    
+    // [PERBAIKAN UTAMA] Pastikan myTokens terisi!
+    // Jika myTokens kosong, script coba baca ulang dari LocalStorage 'savedTokens'
+    // (Sesuaikan 'savedTokens' dengan nama key penyimpanan token di script Bapak sebelumnya)
+    if (myTokens.length === 0) {
+        const stored = localStorage.getItem("myTokens"); // Atau 'savedTokens'
+        if (stored) {
+            try { myTokens = JSON.parse(stored); } catch(e){}
+        }
+    }
+
     try {
         // 1. Ambil Data ETH
         const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
@@ -2605,18 +2619,26 @@ async function updateMarketPrices() {
         }
 
         // 2. Ambil Data Token
-        const tokenAddrs = myTokens.map(t => t.address).join(',');
-        if(tokenAddrs.length > 0) {
+        if(myTokens.length > 0) {
+            // [PERBAIKAN] Ubah alamat ke .toLowerCase() saat request URL
+            const tokenAddrs = myTokens.map(t => t.address.toLowerCase()).join(',');
+            
+            // URL Base Chain
             const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
+            
             const resToken = await fetch(url);
             const dataToken = await resToken.json();
-            cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
+            
+            // [PERBAIKAN] Pastikan key disimpan dalam huruf kecil
+            // CoinGecko biasanya return lowercase, tapi kita double check
+            for (const key in dataToken) {
+                cachedTokenPrices[key.toLowerCase()] = dataToken[key];
+            }
         }
         
         lastPriceFetchTime = Date.now();
 
-        // [PENTING] SIMPAN DATA KE BROWSER (LOCALSTORAGE)
-        // Ini kuncinya agar pas refresh besok, data langsung muncul
+        // Simpan Cache ke LocalStorage
         const dataToSave = {
             ethPrice: cachedEthPrice,
             ethChange: cachedEthChange,
@@ -2624,7 +2646,7 @@ async function updateMarketPrices() {
         };
         localStorage.setItem('walletMarketData', JSON.stringify(dataToSave));
 
-        // Update Tampilan dengan data TERBARU
+        // Update UI
         refreshAllTokenBalances(); 
 
     } catch(e) {
@@ -2632,7 +2654,7 @@ async function updateMarketPrices() {
     }
 }
 
-// Helper Format Uang (Tetap Sama)
+// Helper Format Uang (Jangan dihapus)
 const fmtUSD = (val) => {
     if(!val) val = 0;
     if(val === 0) return "$0.00";
@@ -2640,7 +2662,7 @@ const fmtUSD = (val) => {
     if(val < 1) return "$" + val.toFixed(4);
     return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
 };
-
+        
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
     if (!window.ethereum || !modalUserAddr) return;
