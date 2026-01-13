@@ -1380,7 +1380,7 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         let cachedEthChange = 0;      // [BARU] Wajib ada untuk simpan % ETH
         let cachedTokenPrices = {};   // (Tetap)
         let lastPriceFetchTime = 0;   // (Tetap)
-        
+        const savedMarketData = JSON.parse(localStorage.getItem('walletMarketData')) || {};
         // [BARU] Konfigurasi Waktu Cache (15 Detik)
         const PRICE_CACHE_DURATION = 15000;
 
@@ -2504,14 +2504,17 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE TAMPILAN SALDO & 24H CHANGE ---
+// ==========================================
+// 2. UPDATE FUNGSI REFRESH (LEBIH AGRESIF)
+// ==========================================
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // Cek apakah perlu update harga (Setiap 15 detik)
+    // Cek apakah perlu update harga
     const now = Date.now();
-    if (now - lastPriceFetchTime > PRICE_CACHE_DURATION) {
+    // LOGIC BARU: Jika harga masih 0 (belum pernah load), PAKSA update sekarang juga
+    if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0) {
         updateMarketPrices(); 
     }
 
@@ -2520,15 +2523,12 @@ async function refreshAllTokenBalances() {
     // Helper: Bikin HTML Warna Warni Persentase
     const getChangeHtml = (changeVal) => {
         if(!changeVal) return `<span style="color:#777;">(0%)</span>`;
-        const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; // Hijau / Merah
+        const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; 
         const sign = changeVal >= 0 ? '+' : '';
-        // Tampilan: (+2.45%)
         return `<span style="color:${color}; font-weight:bold;">(${sign}${changeVal.toFixed(2)}%)</span>`;
     };
 
-    // ==========================================
-    // 1. ETH NATIVE
-    // ==========================================
+    // --- A. ETH NATIVE ---
     try {
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
@@ -2537,20 +2537,17 @@ async function refreshAllTokenBalances() {
         const elEth = document.getElementById("staticEthBalance");
         if(elEth) elEth.innerText = ethVal.toFixed(8);
 
+        // Pakai harga cached (bisa dari localStorage atau baru)
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
         const elEthDet = document.getElementById("staticEthDetails");
         if(elEthDet) {
-            // Format: @ $2,500 (+5.2%) | ≈ $120
             elEthDet.innerHTML = `@ ${fmtUSD(cachedEthPrice)} ${getChangeHtml(cachedEthChange)} <br> <span style="color:#666666">≈ ${fmtUSD(ethUsd)}</span>`;
         }
-
     } catch(e) { }
 
-    // ==========================================
-    // 2. TOKEN IMPORT
-    // ==========================================
+    // --- B. TOKEN IMPORT ---
     for (const token of myTokens) {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
@@ -2565,7 +2562,6 @@ async function refreshAllTokenBalances() {
             let price = 0;
             let change24h = 0;
 
-            // Ambil data dari Cache
             if(cachedTokenPrices[lowerAddr]) {
                 price = cachedTokenPrices[lowerAddr].usd || 0;
                 change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
@@ -2578,55 +2574,65 @@ async function refreshAllTokenBalances() {
             if(elVal) {
                  elVal.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#666666">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
-
         } catch(e) { }
     }
 
-    // ==========================================
-    // 3. TOTAL HEADER
-    // ==========================================
+    // --- C. TOTAL HEADER ---
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        if (currentTotalUsd > 0 || cachedEthPrice > 0) {
-            usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
-        }
+        // Tampilkan total, meskipun pakai data lama (localStorage) biar user gak nunggu
+        usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
     }
 }
 
-// --- FUNGSI AMBIL HARGA + PERUBAHAN 24 JAM ---
+
+// ==========================================
+// 3. UPDATE FUNGSI FETCH (SIMPAN KE LOCALSTORAGE)
+// ==========================================
 async function updateMarketPrices() {
-    console.log("🔄 Fetch Market Data + 24h Change...");
+    // Agar tidak double fetch dalam waktu singkat
+    if(Date.now() - lastPriceFetchTime < 2000) return; 
+
+    console.log("🔄 Fetch Market Data...");
     try {
-        // 1. Ambil Data ETH (Include 24hr Change)
+        // 1. Ambil Data ETH
         const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
         const dataEth = await resEth.json();
         
         if(dataEth.ethereum) {
             cachedEthPrice = dataEth.ethereum.usd;
-            cachedEthChange = dataEth.ethereum.usd_24h_change; // Simpan %
+            cachedEthChange = dataEth.ethereum.usd_24h_change;
         }
 
-        // 2. Ambil Data Token Import
+        // 2. Ambil Data Token
         const tokenAddrs = myTokens.map(t => t.address).join(',');
         if(tokenAddrs.length > 0) {
-            // URL Token juga ditambah include_24hr_change=true
             const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
             const resToken = await fetch(url);
             const dataToken = await resToken.json();
-            
-            // Gabungkan ke cache
             cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
         }
         
         lastPriceFetchTime = Date.now();
-        refreshAllTokenBalances(); // Refresh tampilan
+
+        // [PENTING] SIMPAN DATA KE BROWSER (LOCALSTORAGE)
+        // Ini kuncinya agar pas refresh besok, data langsung muncul
+        const dataToSave = {
+            ethPrice: cachedEthPrice,
+            ethChange: cachedEthChange,
+            tokenPrices: cachedTokenPrices
+        };
+        localStorage.setItem('walletMarketData', JSON.stringify(dataToSave));
+
+        // Update Tampilan dengan data TERBARU
+        refreshAllTokenBalances(); 
 
     } catch(e) {
         console.warn("Gagal update market data:", e);
     }
 }
 
-// Helper Format Uang
+// Helper Format Uang (Tetap Sama)
 const fmtUSD = (val) => {
     if(!val) val = 0;
     if(val === 0) return "$0.00";
