@@ -824,7 +824,13 @@ label {
                 <div class="balance-display">
                     <span id="userBalance">0.0000</span> <small>ETH</small>
                 </div>
-                <div class="address-short" id="userAddrMini">0x...</div>
+                <div class="address-short" 
+     id="userAddrMini" 
+     onclick="copySidebarAddress()" 
+     title="Klik untuk menyalin" 
+     style="cursor: pointer; transition: 0.2s;">
+     0x...
+                </div>
             </div>
         </div>
     </aside>
@@ -1946,28 +1952,57 @@ function showToast(message, type = 'info') {
 async function updateSidebarWallet(address) {
     if(!address) return;
     
-    // 1. Format Address Pendek (0x1234...5678)
-    const short = address.substring(0, 21) + "" + address.slice(-21);
-    if(document.getElementById("userAddrMini")) {
-        document.getElementById("userAddrMini").innerText = short;
+    // 1. Ambil Element
+    const addrEl = document.getElementById("userAddrMini");
+    const balEl = document.getElementById("userBalance");
+
+    if(addrEl) {
+        // A. Format Pendek visual
+        const short = address.substring(0, 10) + "..." + address.slice(-8);
+        
+        // B. Update HTML dengan Ikon Copy
+        addrEl.innerHTML = `${short} <i class="far fa-copy" style="font-size: 10px; margin-left: 5px; opacity: 0.7;"></i>`;
+        
+        // C. [PENTING] Simpan alamat lengkap di atribut tersembunyi
+        addrEl.setAttribute("data-full-address", address);
+        
+        // D. Efek Visual Hover (Opsional, via JS direct style)
+        addrEl.onmouseover = () => addrEl.style.color = "#7385a5";
+        addrEl.onmouseout = () => addrEl.style.color = ""; // Reset
     }
     
-    // 2. Ambil Saldo (Langsung dari Jaringan)
+    // 2. Ambil Saldo
     try {
-        // Gunakan provider baru biar aman
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const balance = await provider.getBalance(address);
         const eth = ethers.utils.formatEther(balance);
         
-        if(document.getElementById("userBalance")) {
-            // Tampilkan 4 desimal saja biar rapi di sidebar
-            document.getElementById("userBalance").innerText = parseFloat(eth).toFixed(8); 
+        if(balEl) {
+            balEl.innerText = parseFloat(eth).toFixed(4); 
         }
-    } catch(e) {
-        console.error("Gagal update sidebar:", e);
-    }
+    } catch(e) { console.error(e); }
 }
 
+    function copySidebarAddress() {
+    const addrEl = document.getElementById("userAddrMini");
+    
+    // Ambil alamat lengkap dari atribut yang kita simpan tadi
+    const fullAddress = addrEl.getAttribute("data-full-address");
+    
+    if (fullAddress) {
+        navigator.clipboard.writeText(fullAddress).then(() => {
+            // Tampilkan Toast Sukses
+            showToast("Alamat Wallet disalin!", "success");
+            
+            // Efek visual 'kedip' sedikit biar terasa responsif
+            const originalHTML = addrEl.innerHTML;
+            addrEl.innerHTML = `<i class="fas fa-check" style="color:#2ecc71;"></i> Tersalin`;
+            setTimeout(() => {
+                addrEl.innerHTML = originalHTML;
+            }, 1000);
+        });
+    }
+    }
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
 </body>
