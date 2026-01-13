@@ -1380,8 +1380,6 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         let cachedEthChange = 0;      // [BARU] Wajib ada untuk simpan % ETH
         let cachedTokenPrices = {};   // (Tetap)
         let lastPriceFetchTime = 0;   // (Tetap)
-        const savedMarketData = JSON.parse(localStorage.getItem('walletMarketData')) || {};
-        // [BARU] Konfigurasi Waktu Cache (15 Detik)
         const PRICE_CACHE_DURATION = 15000;
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
@@ -2598,7 +2596,7 @@ async function updateMarketPrices() {
     console.log("🔄 Fetch Market Data + 24h Change...");
     try {
         // 1. Ambil Data ETH (Include 24hr Change)
-        const resEth = await fetch("https://api.dexscreener.com/latest/dex/tokens/${addressString}");
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
         const dataEth = await resEth.json();
         
         if(dataEth.ethereum) {
@@ -2610,7 +2608,7 @@ async function updateMarketPrices() {
         const tokenAddrs = myTokens.map(t => t.address).join(',');
         if(tokenAddrs.length > 0) {
             // URL Token juga ditambah include_24hr_change=true
-            const url = `https://api.dexscreener.com/latest/dex/tokens/${addressString}`;
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
             const resToken = await fetch(url);
             const dataToken = await resToken.json();
             
