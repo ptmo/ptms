@@ -1268,53 +1268,142 @@ async function shareWayang(id, nama) {
     }
 }
 
-// --- FUNGSI LIKE (SINKRON DENGAN RENDERCARD) ---
+// --- FUNGSI LIKE YANG SUDAH DIPERBAIKI ---
 async function kirimLike(idWayang, btnElement) {
     // 1. Validasi ID
-    if (!idWayang) return showToast("ID tidak ditemukan!", 'error');
+    if (!idWayang) return showToast("ID tidak valid!", 'error');
 
-    // 2. Simpan teks asli tombol (untuk jaga-jaga kalau gagal)
+    // 2. Simpan teks asli tombol (backup)
     const originalContent = btnElement.innerHTML;
 
     try {
-        // Cek Wallet
-        await ensureWallet();
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        // 3. Pastikan User Konek Dulu (Wajib!)
+        await ensureWallet(); 
+
+        // 4. Setup Kontrak (Perhatikan: Pakai 'ABI' bukan 'CONTRACT_ABI')
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
         
-        // 3. Ubah tombol jadi Loading
+        // 5. Ubah tombol jadi Loading
         btnElement.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-        btnElement.style.pointerEvents = "none"; // Cegah klik dobel
+        btnElement.style.pointerEvents = "none"; 
         
-        // 4. Kirim Transaksi
+        // 6. Eksekusi Transaksi
+        console.log("Mengirim Like ke ID:", idWayang);
         const tx = await contract.kasihLike(idWayang);
-        await tx.wait(); // Tunggu sampai sukses
         
-        // 5. Sukses! Update UI tanpa reload halaman (biar smooth)
+        // Menunggu konfirmasi blockchain
+        await tx.wait(); 
+        
+        // 7. Sukses!
         showToast("Berhasil menyukai!", 'success');
         
-        // Ubah tampilan tombol jadi "Disukai" (Merah)
+        // Ubah tampilan jadi permanen merah
         btnElement.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Sukses`;
         
-        // Opsional: Reload data di background untuk update angka asli
-        // setTimeout(() => renderCard(idWayang, document.getElementById("feedContent")), 1000);
-
     } catch(err) {
-        console.error("Gagal Like:", err);
+        console.error("Error Like:", err);
         const pesanError = (err.reason || err.message || "").toLowerCase();
 
-        // 6. Cek Error "Sudah Like"
+        // Cek Error Spesifik
         if (pesanError.includes("already liked") || pesanError.includes("sudah")) {
             showToast("Anda sudah menyukai postingan ini", 'warning');
-            // Tetap ubah jadi merah biar user tau statusnya
+            // Tetap ubah jadi merah karena faktanya memang sudah dilike
             btnElement.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Sudah`;
+        } else if (pesanError.includes("user rejected")) {
+            showToast("Transaksi dibatalkan user", 'error');
+            // Balikin tombol ke awal
+            btnElement.innerHTML = originalContent;
+            btnElement.style.pointerEvents = "auto";
         } else {
-            // Error Lain (Cancel/Gas)
-            showToast("Gagal: " + (err.reason || "Dibatalkan"), 'error');
-            // Kembalikan tombol ke awal
+            showToast("Gagal: " + (err.reason || "Terjadi kesalahan"), 'error');
+            // Balikin tombol ke awal
             btnElement.innerHTML = originalContent;
             btnElement.style.pointerEvents = "auto";
         }
     }
+}
+
+// --- HELPER 1: PASTIKAN WALLET TERHUBUNG ---
+async function ensureWallet() {
+    // Cek apakah Metamask ada?
+    if (!window.ethereum) throw new Error("Metamask tidak terinstall!");
+
+    // Cek apakah sudah ada signer?
+    if (!signer) {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Request akses akun
+        await provider.send("eth_requestAccounts", []);
+        
+        // Cek Network (Harus Base Mainnet)
+        const network = await provider.getNetwork();
+        if (network.chainId !== 8453) {
+            try {
+                await window.ethereum.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: "0x2105" }], // Hex 8453
+                });
+            } catch (e) {
+                throw new Error("Harap ganti jaringan ke Base Mainnet");
+            }
+        }
+        
+        // Update variable global signer
+        signer = provider.getSigner();
+    }
+    return signer;
+}
+
+// --- HELPER 2: TOAST NOTIFIKASI (PENGGANTI ALERT) ---
+function showToast(message, type = 'info') {
+    // Buat elemen toast jika belum ada
+    let toast = document.getElementById("customToast");
+    if (!toast) {
+        toast = document.createElement("div");
+        toast.id = "customToast";
+        toast.style.cssText = `
+            position: fixed; bottom: 20px; left: 50%; transform: translateX(-50%);
+            background: #333; color: #fff; padding: 12px 24px; border-radius: 30px;
+            font-size: 14px; z-index: 9999; box-shadow: 0 5px 15px rgba(0,0,0,0.3);
+            display: none; align-items: center; gap: 10px; font-family: sans-serif;
+        `;
+        document.body.appendChild(toast);
+    }
+
+    // Tentukan Warna & Ikon
+    let icon = '<i class="fas fa-info-circle"></i>';
+    let color = "#333";
+
+    if (type === 'success') {
+        color = "#27ae60"; // Hijau
+        icon = '<i class="fas fa-check-circle"></i>';
+    } else if (type === 'error') {
+        color = "#c0392b"; // Merah
+        icon = '<i class="fas fa-exclamation-circle"></i>';
+    } else if (type === 'warning') {
+        color = "#f39c12"; // Oranye
+        icon = '<i class="fas fa-exclamation-triangle"></i>';
+    }
+
+    // Tampilkan
+    toast.style.background = color;
+    toast.innerHTML = `${icon} <span>${message}</span>`;
+    toast.style.display = "flex";
+    
+    // Animasi Masuk
+    toast.style.opacity = 0;
+    toast.style.bottom = "10px";
+    setTimeout(() => {
+        toast.style.transition = "all 0.3s ease";
+        toast.style.opacity = 1;
+        toast.style.bottom = "30px";
+    }, 10);
+
+    // Hilang otomatis setelah 3 detik
+    setTimeout(() => {
+        toast.style.opacity = 0;
+        toast.style.bottom = "10px";
+        setTimeout(() => { toast.style.display = "none"; }, 300);
+    }, 3000);
 }
 
 // Fungsi untuk memperbarui tampilan di Sidebar
