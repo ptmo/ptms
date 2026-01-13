@@ -1214,59 +1214,53 @@ async function updateModalWalletData(addr) {
     }
 }
 
-// 2. FUNGSI LOAD BATCH MODAL (5 Item per klik)
 async function loadNextModalTips() {
     if(isModalFetching || modalTipCursor < 0) return;
     
     isModalFetching = true;
     const container = document.getElementById("modalHistoryList");
     const btnMore = document.getElementById("btnModalLoadMore");
-    
+
     if(btnMore) {
         btnMore.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat...`;
         btnMore.disabled = true;
     }
 
-    // GUNAKAN RPC MAINNET (JANGAN SEPOLIA)
-    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
+    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
-    let end = modalTipCursor - 4; // Ambil 5 item sekaligus (biar lebih cepat)
+    let end = modalTipCursor - 4; // Ambil 5 item
     if(end < 0) end = 0;
 
     let htmlBuffer = "";
 
-    // Loop mundur dari cursor
     for (let i = modalTipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(modalUserAddr, i);
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
-            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(6);
+            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const msg = (tip.message && tip.message !== "") ? tip.message : "Tanpa pesan";
             
-            // Format Waktu (Cek error timestamp)
+            // Format Waktu Aman
             let dateStr = "Baru saja";
             try {
-                const dateObj = new Date(tip.timestamp * 1000);
-                dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
-            } catch(errDate) {}
+                dateStr = new Date(tip.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
+            } catch(ed){}
 
             htmlBuffer += `
-            <div class="mini-history-item" style="animation: fadeIn 0.3s; padding:10px; border-bottom:1px solid #f0f0f0;">
-                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
-                    <div class="mini-sender" style="font-size:12px; font-weight:bold; color:#555;">
+            <div class="mini-history-item" style="animation: fadeIn 0.3s; padding:10px; border-bottom:1px solid #f0f0f0; display:flex; justify-content:space-between; align-items:center;">
+                <div style="flex:1;">
+                    <div style="font-size:12px; font-weight:bold; color:#555; display:flex; align-items:center; gap:5px;">
                         <i class="fas fa-user-circle" style="color:#7385a5;"></i> ${senderShort}
+                        <span style="font-size:10px; color:#aaa; font-weight:normal;">• ${dateStr}</span>
                     </div>
-                    <div style="font-size:10px; color:#aaa;">${dateStr}</div>
+                    <div style="font-size:11px; color:#888; font-style:italic; margin-top:2px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:140px;">
+                        "${msg}"
+                    </div>
                 </div>
-                <div style="display:flex; justify-content:space-between; align-items:center;">
-                    <span class="mini-msg" style="font-size:11px; color:#666; font-style:italic; max-width:60%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${msg}"</span>
-                    <div class="mini-amount" style="font-size:12px; font-weight:bold; color:#27ae60;">+${amount} ETH</div>
-                </div>
+                <div style="font-size:12px; font-weight:bold; color:#27ae60;">+${amount} ETH</div>
             </div>`;
-        } catch (e) {
-            console.warn("Skip error item index:", i);
-        }
+        } catch (e) {}
     }
 
     container.insertAdjacentHTML('beforeend', htmlBuffer);
