@@ -1268,65 +1268,51 @@ async function shareWayang(id, nama) {
     }
 }
 
-// Menerima parameter id (dari data) dan btnElement (tombol yang diklik)
-async function kirimLike(idParam, btnElement) {
-    
-    // 1. Tentukan ID Wayang
-    // Jika ada parameter kiriman (dari Beranda), pakai itu.
-    // Jika tidak ada, coba cari di URL (untuk Halaman Detail).
-    let id = idParam;
-    if (!id) {
-        const params = new URLSearchParams(window.location.search);
-        id = params.get('id');
-    }
+// --- FUNGSI LIKE (SINKRON DENGAN RENDERCARD) ---
+async function kirimLike(idWayang, btnElement) {
+    // 1. Validasi ID
+    if (!idWayang) return showToast("ID tidak ditemukan!", 'error');
 
-    if (!id) return showToast("ID Wayang tidak ditemukan!", 'error');
-
-    // 2. Tentukan Tombol
-    // Jika diklik langsung (this), pakai itu. Jika tidak, cari ID 'btnLike' (khusus halaman Detail).
-    let btn = btnElement || document.getElementById("btnLike");
-
-    // Simpan teks asli biar bisa dikembalikan kalau error
-    const originalContent = btn ? btn.innerHTML : "";
+    // 2. Simpan teks asli tombol (untuk jaga-jaga kalau gagal)
+    const originalContent = btnElement.innerHTML;
 
     try {
+        // Cek Wallet
         await ensureWallet();
-
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         
-        // Efek Loading pada tombol yang diklik
-        if (btn) {
-            btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-            btn.style.pointerEvents = "none"; // Cegah klik ganda
-        }
+        // 3. Ubah tombol jadi Loading
+        btnElement.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        btnElement.style.pointerEvents = "none"; // Cegah klik dobel
         
-        const tx = await contract.kasihLike(id);
-        await tx.wait();
+        // 4. Kirim Transaksi
+        const tx = await contract.kasihLike(idWayang);
+        await tx.wait(); // Tunggu sampai sukses
         
-        showToast("Berhasil Like!", 'success');
+        // 5. Sukses! Update UI tanpa reload halaman (biar smooth)
+        showToast("Berhasil menyukai!", 'success');
         
-        // Jangan reload halaman penuh (berat), update angkanya saja atau reload ringan
-        // location.reload(); <--- Hapus ini kalau di beranda biar gak scroll ke atas
+        // Ubah tampilan tombol jadi "Disukai" (Merah)
+        btnElement.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Sukses`;
         
-        // Update tampilan manual biar responsif
-        if (btn) {
-            btn.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Terkirim`;
-        }
+        // Opsional: Reload data di background untuk update angka asli
+        // setTimeout(() => renderCard(idWayang, document.getElementById("feedContent")), 1000);
 
     } catch(err) {
-        console.error(err);
+        console.error("Gagal Like:", err);
         const pesanError = (err.reason || err.message || "").toLowerCase();
 
+        // 6. Cek Error "Sudah Like"
         if (pesanError.includes("already liked") || pesanError.includes("sudah")) {
             showToast("Anda sudah menyukai postingan ini", 'warning');
+            // Tetap ubah jadi merah biar user tau statusnya
+            btnElement.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Sudah`;
         } else {
-            showToast("Gagal Like: " + (err.reason || "Dibatalkan"), 'error');
-        }
-
-        // Kembalikan tombol seperti semula
-        if (btn) {
-            btn.innerHTML = originalContent || '<i class="far fa-heart"></i> Suka';
-            btn.style.pointerEvents = "auto";
+            // Error Lain (Cancel/Gas)
+            showToast("Gagal: " + (err.reason || "Dibatalkan"), 'error');
+            // Kembalikan tombol ke awal
+            btnElement.innerHTML = originalContent;
+            btnElement.style.pointerEvents = "auto";
         }
     }
 }
