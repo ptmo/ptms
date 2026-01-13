@@ -886,8 +886,22 @@ label {
         </button>
     </div>
 
+    <div class="token-item" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
+        <div class="token-left">
+            <img src="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png" class="token-logo-img">
+            <div class="token-meta">
+                <span class="token-name">Ethereum</span>
+                <span class="token-symbol">ETH</span>
+            </div>
+        </div>
+        <div style="display:flex; align-items:center;">
+            <div class="token-balance" id="staticEthBalance">0.000000</div>
+        </div>
+    </div>
+
     <div id="tokenListDisplay">
         </div>
+                </div>
                 </div>
             </div>
         </div>
@@ -2186,12 +2200,12 @@ function renderTokenList() {
     });
 }
 
-// 5. Update Saldo (Real-time Blockchain)
+// 5. Update Saldo (Real-time Blockchain) - TERMASUK ETH STATIS
 async function refreshAllTokenBalances() {
     if(!window.ethereum) return;
     
-    // Ambil address user yang sedang login
-    if(!modalUserAddr) { // Pastikan variabel global user address tersedia
+    // Pastikan kita tahu alamat user
+    if(!modalUserAddr) { 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const accounts = await provider.listAccounts();
         if(accounts.length > 0) modalUserAddr = accounts[0];
@@ -2200,13 +2214,22 @@ async function refreshAllTokenBalances() {
 
     const provider = new ethers.providers.Web3Provider(window.ethereum);
 
+    // A. UPDATE SALDO ETH STATIS (6 DESIMAL)
+    try {
+        const ethRaw = await provider.getBalance(modalUserAddr);
+        const ethFmt = ethers.utils.formatEther(ethRaw);
+        // Tampilkan 6 desimal sesuai request
+        const elEth = document.getElementById("staticEthBalance");
+        if(elEth) elEth.innerText = parseFloat(ethFmt).toFixed(6);
+    } catch(e) { console.log("Gagal fetch ETH"); }
+
+    // B. UPDATE SALDO TOKEN IMPORT (4 DESIMAL)
     myTokens.forEach(async (token) => {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
             const balRaw = await contract.balanceOf(modalUserAddr);
             const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
             
-            // Update Text di layar
             const el = document.getElementById(`bal-${token.address}`);
             if(el) el.innerText = parseFloat(balFmt).toFixed(4);
         } catch(e) {
@@ -2214,6 +2237,7 @@ async function refreshAllTokenBalances() {
         }
     });
 }
+
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
 </body>
