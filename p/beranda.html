@@ -1373,13 +1373,16 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         let isWalletConnected = false;
         let modalTipCursor = 0;
         let modalUserAddr = null;
-        let isModalFetching = false;
-        let myTokens = [];
-        let activeToken = null;
-        let cachedEthPrice = 0;
-        let cachedTokenPrices = {};
-        let lastPriceFetchTime = 0;
-        const PRICE_CACHE_DURATION = 15000
+        let isModalFetching = false;  // (Tetap)
+        let myTokens = [];            // (Tetap)
+        let activeToken = null;       // (Tetap)
+        let cachedEthPrice = 0;       // (Tetap)
+        let cachedEthChange = 0;      // [BARU] Wajib ada untuk simpan % ETH
+        let cachedTokenPrices = {};   // (Tetap)
+        let lastPriceFetchTime = 0;   // (Tetap)
+        
+        // [BARU] Konfigurasi Waktu Cache (15 Detik)
+        const PRICE_CACHE_DURATION = 15000;
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
 const POPULAR_BASE_TOKENS = [
@@ -2501,46 +2504,52 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE SALDO & ESTIMASI (ANTI $0 & ANTI BLOKIR) ---
+// --- UPDATE TAMPILAN SALDO & 24H CHANGE ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // 1. UPDATE HARGA PASAR (Hanya jika cache sudah basi > 60 detik)
+    // Cek apakah perlu update harga (Setiap 15 detik)
     const now = Date.now();
     if (now - lastPriceFetchTime > PRICE_CACHE_DURATION) {
-        // Jalankan di background (jangan tunggu/await) agar UI tidak macet
         updateMarketPrices(); 
     }
 
     let currentTotalUsd = 0;
 
+    // Helper: Bikin HTML Warna Warni Persentase
+    const getChangeHtml = (changeVal) => {
+        if(!changeVal) return `<span style="color:#777;">(0%)</span>`;
+        const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; // Hijau / Merah
+        const sign = changeVal >= 0 ? '+' : '';
+        // Tampilan: (+2.45%)
+        return `<span style="color:${color}; font-weight:bold;">(${sign}${changeVal.toFixed(2)}%)</span>`;
+    };
+
     // ==========================================
-    // 2. HITUNG ETH (NATIVE)
+    // 1. ETH NATIVE
     // ==========================================
     try {
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
         const ethVal = parseFloat(ethFmt);
         
-        // Update UI Saldo ETH
         const elEth = document.getElementById("staticEthBalance");
         if(elEth) elEth.innerText = ethVal.toFixed(6);
 
-        // Hitung USD pakai Harga Cache (Instant)
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
-        // Update Detail
         const elEthDet = document.getElementById("staticEthDetails");
         if(elEthDet) {
-            elEthDet.innerText = `@ ${fmtUSD(cachedEthPrice)} | ≈ ${fmtUSD(ethUsd)}`;
+            // Format: @ $2,500 (+5.2%) | ≈ $120
+            elEthDet.innerHTML = `@ ${fmtUSD(cachedEthPrice)} ${getChangeHtml(cachedEthChange)} <br> <span style="color:#ddd">≈ ${fmtUSD(ethUsd)}</span>`;
         }
 
     } catch(e) { }
 
     // ==========================================
-    // 3. HITUNG TOKEN IMPORT
+    // 2. TOKEN IMPORT
     // ==========================================
     for (const token of myTokens) {
         try {
@@ -2549,68 +2558,71 @@ async function refreshAllTokenBalances() {
             const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
             const balFloat = parseFloat(balFmt);
             
-            // Update UI Saldo Token
             const el = document.getElementById(`bal-${token.address}`);
             if(el) el.innerText = balFloat.toFixed(4);
 
-            // Hitung USD Token
             const lowerAddr = token.address.toLowerCase();
-            let price = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd : 0;
+            let price = 0;
+            let change24h = 0;
+
+            // Ambil data dari Cache
+            if(cachedTokenPrices[lowerAddr]) {
+                price = cachedTokenPrices[lowerAddr].usd || 0;
+                change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
+            }
             
             const tokenUsd = balFloat * price;
             currentTotalUsd += tokenUsd;
 
-            // Update Detail Token
             const elVal = document.getElementById(`val-${token.address}`);
             if(elVal) {
-                elVal.innerText = `@ ${fmtUSD(price)} | ≈ ${fmtUSD(tokenUsd)}`;
+                 elVal.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#ddd">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
 
         } catch(e) { }
     }
 
     // ==========================================
-    // 4. UPDATE TOTAL HEADER (Hanya jika > 0 agar tidak kaget)
+    // 3. TOTAL HEADER
     // ==========================================
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        // Trik: Jika total 0 tapi kita punya saldo ETH, jangan ubah jadi $0 (pakai nilai lama saja)
-        // Kecuali memang saldonya beneran kosong.
-        if (currentTotalUsd > 0 || (cachedEthPrice > 0)) {
+        if (currentTotalUsd > 0 || cachedEthPrice > 0) {
             usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
         }
     }
 }
 
-// --- FUNGSI AMBIL HARGA (JALAN TERPISAH) ---
+// --- FUNGSI AMBIL HARGA + PERUBAHAN 24 JAM ---
 async function updateMarketPrices() {
-    console.log("🔄 Mengambil update harga pasar...");
+    console.log("🔄 Fetch Market Data + 24h Change...");
     try {
-        // 1. Ambil Harga ETH
-        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        // 1. Ambil Data ETH (Include 24hr Change)
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
         const dataEth = await resEth.json();
-        if(dataEth.ethereum.usd) {
+        
+        if(dataEth.ethereum) {
             cachedEthPrice = dataEth.ethereum.usd;
+            cachedEthChange = dataEth.ethereum.usd_24h_change; // Simpan %
         }
 
-        // 2. Ambil Harga Token Import
+        // 2. Ambil Data Token Import
         const tokenAddrs = myTokens.map(t => t.address).join(',');
         if(tokenAddrs.length > 0) {
-            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
+            // URL Token juga ditambah include_24hr_change=true
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
             const resToken = await fetch(url);
             const dataToken = await resToken.json();
             
-            // Gabungkan ke cache lama (update yg ada saja)
+            // Gabungkan ke cache
             cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
         }
         
-        lastPriceFetchTime = Date.now(); // Reset timer
-        
-        // Panggil refresh sekali lagi agar angka di layar update dengan harga baru
-        refreshAllTokenBalances();
+        lastPriceFetchTime = Date.now();
+        refreshAllTokenBalances(); // Refresh tampilan
 
     } catch(e) {
-        console.warn("Gagal update harga (Limit API), pakai harga lama.");
+        console.warn("Gagal update market data:", e);
     }
 }
 
