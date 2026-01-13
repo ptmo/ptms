@@ -2504,52 +2504,53 @@ function renderTokenList() {
     });
 }
 
-// ==========================================
-// 2. UPDATE FUNGSI REFRESH (Visual & Perhitungan)
-// ==========================================
+// --- UPDATE TAMPILAN SALDO & 24H CHANGE ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
     // Cek apakah perlu update harga (Setiap 15 detik)
     const now = Date.now();
-    // LOGIC BARU: Jika harga ETH masih 0 ATAU harga Token masih kosong, PAKSA update
-    const isTokenPriceEmpty = Object.keys(cachedTokenPrices).length === 0 && myTokens.length > 0;
-    
-    if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0 || isTokenPriceEmpty) {
-        // Jangan await di sini agar UI tidak macet, biarkan jalan di background
+    if (now - lastPriceFetchTime > PRICE_CACHE_DURATION) {
         updateMarketPrices(); 
     }
 
     let currentTotalUsd = 0;
 
-    // Helper: HTML Warna Warni
+    // Helper: Bikin HTML Warna Warni Persentase
     const getChangeHtml = (changeVal) => {
-        if(!changeVal && changeVal !== 0) return `<span style="color:#777;">(0%)</span>`;
-        const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; 
+        if(!changeVal) return `<span style="color:#777;">(0%)</span>`;
+        const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; // Hijau / Merah
         const sign = changeVal >= 0 ? '+' : '';
+        // Tampilan: (+2.45%)
         return `<span style="color:${color}; font-weight:bold;">(${sign}${changeVal.toFixed(2)}%)</span>`;
     };
 
-    // --- A. ETH NATIVE ---
+    // ==========================================
+    // 1. ETH NATIVE
+    // ==========================================
     try {
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
         const ethVal = parseFloat(ethFmt);
         
         const elEth = document.getElementById("staticEthBalance");
-        if(elEth) elEth.innerText = ethVal.toFixed(8);
+        if(elEth) elEth.innerText = ethVal.toFixed(6);
 
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
         const elEthDet = document.getElementById("staticEthDetails");
         if(elEthDet) {
-            elEthDet.innerHTML = `@ ${fmtUSD(cachedEthPrice)} ${getChangeHtml(cachedEthChange)} <br> <span style="color:#666666">≈ ${fmtUSD(ethUsd)}</span>`;
+            // Format: @ $2,500 (+5.2%) | ≈ $120
+            elEthDet.innerHTML = `@ ${fmtUSD(cachedEthPrice)} ${getChangeHtml(cachedEthChange)} <br> <span style="color:#ddd">≈ ${fmtUSD(ethUsd)}</span>`;
         }
+
     } catch(e) { }
 
-    // --- B. TOKEN IMPORT ---
+    // ==========================================
+    // 2. TOKEN IMPORT
+    // ==========================================
     for (const token of myTokens) {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
@@ -2560,11 +2561,11 @@ async function refreshAllTokenBalances() {
             const el = document.getElementById(`bal-${token.address}`);
             if(el) el.innerText = balFloat.toFixed(4);
 
-            // [PENTING] Normalisasi alamat ke huruf kecil agar cocok dengan key dari CoinGecko
             const lowerAddr = token.address.toLowerCase();
             let price = 0;
             let change24h = 0;
 
+            // Ambil data dari Cache
             if(cachedTokenPrices[lowerAddr]) {
                 price = cachedTokenPrices[lowerAddr].usd || 0;
                 change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
@@ -2575,89 +2576,56 @@ async function refreshAllTokenBalances() {
 
             const elVal = document.getElementById(`val-${token.address}`);
             if(elVal) {
-                 // Tampilkan harga meskipun saldo 0 (biar user tau harga pasar)
-                 elVal.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#666666">≈ ${fmtUSD(tokenUsd)}</span>`;
+                 elVal.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#ddd">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
+
         } catch(e) { }
     }
 
-    // --- C. TOTAL HEADER ---
+    // ==========================================
+    // 3. TOTAL HEADER
+    // ==========================================
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
+        if (currentTotalUsd > 0 || cachedEthPrice > 0) {
+            usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
+        }
     }
 }
 
-// ==========================================
-// 3. UPDATE FUNGSI FETCH (DENGAN PROXY ANTI-BLOKIR CORS)
-// ==========================================
+// --- FUNGSI AMBIL HARGA + PERUBAHAN 24 JAM ---
 async function updateMarketPrices() {
-    // Cegah double fetch cepat
-    if(Date.now() - lastPriceFetchTime < 2000) return; 
-
-    console.log("🔄 Fetch Market Data (via Proxy)...");
-    
-    // 1. Pastikan myTokens terisi (Backup Load)
-    if (myTokens.length === 0) {
-        const stored = localStorage.getItem("myTokens"); 
-        if (stored) {
-            try { myTokens = JSON.parse(stored); } catch(e){}
-        }
-    }
-
-    // --- SETTING PROXY ---
-    // Kita gunakan Proxy Gratis untuk menembus blokir CORS
-    // Jika suatu saat macet, ganti 'corsproxy.io' dengan 'api.allorigins.win/raw?url='
-    const PROXY_URL = "https://corsproxy.io/?";
-
+    console.log("🔄 Fetch Market Data + 24h Change...");
     try {
-        // A. Ambil Data ETH (Lewat Proxy)
-        const targetEth = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true";
-        // Encode URL target agar aman saat dikirim lewat proxy
-        const resEth = await fetch(PROXY_URL + encodeURIComponent(targetEth));
-        
-        if (!resEth.ok) throw new Error("Gagal fetch ETH"); // Cek jika proxy error
+        // 1. Ambil Data ETH (Include 24hr Change)
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
         const dataEth = await resEth.json();
         
         if(dataEth.ethereum) {
             cachedEthPrice = dataEth.ethereum.usd;
-            cachedEthChange = dataEth.ethereum.usd_24h_change;
+            cachedEthChange = dataEth.ethereum.usd_24h_change; // Simpan %
         }
 
-        // B. Ambil Data Token (Lewat Proxy)
-        if(myTokens.length > 0) {
-            const tokenAddrs = myTokens.map(t => t.address.toLowerCase()).join(',');
-            const targetToken = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
-            
-            const resToken = await fetch(PROXY_URL + encodeURIComponent(targetToken));
-            
-            if (!resToken.ok) throw new Error("Gagal fetch Token");
+        // 2. Ambil Data Token Import
+        const tokenAddrs = myTokens.map(t => t.address).join(',');
+        if(tokenAddrs.length > 0) {
+            // URL Token juga ditambah include_24hr_change=true
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
+            const resToken = await fetch(url);
             const dataToken = await resToken.json();
             
-            // Simpan data (pastikan key lowercase)
-            for (const key in dataToken) {
-                cachedTokenPrices[key.toLowerCase()] = dataToken[key];
-            }
+            // Gabungkan ke cache
+            cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
         }
         
         lastPriceFetchTime = Date.now();
-
-        // Simpan Cache ke LocalStorage
-        const dataToSave = {
-            ethPrice: cachedEthPrice,
-            ethChange: cachedEthChange,
-            tokenPrices: cachedTokenPrices
-        };
-        localStorage.setItem('walletMarketData', JSON.stringify(dataToSave));
-
-        // Update UI
-        refreshAllTokenBalances(); 
+        refreshAllTokenBalances(); // Refresh tampilan
 
     } catch(e) {
-        console.warn("⚠️ Gagal update market (CORS/Limit):", e);
-        // Tips: Jika masih error, biasanya Proxy sedang sibuk, akan coba lagi otomatis nanti.
+        console.warn("Gagal update market data:", e);
     }
 }
+        
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
     if (!window.ethereum || !modalUserAddr) return;
