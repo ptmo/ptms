@@ -1205,6 +1205,12 @@ let isModalFetching = false; // Kunci
     loadFeed();
     setTimeout(initDeepIndexer, 3000);
     initTokenManager();
+    setInterval(() => {
+        // Hanya update jika user sudah login (punya address)
+        if (typeof modalUserAddr !== 'undefined' && modalUserAddr) {
+            refreshAllTokenBalances();
+        }
+    }, 5000);
 };
 
 async function connectWallet() {
@@ -2200,30 +2206,26 @@ function renderTokenList() {
     });
 }
 
-// 5. Update Saldo (Real-time Blockchain) - TERMASUK ETH STATIS
+// --- UPDATE SALDO (ULTRA SILENT - ANTI KEDIP) ---
 async function refreshAllTokenBalances() {
-    if(!window.ethereum) return;
-    
-    // Pastikan kita tahu alamat user
-    if(!modalUserAddr) { 
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await provider.listAccounts();
-        if(accounts.length > 0) modalUserAddr = accounts[0];
-        else return;
-    }
-
+    if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
 
-    // A. UPDATE SALDO ETH STATIS (6 DESIMAL)
+    // 1. Cek Saldo ETH (Native)
     try {
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
-        // Tampilkan 6 desimal sesuai request
         const elEth = document.getElementById("staticEthBalance");
-        if(elEth) elEth.innerText = parseFloat(ethFmt).toFixed(6);
-    } catch(e) { console.log("Gagal fetch ETH"); }
+        const ethNew = parseFloat(ethFmt).toFixed(6);
+        
+        // LOGIKA PINTAR: Cek dulu sebelum ubah
+        // Jika angka di layar (innerText) masih sama dengan data baru, JANGAN lakukan apa-apa.
+        if(elEth && elEth.innerText !== ethNew) {
+            elEth.innerText = ethNew; // Hanya update kalau beda
+        }
+    } catch(e) {}
 
-    // B. UPDATE SALDO TOKEN IMPORT (4 DESIMAL)
+    // 2. Cek Saldo Token (Looping)
     myTokens.forEach(async (token) => {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
@@ -2231,9 +2233,14 @@ async function refreshAllTokenBalances() {
             const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
             
             const el = document.getElementById(`bal-${token.address}`);
-            if(el) el.innerText = parseFloat(balFmt).toFixed(4);
+            const newVal = parseFloat(balFmt).toFixed(4);
+
+            // LOGIKA PINTAR TOKEN:
+            if(el && el.innerText !== newVal) {
+                el.innerText = newVal; // Hanya update kalau beda
+            }
         } catch(e) {
-            console.log("Gagal fetch saldo token:", token.symbol);
+            // Silent error (jangan log apa-apa biar bersih di console)
         }
     });
 }
