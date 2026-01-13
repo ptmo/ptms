@@ -780,6 +780,45 @@ label {
     50% { opacity: 0.3; }
     100% { transform: translate(-50%, -50%) scale(3); opacity: 0; box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
 }
+        .token-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 8px;
+    background: rgba(255, 255, 255, 0.03);
+    border-radius: 8px;
+    margin-bottom: 6px;
+    transition: 0.2s;
+}
+
+.token-item:hover { background: rgba(255, 255, 255, 0.08); }
+
+.token-left { display: flex; align-items: center; gap: 10px; }
+
+.token-logo-img {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    object-fit: cover;
+    background: #fff;
+    border: 1px solid #444;
+}
+
+.token-meta { display: flex; flex-direction: column; }
+.token-name { font-size: 11px; font-weight: bold; color: #e2e8f0; }
+.token-symbol { font-size: 9px; color: #94a3b8; text-transform: uppercase; }
+
+.token-balance {
+    text-align: right;
+    font-size: 12px;
+    font-weight: 700;
+    color: #2ecc71;
+    font-family: 'Courier New', monospace;
+}
+
+.delete-token-btn {
+    font-size: 10px; color: #ef4444; margin-left: 8px; cursor: pointer; opacity: 0.5;
+}
+.delete-token-btn:hover { opacity: 1; }
     </style>
 </head>
 <body>
@@ -829,6 +868,26 @@ label {
      title="Klik untuk menyalin" 
      style="cursor: pointer; transition: 0.2s;">
      0x...
+                </div>
+                <div class="token-section" style="margin-top: 15px; border-top: 1px dashed #333; padding-top: 10px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <span class="sidebar-label" style="margin:0;">Aset Token</span>
+        <button onclick="toggleImportForm()" style="background:none; border:none; color:#2ecc71; cursor:pointer; font-size:12px;">
+            <i class="fas fa-plus-circle"></i> Import
+        </button>
+    </div>
+
+    <div id="importTokenBox" style="display:none; background:#1e2329; padding:10px; border-radius:8px; margin-bottom:10px;">
+        <input type="text" id="inputTokenAddr" placeholder="Paste Smart Contract (0x...)" 
+               style="width:100%; padding:8px; border-radius:5px; border:1px solid #444; background:#0b0e11; color:#fff; font-size:11px; margin-bottom:5px;">
+        <button onclick="addNewToken()" id="btnAddToken" 
+                style="width:100%; padding:6px; background:#2ecc71; border:none; border-radius:5px; color:#fff; font-weight:bold; font-size:11px; cursor:pointer;">
+            <i class="fas fa-download"></i> Tambahkan Token
+        </button>
+    </div>
+
+    <div id="tokenListDisplay">
+        </div>
                 </div>
             </div>
         </div>
@@ -1057,6 +1116,17 @@ const BASE_MAINNET_CONFIG = {
         const OFFICIAL_WALLET = "0xBAcc1F6e717bF03dB0c40E3044DA47318C369B70";
         // ABI Minimal untuk Read Data + Upload
         const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+        // --- ABI KHUSUS UNTUK IMPORT TOKEN (ERC-20) ---
+const ERC20_ABI = [
+    // Read-Only Functions
+    "function name() view returns (string)",
+    "function symbol() view returns (string)",
+    "function decimals() view returns (uint8)",
+    "function balanceOf(address owner) view returns (uint256)",
+    "function transfer(address to, uint amount) returns (bool)",
+    "function approve(address spender, uint amount) returns (bool)"
+];
         
         const PINATA_API_KEY = "d209d53257fcc57219af";    
 const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
@@ -1072,6 +1142,7 @@ const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
         let modalTipCursor = 0;      // Penanda index untuk modal
 let modalUserAddr = null;    // Alamat user yang sedang login
 let isModalFetching = false; // Kunci
+        let myTokens = [];
 
         // --- INIT ---
         window.onload = async () => {
@@ -1119,6 +1190,7 @@ let isModalFetching = false; // Kunci
     // 3. Load Feed & Indexer
     loadFeed();
     setTimeout(initDeepIndexer, 3000);
+    initTokenManager();
 };
 
 async function connectWallet() {
@@ -2002,6 +2074,146 @@ async function updateSidebarWallet(address) {
         });
     }
     }
+
+    // --- MANAJEMEN TOKEN PINTAR ---
+// 1. Load Token saat Web Dibuka
+function initTokenManager() {
+    const saved = localStorage.getItem("myCustomTokens");
+    if(saved) {
+        myTokens = JSON.parse(saved);
+        renderTokenList(); // Tampilkan list (saldo mungkin masih loading)
+        refreshAllTokenBalances(); // Update saldo terbaru dari blockchain
+    }
+}
+
+// Panggil fungsi ini di window.onload Anda!
+// window.onload = async () => { ... initTokenManager(); ... }
+
+function toggleImportForm() {
+    const el = document.getElementById("importTokenBox");
+    el.style.display = (el.style.display === "none") ? "block" : "none";
+}
+
+// 2. Tambah Token Baru
+async function addNewToken() {
+    const addrInput = document.getElementById("inputTokenAddr");
+    const btn = document.getElementById("btnAddToken");
+    const address = addrInput.value.trim();
+
+    if(!ethers.utils.isAddress(address)) return showToast("Alamat kontrak tidak valid!", "error");
+    if(myTokens.some(t => t.address.toLowerCase() === address.toLowerCase())) return showToast("Token sudah ada!", "warning");
+
+    try {
+        btn.innerHTML = `<i class="fas fa-spinner fa-spin"></i> Cek Data...`;
+        btn.disabled = true;
+
+        // Konek ke Blockchain untuk ambil metadata
+        const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
+        const tokenContract = new ethers.Contract(address, ERC20_ABI, provider);
+
+        const [name, symbol, decimals] = await Promise.all([
+            tokenContract.name(),
+            tokenContract.symbol(),
+            tokenContract.decimals()
+        ]);
+
+        // Simpan ke Array
+        const newToken = {
+            address: address,
+            name: name,
+            symbol: symbol,
+            decimals: decimals,
+            logo: `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/assets/${ethers.utils.getAddress(address)}/logo.png`
+        };
+
+        myTokens.push(newToken);
+        saveTokens();
+        
+        // Render Ulang
+        renderTokenList();
+        refreshAllTokenBalances();
+        
+        // Reset Form
+        addrInput.value = "";
+        toggleImportForm();
+        showToast(`Berhasil import ${symbol}!`, "success");
+
+    } catch(e) {
+        console.error(e);
+        showToast("Gagal: Bukan Token ERC20 valid", "error");
+    } finally {
+        btn.innerHTML = `<i class="fas fa-download"></i> Tambahkan Token`;
+        btn.disabled = false;
+    }
+}
+
+// 3. Hapus Token
+function removeToken(address) {
+    if(!confirm("Hapus token ini dari daftar?")) return;
+    myTokens = myTokens.filter(t => t.address !== address);
+    saveTokens();
+    renderTokenList();
+}
+
+function saveTokens() {
+    localStorage.setItem("myCustomTokens", JSON.stringify(myTokens));
+}
+
+// 4. Render Tampilan (HTML)
+function renderTokenList() {
+    const container = document.getElementById("tokenListDisplay");
+    container.innerHTML = "";
+
+    myTokens.forEach(token => {
+        // Fallback Logo jika trustwallet tidak punya (Pakai Dicebear Generated)
+        const fallbackLogo = `https://api.dicebear.com/7.x/identicon/svg?seed=${token.address}`;
+        
+        const html = `
+        <div class="token-item">
+            <div class="token-left">
+                <img src="${token.logo}" onerror="this.src='${fallbackLogo}'" class="token-logo-img">
+                <div class="token-meta">
+                    <span class="token-name">${token.name}</span>
+                    <span class="token-symbol">$${token.symbol}</span>
+                </div>
+            </div>
+            <div style="display:flex; align-items:center;">
+                <div class="token-balance" id="bal-${token.address}">Loading...</div>
+                <i class="fas fa-trash delete-token-btn" onclick="removeToken('${token.address}')"></i>
+            </div>
+        </div>`;
+        container.insertAdjacentHTML('beforeend', html);
+    });
+}
+
+// 5. Update Saldo (Real-time Blockchain)
+async function refreshAllTokenBalances() {
+    if(!window.ethereum) return;
+    
+    // Ambil address user yang sedang login
+    if(!modalUserAddr) { // Pastikan variabel global user address tersedia
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const accounts = await provider.listAccounts();
+        if(accounts.length > 0) modalUserAddr = accounts[0];
+        else return;
+    }
+
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+    myTokens.forEach(async (token) => {
+        try {
+            const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
+            const balRaw = await contract.balanceOf(modalUserAddr);
+            const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
+            
+            // Update Text di layar
+            const el = document.getElementById(`bal-${token.address}`);
+            if(el) el.innerText = parseFloat(balFmt).toFixed(4);
+        } catch(e) {
+            console.log("Gagal fetch saldo token:", token.symbol);
+        }
+    });
+}
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
 </body>
