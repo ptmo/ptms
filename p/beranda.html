@@ -993,9 +993,8 @@ const avatar = isOfficial
                     </div>
 
                     <div class="card-actions">
-                        <button onclick="kirimLike()" class="action-btn" title="Suka">
-                <i class="fas fa-heart"></i> 
-                ${likes} Suka</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
+                        <i class="fas fa-heart"></i> ${likes} Suka</button>
                         <button class="action-btn"><i class="fa fa-gift"></i> Dukung</button>
                         <button class="action-btn"><i class="fa fa-star"></i> Ulasan</button>
                         <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
@@ -1269,47 +1268,66 @@ async function shareWayang(id, nama) {
     }
 }
 
-async function kirimLike() {
-    // Simpan tombol untuk referensi
-    const btn = document.getElementById("btnLike");
-    const oriHTML = btn.innerHTML; // Simpan tampilan asli tombol
+// Menerima parameter id (dari data) dan btnElement (tombol yang diklik)
+async function kirimLike(idParam, btnElement) {
+    
+    // 1. Tentukan ID Wayang
+    // Jika ada parameter kiriman (dari Beranda), pakai itu.
+    // Jika tidak ada, coba cari di URL (untuk Halaman Detail).
+    let id = idParam;
+    if (!id) {
+        const params = new URLSearchParams(window.location.search);
+        id = params.get('id');
+    }
+
+    if (!id) return showToast("ID Wayang tidak ditemukan!", 'error');
+
+    // 2. Tentukan Tombol
+    // Jika diklik langsung (this), pakai itu. Jika tidak, cari ID 'btnLike' (khusus halaman Detail).
+    let btn = btnElement || document.getElementById("btnLike");
+
+    // Simpan teks asli biar bisa dikembalikan kalau error
+    const originalContent = btn ? btn.innerHTML : "";
 
     try {
         await ensureWallet();
-        const params = new URLSearchParams(window.location.search);
-        const id = params.get('id');
 
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
         
-        // Ubah tombol jadi loading
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin" style="margin-right: 8px;"></i>`;
+        // Efek Loading pada tombol yang diklik
+        if (btn) {
+            btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+            btn.style.pointerEvents = "none"; // Cegah klik ganda
+        }
         
         const tx = await contract.kasihLike(id);
         await tx.wait();
         
         showToast("Berhasil Like!", 'success');
-        location.reload();
-
-    } catch(err) {
-        console.error(err); // Debugging di console
         
-        // 1. Ambil pesan error dan ubah ke huruf kecil biar mudah dicek
-        const pesanError = (err.reason || err.message || "").toLowerCase();
-
-        // 2. Cek kata kunci error dari Smart Contract
-        // Sesuaikan kata "already liked" dengan pesan error di kontrak Solidity Bapak
-        if (pesanError.includes("already liked") || pesanError.includes("sudah")) {
-            
-            // Tampilkan Toast Khusus
-            showToast("Anda sudah menyukai postingan ini", 'warning');
-            
-        } else {
-            // Error lain (misal: gas fee kurang, user reject)
-            showToast("Gagal: " + (err.reason || "Transaksi dibatalkan"), 'error');
+        // Jangan reload halaman penuh (berat), update angkanya saja atau reload ringan
+        // location.reload(); <--- Hapus ini kalau di beranda biar gak scroll ke atas
+        
+        // Update tampilan manual biar responsif
+        if (btn) {
+            btn.innerHTML = `<i class="fas fa-heart" style="color: #e74c3c;"></i> Terkirim`;
         }
 
-        // 3. Kembalikan tombol ke tampilan gagal/awal
-        btn.innerHTML = '<i class="far fa-heart" style="margin-right: 6px;"></i> Suka';
+    } catch(err) {
+        console.error(err);
+        const pesanError = (err.reason || err.message || "").toLowerCase();
+
+        if (pesanError.includes("already liked") || pesanError.includes("sudah")) {
+            showToast("Anda sudah menyukai postingan ini", 'warning');
+        } else {
+            showToast("Gagal Like: " + (err.reason || "Dibatalkan"), 'error');
+        }
+
+        // Kembalikan tombol seperti semula
+        if (btn) {
+            btn.innerHTML = originalContent || '<i class="far fa-heart"></i> Suka';
+            btn.style.pointerEvents = "auto";
+        }
     }
 }
 
