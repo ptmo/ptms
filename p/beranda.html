@@ -854,7 +854,12 @@ label {
     </div>
 
     <div class="menu-card" style="margin-top: 20px;">
-        <div class="sidebar-label">Estimasi Aset:</div>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+    <div class="sidebar-label" style="margin: 0;">Estimasi Aset:</div>
+    <div id="usdEstimate" style="font-size: 11px; color: #2ecc71; font-weight: 700; letter-spacing: 0.5px;">
+        $0.00
+    </div>
+        </div>
         
         <div class="wallet-mini-info">
             <div class="status-pill">
@@ -2045,35 +2050,51 @@ function showToast(message, type = 'info') {
 async function updateSidebarWallet(address) {
     if(!address) return;
     
-    // 1. Ambil Element
+    // 1. Update Address (UI)
     const addrEl = document.getElementById("userAddrMini");
-    const balEl = document.getElementById("userBalance");
-
     if(addrEl) {
-        // A. Format Pendek visual
         const short = address.substring(0, 10) + "..." + address.slice(-8);
-        
-        // B. Update HTML dengan Ikon Copy
         addrEl.innerHTML = `${short} <i class="far fa-copy" style="font-size: 10px; margin-left: 5px; opacity: 0.7;"></i>`;
-        
-        // C. [PENTING] Simpan alamat lengkap di atribut tersembunyi
         addrEl.setAttribute("data-full-address", address);
-        
-        // D. Efek Visual Hover (Opsional, via JS direct style)
-        addrEl.onmouseover = () => addrEl.style.color = "#7385a5";
-        addrEl.onmouseout = () => addrEl.style.color = ""; // Reset
     }
     
-    // 2. Ambil Saldo
+    // 2. Ambil Saldo & Hitung USD
     try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const balance = await provider.getBalance(address);
-        const eth = ethers.utils.formatEther(balance);
+        const ethVal = ethers.utils.formatEther(balance);
         
-        if(balEl) {
-            balEl.innerText = parseFloat(eth).toFixed(8); 
+        // Update Teks ETH
+        if(document.getElementById("userBalance")) {
+            document.getElementById("userBalance").innerText = parseFloat(ethVal).toFixed(8); 
         }
-    } catch(e) { console.error(e); }
+
+        // --- HITUNG ESTIMASI USD (BARU) ---
+        // Ambil harga ETH terbaru (gratis via CoinGecko/Binance API)
+        const usdEl = document.getElementById("usdEstimate");
+        if (usdEl) {
+            try {
+                // Kita pakai API Binance biar cepat & stabil (tanpa key)
+                const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT");
+                const data = await res.json();
+                const ethPrice = parseFloat(data.price);
+                
+                const totalUsd = parseFloat(ethVal) * ethPrice;
+                
+                // Format Currency ($1,234.56)
+                const formattedUsd = new Intl.NumberFormat('en-US', {
+                    style: 'currency',
+                    currency: 'USD'
+                }).format(totalUsd);
+
+                usdEl.innerText = `≈ ${formattedUsd}`;
+            } catch(err) {
+                // Fallback jika API error, biarkan nilai lama/kosong
+                console.log("Gagal fetch harga ETH");
+            }
+        }
+
+    } catch(e) { console.error("Sidebar Error:", e); }
 }
 
     function copySidebarAddress() {
