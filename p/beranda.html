@@ -996,7 +996,8 @@ const avatar = isOfficial
                         <button class="action-btn"><i class="fa fa-heart"></i> ${likes} Suka</button>
                         <button class="action-btn"><i class="fa fa-gift"></i> Dukung</button>
                         <button class="action-btn"><i class="fa fa-star"></i> Ulasan</button>
-                        <button class="action-btn"><i class="fa fa-share"></i> Bagikan</button>
+                        <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
+                        <i class="fas fa-share-alt"></i> Bagikan</button>
                     </div>
                 </div>`;
 
@@ -1232,6 +1233,38 @@ function toggleForm() {
 function getVal(id) {
     const el = document.getElementById(id);
     return (el && el.value.trim() !== "") ? el.value.trim() : "-";
+}
+
+// --- FITUR SHARE MODERN (WEB SHARE API) ---
+async function shareWayang(id, nama) {
+    // 1. Susun Link Detail
+    const shareUrl = `${window.location.origin}/detail?id=${id}`;
+    
+    // 2. Data yang akan dibagikan
+    const shareData = {
+        title: 'Putramas Official Feed',
+        text: `Lihat Wayang "${nama}" (ID #${id}) ini di Galeri Digital Putramas!`,
+        url: shareUrl
+    };
+
+    // 3. Cek apakah Browser support Native Share? (Biasanya HP Android/iPhone support)
+    if (navigator.share) {
+        try {
+            await navigator.share(shareData);
+            console.log('Berhasil dibagikan');
+        } catch (err) {
+            console.log('Batal berbagi / Error:', err);
+        }
+    } else {
+        // 4. Fallback untuk Desktop / Browser Lama (Copy to Clipboard)
+        try {
+            await navigator.clipboard.writeText(shareUrl);
+            // Tampilkan Toast/Alert sederhana
+            alert("🔗 Link berhasil disalin ke clipboard!"); 
+        } catch (err) {
+            prompt("Copy link ini manual:", shareUrl);
+        }
+    }
 }
 
 // Fungsi untuk memperbarui tampilan di Sidebar
