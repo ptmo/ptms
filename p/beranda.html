@@ -735,8 +735,52 @@ label {
             transform: translateY(-5px); box-shadow: 0 0 15px #7385a5;
         }
 
-        .copyright { color: #888; font-size: 13px; letter-spacing: 1px; margin-top: 10px; }
+        .copyright { color: #888; font-size: 13px; letter-spacing: 1px; margin-top: 5px; }
+        
+        /* Animasi Dot Status: Premium & Semi-Aggressive */
+.status-pill {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    background: rgba(39, 174, 96, 0.1); /* Latar hijau tipis */
+    padding: 4px 10px;
+    border-radius: 20px;
+    border: 1px solid rgba(39, 174, 96, 0.3);
+    font-size: 11px;
+    font-weight: 700;
+    color: #27ae60;
+    letter-spacing: 0.5px;
+}
 
+.pulse-dot {
+    width: 8px;
+    height: 8px;
+    background-color: #2ecc71; /* Hijau Terang */
+    border-radius: 50%;
+    position: relative;
+    z-index: 1;
+    box-shadow: 0 0 10px rgba(46, 204, 113, 0.8); /* Glow inti */
+}
+
+/* Efek Denyut (Pulse) */
+.pulse-dot::after {
+    content: '';
+    position: absolute;
+    top: 50%; left: 50%;
+    transform: translate(-50%, -50%);
+    width: 100%; height: 100%;
+    border-radius: 50%;
+    background-color: inherit;
+    opacity: 0.6;
+    z-index: -1;
+    animation: aggressive-pulse 1.5s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
+@keyframes aggressive-pulse {
+    0% { transform: translate(-50%, -50%) scale(1); opacity: 0.8; box-shadow: 0 0 0 0 rgba(46, 204, 113, 0.7); }
+    50% { opacity: 0.3; }
+    100% { transform: translate(-50%, -50%) scale(3); opacity: 0; box-shadow: 0 0 0 10px rgba(46, 204, 113, 0); }
+}
     </style>
 </head>
 <body>
@@ -1061,6 +1105,7 @@ let isModalFetching = false; // Kunci
                 }
 
                 // C. Update Data Kontrak (Saldo Saweran & History)
+                updateSidebarWallet(userAddress);
                 updateModalWalletData(userAddress);
             }
         } catch(e) { console.log("Auto-login error:", e); }
@@ -1119,6 +1164,7 @@ async function connectWallet() {
         document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
         
         // 6. Tarik Data History dari Kontrak
+        updateSidebarWallet(userAddress);
         await updateModalWalletData(userAddress);
 
     } catch (err) { 
@@ -1896,18 +1942,30 @@ function showToast(message, type = 'info') {
     }, 3000);
 }
 
-// Fungsi untuk memperbarui tampilan di Sidebar
+// Fungsi Update Sidebar (Mode PC)
 async function updateSidebarWallet(address) {
     if(!address) return;
     
-    // Tampilkan alamat pendek
-    const short = address.substring(0, 21) + "," + address.slice(-22);
-    document.getElementById("userAddrMini").innerText = short;
+    // 1. Format Address Pendek (0x1234...5678)
+    const short = address.substring(0, 21) + "" + address.slice(-21);
+    if(document.getElementById("userAddrMini")) {
+        document.getElementById("userAddrMini").innerText = short;
+    }
     
-    // Ambil saldo asli dari provider
-    const balance = await provider.getBalance(address);
-    const eth = ethers.utils.formatEther(balance);
-    document.getElementById("userBalance").innerText = parseFloat(eth).toFixed(8);
+    // 2. Ambil Saldo (Langsung dari Jaringan)
+    try {
+        // Gunakan provider baru biar aman
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const balance = await provider.getBalance(address);
+        const eth = ethers.utils.formatEther(balance);
+        
+        if(document.getElementById("userBalance")) {
+            // Tampilkan 4 desimal saja biar rapi di sidebar
+            document.getElementById("userBalance").innerText = parseFloat(eth).toFixed(8); 
+        }
+    } catch(e) {
+        console.error("Gagal update sidebar:", e);
+    }
 }
 
     document.getElementById("year").innerText = new Date().getFullYear();
