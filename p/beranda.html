@@ -1156,37 +1156,44 @@ async function updateModalWalletData(userAddress) {
     if(!userAddress) return;
     modalUserAddr = userAddress;
 
-    // Reset UI
-    document.getElementById("modalHistoryList").innerHTML = `<div style="text-align:center; padding:10px;"><i class="fas fa-spinner fa-spin"></i></div>`;
+    // Reset UI ke Loading
+    document.getElementById("modalHistoryList").innerHTML = `<div style="text-align:center; padding:15px; color:#7385a5;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div>`;
     document.getElementById("btnModalLoadMore").style.display = 'none';
+    
+    // Reset Saldo Tampilan Sementara
+    document.getElementById("modalTipBalance").innerText = "Loading...";
 
     try {
+        // GUNAKAN RPC MAINNET YANG SAMA DENGAN CONFIG
         const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
-        // A. AMBIL TOTAL PENDAPATAN (getTipTotalBalance)
+        // A. AMBIL TOTAL PENDAPATAN
         const totalWei = await contract.getTipTotalBalance(userAddress);
         const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(8);
         document.getElementById("modalTipBalance").innerText = totalEth + " ETH";
 
-        // B. AMBIL JUMLAH HISTORY (getTipCount)
+        // B. AMBIL JUMLAH HISTORY
         const countBN = await contract.getTipCount(userAddress);
-        const count = parseInt(countBN);
+        const count = parseInt(countBN.toString()); 
+        
         document.getElementById("modalTipCountBadge").innerText = count;
 
         if (count === 0) {
-            document.getElementById("modalHistoryList").innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
+            document.getElementById("modalHistoryList").innerHTML = `<p style="text-align:center; font-size:12px; color:#aaa; margin-top:15px; font-style:italic;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
-        // C. SIAPKAN BATCH PERTAMA (Reverse Order)
-        modalTipCursor = count - 1; // Mulai dari yang terbaru
-        document.getElementById("modalHistoryList").innerHTML = ""; // Bersihkan loader
+        // C. SIAPKAN BATCH PERTAMA
+        modalTipCursor = count - 1; 
+        document.getElementById("modalHistoryList").innerHTML = ""; // Bersihkan loading
         
-        await loadNextModalTips(); // Load 5 pertama
+        await loadNextModalTips(); 
 
     } catch (e) {
-        console.error("Gagal update modal data:", e);
+        console.error("Gagal update modal:", e);
+        document.getElementById("modalHistoryList").innerHTML = `<p style="color:#e74c3c; font-size:11px; text-align:center; margin-top:10px;">Gagal memuat data. Sinyal buruk.</p>`;
+        document.getElementById("modalTipBalance").innerText = "Error";
     }
 }
 
@@ -1198,52 +1205,65 @@ async function loadNextModalTips() {
     const container = document.getElementById("modalHistoryList");
     const btnMore = document.getElementById("btnModalLoadMore");
     
-    // Matikan tombol sementara
-    if(btnMore) btnMore.innerHTML = "Memuat...";
+    if(btnMore) {
+        btnMore.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat...`;
+        btnMore.disabled = true;
+    }
 
+    // GUNAKAN RPC MAINNET (JANGAN SEPOLIA)
     const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
-    // Hitung mundur 5 langkah
-    let end = modalTipCursor - 3 + 1;
+    let end = modalTipCursor - 4; // Ambil 5 item sekaligus (biar lebih cepat)
     if(end < 0) end = 0;
 
-    let html = "";
+    let htmlBuffer = "";
 
+    // Loop mundur dari cursor
     for (let i = modalTipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(modalUserAddr, i);
-            
-            // Format Data
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(6);
-            const msg = tip.message || "Tanpa pesan";
+            const msg = (tip.message && tip.message !== "") ? tip.message : "Tanpa pesan";
+            
+            // Format Waktu (Cek error timestamp)
+            let dateStr = "Baru saja";
+            try {
+                const dateObj = new Date(tip.timestamp * 1000);
+                dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
+            } catch(errDate) {}
 
-            html += `
-            <div class="mini-history-item">
-                <div>
-                    <div class="mini-sender"><i class="fas fa-user-circle"></i> ${senderShort}</div>
-                    <span class="mini-msg">"${msg}"</span>
+            htmlBuffer += `
+            <div class="mini-history-item" style="animation: fadeIn 0.3s; padding:10px; border-bottom:1px solid #f0f0f0;">
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:4px;">
+                    <div class="mini-sender" style="font-size:12px; font-weight:bold; color:#555;">
+                        <i class="fas fa-user-circle" style="color:#7385a5;"></i> ${senderShort}
+                    </div>
+                    <div style="font-size:10px; color:#aaa;">${dateStr}</div>
                 </div>
-                <div class="mini-amount">+${amount} ETH</div>
+                <div style="display:flex; justify-content:space-between; align-items:center;">
+                    <span class="mini-msg" style="font-size:11px; color:#666; font-style:italic; max-width:60%; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">"${msg}"</span>
+                    <div class="mini-amount" style="font-size:12px; font-weight:bold; color:#27ae60;">+${amount} ETH</div>
+                </div>
             </div>`;
-        } catch (e) {}
+        } catch (e) {
+            console.warn("Skip error item index:", i);
+        }
     }
 
-    // Append (Tempel ke bawah)
-    container.insertAdjacentHTML('beforeend', html);
+    container.insertAdjacentHTML('beforeend', htmlBuffer);
 
-    // Update Status
     modalTipCursor = end - 1;
     isModalFetching = false;
 
-    // Cek Tombol Load More
     if(btnMore) {
+        btnMore.disabled = false;
         if(modalTipCursor >= 0) {
             btnMore.style.display = 'block';
-            btnMore.innerHTML = `Muat 3 Lagi <i class="fas fa-chevron-down"></i>`;
+            btnMore.innerHTML = `Muat Lebih Banyak <i class="fas fa-chevron-down"></i>`;
         } else {
-            btnMore.style.display = 'none'; // Data habis
+            btnMore.style.display = 'none';
         }
     }
 }
