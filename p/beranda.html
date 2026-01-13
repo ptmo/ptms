@@ -2069,33 +2069,44 @@ async function updateSidebarWallet(address) {
             document.getElementById("userBalance").innerText = parseFloat(ethVal).toFixed(8); 
         }
 
-        // --- HITUNG ESTIMASI USD (BARU) ---
-        // Ambil harga ETH terbaru (gratis via CoinGecko/Binance API)
+        // --- HITUNG ESTIMASI USD (FIXED API) ---
         const usdEl = document.getElementById("usdEstimate");
         if (usdEl) {
             try {
-                // Kita pakai API Binance biar cepat & stabil (tanpa key)
-                const res = await fetch("https://api.binance.com/api/v3/ticker/price?symbol=ETHUSDT");
+                // Gunakan CoinGecko (Lebih ramah browser/CORS dibanding Binance)
+                const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
                 const data = await res.json();
-                const ethPrice = parseFloat(data.price);
+                const ethPrice = data.ethereum.usd;
                 
+                // Hitung total USD
                 const totalUsd = parseFloat(ethVal) * ethPrice;
                 
-                // Format Currency ($1,234.56)
-                const formattedUsd = new Intl.NumberFormat('en-US', {
-                    style: 'currency',
-                    currency: 'USD'
-                }).format(totalUsd);
+                let formattedUsd;
+
+                // LOGIKA PRESISI MIKRO:
+                if (totalUsd === 0) {
+                    formattedUsd = "$0.00";
+                } 
+                else if (totalUsd < 0.01) {
+                    formattedUsd = "$" + totalUsd.toFixed(6);
+                } 
+                else if (totalUsd < 1) {
+                    formattedUsd = "$" + totalUsd.toFixed(4);
+                } 
+                else {
+                    formattedUsd = new Intl.NumberFormat('en-US', {
+                        style: 'currency',
+                        currency: 'USD'
+                    }).format(totalUsd);
+                }
 
                 usdEl.innerText = `≈ ${formattedUsd}`;
-            } catch(err) {
-                // Fallback jika API error, biarkan nilai lama/kosong
-                console.log("Gagal fetch harga ETH");
+            } catch(e) { 
+                console.warn("Gagal fetch harga USD (API Blocked), skip estimasi.");
+                // Jangan biarkan error ini menghentikan sisa script!
+                usdEl.innerText = "≈ $ -"; 
             }
         }
-
-    } catch(e) { console.error("Sidebar Error:", e); }
-}
 
     function copySidebarAddress() {
     const addrEl = document.getElementById("userAddrMini");
