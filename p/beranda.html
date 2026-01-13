@@ -997,34 +997,50 @@ let isModalFetching = false; // Kunci
 
         // --- INIT ---
         window.onload = async () => {
-            // Setup Read Provider (Tanpa Wallet)
-            const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
-            contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
-            
-            // Cek Login
-            if(window.ethereum) {
+    // 1. Setup Read Provider
+    const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+    contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+    
+    // 2. Cek Auto-Login Metamask
+    if(window.ethereum) {
         try {
             const web3 = new ethers.providers.Web3Provider(window.ethereum);
             const accounts = await web3.listAccounts();
             
             if(accounts.length > 0) {
-                const btn = document.getElementById("btnConnect"); // Pastikan ID ini sesuai HTML
+                const userAddress = accounts[0];
+                
+                // A. Update Tombol Connect
+                const btn = document.getElementById("btnConnect");
                 if(btn) {
                     btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
                     btn.classList.add("connected");
-                    isWalletConnected = true;
-                    
-                    // Update data modal di background
-                    updateModalWalletData(accounts[0]);
                 }
-            }
-        } catch(e) { console.log("Auto-login skip:", e); }
-            }
+                isWalletConnected = true;
+                
+                // B. [PERBAIKAN] Update Data Modal (Address & Saldo Utama)
+                // Set Address
+                if(document.getElementById("modalFullAddress")) {
+                    document.getElementById("modalFullAddress").innerText = userAddress;
+                    document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+                }
 
-            // Load Feed
-            loadFeed();
-            setTimeout(initDeepIndexer, 3000);
-        };
+                // Ambil Saldo Utama (Fix Loading Stuck)
+                const balance = await web3.getBalance(userAddress);
+                if(document.getElementById("modalBalance")) {
+                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(5) + " ETH";
+                }
+
+                // C. Update Data Kontrak (Saldo Saweran & History)
+                updateModalWalletData(userAddress);
+            }
+        } catch(e) { console.log("Auto-login error:", e); }
+    }
+
+    // 3. Load Feed & Indexer
+    loadFeed();
+    setTimeout(initDeepIndexer, 3000);
+};
 
 async function connectWallet() {
     // A. Validasi Metamask
