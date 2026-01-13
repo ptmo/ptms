@@ -2053,9 +2053,14 @@ async function updateSidebarWallet(address) {
     // 1. Update Address (UI)
     const addrEl = document.getElementById("userAddrMini");
     if(addrEl) {
+        // Logika address pendek
         const short = address.substring(0, 10) + "..." + address.slice(-8);
-        addrEl.innerHTML = `${short} <i class="far fa-copy" style="font-size: 10px; margin-left: 5px; opacity: 0.7;"></i>`;
-        addrEl.setAttribute("data-full-address", address);
+        
+        // Cek dulu biar gak kedip kalau teksnya masih sama
+        if(!addrEl.innerHTML.includes(short)) {
+            addrEl.innerHTML = `${short} <i class="far fa-copy" style="font-size: 10px; margin-left: 5px; opacity: 0.7;"></i>`;
+            addrEl.setAttribute("data-full-address", address);
+        }
     }
     
     // 2. Ambil Saldo & Hitung USD
@@ -2073,7 +2078,7 @@ async function updateSidebarWallet(address) {
         const usdEl = document.getElementById("usdEstimate");
         if (usdEl) {
             try {
-                // Gunakan CoinGecko (Lebih ramah browser/CORS dibanding Binance)
+                // Gunakan CoinGecko
                 const res = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
                 const data = await res.json();
                 const ethPrice = data.ethereum.usd;
@@ -2103,10 +2108,14 @@ async function updateSidebarWallet(address) {
                 usdEl.innerText = `≈ ${formattedUsd}`;
             } catch(e) { 
                 console.warn("Gagal fetch harga USD (API Blocked), skip estimasi.");
-                // Jangan biarkan error ini menghentikan sisa script!
                 usdEl.innerText = "≈ $ -"; 
             }
         }
+        
+    } catch(err) {
+        console.error("Gagal update sidebar utama:", err);
+    }
+}
 
     function copySidebarAddress() {
     const addrEl = document.getElementById("userAddrMini");
