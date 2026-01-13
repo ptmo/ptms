@@ -857,7 +857,7 @@ label {
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
     <div class="sidebar-label" style="margin: 0;">Estimasi Aset:</div>
     <div id="usdEstimate" style="font-size: 11px; color: #2ecc71; font-weight: 700; letter-spacing: 0.5px;">
-        $0.00
+        $0.0000
     </div>
         </div>
         
@@ -2249,45 +2249,95 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE SALDO (ULTRA SILENT - ANTI KEDIP) ---
+// --- UPDATE SALDO & ESTIMASI TOTAL (ALL-IN-ONE) ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
+    
+    // Variabel Penampung Total Aset (USD)
+    let grandTotalUsd = 0;
 
-    // 1. Cek Saldo ETH (Native)
+    // ==========================================
+    // 1. HITUNG ETH (NATIVE)
+    // ==========================================
     try {
+        // A. Ambil Saldo ETH
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
-        const elEth = document.getElementById("staticEthBalance");
-        const ethNew = parseFloat(ethFmt).toFixed(8);
         
-        // LOGIKA PINTAR: Cek dulu sebelum ubah
-        // Jika angka di layar (innerText) masih sama dengan data baru, JANGAN lakukan apa-apa.
-        if(elEth && elEth.innerText !== ethNew) {
-            elEth.innerText = ethNew; // Hanya update kalau beda
-        }
-    } catch(e) {}
+        // Update Teks Saldo ETH (Statis)
+        const elEth = document.getElementById("staticEthBalance");
+        const ethNew = parseFloat(ethFmt).toFixed(6);
+        if(elEth && elEth.innerText !== ethNew) elEth.innerText = ethNew;
 
-    // 2. Cek Saldo Token (Looping)
-    myTokens.forEach(async (token) => {
+        // B. Ambil Harga ETH (CoinGecko)
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        const dataEth = await resEth.json();
+        const ethPrice = dataEth.ethereum.usd;
+
+        // Tambah ke Total
+        grandTotalUsd += (parseFloat(ethFmt) * ethPrice);
+
+    } catch(e) { console.warn("Skip ETH Price"); }
+
+    // ==========================================
+    // 2. HITUNG TOKEN IMPORT (ERC-20)
+    // ==========================================
+    
+    // Siapkan list address untuk request harga sekaligus (biar hemat API)
+    const tokenAddrs = myTokens.map(t => t.address).join(',');
+
+    let tokenPrices = {};
+    if(tokenAddrs.length > 0) {
+        try {
+            // Ambil Harga Token di Network Base
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
+            const resToken = await fetch(url);
+            tokenPrices = await resToken.json();
+        } catch(e) { console.warn("Gagal fetch harga token"); }
+    }
+
+    // Loop setiap token untuk update saldo UI & hitung nilai
+    for (const token of myTokens) {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
             const balRaw = await contract.balanceOf(modalUserAddr);
             const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
             
+            // A. Update Teks Saldo Token di Sidebar
             const el = document.getElementById(`bal-${token.address}`);
             const newVal = parseFloat(balFmt).toFixed(4);
+            if(el && el.innerText !== newVal) el.innerText = newVal;
 
-            // LOGIKA PINTAR TOKEN:
-            if(el && el.innerText !== newVal) {
-                el.innerText = newVal; // Hanya update kalau beda
+            // B. Hitung Nilai USD Token ini
+            // Cek apakah CoinGecko punya datanya? (Format address di API harus lowercase)
+            const lowerAddr = token.address.toLowerCase();
+            if(tokenPrices[lowerAddr] && tokenPrices[lowerAddr].usd) {
+                const price = tokenPrices[lowerAddr].usd;
+                grandTotalUsd += (parseFloat(balFmt) * price);
             }
-        } catch(e) {
-            // Silent error (jangan log apa-apa biar bersih di console)
-        }
-    });
-}
 
+        } catch(e) { }
+    }
+
+    // ==========================================
+    // 3. UPDATE TOTAL ESTIMASI ASET (HEADER)
+    // ==========================================
+    const usdEl = document.getElementById("usdEstimate");
+    if (usdEl) {
+        let formattedText;
+        if (grandTotalUsd === 0) formattedText = "$0.00";
+        else if (grandTotalUsd < 0.01) formattedText = "$" + grandTotalUsd.toFixed(6);
+        else if (grandTotalUsd < 1) formattedText = "$" + grandTotalUsd.toFixed(4);
+        else {
+            formattedText = new Intl.NumberFormat('en-US', {
+                style: 'currency', currency: 'USD'
+            }).format(grandTotalUsd);
+        }
+        usdEl.innerText = `≈ ${formattedText}`;
+    }
+}
+        
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
 </body>
