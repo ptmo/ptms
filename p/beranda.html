@@ -1022,13 +1022,13 @@ let isModalFetching = false; // Kunci
                 // Set Address
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
-                    document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+                    document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
 
                 // Ambil Saldo Utama (Fix Loading Stuck)
                 const balance = await web3.getBalance(userAddress);
                 if(document.getElementById("modalBalance")) {
-                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(5) + " ETH";
+                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
                 }
 
                 // C. Update Data Kontrak (Saldo Saweran & History)
@@ -1200,7 +1200,7 @@ async function updateModalWalletData(addr) {
 
         // A. AMBIL SALDO SAWERAN
         const totalWei = await contract.getTipTotalBalance(addr);
-        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(5);
+        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(8);
         if(balEl) balEl.innerText = totalEth + " ETH";
 
         // B. AMBIL JUMLAH RIWAYAT
@@ -1243,7 +1243,7 @@ async function loadNextModalTips() {
     const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
-    let end = modalTipCursor - 4; 
+    let end = modalTipCursor - 3; 
     if(end < 0) end = 0;
 
     let htmlBuffer = "";
@@ -1252,7 +1252,7 @@ async function loadNextModalTips() {
         try {
             const tip = await contract.getTipByIndex(modalUserAddr, i);
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
-            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
+            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(6);
             const msg = (tip.message && tip.message !== "") ? tip.message : "Tanpa pesan";
             
             let dateStr = "Baru saja";
@@ -1285,7 +1285,7 @@ async function loadNextModalTips() {
         btnMore.disabled = false;
         if(modalTipCursor >= 0) {
             btnMore.style.display = 'block';
-            btnMore.innerHTML = `Muat Lebih Banyak <i class="fas fa-chevron-down"></i>`;
+            btnMore.innerHTML = `Muat 3 Lagi <i class="fas fa-chevron-down"></i>`;
         } else {
             btnMore.style.display = 'none';
         }
