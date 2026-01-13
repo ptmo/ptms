@@ -1163,12 +1163,11 @@ function disconnectWallet() {
     }, 300);
 }
 
-// --- FUNGSI UPDATE DATA MODAL (FIXED) ---
+// --- FUNGSI UPDATE DATA MODAL (FIXED VARIABLE NAME) ---
 async function updateModalWalletData(addr) {
     if(!addr) return;
-    modalUserAddr = addr; // Set global user
+    modalUserAddr = addr;
 
-    // UI Loading State
     const listEl = document.getElementById("modalHistoryList");
     const balEl = document.getElementById("modalTipBalance");
     const badgeEl = document.getElementById("modalTipCountBadge");
@@ -1179,7 +1178,7 @@ async function updateModalWalletData(addr) {
     if(btnMore) btnMore.style.display = 'none';
 
     try {
-        // Gunakan RPC Provider (Read Only) agar cepat & tidak perlu pop-up Metamask
+        // PERBAIKAN: Gunakan BASE_RPC_URL (Sesuai konstanta di atas)
         const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
@@ -1194,26 +1193,24 @@ async function updateModalWalletData(addr) {
         
         if(badgeEl) badgeEl.innerText = count;
 
-        // C. LOGIKA TAMPILAN LIST
         if (count === 0) {
             if(listEl) listEl.innerHTML = `<p style="text-align:center; font-size:12px; color:#aaa; margin-top:15px; font-style:italic;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
-        // Siapkan Cursor untuk Load More
         modalTipCursor = count - 1; 
-        if(listEl) listEl.innerHTML = ""; // Bersihkan loading
+        if(listEl) listEl.innerHTML = ""; 
         
-        // Panggil Batch Pertama
         await loadNextModalTips(); 
 
     } catch (e) {
         console.error("Gagal update modal:", e);
         if(listEl) listEl.innerHTML = `<p style="color:#e74c3c; font-size:11px; text-align:center;">Gagal memuat data. Sinyal buruk.</p>`;
-        if(balEl) balEl.innerText = "Error";
+        if(balEl) balEl.innerText = "0.0000 ETH";
     }
 }
 
+// --- FUNGSI LOAD NEXT BATCH (FIXED VARIABLE NAME) ---
 async function loadNextModalTips() {
     if(isModalFetching || modalTipCursor < 0) return;
     
@@ -1226,10 +1223,11 @@ async function loadNextModalTips() {
         btnMore.disabled = true;
     }
 
+    // PERBAIKAN: Gunakan BASE_RPC_URL
     const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpcProvider);
 
-    let end = modalTipCursor - 4; // Ambil 5 item
+    let end = modalTipCursor - 4; 
     if(end < 0) end = 0;
 
     let htmlBuffer = "";
@@ -1241,7 +1239,6 @@ async function loadNextModalTips() {
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const msg = (tip.message && tip.message !== "") ? tip.message : "Tanpa pesan";
             
-            // Format Waktu Aman
             let dateStr = "Baru saja";
             try {
                 dateStr = new Date(tip.timestamp * 1000).toLocaleDateString("id-ID", { day: 'numeric', month: 'short' });
@@ -1278,7 +1275,6 @@ async function loadNextModalTips() {
         }
     }
 }
-
         // --- PENCARIAN AGRESIF (DEEP SEARCH) ---
 async function smartSearch(query) {
     const clearBtn = document.getElementById("clearBtn");
