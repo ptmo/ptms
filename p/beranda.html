@@ -2588,29 +2588,35 @@ async function refreshAllTokenBalances() {
     }
 }
 
-
 // ==========================================
-// 3. UPDATE FUNGSI FETCH (Logic Perbaikan Token)
+// 3. UPDATE FUNGSI FETCH (DENGAN PROXY ANTI-BLOKIR CORS)
 // ==========================================
 async function updateMarketPrices() {
-    // Agar tidak double fetch dalam waktu singkat (2 detik)
+    // Cegah double fetch cepat
     if(Date.now() - lastPriceFetchTime < 2000) return; 
 
-    console.log("🔄 Fetch Market Data...");
+    console.log("🔄 Fetch Market Data (via Proxy)...");
     
-    // [PERBAIKAN UTAMA] Pastikan myTokens terisi!
-    // Jika myTokens kosong, script coba baca ulang dari LocalStorage 'savedTokens'
-    // (Sesuaikan 'savedTokens' dengan nama key penyimpanan token di script Bapak sebelumnya)
+    // 1. Pastikan myTokens terisi (Backup Load)
     if (myTokens.length === 0) {
-        const stored = localStorage.getItem("myTokens"); // Atau 'savedTokens'
+        const stored = localStorage.getItem("myTokens"); 
         if (stored) {
             try { myTokens = JSON.parse(stored); } catch(e){}
         }
     }
 
+    // --- SETTING PROXY ---
+    // Kita gunakan Proxy Gratis untuk menembus blokir CORS
+    // Jika suatu saat macet, ganti 'corsproxy.io' dengan 'api.allorigins.win/raw?url='
+    const PROXY_URL = "https://corsproxy.io/?";
+
     try {
-        // 1. Ambil Data ETH
-        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
+        // A. Ambil Data ETH (Lewat Proxy)
+        const targetEth = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true";
+        // Encode URL target agar aman saat dikirim lewat proxy
+        const resEth = await fetch(PROXY_URL + encodeURIComponent(targetEth));
+        
+        if (!resEth.ok) throw new Error("Gagal fetch ETH"); // Cek jika proxy error
         const dataEth = await resEth.json();
         
         if(dataEth.ethereum) {
@@ -2618,19 +2624,17 @@ async function updateMarketPrices() {
             cachedEthChange = dataEth.ethereum.usd_24h_change;
         }
 
-        // 2. Ambil Data Token
+        // B. Ambil Data Token (Lewat Proxy)
         if(myTokens.length > 0) {
-            // [PERBAIKAN] Ubah alamat ke .toLowerCase() saat request URL
             const tokenAddrs = myTokens.map(t => t.address.toLowerCase()).join(',');
+            const targetToken = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
             
-            // URL Base Chain
-            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
+            const resToken = await fetch(PROXY_URL + encodeURIComponent(targetToken));
             
-            const resToken = await fetch(url);
+            if (!resToken.ok) throw new Error("Gagal fetch Token");
             const dataToken = await resToken.json();
             
-            // [PERBAIKAN] Pastikan key disimpan dalam huruf kecil
-            // CoinGecko biasanya return lowercase, tapi kita double check
+            // Simpan data (pastikan key lowercase)
             for (const key in dataToken) {
                 cachedTokenPrices[key.toLowerCase()] = dataToken[key];
             }
@@ -2650,19 +2654,10 @@ async function updateMarketPrices() {
         refreshAllTokenBalances(); 
 
     } catch(e) {
-        console.warn("Gagal update market data:", e);
+        console.warn("⚠️ Gagal update market (CORS/Limit):", e);
+        // Tips: Jika masih error, biasanya Proxy sedang sibuk, akan coba lagi otomatis nanti.
     }
 }
-
-// Helper Format Uang (Jangan dihapus)
-const fmtUSD = (val) => {
-    if(!val) val = 0;
-    if(val === 0) return "$0.00";
-    if(val < 0.01) return "$" + val.toFixed(6);
-    if(val < 1) return "$" + val.toFixed(4);
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-};
-        
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
     if (!window.ethereum || !modalUserAddr) return;
