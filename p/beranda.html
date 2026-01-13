@@ -828,6 +828,32 @@ label {
     font-family: 'Courier New', monospace;
     letter-spacing: -0.5px;
         }
+
+        /* Style Tombol Persentase */
+.p-btn {
+    background: #1e2329;
+    border: 1px solid #333;
+    color: #94a3b8;
+    font-size: 10px;
+    padding: 6px 0;
+    border-radius: 4px;
+    cursor: pointer;
+    transition: 0.2s;
+}
+.p-btn:hover { background: #333; color: #fff; }
+.p-btn:active { transform: scale(0.95); }
+
+/* Validasi Border Merah/Hijau */
+.input-error { border: 1px solid #ef4444 !important; }
+.input-success { border: 1px solid #2ecc71 !important; }
+
+/* Tombol Kirim Aktif */
+.btn-ready {
+    background: #2ecc71 !important;
+    color: #000 !important;
+    cursor: pointer !important;
+    box-shadow: 0 4px 15px rgba(46, 204, 113, 0.3);
+}
     </style>
 </head>
 <body>
@@ -904,7 +930,10 @@ label {
                     </button>
                 </div>
 
-                <div class="token-item" style="border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
+                <div class="token-item" 
+     onclick="openSendPopup('ETH', 'ETH', 18, 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png')" 
+     style="cursor:pointer; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 8px; margin-bottom: 8px;">
+    
     <div class="token-left">
         <img src="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png" class="token-logo-img">
         <div class="token-meta">
@@ -912,11 +941,12 @@ label {
             <span class="token-symbol">ETH</span>
         </div>
     </div>
+    
     <div style="display:flex; flex-direction:column; align-items:flex-end;">
         <div class="token-balance" id="staticEthBalance">0.000000</div>
         <div class="token-value-sub" id="staticEthDetails">Loading...</div>
     </div>
-    </div>
+                </div>
                 <div id="tokenListDisplay"></div>
             </div>
         </div>
@@ -1116,6 +1146,76 @@ label {
     </div>
 </div>
 
+<div id="sendModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
+    <div style="background:#15191e; width:90%; max-width:400px; padding:20px; border-radius:12px; border:1px solid #333; position:relative;">
+        
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="margin:0; color:#fff; font-size:16px;">Kirim <span id="sendTokenSymbol">TOKEN</span></h3>
+            <i class="fas fa-times" onclick="closeSendModal()" style="color:#aaa; cursor:pointer;"></i>
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <label style="color:#94a3b8; font-size:11px; display:block; margin-bottom:5px;">Alamat Penerima (EVM 0x)</label>
+            <input type="text" id="inputSendAddr" placeholder="0x..." oninput="validateSendAddr()"
+                   style="width:100%; padding:10px; background:#0b0e11; border:1px solid #333; color:#fff; border-radius:6px; font-family:monospace;">
+            <div id="addrErrorMsg" style="color:#ef4444; font-size:10px; margin-top:3px; display:none;">Alamat tidak valid!</div>
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
+                <label style="color:#94a3b8; font-size:11px;">Jumlah Kirim</label>
+                <label style="color:#2ecc71; font-size:11px; cursor:pointer;" onclick="setSendPercent(100)">
+                    Saldo: <span id="sendMaxBal">0.00</span>
+                </label>
+            </div>
+            <div style="position:relative;">
+                <input type="number" id="inputSendAmount" placeholder="0.0"
+                       style="width:100%; padding:10px; padding-right:60px; background:#0b0e11; border:1px solid #333; color:#fff; border-radius:6px; font-weight:bold;">
+                <span id="inputTicker" style="position:absolute; right:10px; top:10px; color:#666; font-weight:bold; font-size:12px;">TOKEN</span>
+            </div>
+        </div>
+
+        <div class="percent-grid" style="display:grid; grid-template-columns: repeat(6, 1fr); gap:5px; margin-bottom:20px;">
+            <button class="p-btn" onclick="setSendPercent(0)">0%</button>
+            <button class="p-btn" onclick="setSendPercent(10)">10%</button>
+            <button class="p-btn" onclick="setSendPercent(20)">20%</button>
+            <button class="p-btn" onclick="setSendPercent(30)">30%</button>
+            <button class="p-btn" onclick="setSendPercent(40)">40%</button>
+            <button class="p-btn" onclick="setSendPercent(50)">50%</button>
+            <button class="p-btn" onclick="setSendPercent(60)">60%</button>
+            <button class="p-btn" onclick="setSendPercent(70)">70%</button>
+            <button class="p-btn" onclick="setSendPercent(80)">80%</button>
+            <button class="p-btn" onclick="setSendPercent(90)">90%</button>
+            <button class="p-btn" onclick="setSendPercent(100)" style="grid-column: span 2; background:rgba(46, 204, 113, 0.2); color:#2ecc71;">MAX</button>
+        </div>
+
+        <button id="btnProceedSend" onclick="askConfirmation()" disabled
+                style="width:100%; padding:12px; background:#333; color:#777; border:none; border-radius:8px; font-weight:bold; cursor:not-allowed; transition:0.3s;">
+            Kirim Token
+        </button>
+    </div>
+</div>
+
+<div id="confirmModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.9); z-index:10000; justify-content:center; align-items:center;">
+    <div style="background:#1e2329; width:85%; max-width:320px; padding:20px; border-radius:12px; border:1px solid #444; text-align:center;">
+        <div style="font-size:40px; margin-bottom:10px;">🤔</div>
+        <h3 style="color:#fff; margin:0 0 10px 0;">Konfirmasi Transfer</h3>
+        <p style="color:#ccc; font-size:13px; line-height:1.5;">
+            Apakah anda akan mengirim <br>
+            <strong style="color:#2ecc71; font-size:15px;"><span id="confAmount">0</span> <span id="confSymbol">TOKEN</span></strong><br>
+            ke alamat:<br>
+            <span id="confAddr" style="font-family:monospace; color:#3498db; font-size:11px; background:#111; padding:2px 5px; border-radius:4px;">0x...</span>
+        </p>
+        
+        <div style="display:flex; gap:10px; margin-top:20px;">
+            <button onclick="document.getElementById('confirmModalOverlay').style.display='none'" 
+                    style="flex:1; padding:10px; background:#333; color:#fff; border:none; border-radius:6px; cursor:pointer;">Batal</button>
+            <button onclick="executeTransfer()" 
+                    style="flex:1; padding:10px; background:#2ecc71; color:#000; border:none; border-radius:6px; font-weight:bold; cursor:pointer;">YA, Kirim</button>
+        </div>
+    </div>
+</div>
+
 <nav class="bottom-nav">
     <a href="index" class="nav-link active"><i class="fas fa-globe-asia"></i><span>Beranda</span></a>
     <a href="galeri" class="nav-link"><i class="fa fa-university"></i><span>Galeri</span></a>
@@ -1173,6 +1273,7 @@ const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
 let modalUserAddr = null;    // Alamat user yang sedang login
 let isModalFetching = false; // Kunci
         let myTokens = [];
+        let activeToken = null;
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
 const POPULAR_BASE_TOKENS = [
@@ -2270,7 +2371,9 @@ function renderTokenList() {
         const fallbackLogo = `https://api.dicebear.com/7.x/identicon/svg?seed=${token.address}`;
         
         const html = `
-        <div class="token-item">
+        <div class="token-item" style="cursor:pointer;" 
+             onclick="openSendPopup('${token.address}', '${token.symbol}', ${token.decimals}, '${token.logo}')">
+             
             <div class="token-left">
                 <img src="${token.logo}" onerror="this.src='${fallbackLogo}'" class="token-logo-img">
                 <div class="token-meta">
@@ -2278,14 +2381,16 @@ function renderTokenList() {
                     <span class="token-symbol">$${token.symbol}</span>
                 </div>
             </div>
+            
             <div style="display:flex; align-items:center; gap:8px;">
                 <div style="display:flex; flex-direction:column; align-items:flex-end;">
                     <div class="token-balance" id="bal-${token.address}">0.0000</div>
                     <div class="token-value-sub" id="val-${token.address}">-</div>
                 </div>
-                <i class="fas fa-trash delete-token-btn" onclick="removeToken('${token.address}')"></i>
+                <i class="fas fa-trash delete-token-btn" onclick="event.stopPropagation(); removeToken('${token.address}')"></i>
             </div>
         </div>`;
+        
         container.insertAdjacentHTML('beforeend', html);
     });
 }
@@ -2437,6 +2542,168 @@ async function autoScanTokens() {
         renderTokenList(); // Tampilkan di Sidebar
         refreshAllTokenBalances(); // Update saldo & harga USD
         showToast("Aset crypto Anda berhasil dideteksi otomatis!", "success");
+    }
+}
+
+    // --- SISTEM PENGIRIMAN TOKEN CANGGIH ---
+// 1. Buka Modal
+async function openSendPopup(address, symbol, decimals, logo) {
+    if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
+    
+    // Simpan state token aktif
+    activeToken = { address, symbol, decimals, logo, balanceBN: ethers.BigNumber.from(0) };
+
+    // Reset Form
+    document.getElementById("sendModalOverlay").style.display = "flex";
+    document.getElementById("sendTokenSymbol").innerText = symbol;
+    document.getElementById("inputTicker").innerText = symbol;
+    document.getElementById("inputSendAddr").value = "";
+    document.getElementById("inputSendAmount").value = "";
+    document.getElementById("addrErrorMsg").style.display = "none";
+    document.getElementById("inputSendAddr").classList.remove("input-error", "input-success");
+    validateSendAddr(); // Reset tombol
+
+    // Ambil Saldo Terbaru (BigNumber) untuk perhitungan akurat
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    try {
+        if(address === 'ETH') {
+            activeToken.balanceBN = await provider.getBalance(modalUserAddr);
+        } else {
+            const contract = new ethers.Contract(address, ERC20_ABI, provider);
+            activeToken.balanceBN = await contract.balanceOf(modalUserAddr);
+        }
+        // Tampilkan saldo di atas input
+        const fmt = ethers.utils.formatUnits(activeToken.balanceBN, decimals);
+        document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(6);
+    } catch(e) { console.log(e); }
+}
+
+function closeSendModal() {
+    document.getElementById("sendModalOverlay").style.display = "none";
+}
+
+// 2. Validasi Alamat (Merah/Hijau)
+function validateSendAddr() {
+    const input = document.getElementById("inputSendAddr");
+    const val = input.value.trim();
+    const btn = document.getElementById("btnProceedSend");
+    const err = document.getElementById("addrErrorMsg");
+
+    // Regex Check: Harus 0x diikuti 40 karakter hex
+    const isValid = /^0x[a-fA-F0-9]{40}$/.test(val);
+
+    if(val.length > 0) {
+        if(!isValid) {
+            input.classList.add("input-error");
+            input.classList.remove("input-success");
+            err.style.display = "block";
+            btn.disabled = true;
+            btn.classList.remove("btn-ready");
+        } else {
+            input.classList.remove("input-error");
+            input.classList.add("input-success");
+            err.style.display = "none";
+            // Cek juga apakah amount sudah terisi
+            checkFormReady();
+        }
+    } else {
+        input.classList.remove("input-error", "input-success");
+        err.style.display = "none";
+        btn.disabled = true;
+        btn.classList.remove("btn-ready");
+    }
+}
+
+// 3. Tombol Persentase (0% - MAX)
+function setSendPercent(percent) {
+    if(!activeToken || activeToken.balanceBN.isZero()) return;
+
+    // Hitung Amount pakai BigNumber biar presisi
+    // Rumus: Balance * Percent / 100
+    const amountBN = activeToken.balanceBN.mul(percent).div(100);
+    
+    // Format ke string untuk ditampilkan di input text
+    const amountStr = ethers.utils.formatUnits(amountBN, activeToken.decimals);
+    
+    // Masukkan ke input
+    const inputAmt = document.getElementById("inputSendAmount");
+    inputAmt.value = amountStr;
+    
+    checkFormReady();
+}
+
+// Cek Apakah Form Siap Kirim?
+document.getElementById("inputSendAmount").addEventListener("input", checkFormReady);
+
+function checkFormReady() {
+    const addr = document.getElementById("inputSendAddr").value.trim();
+    const amt = document.getElementById("inputSendAmount").value;
+    const btn = document.getElementById("btnProceedSend");
+    const isAddrValid = /^0x[a-fA-F0-9]{40}$/.test(addr);
+
+    if(isAddrValid && amt > 0) {
+        btn.disabled = false;
+        btn.classList.add("btn-ready");
+    } else {
+        btn.disabled = true;
+        btn.classList.remove("btn-ready");
+    }
+}
+
+// 4. Konfirmasi Popup
+function askConfirmation() {
+    const addr = document.getElementById("inputSendAddr").value.trim();
+    const amt = document.getElementById("inputSendAmount").value;
+
+    document.getElementById("confAmount").innerText = amt;
+    document.getElementById("confSymbol").innerText = activeToken.symbol;
+    document.getElementById("confAddr").innerText = addr;
+    
+    // Tampilkan Modal Konfirmasi, Sembunyikan Modal Input (Opsional, atau tumpuk)
+    document.getElementById("confirmModalOverlay").style.display = "flex";
+}
+
+// 5. EKSEKUSI TRANSFER (Blockchain)
+async function executeTransfer() {
+    document.getElementById("confirmModalOverlay").style.display = "none";
+    closeSendModal(); // Tutup semua
+
+    const addr = document.getElementById("inputSendAddr").value.trim();
+    const amt = document.getElementById("inputSendAmount").value;
+    
+    showToast("Memproses transaksi di wallet...", "info");
+
+    try {
+        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        const signer = provider.getSigner();
+        
+        // Parse Amount ke Wei/Unit Asli
+        const amountWei = ethers.utils.parseUnits(amt, activeToken.decimals);
+
+        let tx;
+        if(activeToken.address === 'ETH') {
+            // Kirim ETH Native
+            tx = await signer.sendTransaction({
+                to: addr,
+                value: amountWei
+            });
+        } else {
+            // Kirim Token ERC20
+            const contract = new ethers.Contract(activeToken.address, ["function transfer(address to, uint amount) returns (bool)"], signer);
+            tx = await contract.transfer(addr, amountWei);
+        }
+
+        showToast("Transaksi dikirim! Menunggu konfirmasi...", "success");
+        
+        // Tunggu block confirmation
+        await tx.wait();
+        
+        showToast("BERHASIL! Token terkirim.", "success");
+        refreshAllTokenBalances(); // Update saldo
+
+    } catch(err) {
+        console.error(err);
+        showToast("Transaksi Batal / Gagal", "error");
     }
 }
         
