@@ -1367,16 +1367,19 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
         let provider, contractReader, signer;
         let feedData = [];
-        // --- VARIABEL TAMBAHAN ---
-let globalSearchIndex = []; // Buku telepon (Index) semua wayang
-const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
+        let globalSearchIndex = [];
+        const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
         let currentSearchTicket = 0;
         let isWalletConnected = false;
-        let modalTipCursor = 0;      // Penanda index untuk modal
-let modalUserAddr = null;    // Alamat user yang sedang login
-let isModalFetching = false; // Kunci
+        let modalTipCursor = 0;
+        let modalUserAddr = null;
+        let isModalFetching = false;
         let myTokens = [];
         let activeToken = null;
+        let cachedEthPrice = 0;
+        let cachedTokenPrices = {};
+        let lastPriceFetchTime = 0;
+        const PRICE_CACHE_DURATION = 60000
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
 const POPULAR_BASE_TOKENS = [
@@ -2498,67 +2501,47 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE SALDO, HARGA SATUAN & TOTAL (ALL-IN-ONE) ---
+// --- UPDATE SALDO & ESTIMASI (ANTI $0 & ANTI BLOKIR) ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // Variabel Penampung Grand Total (Header)
-    let grandTotalUsd = 0;
+    // 1. UPDATE HARGA PASAR (Hanya jika cache sudah basi > 60 detik)
+    const now = Date.now();
+    if (now - lastPriceFetchTime > PRICE_CACHE_DURATION) {
+        // Jalankan di background (jangan tunggu/await) agar UI tidak macet
+        updateMarketPrices(); 
+    }
 
-    // Helper: Format Uang
-    const fmtUSD = (val) => {
-        if(val === 0) return "$0.000000";
-        if(val < 0.01) return "$" + val.toFixed(6);
-        return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-    };
+    let currentTotalUsd = 0;
 
     // ==========================================
-    // 1. UPDATE ETH (NATIVE)
+    // 2. HITUNG ETH (NATIVE)
     // ==========================================
     try {
-        // Ambil Saldo
         const ethRaw = await provider.getBalance(modalUserAddr);
         const ethFmt = ethers.utils.formatEther(ethRaw);
+        const ethVal = parseFloat(ethFmt);
         
-        // Update Teks Saldo
+        // Update UI Saldo ETH
         const elEth = document.getElementById("staticEthBalance");
-        if(elEth) elEth.innerText = parseFloat(ethFmt).toFixed(8);
+        if(elEth) elEth.innerText = ethVal.toFixed(6);
 
-        // Ambil Harga ETH
-        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-        const dataEth = await resEth.json();
-        const ethPrice = dataEth.ethereum.usd;
-        const ethTotalVal = parseFloat(ethFmt) * ethPrice;
+        // Hitung USD pakai Harga Cache (Instant)
+        const ethUsd = ethVal * cachedEthPrice;
+        currentTotalUsd += ethUsd;
 
-        // Tambah ke Grand Total
-        grandTotalUsd += ethTotalVal;
-
-        // Update Teks Detail (Harga Satuan | Total Aset)
+        // Update Detail
         const elEthDet = document.getElementById("staticEthDetails");
         if(elEthDet) {
-            // Tampilan: @ $3,000 | ≈ $15.00
-            elEthDet.innerText = `@ ${fmtUSD(ethPrice)} | ≈ ${fmtUSD(ethTotalVal)}`;
+            elEthDet.innerText = `@ ${fmtUSD(cachedEthPrice)} | ≈ ${fmtUSD(ethUsd)}`;
         }
 
     } catch(e) { }
 
     // ==========================================
-    // 2. UPDATE TOKEN IMPORT (ERC-20)
+    // 3. HITUNG TOKEN IMPORT
     // ==========================================
-    
-    // Ambil semua harga token sekaligus
-    const tokenAddrs = myTokens.map(t => t.address).join(',');
-    let tokenPrices = {};
-    if(tokenAddrs.length > 0) {
-        try {
-            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
-            const resToken = await fetch(url);
-            tokenPrices = await resToken.json();
-        } catch(e) { }
-    }
-
-    // Loop Update UI
     for (const token of myTokens) {
         try {
             const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
@@ -2566,39 +2549,79 @@ async function refreshAllTokenBalances() {
             const balFmt = ethers.utils.formatUnits(balRaw, token.decimals);
             const balFloat = parseFloat(balFmt);
             
-            // A. Update Saldo Angka
-            const elBal = document.getElementById(`bal-${token.address}`);
-            if(elBal) elBal.innerText = balFloat.toFixed(8);
+            // Update UI Saldo Token
+            const el = document.getElementById(`bal-${token.address}`);
+            if(el) el.innerText = balFloat.toFixed(4);
 
-            // B. Hitung Harga & Total
+            // Hitung USD Token
             const lowerAddr = token.address.toLowerCase();
-            let price = 0;
-            let totalVal = 0;
+            let price = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd : 0;
+            
+            const tokenUsd = balFloat * price;
+            currentTotalUsd += tokenUsd;
 
-            if(tokenPrices[lowerAddr] && tokenPrices[lowerAddr].usd) {
-                price = tokenPrices[lowerAddr].usd;
-                totalVal = balFloat * price;
-                grandTotalUsd += totalVal; // Tambah ke Header
-            }
-
-            // C. Update Detail (Harga | Total)
+            // Update Detail Token
             const elVal = document.getElementById(`val-${token.address}`);
             if(elVal) {
-                // Jika tidak punya token (saldo 0), Total tetap $0.00 tapi Harga Satuan tetap muncul
-                elVal.innerText = `@ ${fmtUSD(price)} | ≈ ${fmtUSD(totalVal)}`;
+                elVal.innerText = `@ ${fmtUSD(price)} | ≈ ${fmtUSD(tokenUsd)}`;
             }
 
         } catch(e) { }
     }
 
     // ==========================================
-    // 3. UPDATE HEADER TOTAL ESTIMASI
+    // 4. UPDATE TOTAL HEADER (Hanya jika > 0 agar tidak kaget)
     // ==========================================
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        usdEl.innerText = `≈ ${fmtUSD(grandTotalUsd)}`;
+        // Trik: Jika total 0 tapi kita punya saldo ETH, jangan ubah jadi $0 (pakai nilai lama saja)
+        // Kecuali memang saldonya beneran kosong.
+        if (currentTotalUsd > 0 || (cachedEthPrice > 0)) {
+            usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
+        }
     }
 }
+
+// --- FUNGSI AMBIL HARGA (JALAN TERPISAH) ---
+async function updateMarketPrices() {
+    console.log("🔄 Mengambil update harga pasar...");
+    try {
+        // 1. Ambil Harga ETH
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
+        const dataEth = await resEth.json();
+        if(dataEth.ethereum.usd) {
+            cachedEthPrice = dataEth.ethereum.usd;
+        }
+
+        // 2. Ambil Harga Token Import
+        const tokenAddrs = myTokens.map(t => t.address).join(',');
+        if(tokenAddrs.length > 0) {
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
+            const resToken = await fetch(url);
+            const dataToken = await resToken.json();
+            
+            // Gabungkan ke cache lama (update yg ada saja)
+            cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
+        }
+        
+        lastPriceFetchTime = Date.now(); // Reset timer
+        
+        // Panggil refresh sekali lagi agar angka di layar update dengan harga baru
+        refreshAllTokenBalances();
+
+    } catch(e) {
+        console.warn("Gagal update harga (Limit API), pakai harga lama.");
+    }
+}
+
+// Helper Format Uang
+const fmtUSD = (val) => {
+    if(!val) val = 0;
+    if(val === 0) return "$0.00";
+    if(val < 0.01) return "$" + val.toFixed(6);
+    if(val < 1) return "$" + val.toFixed(4);
+    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
+};
 
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
