@@ -1046,7 +1046,7 @@ async function connectWallet() {
         document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
         
         const balance = await provider.getBalance(userAddress);
-        document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
+        document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
         
         // 6. Tarik Data History dari Kontrak
         await updateModalWalletData(userAddress);
@@ -1136,12 +1136,12 @@ async function updateModalWalletData(userAddress) {
     document.getElementById("btnModalLoadMore").style.display = 'none';
 
     try {
-        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+        const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
         // A. AMBIL TOTAL PENDAPATAN (getTipTotalBalance)
         const totalWei = await contract.getTipTotalBalance(userAddress);
-        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4);
+        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(8);
         document.getElementById("modalTipBalance").innerText = totalEth + " ETH";
 
         // B. AMBIL JUMLAH HISTORY (getTipCount)
@@ -1176,11 +1176,11 @@ async function loadNextModalTips() {
     // Matikan tombol sementara
     if(btnMore) btnMore.innerHTML = "Memuat...";
 
-    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_SEPOLIA_RPC);
+    const rpcProvider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
 
     // Hitung mundur 5 langkah
-    let end = modalTipCursor - 2 + 1;
+    let end = modalTipCursor - 3 + 1;
     if(end < 0) end = 0;
 
     let html = "";
@@ -1191,7 +1191,7 @@ async function loadNextModalTips() {
             
             // Format Data
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
-            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
+            const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(6);
             const msg = tip.message || "Tanpa pesan";
 
             html += `
@@ -1216,7 +1216,7 @@ async function loadNextModalTips() {
     if(btnMore) {
         if(modalTipCursor >= 0) {
             btnMore.style.display = 'block';
-            btnMore.innerHTML = `Muat 2 Lama <i class="fas fa-chevron-down"></i>`;
+            btnMore.innerHTML = `Muat 3 Lagi <i class="fas fa-chevron-down"></i>`;
         } else {
             btnMore.style.display = 'none'; // Data habis
         }
