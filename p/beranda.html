@@ -1151,14 +1151,22 @@ label {
 <div id="sendModalOverlay" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; justify-content:center; align-items:center;">
     <div style="background:#15191e; width:90%; max-width:400px; padding:20px; border-radius:12px; border:1px solid #333; position:relative;">
         
-        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
-            <h3 style="margin:0; color:#fff; font-size:16px;">Kirim <span id="sendTokenSymbol">TOKEN</span></h3>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:15px;">
+            <h3 style="margin:0; color:#fff; font-size:16px;">Kirim Aset</h3>
             <i class="fas fa-times" onclick="closeSendModal()" style="color:#aaa; cursor:pointer;"></i>
         </div>
 
         <div style="margin-bottom:15px;">
-            <label style="color:#94a3b8; font-size:11px; display:block; margin-bottom:5px;">Alamat Penerima (EVM 0x)</label>
-            <input type="text" id="inputSendAddr" placeholder="0x..." oninput="validateSendAddr()"
+            <label style="color:#94a3b8; font-size:11px; display:block; margin-bottom:5px;">Pilih Aset yang akan dikirim</label>
+            <select id="sendTokenSelect" onchange="switchTokenFromDropdown()" 
+                    style="width:100%; padding:12px; background:#0b0e11; border:1px solid #333; color:#fff; border-radius:6px; font-weight:bold; cursor:pointer; font-size:14px;">
+                <option value="ETH">Ethereum (ETH)</option>
+            </select>
+        </div>
+
+        <div style="margin-bottom:15px;">
+            <label style="color:#94a3b8; font-size:11px; display:block; margin-bottom:5px;">Alamat Wallet Penerima</label>
+            <input type="text" id="inputSendAddr" placeholder="Paste alamat tujuan (0x...)" oninput="validateSendAddr()"
                    style="width:100%; padding:10px; background:#0b0e11; border:1px solid #333; color:#fff; border-radius:6px; font-family:monospace;">
             <div id="addrErrorMsg" style="color:#ef4444; font-size:10px; margin-top:3px; display:none;">Alamat tidak valid!</div>
         </div>
@@ -1167,13 +1175,13 @@ label {
             <div style="display:flex; justify-content:space-between; margin-bottom:5px;">
                 <label style="color:#94a3b8; font-size:11px;">Jumlah Kirim</label>
                 <label style="color:#2ecc71; font-size:11px; cursor:pointer;" onclick="setSendPercent(100)">
-                    Saldo: <span id="sendMaxBal">0.00</span>
+                    Saldo: <span id="sendMaxBal">Loading...</span>
                 </label>
             </div>
             <div style="position:relative;">
                 <input type="number" id="inputSendAmount" placeholder="0.0"
                        style="width:100%; padding:10px; padding-right:60px; background:#0b0e11; border:1px solid #333; color:#fff; border-radius:6px; font-weight:bold;">
-                <span id="inputTicker" style="position:absolute; right:10px; top:10px; color:#666; font-weight:bold; font-size:12px;">TOKEN</span>
+                <span id="inputTicker" style="position:absolute; right:10px; top:10px; color:#666; font-weight:bold; font-size:12px;">ETH</span>
             </div>
         </div>
 
@@ -1193,7 +1201,7 @@ label {
 
         <button id="btnProceedSend" onclick="askConfirmation()" disabled
                 style="width:100%; padding:12px; background:#333; color:#777; border:none; border-radius:8px; font-weight:bold; cursor:not-allowed; transition:0.3s;">
-            Kirim Token
+            Kirim Aset
         </button>
     </div>
 </div>
@@ -2715,15 +2723,35 @@ async function executeTransfer() {
 async function openGeneralSendPopup() {
     if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
     
-    // Render Dropdown dulu
-    renderSendDropdown();
+    // A. Render Isi Dropdown (Wajib dipanggil setiap buka popup)
+    const select = document.getElementById("sendTokenSelect");
+    select.innerHTML = ""; // Bersihkan isi lama
+
+    // B. Tambahkan ETH (Selalu paling atas)
+    let ethOption = document.createElement("option");
+    ethOption.value = "ETH";
+    ethOption.text = "Ethereum (Native)";
+    select.appendChild(ethOption);
+
+    // C. Tambahkan Token Import (Looping dari myTokens)
+    if (myTokens && myTokens.length > 0) {
+        myTokens.forEach(token => {
+            let opt = document.createElement("option");
+            opt.value = token.address;
+            opt.text = `${token.name} (${token.symbol})`;
+            select.appendChild(opt);
+        });
+    }
     
-    // Buka Modal
+    // D. Reset Form & Tampilkan
     document.getElementById("sendModalOverlay").style.display = "flex";
+    document.getElementById("inputSendAddr").value = "";
+    document.getElementById("inputSendAmount").value = "";
+    document.getElementById("addrErrorMsg").style.display = "none";
     
-    // Pilih ETH secara default & update UI
-    document.getElementById("sendTokenSelect").value = "ETH";
-    switchTokenFromDropdown(); 
+    // E. Set Default ke ETH
+    select.value = "ETH"; 
+    switchTokenFromDropdown(); // Panggil fungsi switch untuk load saldo ETH
 }
 
 // 2. Render Isi Dropdown (ETH + Token Import)
@@ -2746,58 +2774,64 @@ function renderSendDropdown() {
 async function switchTokenFromDropdown() {
     const select = document.getElementById("sendTokenSelect");
     const selectedVal = select.value;
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // Reset Input
+    // Reset Input Jumlah
     document.getElementById("inputSendAmount").value = "";
     document.getElementById("btnProceedSend").disabled = true;
     document.getElementById("btnProceedSend").classList.remove("btn-ready");
-
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    document.getElementById("sendMaxBal").innerText = "Loading...";
 
     if(selectedVal === "ETH") {
-        // Setup Mode ETH
-        activeToken = { 
-            address: 'ETH', 
-            symbol: 'ETH', 
-            decimals: 18, 
-            balanceBN: await provider.getBalance(modalUserAddr) 
-        };
-    } else {
-        // Setup Mode Token (Cari data token dari array myTokens)
-        const tokenData = myTokens.find(t => t.address === selectedVal);
-        if(tokenData) {
-            const contract = new ethers.Contract(tokenData.address, ERC20_ABI, provider);
-            const bal = await contract.balanceOf(modalUserAddr);
-            
-            activeToken = { 
-                address: tokenData.address, 
-                symbol: tokenData.symbol, 
-                decimals: tokenData.decimals, 
-                balanceBN: bal
+        // --- MODE ETH ---
+        try {
+            const balRaw = await provider.getBalance(modalUserAddr);
+            activeToken = {
+                address: 'ETH',
+                symbol: 'ETH',
+                decimals: 18,
+                balanceBN: balRaw
             };
+        } catch(e) { console.log(e); }
+    } else {
+        // --- MODE TOKEN IMPORT ---
+        // Cari data token dari array myTokens berdasarkan address
+        const tokenData = myTokens.find(t => t.address === selectedVal);
+        
+        if(tokenData) {
+            try {
+                const contract = new ethers.Contract(tokenData.address, ERC20_ABI, provider);
+                const balRaw = await contract.balanceOf(modalUserAddr);
+                
+                activeToken = {
+                    address: tokenData.address,
+                    symbol: tokenData.symbol,
+                    decimals: tokenData.decimals,
+                    balanceBN: balRaw
+                };
+            } catch(e) { console.log(e); }
         }
     }
 
-    // Update UI Modal
-    const fmt = ethers.utils.formatUnits(activeToken.balanceBN, activeToken.decimals);
-    document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(6);
-    document.getElementById("inputTicker").innerText = activeToken.symbol;
-    document.getElementById("sendTokenSymbol").innerText = activeToken.symbol; // (Optional: Judul kecil)
+    // Update UI (Saldo & Simbol di Input)
+    if(activeToken) {
+        const fmt = ethers.utils.formatUnits(activeToken.balanceBN, activeToken.decimals);
+        document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(4); // Tampilkan 4 desimal
+        document.getElementById("inputTicker").innerText = activeToken.symbol;
+    }
 }
 
 // 4. Update Fungsi 'openSendPopup' Lama (Agar sinkron dengan Dropdown)
 // Fungsi ini dipanggil kalau user klik item list di sidebar, bukan tombol kirim atas
 async function openSendPopup(address, symbol, decimals, logo) {
-    if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
+    // Buka Popup General dulu (biar dropdown ter-render)
+    await openGeneralSendPopup();
     
-    renderSendDropdown(); // Render list dulu
-    document.getElementById("sendModalOverlay").style.display = "flex";
-    
-    // Auto-Select di Dropdown sesuai item yang diklik
+    // Ubah nilai dropdown sesuai token yang diklik
     const select = document.getElementById("sendTokenSelect");
     select.value = address;
     
-    // Jalankan logic switch manual
+    // Jalankan switch logic
     switchTokenFromDropdown();
 }
         
