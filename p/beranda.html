@@ -1165,11 +1165,26 @@ let modalUserAddr = null;    // Alamat user yang sedang login
 let isModalFetching = false; // Kunci
         let myTokens = [];
 
+        // DATABASE TOKEN POPULER BASE (Updated + USDT)
+const POPULAR_BASE_TOKENS = [
+    { symbol: "USDC", address: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", decimals: 6, name: "USD Coin" },
+    { symbol: "USDT", address: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", decimals: 6, name: "Tether USD" }, // <-- Sudah ditambahkan
+    { symbol: "WETH", address: "0x4200000000000000000000000000000000000006", decimals: 18, name: "Wrapped Ether" },
+    { symbol: "DEGEN", address: "0x4ed4E862860beD51a9570b96d80147f1D3a49325", decimals: 18, name: "Degen" },
+    { symbol: "BRETT", address: "0x532f27101965dd16442E59d40670FaF5eBB142E4", decimals: 18, name: "Brett" },
+    { symbol: "TOSHI", address: "0xAC1Ad4cb686070ea31198e131E7D52c05dd7455e", decimals: 18, name: "Toshi" },
+    { symbol: "AERO", address: "0x940181a94A35A4569E4529A3CDf3B4cfbbD777f6", decimals: 18, name: "Aerodrome" },
+    { symbol: "BSWAP", address: "0x78a087d713Be963Bf307b18F2Ff8122EF9A63ae9", decimals: 18, name: "BaseSwap" }
+];
+
         // --- INIT ---
         window.onload = async () => {
-    // 1. Setup Read Provider
+    // 1. Setup Read Provider (Untuk user yang belum connect wallet)
     const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
-    contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+    // Pastikan CONTRACT_ADDRESS dan ABI sudah didefinisikan di atas script ini
+    try {
+        contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+    } catch(e) { console.log("Init contract error:", e); }
     
     // 2. Cek Auto-Login Metamask
     if(window.ethereum) {
@@ -1180,40 +1195,54 @@ let isModalFetching = false; // Kunci
             if(accounts.length > 0) {
                 const userAddress = accounts[0];
                 
+                // --- [PENTING: UPDATE VARIABEL GLOBAL] ---
+                // Tanpa baris ini, fitur scan token di bawah tidak akan jalan
+                modalUserAddr = userAddress; 
+                isWalletConnected = true;
+                // -----------------------------------------
+
                 // A. Update Tombol Connect
                 const btn = document.getElementById("btnConnect");
                 if(btn) {
                     btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
                     btn.classList.add("connected");
                 }
-                isWalletConnected = true;
                 
-                // B. [PERBAIKAN] Update Data Modal (Address & Saldo Utama)
-                // Set Address
+                // B. Update Data Modal (Address & Saldo Utama)
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
                     document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
 
-                // Ambil Saldo Utama (Fix Loading Stuck)
+                // Ambil Saldo Utama (ETH)
                 const balance = await web3.getBalance(userAddress);
                 if(document.getElementById("modalBalance")) {
-                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
+                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
                 }
 
-                // C. Update Data Kontrak (Saldo Saweran & History)
-                updateSidebarWallet(userAddress);
-                updateModalWalletData(userAddress);
+                // C. Update Sidebar & Data Lainnya
+                updateSidebarWallet(userAddress); // Sidebar Estimasi Aset
+                updateModalWalletData(userAddress); // Modal (Saweran, Revisi, dll)
+                
+                // D. Auto Scan Token Populer (Jalan setelah login terdeteksi)
+                // Kita panggil langsung di sini agar lebih responsif
+                setTimeout(() => {
+                    autoScanTokens(); 
+                }, 1000);
             }
         } catch(e) { console.log("Auto-login error:", e); }
     }
 
-    // 3. Load Feed & Indexer
-    loadFeed();
-    setTimeout(initDeepIndexer, 3000);
-    initTokenManager();
+    // 3. Load Feed & Indexer (Jalan independen walau belum login)
+    if(typeof loadFeed === 'function') loadFeed();
+    if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
+    
+    // 4. Init Token Manager (Load dari LocalStorage)
+    if(typeof initTokenManager === 'function') initTokenManager();
+
+    // 5. Interval Real-time Update (Setiap 5 detik)
     setInterval(() => {
-        // Hanya update jika user sudah login (punya address)
+        // Hanya update jika user sudah login (punya address di variabel global)
         if (typeof modalUserAddr !== 'undefined' && modalUserAddr) {
             refreshAllTokenBalances();
         }
@@ -1270,6 +1299,7 @@ async function connectWallet() {
         // 6. Tarik Data History dari Kontrak
         updateSidebarWallet(userAddress);
         await updateModalWalletData(userAddress);
+        autoScanTokens();
 
     } catch (err) { 
         console.error("Koneksi Error:", err);
@@ -2335,6 +2365,54 @@ async function refreshAllTokenBalances() {
             }).format(grandTotalUsd);
         }
         usdEl.innerText = `≈ ${formattedText}`;
+    }
+}
+
+        // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
+async function autoScanTokens() {
+    if (!window.ethereum || !modalUserAddr) return;
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+    
+    console.log("🔍 Scanning aset populer...");
+    let newTokensFound = false;
+
+    // Loop semua token populer
+    for (const token of POPULAR_BASE_TOKENS) {
+        // 1. Cek apakah token ini SUDAH ADA di daftar user? (Biar gak dobel)
+        const isAlreadyImported = myTokens.some(t => t.address.toLowerCase() === token.address.toLowerCase());
+        
+        if (!isAlreadyImported) {
+            try {
+                // 2. Cek Saldo di Blockchain
+                const contract = new ethers.Contract(token.address, ERC20_ABI, provider);
+                const balRaw = await contract.balanceOf(modalUserAddr);
+
+                // 3. JIKA SALDO > 0 (Punya Duit), Import Otomatis!
+                if (balRaw.gt(0)) {
+                    const newToken = {
+                        address: token.address,
+                        name: token.name,
+                        symbol: token.symbol,
+                        decimals: token.decimals,
+                        logo: `https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/base/assets/${ethers.utils.getAddress(token.address)}/logo.png`
+                    };
+                    
+                    myTokens.push(newToken);
+                    newTokensFound = true;
+                    console.log(`💰 Aset ditemukan: ${token.symbol}`);
+                }
+            } catch (e) {
+                // Skip jika error (mungkin kontrak bermasalah)
+            }
+        }
+    }
+
+    // 4. Jika ada token baru, simpan & refresh tampilan
+    if (newTokensFound) {
+        saveTokens(); // Simpan ke LocalStorage
+        renderTokenList(); // Tampilkan di Sidebar
+        refreshAllTokenBalances(); // Update saldo & harga USD
+        showToast("Aset crypto Anda berhasil dideteksi otomatis!", "success");
     }
 }
         
