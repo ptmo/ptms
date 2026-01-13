@@ -782,10 +782,11 @@ label {
 </nav>
     
     <script>
-
-        const CHAIN_ID_BASE = "0x2105"; // Hex dari 8453
-const CHAIN_ID_DECIMAL = 8453;
-
+const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; // Pastikan Alamat Kontrak Benar
+const CHAIN_ID_DECIMAL = 8453; // ID Base Mainnet
+const CHAIN_ID_BASE = "0x2105"; // Hex ID Base Mainnet
+const BASE_RPC_URL = "https://base-rpc.publicnode.com"; // RPC Resmi
+        
 const BASE_MAINNET_CONFIG = {
     chainId: CHAIN_ID_BASE,
     chainName: 'Base',
@@ -813,7 +814,10 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
 let globalSearchIndex = []; // Buku telepon (Index) semua wayang
 const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
         let currentSearchTicket = 0;
-        let isWalletConnected = false; 
+        let isWalletConnected = false;
+        let modalTipCursor = 0;      // Penanda index untuk modal
+let modalUserAddr = null;    // Alamat user yang sedang login
+let isModalFetching = false; // Kunci
 
         // --- INIT ---
         window.onload = async () => {
@@ -823,22 +827,23 @@ const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
             
             // Cek Login
             if(window.ethereum) {
-        const web3 = new ethers.providers.Web3Provider(window.ethereum);
-        const accounts = await web3.listAccounts();
-        
-        if(accounts.length > 0) {
-            // Jika sudah ada akun, set status UI jadi connected
-            const btn = document.getElementById("btn-connect"); // Pastikan ID ini benar di HTML (btnConnect atau btn-connect)
-            if(btn) {
-                btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-                btn.classList.add("connected");
-                isWalletConnected = true; // Set flag
-                
-                // Load data modal di background
-                updateModalWalletData(accounts[0]);
+        try {
+            const web3 = new ethers.providers.Web3Provider(window.ethereum);
+            const accounts = await web3.listAccounts();
+            
+            if(accounts.length > 0) {
+                const btn = document.getElementById("btnConnect"); // Pastikan ID ini sesuai HTML
+                if(btn) {
+                    btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
+                    btn.classList.add("connected");
+                    isWalletConnected = true;
+                    
+                    // Update data modal di background
+                    updateModalWalletData(accounts[0]);
+                }
             }
-        }
-    }
+        } catch(e) { console.log("Auto-login skip:", e); }
+            }
 
             // Load Feed
             loadFeed();
@@ -846,66 +851,59 @@ const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
         };
 
 async function connectWallet() {
-    // 1. Validasi Metamask
-    if (!window.ethereum) return alert("Metamask tidak terdeteksi! Harap install terlebih dahulu.");
+    // A. Validasi Metamask
+    if (!window.ethereum) return alert("Metamask tidak terdeteksi!");
     
-    const btnConnect = document.getElementById("btn-connect");
+    const btnConnect = document.getElementById("btnConnect");
     
-    // 2. CEK: Jika sudah connect, BUKA MODAL alih-alih connect ulang
-    if (isWalletConnected || btnConnect.classList.contains("connected")) {
-        toggleWalletModal(); // <--- INI KUNCINYA
+    // B. LOGIKA TOGGLE: Jika sudah konek, klik tombol = BUKA MODAL
+    if (isWalletConnected || (btnConnect && btnConnect.classList.contains("connected"))) {
+        toggleWalletModal(); 
         return;
     }
 
+    // C. PROSES KONEKSI BARU
     const originalText = btnConnect.innerHTML;
     btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
 
     try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         
-        // 3. Request Akses Akun
+        // 1. Request Akun
         await provider.send("eth_requestAccounts", []);
 
-        // 4. Cek Jaringan Saat Ini
+        // 2. Cek Network (Wajib Base Mainnet)
         const network = await provider.getNetwork();
-
-        // 5. Jika BUKAN Base Mainnet (8453), Paksa Ganti
-        // Pastikan variabel CHAIN_ID_DECIMAL sudah didefinisikan (misal 8453)
         if (network.chainId !== CHAIN_ID_DECIMAL) {
-            await switchNetwork();
-            // Reload agar state bersih di jaringan baru
-            return connectWallet(); 
+            await switchNetwork(); // Paksa ganti network
+            // Setelah ganti, provider perlu direfresh, jadi reload atau rekursif
+            connectWallet(); 
+            return; 
         }
 
-        // 6. Ambil Data User
+        // 3. Ambil Data User
         const signer = provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        // 7. Update UI Tombol
+        // 4. Update Tampilan Tombol
         btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
         btnConnect.classList.add("connected");
-        
-        // 8. Update Data Modal (Persiapan sebelum dibuka)
+        isWalletConnected = true; // Set flag global
+
+        // 5. Update Data Modal (Saldo, Address, dll)
         document.getElementById("modalFullAddress").innerText = userAddress;
         document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
         
         const balance = await provider.getBalance(userAddress);
-        const ethBalance = ethers.utils.formatEther(balance);
-        document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
-
-        // 9. Tandai status Connected
-        isWalletConnected = true;
+        document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
         
-        // 10. Load Riwayat di Modal (Panggil fungsi update Anda)
+        // 6. Tarik Data History dari Kontrak
         await updateModalWalletData(userAddress);
 
-        console.log("Terhubung:", userAddress);
-        // showToast("Wallet Terhubung!", "success"); // Jika ada fungsi toast
-
     } catch (err) { 
-        console.error("Koneksi Gagal:", err);
-        btnConnect.innerHTML = originalText; // Kembalikan teks asli jika gagal
-        // alert("Gagal konek: " + (err.message || "User menolak."));
+        console.error("Koneksi Error:", err);
+        btnConnect.innerHTML = originalText;
+        // alert("Gagal: " + err.message);
     }
 }
 
