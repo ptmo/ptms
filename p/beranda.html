@@ -993,7 +993,10 @@ const avatar = isOfficial
                     </div>
 
                     <div class="card-actions">
-                        <button class="action-btn"><i class="fa fa-heart"></i> ${likes} Suka</button>
+                        <button onclick="kirimLike()" title="Suka">
+                <i class="fas fa-heart"></i> 
+                <span id="likeCount" style="font-size: 15px; margin-left: 2px;">0 suka</span>
+            </button>
                         <button class="action-btn"><i class="fa fa-gift"></i> Dukung</button>
                         <button class="action-btn"><i class="fa fa-star"></i> Ulasan</button>
                         <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
@@ -1264,6 +1267,50 @@ async function shareWayang(id, nama) {
         } catch (err) {
             prompt("Copy link ini manual:", shareUrl);
         }
+    }
+}
+
+async function kirimLike() {
+    // Simpan tombol untuk referensi
+    const btn = document.getElementById("btnLike");
+    const oriHTML = btn.innerHTML; // Simpan tampilan asli tombol
+
+    try {
+        await ensureWallet();
+        const params = new URLSearchParams(window.location.search);
+        const id = params.get('id');
+
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        
+        // Ubah tombol jadi loading
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin" style="margin-right: 8px;"></i>`;
+        
+        const tx = await contract.kasihLike(id);
+        await tx.wait();
+        
+        showToast("Berhasil Like!", 'success');
+        location.reload();
+
+    } catch(err) {
+        console.error(err); // Debugging di console
+        
+        // 1. Ambil pesan error dan ubah ke huruf kecil biar mudah dicek
+        const pesanError = (err.reason || err.message || "").toLowerCase();
+
+        // 2. Cek kata kunci error dari Smart Contract
+        // Sesuaikan kata "already liked" dengan pesan error di kontrak Solidity Bapak
+        if (pesanError.includes("already liked") || pesanError.includes("sudah")) {
+            
+            // Tampilkan Toast Khusus
+            showToast("Anda sudah menyukai postingan ini", 'warning');
+            
+        } else {
+            // Error lain (misal: gas fee kurang, user reject)
+            showToast("Gagal: " + (err.reason || "Transaksi dibatalkan"), 'error');
+        }
+
+        // 3. Kembalikan tombol ke tampilan gagal/awal
+        btn.innerHTML = '<i class="far fa-heart" style="margin-right: 6px;"></i> Suka';
     }
 }
 
