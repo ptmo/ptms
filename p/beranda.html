@@ -2817,23 +2817,18 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (VERSI FINAL: STABLECOIN FILTER) ---
+// --- FUNGSI AMBIL HARGA (HYBRID: COINGECKO + DEXSCREENER) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Smart Stable Filter)...");
+    console.log("🔄 Update Harga (Metode Hybrid)...");
 
-    // 1. Definisikan Alamat (Huruf Kecil Semua)
-    const WETH_ADDR  = "0x4200000000000000000000000000000000000006"; 
-    
-    // Daftar Stablecoin yang Dipercaya di Base (Agar harga ETH akurat)
-    const STABLES = [
-        "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913", // USDC
-        "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca", // USDbC (Bridged)
-        "0x50c5725949a6f0c72e6c4a641f24049a917db0cb", // DAI
-        "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2"  // USDT
-    ];
+    // 1. Definisikan Alamat
+    const WETH_ADDR = "0x4200000000000000000000000000000000000006"; // WETH Base
+    const USDC_ADDR = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC
+    const USDT_ADDR = "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2"; // USDT
 
-    // 2. Siapkan Target Request
-    let targets = [WETH_ADDR, ...STABLES];
+    // 2. STEP 1: AMBIL DATA DARI DEXSCREENER (Untuk Token & Persentase)
+    // -------------------------------------------------------------
+    let targets = [WETH_ADDR, USDC_ADDR, USDT_ADDR];
     if (typeof myTokens !== 'undefined' && myTokens.length > 0) {
         const importAddrs = myTokens.map(t => t.address);
         targets = [...targets, ...importAddrs];
@@ -2841,71 +2836,74 @@ async function updateMarketPrices() {
     const uniqueTargets = [...new Set(targets)].join(',');
 
     try {
-        const url = `https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`;
-        const res = await fetch(url);
-        const data = await res.json();
+        const urlDS = `https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`;
+        const resDS = await fetch(urlDS);
+        const dataDS = await resDS.json();
 
-        if (!data.pairs) return;
+        if (dataDS.pairs) {
+            let liquidityMap = {}; 
 
-        // Variabel pelacak likuiditas tertinggi
-        let liquidityMap = {}; 
-        let bestEthLiquidity = 0; // Pelacak khusus ETH
+            dataDS.pairs.forEach(pair => {
+                if (pair.chainId !== 'base') return;
 
-        data.pairs.forEach(pair => {
-            if (pair.chainId !== 'base') return; 
+                const addr = pair.baseToken.address.toLowerCase();
+                const price = parseFloat(pair.priceUsd);
+                const change = pair.priceChange ? pair.priceChange.h24 : 0;
+                const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-            const addr = pair.baseToken.address.toLowerCase();
-            const quoteAddr = pair.quoteToken.address.toLowerCase(); 
-            const price = parseFloat(pair.priceUsd);
-            const change = pair.priceChange ? pair.priceChange.h24 : 0;
-            const liq = pair.liquidity ? pair.liquidity.usd : 0;
-
-            // --- A. LOGIKA KHUSUS ETH (WETH) ---
-            if (addr === WETH_ADDR) {
-                // Cek apakah pasangannya adalah Stablecoin?
-                if (STABLES.includes(quoteAddr)) {
-                    // Jika ya, cek apakah ini pool terbesar?
-                    if (liq > bestEthLiquidity) {
-                        bestEthLiquidity = liq;
-                        cachedEthPrice = price;
-                        cachedEthChange = change;
-                        // console.log(`✅ ETH Valid dari pair ${pair.quoteToken.symbol} ($${price})`);
-                    }
-                }
-                // Jika pasangannya BUKAN stablecoin (misal WETH/DEGEN), ABAIKAN! 
-                // Ini yang mencegah harga $6.500.
-            } 
-            
-            // --- B. LOGIKA TOKEN LAIN ---
-            else {
-                // Ambil dari pool terbesar apapun pasangannya
+                // Cari pool terbesar untuk setiap token
                 if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
                     liquidityMap[addr] = liq;
+                    
+                    // Simpan Harga & Persen dari DexScreener dulu (sebagai dasar)
+                    if (addr === WETH_ADDR) {
+                        cachedEthPrice = price; 
+                        cachedEthChange = change;
+                    } 
+                    
                     cachedTokenPrices[addr] = {
                         usd: price,
                         usd_24h_change: change
                     };
                 }
-            }
-        });
-
-        lastPriceFetchTime = Date.now();
-        
-        // Update UI Header
-        const usdEl = document.getElementById("usdEstimate");
-        if(usdEl && cachedEthPrice > 0) {
-             // console.log("Harga ETH Terupdate:", cachedEthPrice);
+            });
         }
-
     } catch (e) {
-        console.warn("Gagal update harga:", e);
-    } finally {
-        // 4. Update UI
-        if(typeof refreshAllTokenBalances === 'function') {
-            refreshAllTokenBalances();
-        }
+        console.warn("DexScreener Error:", e);
     }
-}
+
+    // 3. STEP 2: AMBIL HARGA BERSIH ETH DARI COINGECKO (OVERWRITE)
+    // -------------------------------------------------------------
+    // Ini kuncinya agar harga ETH tidak $6.500 (Double) atau $0
+    try {
+        console.log("🛠️ Mengambil harga bersih ETH dari CoinGecko...");
+        // Gunakan Proxy agar tidak kena blokir CORS Browser
+        const proxy = "https://corsproxy.io/?"; 
+        const cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd";
+        
+        const resCG = await fetch(proxy + encodeURIComponent(cgUrl));
+        const dataCG = await resCG.json();
+
+        if (dataCG.ethereum && dataCG.ethereum.usd) {
+            const cleanPrice = dataCG.ethereum.usd;
+            
+            // TIMPA harga ETH yang tadi didapat dari DexScreener
+            cachedEthPrice = cleanPrice;
+            
+            console.log(`✅ Harga ETH (CoinGecko): $${cleanPrice}`);
+            console.log(`✅ Persentase ETH (DexScreener): ${cachedEthChange}%`);
+        }
+    } catch (e) {
+        console.warn("⚠️ Gagal ambil CoinGecko (Pakai harga DexScreener saja):", e);
+    }
+
+    lastPriceFetchTime = Date.now();
+
+    // 4. Update Tampilan
+    if(typeof refreshAllTokenBalances === 'function') {
+        refreshAllTokenBalances();
+    }
+        }
         
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
