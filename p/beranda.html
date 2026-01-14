@@ -2697,12 +2697,12 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE SALDO LENGKAP (ETH + USDC + USDT + IMPORT) ---
+// --- UPDATE SALDO LENGKAP ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // 1. Cek Update Harga (Interval 15 detik)
+    // Cek Update Harga
     const now = Date.now();
     if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0) {
         updateMarketPrices(); 
@@ -2710,12 +2710,14 @@ async function refreshAllTokenBalances() {
 
     let currentTotalUsd = 0;
 
-    // Helper: HTML Warna Warni Persentase
+    // Helper HTML Warna
     const getChangeHtml = (changeVal) => {
-        if(!changeVal) return `<span style="color:#777;">(0%)</span>`;
+        // Handle jika undefined/null/0
+        if(changeVal === undefined || changeVal === null) return `<span style="color:#777;">(0%)</span>`;
+        
         const color = changeVal >= 0 ? '#2ecc71' : '#ef4444'; 
         const sign = changeVal >= 0 ? '+' : '';
-        return `<span style="color:${color}; font-weight:bold;">(${sign}${changeVal.toFixed(2)}%)</span>`;
+        return `<span style="color:${color}; font-weight:bold;">(${sign}${Number(changeVal).toFixed(2)}%)</span>`;
     };
 
     // ==========================================
@@ -2726,16 +2728,15 @@ async function refreshAllTokenBalances() {
         const ethFmt = ethers.utils.formatEther(ethRaw);
         const ethVal = parseFloat(ethFmt);
         
-        // Update UI
         const elEth = document.getElementById("staticEthBalance");
         if(elEth) elEth.innerText = ethVal.toFixed(6);
 
-        // Hitung USD
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
         const elEthDet = document.getElementById("staticEthDetails");
         if(elEthDet) {
+            // cachedEthChange sekarang diisi oleh DexScreener (dari pair WETH)
             elEthDet.innerHTML = `@ ${fmtUSD(cachedEthPrice)} ${getChangeHtml(cachedEthChange)} <br> <span style="color:#666">≈ ${fmtUSD(ethUsd)}</span>`;
         }
     } catch(e) { }
@@ -2743,49 +2744,43 @@ async function refreshAllTokenBalances() {
     // ==========================================
     // B. HITUNG STATIC STABLECOIN (USDC & USDT)
     // ==========================================
-    // Array konfigurasi statis (Alamat Kontrak Resmi Base)
     const staticTokens = [
-        { id: "Usdc", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", dec: 6, symbol: "USDC" }, 
-        { id: "Usdt", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", dec: 6, symbol: "USDT" }  
+        { id: "Usdc", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", dec: 6 }, 
+        { id: "Usdt", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", dec: 6 }  
     ];
 
     for (let st of staticTokens) {
         try {
             const contract = new ethers.Contract(st.addr, ERC20_ABI, provider);
             const balRaw = await contract.balanceOf(modalUserAddr);
-            const balFmt = ethers.utils.formatUnits(balRaw, st.dec); // Ingat: USDC/USDT desimalnya 6
+            const balFmt = ethers.utils.formatUnits(balRaw, st.dec);
             const balFloat = parseFloat(balFmt);
 
-            // Update Angka Saldo
             const elBal = document.getElementById(`static${st.id}Balance`);
-            if(elBal) elBal.innerText = balFloat.toFixed(2); // Stablecoin cukup 2 desimal
+            if(elBal) elBal.innerText = balFloat.toFixed(2);
 
-            // Cek Harga dari Cache (agar akurat jika depeg, jangan asumsi $1 pas)
             const lowerAddr = st.addr.toLowerCase();
-            let price = 1.0; 
-            let change24h = 0;
             
-            if(cachedTokenPrices[lowerAddr]) {
-                price = cachedTokenPrices[lowerAddr].usd || 1.0;
-                change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
-            }
+            // Harga ($)
+            let price = 1.0; 
+            if(cachedTokenPrices[lowerAddr]) price = cachedTokenPrices[lowerAddr].usd || 1.0;
+
+            // Persen (%) dari DexScreener
+            let change24h = 0;
+            if (cachedTokenChanges[lowerAddr] !== undefined) change24h = cachedTokenChanges[lowerAddr];
 
             const tokenUsd = balFloat * price;
             currentTotalUsd += tokenUsd;
             
-            // Update Detail ($)
             const elDet = document.getElementById(`static${st.id}Details`);
             if(elDet) {
                 elDet.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#666">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
-
-        } catch(e) {
-            // console.warn("Gagal load static:", st.symbol);
-        }
+        } catch(e) { }
     }
 
     // ==========================================
-    // C. HITUNG TOKEN IMPORT (CUSTOM)
+    // C. HITUNG TOKEN IMPORT
     // ==========================================
     for (const token of myTokens) {
         try {
@@ -2797,19 +2792,15 @@ async function refreshAllTokenBalances() {
             const el = document.getElementById(`bal-${token.address}`);
             if(el) el.innerText = balFloat.toFixed(4);
 
-            const lowerAddr = st.addr.toLowerCase();
+            const lowerAddr = token.address.toLowerCase();
             
-            // 1. Ambil Harga ($) (Default 1.0 atau dari Cache CG)
-            let price = 1.0; 
-            if(cachedTokenPrices[lowerAddr]) {
-                price = cachedTokenPrices[lowerAddr].usd || 1.0;
-            }
+            // Harga ($) CoinGecko
+            let price = 0;
+            if(cachedTokenPrices[lowerAddr]) price = cachedTokenPrices[lowerAddr].usd || 0;
 
-            // 2. Ambil Persen (%) dari Cache DexScreener
+            // Persen (%) DexScreener
             let change24h = 0;
-            if (cachedTokenChanges[lowerAddr] !== undefined) {
-                change24h = cachedTokenChanges[lowerAddr];
-            }
+            if (cachedTokenChanges[lowerAddr] !== undefined) change24h = cachedTokenChanges[lowerAddr];
             
             const tokenUsd = balFloat * price;
             currentTotalUsd += tokenUsd;
@@ -2821,87 +2812,96 @@ async function refreshAllTokenBalances() {
         } catch(e) { }
     }
 
-    // ==========================================
-    // D. UPDATE TOTAL ESTIMASI HEADER
-    // ==========================================
+    // Update Header Total
     const usdEl = document.getElementById("usdEstimate");
-    if (usdEl) {
-        // Tampilkan total jika ada aset (ETH atau Token)
-        if (currentTotalUsd > 0 || cachedEthPrice > 0) {
-            usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
-        }
+    if (usdEl && (currentTotalUsd > 0 || cachedEthPrice > 0)) {
+        usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
     }
- }
+}
 
-// --- FUNGSI AMBIL HARGA (HYBRID: CG PRICE + DS PERSEN) ---
+// --- FUNGSI AMBIL HARGA (HYBRID: HARGA CG + PERSEN SEMUA DARI DEXSCREENER) ---
 async function updateMarketPrices() {
-    console.log("🔄 Mengambil update harga pasar & volatilitas...");
+    console.log("🔄 Update Harga (CG) & Volatilitas (DS)...");
+
+    // ALAMAT PENTING DI BASE
+    const STATIC_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const STATIC_USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+    const WETH_BASE   = "0x4200000000000000000000000000000000000006"; // WETH untuk cek % ETH
+
     try {
         // ==========================================
-        // 1. Ambil Harga ETH (LOGIKA ASLI - PERTAHANKAN)
+        // 1. AMBIL HARGA ETH ($) DARI COINGECKO (TETAP & KUAT)
         // ==========================================
         const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
         const dataEth = await resEth.json();
-        if(dataEth.ethereum.usd) {
-            cachedEthPrice = dataEth.ethereum.usd;
+        if(dataEth.ethereum) {
+            cachedEthPrice = dataEth.ethereum.usd || 0;
         }
 
         // ==========================================
-        // 2. Ambil Harga Token Import (LOGIKA ASLI - PERTAHANKAN)
+        // 2. AMBIL HARGA TOKEN ($) DARI COINGECKO (TETAP & KUAT)
         // ==========================================
-        // Pastikan myTokens ada isinya sebelum map
-        if (!myTokens || myTokens.length === 0) {
-            refreshAllTokenBalances();
-            return;
-        }
-
+        // Kita hanya ambil harga token import, karena stablecoin kita anggap $1 (atau ambil dari cache nanti)
         const tokenAddrs = myTokens.map(t => t.address).join(',');
         
         if(tokenAddrs.length > 0) {
-            // A. FETCH HARGA DARI COINGECKO (MANTAP JANGAN GOYAH)
             const urlGecko = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
             const resToken = await fetch(urlGecko);
             const dataToken = await resToken.json();
             
-            // Update cache harga (seperti biasa)
             cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
+        }
 
-            // ==========================================
-            // 3. (TAMBAHAN) AMBIL PERSEN DARI DEXSCREENER
-            // ==========================================
-            try {
-                // DexScreener support multi-address dipisah koma
-                const urlDex = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddrs}`;
-                const resDex = await fetch(urlDex);
-                const dataDex = await resDex.json();
+        // ==========================================
+        // 3. AMBIL PERSEN (%) SEMUA ASET DARI DEXSCREENER
+        // ==========================================
+        // Gabungkan: Token Import + USDC + USDT + WETH (untuk % ETH)
+        const allTokensForDex = [
+            ...myTokens.map(t => t.address), 
+            STATIC_USDC, 
+            STATIC_USDT, 
+            WETH_BASE
+        ];
+        
+        const dexAddrStr = allTokensForDex.join(',');
 
-                if (dataDex.pairs) {
-                    // Sortir berdasarkan likuiditas tertinggi agar data akurat
-                    // (Opsional, tapi bagus supaya gak ambil pair abal-abal)
-                    dataDex.pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+        try {
+            const urlDex = `https://api.dexscreener.com/latest/dex/tokens/${dexAddrStr}`;
+            const resDex = await fetch(urlDex);
+            const dataDex = await resDex.json();
 
-                    dataDex.pairs.forEach(pair => {
-                        const addr = pair.baseToken.address.toLowerCase();
-                        
-                        // Simpan % perubahan 24 jam ke cache BARU
-                        // Kita cek dulu biar pair utama yang masuk
+            if (dataDex.pairs) {
+                // Sortir likuiditas tertinggi agar data valid
+                dataDex.pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
+
+                dataDex.pairs.forEach(pair => {
+                    const addr = pair.baseToken.address.toLowerCase();
+                    const wethAddr = WETH_BASE.toLowerCase();
+
+                    // Cek: Apakah ini WETH? Jika ya, simpan ke cachedEthChange
+                    if (addr === wethAddr) {
+                        // Prioritaskan pair dengan likuiditas tinggi (biasanya WETH/USDC)
+                        if (cachedEthChange === 0 || pair.liquidity?.usd > 50000) {
+                            cachedEthChange = pair.priceChange.h24;
+                        }
+                    } 
+                    // Jika bukan WETH, simpan ke cache token biasa
+                    else {
                         if (cachedTokenChanges[addr] === undefined || pair.liquidity?.usd > 1000) {
                             cachedTokenChanges[addr] = pair.priceChange.h24;
                         }
-                    });
-                }
-            } catch (errDex) {
-                console.warn("Gagal ambil persen DexScreener (Sante, harga aman):", errDex);
+                    }
+                });
             }
+        } catch (errDex) {
+            console.warn("Gagal ambil persen DexScreener:", errDex);
         }
         
-        lastPriceFetchTime = Date.now(); // Reset timer
-        
-        // Panggil refresh sekali lagi agar angka di layar update dengan harga baru
+        lastPriceFetchTime = Date.now(); 
         refreshAllTokenBalances();
 
     } catch(e) {
-        console.warn("Gagal update harga utama (Limit API), pakai harga lama.");
+        console.warn("Gagal update market utama:", e);
     }
 }
         
