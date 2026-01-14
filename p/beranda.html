@@ -1327,6 +1327,82 @@ label {
         <i class="fa fa-cloud-upload"></i><span>Upload</span>
     </button>
 </nav>
+
+    <script type="module">
+  // 1. Import Pustaka Firebase dari Google
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
+  import { getDatabase, ref, set, get, child } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+
+  // 2. Konfigurasi Bapak (Sudah Benar)
+  const firebaseConfig = {
+    apiKey: "AIzaSyCn1j8acLWDEVjoO2VB3qeN8rh8qUVBRR8",
+    authDomain: "putramas-cc719.firebaseapp.com",
+    databaseURL: "https://putramas-cc719-default-rtdb.firebaseio.com",
+    projectId: "putramas-cc719",
+    storageBucket: "putramas-cc719.firebasestorage.app",
+    messagingSenderId: "1841157194",
+    appId: "1:1841157194:web:012d80abf7293bd43d02b3",
+    measurementId: "G-38XGWE5H38"
+  };
+
+  // 3. Nyalakan Database
+  const app = initializeApp(firebaseConfig);
+  const db = getDatabase(app);
+
+  // ====================================================
+  // FUNGSI SIMPAN & AMBIL DATA (SAYA SAMBUNGKAN KE WINDOW)
+  // ====================================================
+
+  // FUNGSI 1: Simpan ke Cloud (Dipanggil saat Tambah/Hapus Token)
+  window.saveTokensToCloud = function(userAddress, tokens) {
+      if(!userAddress) return;
+      const cleanAddr = userAddress.toLowerCase();
+      
+      // Simpan di folder: users -> [Alamat Wallet] -> myTokens
+      set(ref(db, 'users/' + cleanAddr + '/myTokens'), tokens)
+      .then(() => {
+          console.log("✅ Token berhasil disimpan ke Server Google!");
+      })
+      .catch((error) => {
+          console.error("❌ Gagal simpan:", error);
+      });
+  };
+
+  // FUNGSI 2: Ambil dari Cloud (Dipanggil saat Login Wallet)
+  window.loadTokensFromCloud = async function(userAddress) {
+      if(!userAddress) return;
+      const cleanAddr = userAddress.toLowerCase();
+
+      console.log("☁️ Mengecek data token di server...");
+      const dbRef = ref(db);
+      
+      try {
+          const snapshot = await get(child(dbRef, `users/${cleanAddr}/myTokens`));
+          if (snapshot.exists()) {
+              console.log("✅ Data ditemukan! Memuat token Anda...");
+              const cloudData = snapshot.val();
+              
+              // Update variabel di script utama
+              if(window.myTokens) {
+                  window.myTokens = cloudData; 
+                  
+                  // Refresh Tampilan (Panggil fungsi script utama)
+                  if(typeof window.renderTokenList === 'function') window.renderTokenList();
+                  if(typeof window.refreshAllTokenBalances === 'function') window.refreshAllTokenBalances();
+                  
+                  // Notifikasi kecil
+                  if(typeof window.showToast === 'function') window.showToast("Data token dimuat dari Cloud!", "success");
+              }
+          } else {
+              console.log("ℹ️ User baru atau belum ada data tersimpan.");
+          }
+      } catch (error) {
+          console.error("❌ Error ambil data:", error);
+      }
+  };
+  
+  console.log("🔥 Firebase Siap!");
+    </script>
     
     <script>
 const CHAIN_ID_DECIMAL = 8453; // ID Base Mainnet
@@ -1396,74 +1472,96 @@ const POPULAR_BASE_TOKENS = [
 
         // --- INIT ---
         window.onload = async () => {
-    // 1. Setup Read Provider (Untuk user yang belum connect wallet)
+    // -----------------------------------------------------------
+    // 1. SETUP READ PROVIDER (Untuk User Belum Login)
+    // -----------------------------------------------------------
+    // Provider ini hanya untuk baca data umum (Feed/Kontrak) tanpa login
     const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
-    // Pastikan CONTRACT_ADDRESS dan ABI sudah didefinisikan di atas script ini
     try {
-        contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+        if(typeof CONTRACT_ADDRESS !== 'undefined' && typeof ABI !== 'undefined') {
+            contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
+        }
     } catch(e) { console.log("Init contract error:", e); }
     
-    // 2. Cek Auto-Login Metamask
+    // -----------------------------------------------------------
+    // 2. LOGIKA AUTO-LOGIN METAMASK
+    // -----------------------------------------------------------
     if(window.ethereum) {
         try {
             const web3 = new ethers.providers.Web3Provider(window.ethereum);
+            // Cek apakah user pernah connect sebelumnya?
             const accounts = await web3.listAccounts();
             
             if(accounts.length > 0) {
                 const userAddress = accounts[0];
+                console.log("✅ Auto-Login Berhasil:", userAddress);
                 
-                // --- [PENTING: UPDATE VARIABEL GLOBAL] ---
-                // Tanpa baris ini, fitur scan token di bawah tidak akan jalan
+                // [CRITICAL] UPDATE VARIABEL GLOBAL
+                // Agar script Firebase & Scan tahu ini wallet siapa
                 modalUserAddr = userAddress; 
                 isWalletConnected = true;
-                // -----------------------------------------
 
-                // A. Update Tombol Connect
+                // A. Update Tampilan Tombol Connect
                 const btn = document.getElementById("btnConnect");
                 if(btn) {
                     btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
                     btn.classList.add("connected");
                 }
                 
-                // B. Update Data Modal (Address & Saldo Utama)
+                // B. Update Data Modal (Teks Address)
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
                     document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
 
-                // Ambil Saldo Utama (ETH)
+                // C. Ambil Saldo Utama (ETH)
                 const balance = await web3.getBalance(userAddress);
                 if(document.getElementById("modalBalance")) {
                     document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
                 }
 
-                // C. Update Sidebar & Data Lainnya
-                updateSidebarWallet(userAddress); // Sidebar Estimasi Aset
-                updateModalWalletData(userAddress); // Modal (Saweran, Revisi, dll)
+                // D. Update Fungsi-Fungsi DApp Lainnya
+                if(typeof updateSidebarWallet === 'function') updateSidebarWallet(userAddress);
+                if(typeof updateModalWalletData === 'function') updateModalWalletData(userAddress);
                 
-                // D. Auto Scan Token Populer (Jalan setelah login terdeteksi)
-                // Kita panggil langsung di sini agar lebih responsif
+                // -------------------------------------------------------
+                // [PENAMBAHAN PENTING] LOAD DATA DARI FIREBASE CLOUD
+                // -------------------------------------------------------
+                // Kita panggil ini AGAR TOKEN MUNCUL walau cache dihapus
+                if (window.loadTokensFromCloud) {
+                    await window.loadTokensFromCloud(userAddress);
+                }
+
+                // E. Auto Scan Token (Jalan setelah Cloud selesai)
+                // Memberi jeda sedikit agar UI tidak berat
                 setTimeout(() => {
-                    autoScanTokens(); 
+                    if(typeof autoScanTokens === 'function') autoScanTokens();
                 }, 1000);
             }
-        } catch(e) { console.log("Auto-login error:", e); }
+        } catch(e) { console.error("Auto-login error:", e); }
     }
 
-    // 3. Load Feed & Indexer (Jalan independen walau belum login)
+    // -----------------------------------------------------------
+    // 3. INISIALISASI FITUR LAIN (Feed, Indexer, Manager)
+    // -----------------------------------------------------------
     if(typeof loadFeed === 'function') loadFeed();
     if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
     
-    // 4. Init Token Manager (Load dari LocalStorage)
+    // Init Manager Token (Untuk render list awal dari LocalStorage jika ada)
     if(typeof initTokenManager === 'function') initTokenManager();
 
-    // 5. Interval Real-time Update (Setiap 5 detik)
+    // -----------------------------------------------------------
+    // 4. INTERVAL UPDATE HARGA REAL-TIME (Looping)
+    // -----------------------------------------------------------
     setInterval(() => {
-        // Hanya update jika user sudah login (punya address di variabel global)
+        // Hanya update jika user sudah login & variabel global terisi
         if (typeof modalUserAddr !== 'undefined' && modalUserAddr) {
-            refreshAllTokenBalances();
+            // Cek fungsi refresh ada atau tidak sebelum dipanggil
+            if(typeof refreshAllTokenBalances === 'function') {
+                refreshAllTokenBalances();
+            }
         }
-    }, 5000);
+    }, 5000); // Setiap 5 Detik
 };
 
 async function connectWallet() {
@@ -1472,7 +1570,7 @@ async function connectWallet() {
     
     const btnConnect = document.getElementById("btnConnect");
     
-    // B. LOGIKA TOGGLE: Jika sudah konek, klik tombol = BUKA MODAL
+    // B. LOGIKA TOGGLE
     if (isWalletConnected || (btnConnect && btnConnect.classList.contains("connected"))) {
         toggleWalletModal(); 
         return;
@@ -1488,11 +1586,10 @@ async function connectWallet() {
         // 1. Request Akun
         await provider.send("eth_requestAccounts", []);
 
-        // 2. Cek Network (Wajib Base Mainnet)
+        // 2. Cek Network
         const network = await provider.getNetwork();
         if (network.chainId !== CHAIN_ID_DECIMAL) {
-            await switchNetwork(); // Paksa ganti network
-            // Setelah ganti, provider perlu direfresh, jadi reload atau rekursif
+            await switchNetwork(); 
             connectWallet(); 
             return; 
         }
@@ -1501,27 +1598,39 @@ async function connectWallet() {
         const signer = provider.getSigner();
         const userAddress = await signer.getAddress();
         
+        // [PERBAIKAN 1]: Update variabel Global dulu!
+        // Agar script lain (seperti autoScan atau Firebase) tahu siapa yang login
+        modalUserAddr = userAddress; 
+
         // 4. Update Tampilan Tombol
         btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
         btnConnect.classList.add("connected");
-        isWalletConnected = true; // Set flag global
+        isWalletConnected = true; 
 
-        // 5. Update Data Modal (Saldo, Address, dll)
+        // 5. Update Data Modal
         document.getElementById("modalFullAddress").innerText = userAddress;
         document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
         
         const balance = await provider.getBalance(userAddress);
         document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
         
-        // 6. Tarik Data History dari Kontrak
+        // 6. Tarik Data History & Cloud
         updateSidebarWallet(userAddress);
         await updateModalWalletData(userAddress);
+        
+        // [PERBAIKAN 2]: Panggil Firebase DULUAN sebelum scan
+        // Logikanya: "Ambil catatan lama dulu, baru cari yang baru"
+        if (window.loadTokensFromCloud) {
+            // Kita pakai await biar list muncul dulu sebelum auto-scan jalan (opsional)
+            await window.loadTokensFromCloud(modalUserAddr);
+        }
+
+        // Baru jalankan Auto Scan (untuk cari token yang belum kesimpan)
         autoScanTokens();
 
     } catch (err) { 
         console.error("Koneksi Error:", err);
         btnConnect.innerHTML = originalText;
-        // alert("Gagal: " + err.message);
     }
 }
 
@@ -2448,6 +2557,10 @@ async function addNewToken() {
         toggleImportForm();
         showToast(`Berhasil import ${symbol}!`, "success");
 
+        if(window.saveTokensToCloud && modalUserAddr) {
+        window.saveTokensToCloud(modalUserAddr, myTokens);
+        }
+
     } catch(e) {
         console.error(e);
         showToast("Gagal: Bukan Token ERC20 valid", "error");
@@ -2460,13 +2573,33 @@ async function addNewToken() {
 // 3. Hapus Token
 function removeToken(address) {
     if(!confirm("Hapus token ini dari daftar?")) return;
-    myTokens = myTokens.filter(t => t.address !== address);
-    saveTokens();
+    
+    // Filter (Hapus token target) - Pakai toLowerCase biar akurat
+    myTokens = myTokens.filter(t => t.address.toLowerCase() !== address.toLowerCase());
+    
+    // Simpan Perubahan (Otomatis ke HP & Cloud karena fungsi di atas)
+    saveTokens(); 
+    
+    // Update Tampilan
     renderTokenList();
+    
+    // Update Total Saldo/Harga (Penting biar estimasi $ di header berkurang)
+    if(typeof refreshAllTokenBalances === 'function') {
+        refreshAllTokenBalances();
+    }
+    
+    showToast("Token berhasil dihapus.", "success");
 }
 
+// Fungsi Penyimpanan Pusat
 function saveTokens() {
-    localStorage.setItem("myCustomTokens", JSON.stringify(myTokens));
+    // 1. Simpan ke Cloud (Firebase) - Agar tidak hilang walau clear cache
+    if(window.saveTokensToCloud && typeof modalUserAddr !== 'undefined' && modalUserAddr) {
+        window.saveTokensToCloud(modalUserAddr, myTokens);
+    }
+
+    // 2. Simpan ke HP (LocalStorage) - Agar loading awal cepat
+    localStorage.setItem("myTokens", JSON.stringify(myTokens));
 }
 
 // Update fungsi renderTokenList
