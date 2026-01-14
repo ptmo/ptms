@@ -1987,45 +1987,46 @@ function clearSearch() {
 }
 
         
-        // --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
-        async function loadFeed() {
+async function loadFeed() {
     const container = document.getElementById("feedContent");
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
-    window.feedData = [];
-            
+    // [FIX] Reset wadah global di awal load
+    window.feedData = []; 
+
     try {
-        // Parallel Fetch ID dari semua golongan
         const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
         
-        // MENGHILANGKAN DUPLIKAT SEJAK AWAL
         let allIds = results.flat().map(id => parseInt(id));
         const finalUniqueIds = [...new Set(allIds)].sort((a, b) => b - a);
 
-        const feedIds = finalUniqueIds.slice(0, 15); // Ambil 15 terbaru saja agar cepat
+        const feedIds = finalUniqueIds.slice(0, 15); 
 
         if(feedIds.length === 0) {
-            container.innerHTML = "<p style='text-align:center; padding:20px;'>Belum ada postingan.</p>";
+            container.innerHTML = "<p style='text-align:center; padding:20px; color:#aaa;'>Belum ada postingan.</p>";
+            // Update UI jadi "Kosong" biar gak stuck loading
+            updateArchiveAnalysis(); 
             return;
         }
 
         container.innerHTML = ""; 
 
-        // Render satu per satu secara sekuensial agar urutan terjaga
+        // Render card satu per satu
         for(let id of feedIds) {
             await renderCard(id, container);
         }
 
-    updateArchiveAnalysis();
+        // [FIX] Panggil update stats SETELAH semua card selesai dirender & data terkumpul
+        console.log("Feed loaded, updating stats with:", window.feedData.length, "items");
+        updateArchiveAnalysis();
 
     } catch(e) {
         console.error(e);
         container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
     }
-        }
+}
 
-        async function renderCard(id, container) {
-    // Mencegah duplikasi visual: Cek apakah ID ini sudah dirender di layar
+async function renderCard(id, container) {
     if (document.getElementById(`card-${id}`)) return;
 
     try {
@@ -2038,7 +2039,7 @@ function clearSearch() {
 
         if(!info.isActive) return;
 
-        let imgUrl = "img/loading-placeholder.gif"; // Gunakan placeholder lokal
+        let imgUrl = "img/loading-placeholder.gif"; 
         try {
             const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
             const res = await axios.get(jsonUrl, { timeout: 5000 });
@@ -2046,81 +2047,144 @@ function clearSearch() {
             imgUrl = rawImg.replace("ipfs://", PINATA_GATEWAY);
             imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=500&q=75&output=webp`;
         } catch(e) {
-            console.warn("Gagal ambil metadata/gambar untuk ID:", id);
+            // console.warn("Gagal gambar ID:", id);
         }
 
-if(window.feedData) {
-            // Kita simpan info penting ke wadah global untuk dianalisis oleh Sidebar
+        // [FIX] PUSH KE WADAH GLOBAL (Pastikan window.feedData sudah di-init di loadFeed)
+        if(Array.isArray(window.feedData)) {
             window.feedData.push({
                 id: id,
                 nama: info.nama,
-                golongan: info.golongan, // Penting untuk grafik batang
-                gaya: info.gaya,         // Penting untuk 'Gaya Terpopuler'
+                golongan: info.golongan,
+                gaya: info.gaya,
                 owner: owner
             });
+        }
+
+        // ... (Kode HTML Render Card di bawahnya TETAP SAMA seperti sebelumnya) ...
+        const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+        const badge = isOfficial ? `<i class="fas fa-check-circle verified-gold"></i>` : `<i class="fas fa-check-circle verified-badge"></i>`;
+        const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
+        const avatar = isOfficial ? "img/icon-192.png" : `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
+        
+        const html = `
+        <div class="feed-card" id="card-${id}">
+            <div class="card-header">
+                <a href="profile?address=${owner}" class="user-info" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
+                    <img src="${avatar}" class="user-pic" alt="Avatar">
+                    <div>
+                        <div class="user-name" style="color: #7385a5;">${senderName} ${badge}</div>
+                        <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
+                    </div>
+                </a>
+                <i class="fas fa-edit" style="color:#d35400; cursor: pointer;" onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'"></i>
+            </div>
+            <div class="card-content">
+                <h3 class="wayang-title">${info.nama}</h3>
+                <div class="wayang-desc">Golongan <span class="tag-badge">${info.golongan}</span> Gaya <span class="tag-badge">${info.gaya}</span></div>
+            </div>
+            <div class="card-image" onclick="window.location.href='detail?id=${id}'" style="cursor:pointer;"><img src="${imgUrl}" loading="lazy"></div>
+            <div class="card-actions">
+                <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)"><i class="fas fa-heart"></i> ${likes}</button>
+                <button class="action-btn"><i class="fas fa-share-alt"></i></button>
+            </div>
+        </div>`;
+        
+        container.insertAdjacentHTML('beforeend', html);
+
+    } catch(e) { 
+        // console.log("Skip render ID", id); 
+    }
 }
 
-        // 1. Cek apakah wallet adalah Official
-const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+// Variabel untuk menyimpan statistik sementara
+let archiveStats = {
+    golongan: {},
+    gaya: {},
+    totalLoaded: 0
+};
 
-// 2. Tentukan Badge (Verified Gold untuk Official)
-const badge = isOfficial 
-    ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
-    : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
-
-// 3. Tentukan Nama Pengirim
-const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
-const profileUrl = `profile?address=${owner}`;
-// 4. LOGIKA CUSTOM AVATAR: Gunakan Logo Resmi jika Official
-const avatar = isOfficial 
-    ? "img/icon-192.png" // Path logo resmi Anda
-    : `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`; // Avatar random untuk user biasa
-        // Tambahkan ID pada div terluar kartu: id="card-${id}"
-        const html = `
-                <div class="feed-card" id="card-${id}">
-    <div class="card-header">
-        <a href="${profileUrl}" class="user-info" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
-            <img src="${avatar}" class="user-pic" alt="Avatar">
-            <div>
-                <div class="user-name" style="color: #7385a5;">${senderName} ${badge}</div>
-                <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
-            </div>
-        </a>
-<i class="fas fa-edit" 
-   style="color:#d35400; cursor: pointer; font-size:16px;" 
-   onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'" 
-   title="Revisi Data">
-</i>
-    </div>
-    
-    <div class="card-content">
-        <h3 class="wayang-title">${info.nama}</h3>
-        <div class="wayang-desc">
-            Wayang golongan <span class="tag-badge">${info.golongan}</span> 
-            gaya <span class="tag-badge">${info.gaya}</span>
-        </div>
-    </div>
-                    <div class="card-image" onclick="window.location.href='detail?id=${id}'" style="cursor:pointer;">
-                        <img src="${imgUrl}" loading="lazy">
-                    </div>
-
-                    <div class="card-actions">
-                        <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
-                        <i class="fas fa-heart"></i> ${likes}</button>
-                        <button class="action-btn"><i class="fa fa-gift"></i></button>
-                        <button class="action-btn"><i class="fa fa-star"></i></button>
-                        <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/0x72359F776Ac4B44c6c79dBF805D79959515E0c58/${id}', '_blank')">
-                        <i class="fas fa-shopping-cart"></i></button>
-                        <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
-                        <i class="fas fa-share-alt"></i></button>
-                    </div>
-                </div>`;
-
-        container.insertAdjacentHTML('beforeend', html);
-    } catch(e) { 
-        console.log("Gagal render kartu ID", id); 
-    }
+async function updateArchiveAnalysis() {
+    // 1. AMBIL TOTAL SUPPLY REAL DARI KONTRAK
+    try {
+        // Cek dulu elemennya ada gak, kalau gak ada gak usah jalan (hemat resource)
+        const elTotal = document.getElementById("statTotalItems");
+        if(elTotal) {
+            const provider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+            const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            const supply = await contract.totalSupply();
+            elTotal.innerText = supply.toString();
         }
+    } catch(e) {}
+
+    // 2. ANALISIS DATA SAMPEL
+    // [FIX] Paksa baca dari window.feedData agar sinkron dengan renderCard
+    const dataToAnalyze = window.feedData || []; 
+
+    const container = document.getElementById("categoryStatsContainer");
+    if(!container) return; // Cegah error kalau elemen sidebar gak ada
+
+    if(dataToAnalyze.length === 0) {
+        container.innerHTML = `<div style="font-size:10px; color:#555; text-align:center;">Menunggu data feed...</div>`;
+        return;
+    }
+
+    // Reset Hitungan
+    archiveStats.golongan = {};
+    archiveStats.gaya = {};
+
+    // Loop Analisis
+    dataToAnalyze.forEach(item => {
+        let gol = item.golongan || "Lainnya"; 
+        archiveStats.golongan[gol] = (archiveStats.golongan[gol] || 0) + 1;
+
+        let style = item.gaya || "Lainnya";
+        archiveStats.gaya[style] = (archiveStats.gaya[style] || 0) + 1;
+    });
+
+    renderAnalysisUI(dataToAnalyze.length);
+}
+
+function renderAnalysisUI(totalSample) {
+    const container = document.getElementById("categoryStatsContainer");
+    let html = "";
+    
+    // Urutkan golongan dari terbanyak
+    const sortedGol = Object.entries(archiveStats.golongan)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 4); 
+
+    sortedGol.forEach(([name, count]) => {
+        const percent = ((count / totalSample) * 100).toFixed(1);
+        
+        let barColor = "#7385a5";
+        if(name.includes("Satria")) barColor = "#3498db"; 
+        if(name.includes("Buta") || name.includes("Yaksa")) barColor = "#e74c3c"; 
+        if(name.includes("Dewa")) barColor = "#f1c40f"; 
+        if(name.includes("Punggawa")) barColor = "#2ecc71"; 
+
+        html += `
+        <div style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:3px; color:#ccc;">
+                <span>${name}</span>
+                <span>${percent}%</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:4px; border-radius:2px;">
+                <div style="width:${percent}%; background:${barColor}; height:100%; border-radius:2px; transition:width 1s ease;"></div>
+            </div>
+        </div>`;
+    });
+
+    container.innerHTML = html;
+
+    // Update Gaya Terpopuler
+    const sortedStyle = Object.entries(archiveStats.gaya).sort((a,b) => b[1] - a[1]);
+    if(sortedStyle.length > 0) {
+        const topStyle = sortedStyle[0][0]; 
+        const elStyle = document.getElementById("statTopStyle");
+        if(elStyle) elStyle.innerText = topStyle;
+    }
+}
 
         // --- DEEP INDEXER (JALAN DI BACKGROUND - ANTI DUPLIKAT) ---
 async function initDeepIndexer() {
@@ -3334,100 +3398,6 @@ async function executeTransfer() {
     } catch(err) {
         console.error(err);
         showToast("Gagal: " + (err.reason || err.message), "error");
-    }
-}
-
-    // Variabel untuk menyimpan statistik sementara
-let archiveStats = {
-    golongan: {},
-    gaya: {},
-    totalLoaded: 0
-};
-
-async function updateArchiveAnalysis() {
-    // 1. AMBIL TOTAL SUPPLY REAL DARI KONTRAK
-    try {
-        const provider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
-        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-        const supply = await contract.totalSupply();
-        
-        const elTotal = document.getElementById("statTotalItems");
-        if(elTotal) {
-            // Efek counter animasi sederhana
-            elTotal.innerText = supply.toString();
-        }
-    } catch(e) {}
-
-    // 2. ANALISIS DATA SAMPEL (DARI FEED YANG SUDAH DILOAD)
-    // Kita memanfaatkan array global 'allWayangs' atau 'feedData' yang Abang punya
-    // Asumsi variabel penampung data wayang Abang bernama 'feedData' atau sejenisnya
-    const dataToAnalyze = (typeof feedData !== 'undefined') ? feedData : []; 
-
-    if(dataToAnalyze.length === 0) {
-        document.getElementById("categoryStatsContainer").innerHTML = 
-            `<div style="font-size:10px; color:#555; text-align:center;">Menunggu data feed...</div>`;
-        return;
-    }
-
-    // Reset Hitungan
-    archiveStats.golongan = {};
-    archiveStats.gaya = {};
-
-    // Loop Analisis
-    dataToAnalyze.forEach(item => {
-        // Hitung Golongan (Satria, Dewa, dll)
-        // Pastikan key-nya konsisten (misal item.attributes[0].value atau item.golongan)
-        let gol = item.golongan || "Lainnya"; 
-        archiveStats.golongan[gol] = (archiveStats.golongan[gol] || 0) + 1;
-
-        // Hitung Gaya (Cirebon, Solo, dll)
-        let style = item.gaya || "Lainnya";
-        archiveStats.gaya[style] = (archiveStats.gaya[style] || 0) + 1;
-    });
-
-    renderAnalysisUI(dataToAnalyze.length);
-}
-
-function renderAnalysisUI(totalSample) {
-    // A. RENDER BAR GOLONGAN
-    const container = document.getElementById("categoryStatsContainer");
-    let html = "";
-    
-    // Urutkan golongan dari terbanyak
-    const sortedGol = Object.entries(archiveStats.golongan)
-        .sort((a,b) => b[1] - a[1])
-        .slice(0, 4); // Ambil Top 4 saja biar muat
-
-    sortedGol.forEach(([name, count]) => {
-        const percent = ((count / totalSample) * 100).toFixed(1);
-        
-        // Tentukan warna bar berdasarkan nama (biar cantik)
-        let barColor = "#7385a5";
-        if(name.includes("Satria")) barColor = "#3498db"; // Biru
-        if(name.includes("Buta") || name.includes("Yaksa")) barColor = "#e74c3c"; // Merah
-        if(name.includes("Dewa")) barColor = "#f1c40f"; // Emas
-        if(name.includes("Punggawa")) barColor = "#2ecc71"; // Hijau
-
-        html += `
-        <div style="margin-bottom:8px;">
-            <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:3px; color:#ccc;">
-                <span>${name}</span>
-                <span>${percent}%</span>
-            </div>
-            <div style="width:100%; background:rgba(255,255,255,0.1); height:4px; border-radius:2px;">
-                <div style="width:${percent}%; background:${barColor}; height:100%; border-radius:2px; transition:width 1s ease;"></div>
-            </div>
-        </div>`;
-    });
-
-    if(container) container.innerHTML = html;
-
-    // B. UPDATE GAYA TERPOPULER
-    const sortedStyle = Object.entries(archiveStats.gaya).sort((a,b) => b[1] - a[1]);
-    if(sortedStyle.length > 0) {
-        const topStyle = sortedStyle[0][0]; // Ambil nama gaya terbanyak
-        const elStyle = document.getElementById("statTopStyle");
-        if(elStyle) elStyle.innerText = topStyle;
     }
 }
         
