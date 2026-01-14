@@ -1476,6 +1476,8 @@ const POPULAR_BASE_TOKENS = [
     // 1. SETUP READ PROVIDER (Untuk User Belum Login)
     // -----------------------------------------------------------
     // Provider ini hanya untuk baca data umum (Feed/Kontrak) tanpa login
+    if(typeof initTokenManager === 'function') initTokenManager();
+            
     const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
     try {
         if(typeof CONTRACT_ADDRESS !== 'undefined' && typeof ABI !== 'undefined') {
@@ -1547,9 +1549,6 @@ const POPULAR_BASE_TOKENS = [
     if(typeof loadFeed === 'function') loadFeed();
     if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
     
-    // Init Manager Token (Untuk render list awal dari LocalStorage jika ada)
-    if(typeof initTokenManager === 'function') initTokenManager();
-
     // -----------------------------------------------------------
     // 4. INTERVAL UPDATE HARGA REAL-TIME (Looping)
     // -----------------------------------------------------------
@@ -2497,11 +2496,22 @@ async function updateSidebarWallet(address) {
     // --- MANAJEMEN TOKEN PINTAR ---
 // 1. Load Token saat Web Dibuka
 function initTokenManager() {
-    const saved = localStorage.getItem("myCustomTokens");
+    // PERHATIKAN: Kuncinya harus "myTokens", sama dengan saat menyimpan
+    const saved = localStorage.getItem("myTokens"); 
+    
     if(saved) {
-        myTokens = JSON.parse(saved);
-        renderTokenList(); // Tampilkan list (saldo mungkin masih loading)
-        refreshAllTokenBalances(); // Update saldo terbaru dari blockchain
+        try {
+            myTokens = JSON.parse(saved);
+            console.log("📂 Load dari LocalStorage:", myTokens.length, "token");
+            renderTokenList(); 
+            // Kita beri jeda sedikit sebelum refresh saldo agar tidak bentrok dengan RPC
+            setTimeout(refreshAllTokenBalances, 500); 
+        } catch (e) {
+            console.error("Gagal parse localstorage", e);
+            localStorage.removeItem("myTokens"); // Hapus jika data rusak
+        }
+    } else {
+        console.log("📂 Tidak ada data di LocalStorage");
     }
 }
 
@@ -2593,13 +2603,13 @@ function removeToken(address) {
 
 // Fungsi Penyimpanan Pusat
 function saveTokens() {
-    // 1. Simpan ke Cloud (Firebase) - Agar tidak hilang walau clear cache
+    // A. Simpan ke HP (LocalStorage) -> Pakai kunci "myTokens"
+    localStorage.setItem("myTokens", JSON.stringify(myTokens));
+
+    // B. Simpan ke Cloud (Firebase)
     if(window.saveTokensToCloud && typeof modalUserAddr !== 'undefined' && modalUserAddr) {
         window.saveTokensToCloud(modalUserAddr, myTokens);
     }
-
-    // 2. Simpan ke HP (LocalStorage) - Agar loading awal cepat
-    localStorage.setItem("myTokens", JSON.stringify(myTokens));
 }
 
 // Update fungsi renderTokenList
