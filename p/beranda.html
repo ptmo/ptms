@@ -2805,51 +2805,188 @@ async function autoScanTokens() {
     }
 }
 
-    // --- SISTEM PENGIRIMAN TOKEN CANGGIH ---
-// 1. Buka Modal
-async function openSendPopup(address, symbol, decimals, logo) {
+    // ==========================================
+// SISTEM PENGIRIMAN (CUSTOM DROPDOWN + LOGO)
+// ==========================================
+
+let activeToken = null; // Menyimpan data token yang sedang dipilih
+
+// 1. FUNGSI UTAMA: Buka Popup (Dari Tombol "Kirim" Utama)
+async function openGeneralSendPopup() {
     if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
     
-    // Simpan state token aktif
-    activeToken = { address, symbol, decimals, logo, balanceBN: ethers.BigNumber.from(0) };
-
-    // Reset Form
+    // A. Render List Token (Biar isinya update)
+    renderCustomDropdown();
+    
+    // B. Buka Modal
     document.getElementById("sendModalOverlay").style.display = "flex";
-    document.getElementById("sendTokenSymbol").innerText = symbol;
-    document.getElementById("inputTicker").innerText = symbol;
+    
+    // C. Reset Form
+    resetSendForm();
+    
+    // D. Default Pilih ETH (Native)
+    // Logo ETH saya pakai link TrustWallet agar konsisten
+    selectToken(
+        'ETH', 
+        'ETH', 
+        'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png', 
+        18
+    );
+}
+
+// 2. FUNGSI KHUSUS: Buka Popup (Dari Klik List Token di Sidebar)
+async function openSendPopup(address, symbol, decimals, logo) {
+    if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
+
+    // A. Render List Token (Supaya kalau user mau ganti token di dlm popup, listnya ada)
+    renderCustomDropdown();
+
+    // B. Buka Modal
+    document.getElementById("sendModalOverlay").style.display = "flex";
+    
+    // C. Reset Form
+    resetSendForm();
+
+    // D. Langsung Pilih Token yang Diklik tadi
+    selectToken(address, symbol, logo, decimals);
+}
+
+// 3. Helper: Reset Form
+function resetSendForm() {
     document.getElementById("inputSendAddr").value = "";
     document.getElementById("inputSendAmount").value = "";
     document.getElementById("addrErrorMsg").style.display = "none";
     document.getElementById("inputSendAddr").classList.remove("input-error", "input-success");
-    validateSendAddr(); // Reset tombol
-
-    // Ambil Saldo Terbaru (BigNumber) untuk perhitungan akurat
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    try {
-        if(address === 'ETH') {
-            activeToken.balanceBN = await provider.getBalance(modalUserAddr);
-        } else {
-            const contract = new ethers.Contract(address, ERC20_ABI, provider);
-            activeToken.balanceBN = await contract.balanceOf(modalUserAddr);
-        }
-        // Tampilkan saldo di atas input
-        const fmt = ethers.utils.formatUnits(activeToken.balanceBN, decimals);
-        document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(6);
-    } catch(e) { console.log(e); }
+    document.getElementById("btnProceedSend").disabled = true;
+    document.getElementById("btnProceedSend").classList.remove("btn-ready");
+    
+    // Tutup dropdown jika masih terbuka
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if(wrapper) wrapper.classList.remove('open');
 }
 
+// 4. Tutup Modal
 function closeSendModal() {
     document.getElementById("sendModalOverlay").style.display = "none";
 }
 
-// 2. Validasi Alamat (Merah/Hijau)
+// ==========================================
+// LOGIKA CUSTOM DROPDOWN (UI)
+// ==========================================
+
+// 1. Render List Token ke dalam Dropdown
+function renderCustomDropdown() {
+    const listContainer = document.getElementById("tokenOptionsList");
+    if(!listContainer) return;
+
+    listContainer.innerHTML = ""; // Bersihkan isi lama
+
+    // A. Masukkan ETH (Paling Atas)
+    const ethLogo = "https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png";
+    const ethHtml = `
+        <div class="custom-option" onclick="selectToken('ETH', 'ETH', '${ethLogo}', 18)">
+            <img src="${ethLogo}" class="token-mini-logo">
+            <span style="font-weight:bold;">Ethereum</span> 
+            <span style="color:#777; font-size:11px;">(ETH)</span>
+        </div>
+    `;
+    listContainer.insertAdjacentHTML('beforeend', ethHtml);
+
+    // B. Masukkan Token Import (Looping)
+    if (myTokens && myTokens.length > 0) {
+        myTokens.forEach(token => {
+            // Logo fallback jika error (Identicon)
+            const fallback = `https://api.dicebear.com/7.x/identicon/svg?seed=${token.address}`;
+            
+            const html = `
+            <div class="custom-option" onclick="selectToken('${token.address}', '${token.symbol}', '${token.logo}', ${token.decimals})">
+                <img src="${token.logo}" onerror="this.src='${fallback}'" class="token-mini-logo">
+                <span style="font-weight:bold;">${token.name}</span> 
+                <span style="color:#777; font-size:11px;">(${token.symbol})</span>
+            </div>`;
+            listContainer.insertAdjacentHTML('beforeend', html);
+        });
+    }
+}
+
+// 2. Logika Saat Token Dipilih (Klik Opsi)
+async function selectToken(address, symbol, logo, decimals) {
+    // A. Update Tampilan Header Dropdown
+    const displayLogo = document.getElementById("displayLogo");
+    const displaySymbol = document.getElementById("displaySymbol");
+    
+    if(displayLogo) displayLogo.src = logo;
+    if(displaySymbol) displaySymbol.innerText = symbol;
+
+    // B. Update Hidden Value (Untuk keperluan form submit)
+    const hiddenInput = document.getElementById("hiddenTokenValue");
+    if(hiddenInput) hiddenInput.value = address;
+
+    // C. Tutup Dropdown
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if(wrapper) wrapper.classList.remove('open');
+
+    // D. Load Saldo & Simpan State Active
+    document.getElementById("sendMaxBal").innerText = "Loading...";
+    document.getElementById("inputTicker").innerText = symbol;
+    
+    const provider = new ethers.providers.Web3Provider(window.ethereum);
+
+    try {
+        let balanceBN;
+        if(address === 'ETH') {
+            balanceBN = await provider.getBalance(modalUserAddr);
+        } else {
+            const contract = new ethers.Contract(address, ERC20_ABI, provider);
+            balanceBN = await contract.balanceOf(modalUserAddr);
+        }
+
+        // Simpan ke Global Variable
+        activeToken = {
+            address: address,
+            symbol: symbol,
+            decimals: decimals,
+            logo: logo,
+            balanceBN: balanceBN
+        };
+
+        // Tampilkan Saldo
+        const fmt = ethers.utils.formatUnits(balanceBN, decimals);
+        document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(6);
+
+    } catch(e) {
+        console.error("Gagal load saldo:", e);
+        document.getElementById("sendMaxBal").innerText = "0.00";
+    }
+}
+
+// 3. Toggle Dropdown (Klik Header)
+function toggleTokenList() {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    if(wrapper) wrapper.classList.toggle('open');
+}
+
+// Tutup dropdown jika klik di luar area
+window.onclick = function(e) {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const trigger = document.querySelector('.custom-select-trigger');
+    if (wrapper && trigger && !wrapper.contains(e.target) && !trigger.contains(e.target)) {
+        wrapper.classList.remove('open');
+    }
+};
+
+
+// ==========================================
+// VALIDASI & EKSEKUSI (LOGIKA TRANSFER)
+// ==========================================
+
+// 1. Validasi Input Alamat
 function validateSendAddr() {
     const input = document.getElementById("inputSendAddr");
     const val = input.value.trim();
-    const btn = document.getElementById("btnProceedSend");
     const err = document.getElementById("addrErrorMsg");
 
-    // Regex Check: Harus 0x diikuti 40 karakter hex
+    // Regex: 0x diikuti 40 karakter hex
     const isValid = /^0x[a-fA-F0-9]{40}$/.test(val);
 
     if(val.length > 0) {
@@ -2857,42 +2994,19 @@ function validateSendAddr() {
             input.classList.add("input-error");
             input.classList.remove("input-success");
             err.style.display = "block";
-            btn.disabled = true;
-            btn.classList.remove("btn-ready");
         } else {
             input.classList.remove("input-error");
             input.classList.add("input-success");
             err.style.display = "none";
-            // Cek juga apakah amount sudah terisi
-            checkFormReady();
         }
     } else {
         input.classList.remove("input-error", "input-success");
         err.style.display = "none";
-        btn.disabled = true;
-        btn.classList.remove("btn-ready");
     }
-}
-
-// 3. Tombol Persentase (0% - MAX)
-function setSendPercent(percent) {
-    if(!activeToken || activeToken.balanceBN.isZero()) return;
-
-    // Hitung Amount pakai BigNumber biar presisi
-    // Rumus: Balance * Percent / 100
-    const amountBN = activeToken.balanceBN.mul(percent).div(100);
-    
-    // Format ke string untuk ditampilkan di input text
-    const amountStr = ethers.utils.formatUnits(amountBN, activeToken.decimals);
-    
-    // Masukkan ke input
-    const inputAmt = document.getElementById("inputSendAmount");
-    inputAmt.value = amountStr;
-    
     checkFormReady();
 }
 
-// Cek Apakah Form Siap Kirim?
+// 2. Cek Tombol Kirim Aktif/Tidak
 document.getElementById("inputSendAmount").addEventListener("input", checkFormReady);
 
 function checkFormReady() {
@@ -2910,7 +3024,19 @@ function checkFormReady() {
     }
 }
 
-// 4. Konfirmasi Popup
+// 3. Tombol Max / Persen
+function setSendPercent(percent) {
+    if(!activeToken || !activeToken.balanceBN || activeToken.balanceBN.isZero()) return;
+
+    // Hitung amount: Balance * Percent / 100
+    const amountBN = activeToken.balanceBN.mul(percent).div(100);
+    const amountStr = ethers.utils.formatUnits(amountBN, activeToken.decimals);
+    
+    document.getElementById("inputSendAmount").value = amountStr;
+    checkFormReady();
+}
+
+// 4. Konfirmasi Akhir
 function askConfirmation() {
     const addr = document.getElementById("inputSendAddr").value.trim();
     const amt = document.getElementById("inputSendAmount").value;
@@ -2919,208 +3045,50 @@ function askConfirmation() {
     document.getElementById("confSymbol").innerText = activeToken.symbol;
     document.getElementById("confAddr").innerText = addr;
     
-    // Tampilkan Modal Konfirmasi, Sembunyikan Modal Input (Opsional, atau tumpuk)
     document.getElementById("confirmModalOverlay").style.display = "flex";
 }
 
-// 5. EKSEKUSI TRANSFER (Blockchain)
+// 5. EKSEKUSI TRANSFER KE BLOCKCHAIN
 async function executeTransfer() {
     document.getElementById("confirmModalOverlay").style.display = "none";
-    closeSendModal(); // Tutup semua
+    closeSendModal(); 
 
     const addr = document.getElementById("inputSendAddr").value.trim();
     const amt = document.getElementById("inputSendAmount").value;
     
-    showToast("Memproses transaksi di wallet...", "info");
+    showToast("Memproses transaksi...", "info");
 
     try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
         
-        // Parse Amount ke Wei/Unit Asli
+        // Konversi input ke Wei
         const amountWei = ethers.utils.parseUnits(amt, activeToken.decimals);
 
         let tx;
         if(activeToken.address === 'ETH') {
-            // Kirim ETH Native
             tx = await signer.sendTransaction({
                 to: addr,
                 value: amountWei
             });
         } else {
-            // Kirim Token ERC20
-            const contract = new ethers.Contract(activeToken.address, ["function transfer(address to, uint amount) returns (bool)"], signer);
+            const contract = new ethers.Contract(activeToken.address, ERC20_ABI, signer);
             tx = await contract.transfer(addr, amountWei);
         }
 
-        showToast("Transaksi dikirim! Menunggu konfirmasi...", "success");
-        
-        // Tunggu block confirmation
+        showToast("Transaksi dikirim! Menunggu...", "success");
         await tx.wait();
         
-        showToast("BERHASIL! Token terkirim.", "success");
-        refreshAllTokenBalances(); // Update saldo
+        showToast("BERHASIL! Aset terkirim.", "success");
+        
+        // Refresh Saldo Total
+        if(typeof refreshAllTokenBalances === 'function') refreshAllTokenBalances();
 
     } catch(err) {
         console.error(err);
-        showToast("Transaksi Batal / Gagal", "error");
+        showToast("Gagal: " + (err.reason || err.message), "error");
     }
 }
-
-    // --- LOGIKA MULTI-ASSET SENDER ---
-
-// 1. Fungsi Tombol "Kirim" (General)
-async function openGeneralSendPopup() {
-    if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
-    
-    // A. Render Isi Dropdown (Wajib dipanggil setiap buka popup)
-    const select = document.getElementById("sendTokenSelect");
-    select.innerHTML = ""; // Bersihkan isi lama
-
-    // B. Tambahkan ETH (Selalu paling atas)
-    let ethOption = document.createElement("option");
-    ethOption.value = "ETH";
-    ethOption.text = "Ethereum (Native)";
-    select.appendChild(ethOption);
-
-    // C. Tambahkan Token Import (Looping dari myTokens)
-    if (myTokens && myTokens.length > 0) {
-        myTokens.forEach(token => {
-            let opt = document.createElement("option");
-            opt.value = token.address;
-            opt.text = `${token.name} (${token.symbol})`;
-            select.appendChild(opt);
-        });
-    }
-    
-    // D. Reset Form & Tampilkan
-    document.getElementById("sendModalOverlay").style.display = "flex";
-    document.getElementById("inputSendAddr").value = "";
-    document.getElementById("inputSendAmount").value = "";
-    document.getElementById("addrErrorMsg").style.display = "none";
-    
-    // E. Set Default ke ETH
-    select.value = "ETH"; 
-    selectToken(address, symbol, logo, decimals) // Panggil fungsi switch untuk load saldo ETH
-}
-
-// --- LOGIKA CUSTOM DROPDOWN ---
-
-// 1. Toggle Buka/Tutup
-function toggleTokenList() {
-    const wrapper = document.querySelector('.custom-select-wrapper');
-    wrapper.classList.toggle('open');
-}
-
-// Tutup dropdown jika klik di luar
-window.onclick = function(e) {
-    const wrapper = document.querySelector('.custom-select-wrapper');
-    if (wrapper && !wrapper.contains(e.target)) {
-        wrapper.classList.remove('open');
-    }
-};
-
-// 2. Render List Token (Dengan Logo)
-function renderCustomDropdown() {
-    const listContainer = document.getElementById("tokenOptionsList");
-    listContainer.innerHTML = ""; // Bersihkan
-
-    // A. Opsi ETH (Native)
-    const ethHtml = `
-        <div class="custom-option" onclick="selectToken('ETH', 'ETH', 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png', 18)">
-            <img src="https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png" class="token-mini-logo">
-            <span style="font-weight:bold;">Ethereum</span> 
-            <span style="color:#777; font-size:11px;">(ETH)</span>
-        </div>
-    `;
-    listContainer.insertAdjacentHTML('beforeend', ethHtml);
-
-    // B. Opsi Token Import
-    myTokens.forEach(token => {
-        const fallback = `https://api.dicebear.com/7.x/identicon/svg?seed=${token.address}`;
-        const html = `
-        <div class="custom-option" onclick="selectToken('${token.address}', '${token.symbol}', '${token.logo}', ${token.decimals})">
-            <img src="${token.logo}" onerror="this.src='${fallback}'" class="token-mini-logo">
-            <span style="font-weight:bold;">${token.name}</span> 
-            <span style="color:#777; font-size:11px;">(${token.symbol})</span>
-        </div>`;
-        listContainer.insertAdjacentHTML('beforeend', html);
-    });
-}
-
-// 3. Fungsi Saat Token Dipilih
-async function selectToken(address, symbol, logo, decimals) {
-    // Update Tampilan Trigger (Header Dropdown)
-    document.getElementById("displayLogo").src = logo;
-    document.getElementById("displaySymbol").innerText = `${symbol}`; // Bisa nama panjang atau pendek
-    document.getElementById("hiddenTokenValue").value = address;
-    
-    // Tutup Dropdown
-    document.querySelector('.custom-select-wrapper').classList.remove('open');
-
-    // Reset Input Jumlah
-    document.getElementById("inputSendAmount").value = "";
-    document.getElementById("btnProceedSend").disabled = true;
-    document.getElementById("btnProceedSend").classList.remove("btn-ready");
-    document.getElementById("sendMaxBal").innerText = "Loading...";
-
-    // --- LOGIKA HITUNG SALDO (Diadaptasi dari kode lama) ---
-    const provider = new ethers.providers.Web3Provider(window.ethereum);
-    
-    try {
-        if(address === "ETH") {
-            const balRaw = await provider.getBalance(modalUserAddr);
-            activeToken = { address: 'ETH', symbol: 'ETH', decimals: 18, balanceBN: balRaw };
-        } else {
-            const contract = new ethers.Contract(address, ERC20_ABI, provider);
-            const balRaw = await contract.balanceOf(modalUserAddr);
-            activeToken = { address: address, symbol: symbol, decimals: decimals, balanceBN: balRaw };
-        }
-
-        // Update UI Saldo
-        const fmt = ethers.utils.formatUnits(activeToken.balanceBN, decimals);
-        document.getElementById("sendMaxBal").innerText = parseFloat(fmt).toFixed(4);
-        document.getElementById("inputTicker").innerText = symbol;
-
-    } catch(e) {
-        console.error("Gagal load saldo:", e);
-        document.getElementById("sendMaxBal").innerText = "Error";
-    }
-}
-
-// 4. Update Fungsi Buka Popup (Panggil renderCustomDropdown)
-async function openGeneralSendPopup() {
-    if(!modalUserAddr) return showToast("Hubungkan dompet dulu!", "warning");
-    
-    // Render Dropdown Kustom
-    renderCustomDropdown();
-    
-    // Buka Modal
-    document.getElementById("sendModalOverlay").style.display = "flex";
-    
-    // Reset Form & Default ke ETH
-    document.getElementById("inputSendAddr").value = "";
-    document.getElementById("addrErrorMsg").style.display = "none";
-    
-    // Default Select ETH
-    selectToken('ETH', 'ETH', 'https://raw.githubusercontent.com/trustwallet/assets/master/blockchains/ethereum/info/logo.png', 18);
-}
-
-// 4. Update Fungsi 'openSendPopup' Lama (Agar sinkron dengan Dropdown)
-// Fungsi ini dipanggil kalau user klik item list di sidebar, bukan tombol kirim atas
-async function openSendPopup(address, symbol, decimals, logo) {
-    // Buka Popup General dulu (biar dropdown ter-render)
-    await openGeneralSendPopup();
-    
-    // Ubah nilai dropdown sesuai token yang diklik
-    const select = document.getElementById("sendTokenSelect");
-    select.value = address;
-    
-    // Jalankan switch logic
-    selectToken(address, symbol, logo, decimals)
-}
-
-
         
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
