@@ -2798,12 +2798,17 @@ async function refreshAllTokenBalances() {
             if(el) el.innerText = balFloat.toFixed(4);
 
             const lowerAddr = token.address.toLowerCase();
+            
+            // 1. Ambil Harga ($) dari Cache Lama (CoinGecko)
             let price = 0;
-            let change24h = 0;
-
             if(cachedTokenPrices[lowerAddr]) {
                 price = cachedTokenPrices[lowerAddr].usd || 0;
-                change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
+            }
+
+            // 2. Ambil Persen (%) dari Cache Baru (DexScreener)
+            let change24h = 0;
+            if (cachedTokenChanges[lowerAddr] !== undefined) {
+                change24h = cachedTokenChanges[lowerAddr];
             }
             
             const tokenUsd = balFloat * price;
@@ -2828,83 +2833,75 @@ async function refreshAllTokenBalances() {
     }
  }
 
-// --- FUNGSI AMBIL HARGA + PERSEN (HYBRID V6: LIQUIDITY SORT) ---
+// --- FUNGSI AMBIL HARGA (HYBRID: CG PRICE + DS PERSEN) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Hybrid: CG Price + DS %)...");
-
-    // 1. DAFTAR SEMUA TOKEN (Static + Import)
-    // Masukkan alamat USDC & USDT agar mereka juga dapat update %
-    const STATIC_USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-    const STATIC_USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
-    
-    // Gabungkan token import user + token static ke dalam Set (biar unik)
-    let allAddresses = new Set([STATIC_USDC, STATIC_USDT]);
-    if (Array.isArray(myTokens)) {
-        myTokens.forEach(t => allAddresses.add(t.address));
-    }
-
-    // Convert ke String untuk URL (dipisah koma)
-    const addressList = Array.from(allAddresses).join(',');
-
+    console.log("🔄 Mengambil update harga pasar & volatilitas...");
     try {
         // ==========================================
-        // A. AMBIL HARGA STABIL (COINGECKO)
+        // 1. Ambil Harga ETH (LOGIKA ASLI - PERTAHANKAN)
         // ==========================================
-        // Kita fetch ETH + Token sekaligus biar hemat waktu
         const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
         const dataEth = await resEth.json();
-        if(dataEth.ethereum) cachedEthPrice = dataEth.ethereum.usd || 0;
+        if(dataEth.ethereum.usd) {
+            cachedEthPrice = dataEth.ethereum.usd;
+        }
 
-        if (addressList.length > 0) {
-            const urlGecko = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${addressList}&vs_currencies=usd`;
+        // ==========================================
+        // 2. Ambil Harga Token Import (LOGIKA ASLI - PERTAHANKAN)
+        // ==========================================
+        // Pastikan myTokens ada isinya sebelum map
+        if (!myTokens || myTokens.length === 0) {
+            refreshAllTokenBalances();
+            return;
+        }
+
+        const tokenAddrs = myTokens.map(t => t.address).join(',');
+        
+        if(tokenAddrs.length > 0) {
+            // A. FETCH HARGA DARI COINGECKO (MANTAP JANGAN GOYAH)
+            const urlGecko = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
             const resToken = await fetch(urlGecko);
             const dataToken = await resToken.json();
             
-            // Simpan Harga ($) ke Cache Lama
+            // Update cache harga (seperti biasa)
             cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
 
             // ==========================================
-            // B. AMBIL PERSEN (%) VOLATIL (DEXSCREENER)
+            // 3. (TAMBAHAN) AMBIL PERSEN DARI DEXSCREENER
             // ==========================================
             try {
-                // DexScreener support hingga 30 address per call
-                const urlDex = `https://api.dexscreener.com/latest/dex/tokens/${addressList}`;
+                // DexScreener support multi-address dipisah koma
+                const urlDex = `https://api.dexscreener.com/latest/dex/tokens/${tokenAddrs}`;
                 const resDex = await fetch(urlDex);
                 const dataDex = await resDex.json();
 
                 if (dataDex.pairs) {
-                    // 1. Sortir dulu berdasarkan Likuiditas USD (Terbesar ke Terkecil)
-                    // Ini PENTING agar kita mengambil data dari pair UTAMA, bukan pair sampah yang volumenya 0
+                    // Sortir berdasarkan likuiditas tertinggi agar data akurat
+                    // (Opsional, tapi bagus supaya gak ambil pair abal-abal)
                     dataDex.pairs.sort((a, b) => (b.liquidity?.usd || 0) - (a.liquidity?.usd || 0));
 
                     dataDex.pairs.forEach(pair => {
                         const addr = pair.baseToken.address.toLowerCase();
                         
-                        // Hanya simpan jika belum ada di cache (karena kita sudah sort yang paling liquid di awal)
-                        // ATAU overwrite update biar fresh
-                        
-                        // Pastikan priceChange ada datanya
-                        let change = 0;
-                        if(pair.priceChange && pair.priceChange.h24 !== undefined) {
-                            change = pair.priceChange.h24;
+                        // Simpan % perubahan 24 jam ke cache BARU
+                        // Kita cek dulu biar pair utama yang masuk
+                        if (cachedTokenChanges[addr] === undefined || pair.liquidity?.usd > 1000) {
+                            cachedTokenChanges[addr] = pair.priceChange.h24;
                         }
-
-                        // Simpan ke cache perubahan
-                        cachedTokenChanges[addr] = change;
                     });
                 }
             } catch (errDex) {
-                console.warn("DexScreener Skip:", errDex);
+                console.warn("Gagal ambil persen DexScreener (Sante, harga aman):", errDex);
             }
         }
         
         lastPriceFetchTime = Date.now(); // Reset timer
         
-        // Panggil refresh UI
+        // Panggil refresh sekali lagi agar angka di layar update dengan harga baru
         refreshAllTokenBalances();
 
     } catch(e) {
-        console.warn("Gagal update market (API Error), pakai data lama.");
+        console.warn("Gagal update harga utama (Limit API), pakai harga lama.");
     }
 }
         
