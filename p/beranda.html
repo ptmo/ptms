@@ -1521,12 +1521,12 @@ window.updateLocalTokens = function(cloudData) {
     }
 };
 
-        // --- INIT ---
-        window.onload = async () => {
+// --- INIT WINDOW ONLOAD (VERSI FINAL - DUAL TIMER) ---
+window.onload = async () => {
     // -----------------------------------------------------------
     // 1. SETUP READ PROVIDER (Untuk User Belum Login)
     // -----------------------------------------------------------
-    // Provider ini hanya untuk baca data umum (Feed/Kontrak) tanpa login
+    // Load token sementara (jika ada sisa sesi sebelumnya)
     if(typeof initTokenManager === 'function') initTokenManager();
             
     const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
@@ -1542,51 +1542,47 @@ window.updateLocalTokens = function(cloudData) {
     if(window.ethereum) {
         try {
             const web3 = new ethers.providers.Web3Provider(window.ethereum);
-            // Cek apakah user pernah connect sebelumnya?
             const accounts = await web3.listAccounts();
             
             if(accounts.length > 0) {
                 const userAddress = accounts[0];
                 console.log("✅ Auto-Login Berhasil:", userAddress);
                 
-                // [CRITICAL] UPDATE VARIABEL GLOBAL
-                // Agar script Firebase & Scan tahu ini wallet siapa
+                // UPDATE VARIABEL GLOBAL
                 modalUserAddr = userAddress; 
                 isWalletConnected = true;
 
-                // A. Update Tampilan Tombol Connect
+                // Load Token Khusus User Ini (Agar tidak tertukar)
+                if(typeof initTokenManager === 'function') initTokenManager(userAddress);
+
+                // Update UI Header
                 const btn = document.getElementById("btnConnect");
                 if(btn) {
                     btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
                     btn.classList.add("connected");
                 }
                 
-                // B. Update Data Modal (Teks Address)
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
                     document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
 
-                // C. Ambil Saldo Utama (ETH)
+                // Ambil Saldo ETH
                 const balance = await web3.getBalance(userAddress);
                 if(document.getElementById("modalBalance")) {
                     document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
                 }
 
-                // D. Update Fungsi-Fungsi DApp Lainnya
+                // Update Fitur Lain
                 if(typeof updateSidebarWallet === 'function') updateSidebarWallet(userAddress);
                 if(typeof updateModalWalletData === 'function') updateModalWalletData(userAddress);
                 
-                // -------------------------------------------------------
-                // [PENAMBAHAN PENTING] LOAD DATA DARI FIREBASE CLOUD
-                // -------------------------------------------------------
-                // Kita panggil ini AGAR TOKEN MUNCUL walau cache dihapus
+                // Load Cloud Firebase
                 if (window.loadTokensFromCloud) {
                     await window.loadTokensFromCloud(userAddress);
                 }
 
-                // E. Auto Scan Token (Jalan setelah Cloud selesai)
-                // Memberi jeda sedikit agar UI tidak berat
+                // Auto Scan
                 setTimeout(() => {
                     if(typeof autoScanTokens === 'function') autoScanTokens();
                 }, 1000);
@@ -1595,25 +1591,41 @@ window.updateLocalTokens = function(cloudData) {
     }
 
     // -----------------------------------------------------------
-    // 3. INISIALISASI FITUR LAIN (Feed, Indexer, Manager)
+    // 3. INISIALISASI FITUR LAIN
     // -----------------------------------------------------------
     if(typeof loadFeed === 'function') loadFeed();
     if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
     
     // -----------------------------------------------------------
-    // 4. INTERVAL UPDATE HARGA REAL-TIME (Looping)
+    // 4. INTERVAL UPDATE (DUAL TIMER SYSTEM) - INI KUNCINYA 🔑
     // -----------------------------------------------------------
+    
+    // A. TIMER SALDO & UI (Cepat - Tiap 5 Detik)
+    // Tugas: Menghitung ulang total aset berdasarkan harga yang ada di memori
     setInterval(() => {
-        // Hanya update jika user sudah login & variabel global terisi
         if (typeof modalUserAddr !== 'undefined' && modalUserAddr) {
-            // Cek fungsi refresh ada atau tidak sebelum dipanggil
             if(typeof refreshAllTokenBalances === 'function') {
                 refreshAllTokenBalances();
             }
         }
-    }, 5000); // Setiap 5 Detik
-};
+    }, 5000); 
 
+    // B. TIMER API HARGA (Sedang - Tiap 20 Detik)
+    // Tugas: Mengambil data baru dari DexScreener
+    // Kita pisah biar dia jalan mandiri dan tidak tergantung refresh saldo
+    setInterval(() => {
+        if(typeof updateMarketPrices === 'function') {
+            updateMarketPrices();
+        }
+    }, 20000);
+
+    // C. TEMBAK HARGA PERTAMA KALI (Jeda 3 detik setelah load)
+    // Supaya user tidak menunggu 20 detik pertama untuk melihat harga
+    setTimeout(() => {
+        if(typeof updateMarketPrices === 'function') updateMarketPrices();
+    }, 3000);
+};
+        
 async function connectWallet() {
     // A. Validasi Metamask
     if (!window.ethereum) return alert("Metamask tidak terdeteksi!");
@@ -2696,16 +2708,13 @@ function renderTokenList() {
     });
 }
 
-// --- UPDATE SALDO LENGKAP (ETH + USDC + USDT + IMPORT) ---
+// --- UPDATE SALDO LENGKAP (VERSI BERSIH - MURNI HITUNGAN) ---
 async function refreshAllTokenBalances() {
     if(!window.ethereum || !modalUserAddr) return;
     const provider = new ethers.providers.Web3Provider(window.ethereum);
     
-    // 1. Cek Update Harga (Interval 15 detik)
-    const now = Date.now();
-    if ((now - lastPriceFetchTime > PRICE_CACHE_DURATION) || cachedEthPrice === 0) {
-        updateMarketPrices(); 
-    }
+    // ❌ JANGAN ADA KODE updateMarketPrices() DISINI LAGI!
+    // Biarkan window.onload yang mengatur jadwal update harganya.
 
     let currentTotalUsd = 0;
 
@@ -2725,11 +2734,10 @@ async function refreshAllTokenBalances() {
         const ethFmt = ethers.utils.formatEther(ethRaw);
         const ethVal = parseFloat(ethFmt);
         
-        // Update UI
         const elEth = document.getElementById("staticEthBalance");
         if(elEth) elEth.innerText = ethVal.toFixed(6);
 
-        // Hitung USD
+        // Pakai harga dari Cache (yang diupdate oleh timer terpisah)
         const ethUsd = ethVal * cachedEthPrice;
         currentTotalUsd += ethUsd;
 
@@ -2742,7 +2750,6 @@ async function refreshAllTokenBalances() {
     // ==========================================
     // B. HITUNG STATIC STABLECOIN (USDC & USDT)
     // ==========================================
-    // Array konfigurasi statis (Alamat Kontrak Resmi Base)
     const staticTokens = [
         { id: "Usdc", addr: "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", dec: 6, symbol: "USDC" }, 
         { id: "Usdt", addr: "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2", dec: 6, symbol: "USDT" }  
@@ -2752,35 +2759,25 @@ async function refreshAllTokenBalances() {
         try {
             const contract = new ethers.Contract(st.addr, ERC20_ABI, provider);
             const balRaw = await contract.balanceOf(modalUserAddr);
-            const balFmt = ethers.utils.formatUnits(balRaw, st.dec); // Ingat: USDC/USDT desimalnya 6
+            const balFmt = ethers.utils.formatUnits(balRaw, st.dec);
             const balFloat = parseFloat(balFmt);
 
-            // Update Angka Saldo
             const elBal = document.getElementById(`static${st.id}Balance`);
-            if(elBal) elBal.innerText = balFloat.toFixed(2); // Stablecoin cukup 2 desimal
+            if(elBal) elBal.innerText = balFloat.toFixed(2);
 
-            // Cek Harga dari Cache (agar akurat jika depeg, jangan asumsi $1 pas)
             const lowerAddr = st.addr.toLowerCase();
-            let price = 1.0; 
-            let change24h = 0;
+            // Ambil dari Cache
+            let price = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd : 1.0; 
+            let change24h = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd_24h_change : 0;
             
-            if(cachedTokenPrices[lowerAddr]) {
-                price = cachedTokenPrices[lowerAddr].usd || 1.0;
-                change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
-            }
-
             const tokenUsd = balFloat * price;
             currentTotalUsd += tokenUsd;
             
-            // Update Detail ($)
             const elDet = document.getElementById(`static${st.id}Details`);
             if(elDet) {
                 elDet.innerHTML = `@ ${fmtUSD(price)} ${getChangeHtml(change24h)} <br> <span style="color:#666">≈ ${fmtUSD(tokenUsd)}</span>`;
             }
-
-        } catch(e) {
-            // console.warn("Gagal load static:", st.symbol);
-        }
+        } catch(e) { }
     }
 
     // ==========================================
@@ -2797,13 +2794,9 @@ async function refreshAllTokenBalances() {
             if(el) el.innerText = balFloat.toFixed(4);
 
             const lowerAddr = token.address.toLowerCase();
-            let price = 0;
-            let change24h = 0;
-
-            if(cachedTokenPrices[lowerAddr]) {
-                price = cachedTokenPrices[lowerAddr].usd || 0;
-                change24h = cachedTokenPrices[lowerAddr].usd_24h_change || 0;
-            }
+            // Ambil dari Cache
+            let price = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd : 0;
+            let change24h = cachedTokenPrices[lowerAddr] ? cachedTokenPrices[lowerAddr].usd_24h_change : 0;
             
             const tokenUsd = balFloat * price;
             currentTotalUsd += tokenUsd;
@@ -2815,17 +2808,14 @@ async function refreshAllTokenBalances() {
         } catch(e) { }
     }
 
-    // ==========================================
-    // D. UPDATE TOTAL ESTIMASI HEADER
-    // ==========================================
+    // D. UPDATE TOTAL
     const usdEl = document.getElementById("usdEstimate");
     if (usdEl) {
-        // Tampilkan total jika ada aset (ETH atau Token)
         if (currentTotalUsd > 0 || cachedEthPrice > 0) {
             usdEl.innerText = `≈ ${fmtUSD(currentTotalUsd)}`;
         }
     }
- }
+}
 
 // --- FUNGSI AMBIL HARGA (VERSI DEXSCREENER - ANTI CORS TOTAL) ---
 async function updateMarketPrices() {
