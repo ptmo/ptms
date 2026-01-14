@@ -2827,98 +2827,116 @@ async function refreshAllTokenBalances() {
     }
  }
 
-// --- FUNGSI AMBIL HARGA (HYBRID V4: HARGA COINGECKO + PERSEN DEXSCREENER) ---
+// --- FUNGSI AMBIL HARGA (HYBRID V5: PROXY + SMART MERGE) ---
 async function updateMarketPrices() {
     console.log("🔄 Update Harga (Hybrid: CG Price + DS %)...");
 
-    // ============================================================
-    // BAGIAN 1: COINGECKO (HARGA USD) - SESUAI PERMINTAAN BAPAK
-    // ============================================================
-    try {
-        // 1. Ambil Harga ETH (Native)
-        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-        const dataEth = await resEth.json();
-        if(dataEth.ethereum && dataEth.ethereum.usd) {
-            cachedEthPrice = dataEth.ethereum.usd;
-        }
+    // 1. DAFTAR TOKEN WAJIB (USDC & USDT Base Mainnet)
+    // Kita hardcode disini agar mereka selalu ter-update
+    const WETH_ADDR = "0x4200000000000000000000000000000000000006";
+    const USDC_ADDR = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; 
+    const USDT_ADDR = "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2";
 
-        // 2. Ambil Harga Token Import
-        if(myTokens.length > 0) {
-            const tokenAddrs = myTokens.map(t => t.address).join(',');
-            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
-            
-            const resToken = await fetch(url);
-            const dataToken = await resToken.json();
-            
-            // Gabungkan ke cache lama
-            // Note: Ini akan menimpa data lama, jadi pastikan ini jalan DULUAN sebelum DexScreener
-            cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
-        }
-    } catch(e) {
-        console.warn("⚠️ CoinGecko Error (Pakai harga lama):", e);
+    // 2. GABUNGKAN SEMUA ALAMAT (Wajib + Import)
+    let targets = [WETH_ADDR, USDC_ADDR, USDT_ADDR];
+    
+    if (typeof myTokens !== 'undefined' && myTokens.length > 0) {
+        const importAddrs = myTokens.map(t => t.address);
+        targets = [...targets, ...importAddrs];
     }
+    // Hapus duplikat & gabung jadi string koma
+    const uniqueTargets = [...new Set(targets)];
+    const strTargets = uniqueTargets.join(',');
 
     // ============================================================
-    // BAGIAN 2: DEXSCREENER (PERSENTASE % SAJA) - TAMBAHAN
+    // STEP 1: DEXSCREENER (AMBIL PERSENTASE % + HARGA CADANGAN)
     // ============================================================
     try {
-        // Siapkan Alamat: WETH + Token Import
-        const WETH_ADDR = "0x4200000000000000000000000000000000000006";
-        let targets = [WETH_ADDR];
-        
-        if (myTokens.length > 0) {
-            const importAddrs = myTokens.map(t => t.address);
-            targets = [...targets, ...importAddrs];
-        }
-        const uniqueTargets = [...new Set(targets)].join(',');
-
-        // Fetch API DexScreener
-        const resDS = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`);
+        const resDS = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${strTargets}`);
         const dataDS = await resDS.json();
 
         if (dataDS.pairs) {
-            let bestLiq = {}; // Tracker likuiditas terbaik
+            let bestLiq = {}; 
 
             dataDS.pairs.forEach(pair => {
-                if (pair.chainId !== 'base') return; // Filter Chain
+                if (pair.chainId !== 'base') return; 
 
                 const addr = pair.baseToken.address.toLowerCase();
+                const price = parseFloat(pair.priceUsd);
                 const change = pair.priceChange ? pair.priceChange.h24 : 0;
                 const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-                // Ambil data dari Pool Terbesar (Paling Relevan)
+                // Ambil dari Pool Terbesar
                 if (!bestLiq[addr] || liq > bestLiq[addr]) {
                     bestLiq[addr] = liq;
 
-                    // A. Update Persen ETH
+                    // A. ETH Native
                     if (addr === WETH_ADDR.toLowerCase()) {
                         cachedEthChange = change; 
+                        // Kita simpan harga DS dulu sebagai cadangan (kalau CG error/limit)
+                        cachedEthPrice = price; 
                     }
 
-                    // B. Update Persen Token Lain
-                    // Pastikan objectnya sudah dibuat oleh CoinGecko, kalau belum kita buat
-                    if (!cachedTokenPrices[addr]) {
-                        cachedTokenPrices[addr] = { usd: 0 }; // Harga 0 dulu kalau CG gagal
-                    }
-                    
-                    // SUNTIKKAN DATA PERSENTASE KE DALAM CACHE
-                    cachedTokenPrices[addr].usd_24h_change = change;
+                    // B. Token Lain (USDC, USDT, Import)
+                    // Simpan Harga & Persen dari DexScreener dulu
+                    cachedTokenPrices[addr] = {
+                        usd: price,          // Harga Cadangan
+                        usd_24h_change: change // INI DATA UTAMA (%)
+                    };
                 }
             });
-            console.log("✅ Persentase (%) sukses diambil dari DexScreener");
         }
-    } catch (e) {
-        console.warn("⚠️ DexScreener Error (Persentase 0%):", e);
+    } catch (e) { console.warn("DexScreener Skip:", e); }
+
+    // ============================================================
+    // STEP 2: COINGECKO (AMBIL HARGA UTAMA VIA PROXY)
+    // ============================================================
+    // Wajib pakai Proxy agar tidak kena blokir CORS Browser (Error Merah di Console)
+    const PROXY = "https://corsproxy.io/?"; 
+    
+    try {
+        // A. Harga ETH Native
+        const urlEth = `${PROXY}https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd`;
+        const resEth = await fetch(urlEth);
+        const dataEth = await resEth.json();
+        
+        if(dataEth.ethereum && dataEth.ethereum.usd) {
+            // TIMPA harga DexScreener dengan harga CoinGecko (Lebih Stabil)
+            cachedEthPrice = dataEth.ethereum.usd; 
+        }
+
+        // B. Harga Token (USDC, USDT, Import)
+        const urlToken = `${PROXY}https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${strTargets}&vs_currencies=usd`;
+        const resToken = await fetch(urlToken);
+        const dataToken = await resToken.json();
+
+        // Loop data dari CoinGecko
+        for (const [addr, val] of Object.entries(dataToken)) {
+            const lowerAddr = addr.toLowerCase();
+            
+            // Jika token sudah ada data (dari DexScreener tadi), kita update harganya saja
+            // Jangan hapus persennya!
+            if (cachedTokenPrices[lowerAddr]) {
+                cachedTokenPrices[lowerAddr].usd = val.usd; // Update Harga dari CG
+            } else {
+                // Kalau DexScreener gagal nemu, kita buat baru pake harga CG
+                cachedTokenPrices[lowerAddr] = { usd: val.usd, usd_24h_change: 0 };
+            }
+        }
+        console.log("✅ Harga CoinGecko berhasil dimuat via Proxy!");
+
+    } catch(e) {
+        console.warn("⚠️ CoinGecko Limit/Error (Pakai harga cadangan DexScreener):", e);
     }
 
     // ============================================================
-    // FINAL: REFRESH TAMPILAN
+    // STEP 3: REFRESH TAMPILAN
     // ============================================================
     lastPriceFetchTime = Date.now();
     if(typeof refreshAllTokenBalances === 'function') {
         refreshAllTokenBalances();
     }
- }
+    }
         
 // Helper Format Uang
 const fmtUSD = (val) => {
