@@ -2817,17 +2817,16 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (HYBRID: COINGECKO + DEXSCREENER) ---
+// --- FUNGSI AMBIL HARGA (HYBRID: PRICE by COINGECKO, % by DEXSCREENER) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Metode Hybrid)...");
+    console.log("🔄 Update Harga (Hybrid Mode)...");
 
-    // 1. Definisikan Alamat
-    const WETH_ADDR = "0x4200000000000000000000000000000000000006"; // WETH Base
-    const USDC_ADDR = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC
-    const USDT_ADDR = "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2"; // USDT
+    // Definisikan Alamat
+    const WETH_ADDR = "0x4200000000000000000000000000000000000006";
+    const USDC_ADDR = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913";
+    const USDT_ADDR = "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2";
 
-    // 2. STEP 1: AMBIL DATA DARI DEXSCREENER (Untuk Token & Persentase)
-    // -------------------------------------------------------------
+    // Gabungkan semua alamat token (Wajib + Import)
     let targets = [WETH_ADDR, USDC_ADDR, USDT_ADDR];
     if (typeof myTokens !== 'undefined' && myTokens.length > 0) {
         const importAddrs = myTokens.map(t => t.address);
@@ -2835,6 +2834,9 @@ async function updateMarketPrices() {
     }
     const uniqueTargets = [...new Set(targets)].join(',');
 
+    // ------------------------------------------------------------------
+    // TAHAP 1: AMBIL DATA DARI DEXSCREENER (FOKUS KE PERSENTASE %)
+    // ------------------------------------------------------------------
     try {
         const urlDS = `https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`;
         const resDS = await fetch(urlDS);
@@ -2851,59 +2853,72 @@ async function updateMarketPrices() {
                 const change = pair.priceChange ? pair.priceChange.h24 : 0;
                 const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-                // Cari pool terbesar untuk setiap token
+                // Ambil data dari pool terbesar
                 if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
                     liquidityMap[addr] = liq;
-                    
-                    // Simpan Harga & Persen dari DexScreener dulu (sebagai dasar)
+
+                    // SIMPAN PERSENTASE (%)
+                    // Kita simpan harga juga sebagai cadangan sementara
                     if (addr === WETH_ADDR) {
-                        cachedEthPrice = price; 
                         cachedEthChange = change;
-                    } 
+                        cachedEthPrice = price; // Cadangan
+                    }
                     
                     cachedTokenPrices[addr] = {
-                        usd: price,
-                        usd_24h_change: change
+                        usd: price, // Cadangan
+                        usd_24h_change: change // INI YANG KITA INCAR
                     };
                 }
             });
         }
-    } catch (e) {
-        console.warn("DexScreener Error:", e);
-    }
+    } catch (e) { console.warn("DexScreener Skip:", e); }
 
-    // 3. STEP 2: AMBIL HARGA BERSIH ETH DARI COINGECKO (OVERWRITE)
-    // -------------------------------------------------------------
-    // Ini kuncinya agar harga ETH tidak $6.500 (Double) atau $0
+    // ------------------------------------------------------------------
+    // TAHAP 2: AMBIL HARGA DARI COINGECKO (TIMPA HARGA LAMA)
+    // ------------------------------------------------------------------
+    const proxy = "https://corsproxy.io/?"; // Wajib Proxy
+
     try {
-        console.log("🛠️ Mengambil harga bersih ETH dari CoinGecko...");
-        // Gunakan Proxy agar tidak kena blokir CORS Browser
-        const proxy = "https://corsproxy.io/?"; 
-        const cgUrl = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd";
-        
-        const resCG = await fetch(proxy + encodeURIComponent(cgUrl));
-        const dataCG = await resCG.json();
+        // A. Ambil Harga ETH Native (Paling Akurat)
+        const urlEth = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd";
+        const resEth = await fetch(proxy + encodeURIComponent(urlEth));
+        const dataEth = await resEth.json();
 
-        if (dataCG.ethereum && dataCG.ethereum.usd) {
-            const cleanPrice = dataCG.ethereum.usd;
-            
-            // TIMPA harga ETH yang tadi didapat dari DexScreener
-            cachedEthPrice = cleanPrice;
-            
-            console.log(`✅ Harga ETH (CoinGecko): $${cleanPrice}`);
-            console.log(`✅ Persentase ETH (DexScreener): ${cachedEthChange}%`);
+        if(dataEth.ethereum && dataEth.ethereum.usd) {
+            cachedEthPrice = dataEth.ethereum.usd; // ✅ TIMPA DENGAN HARGA COINGECKO
+            console.log(`✅ Harga ETH (CG): $${cachedEthPrice} | Change (DS): ${cachedEthChange}%`);
         }
+
+        // B. Ambil Harga Token Lain (USDC, USDT, Import)
+        // CoinGecko butuh alamat kontrak dipisah koma
+        const urlToken = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${uniqueTargets}&vs_currencies=usd`;
+        const resToken = await fetch(proxy + encodeURIComponent(urlToken));
+        const dataToken = await resToken.json();
+
+        // Loop hasil dari CoinGecko dan update cache
+        for (const [addr, val] of Object.entries(dataToken)) {
+            const lowerAddr = addr.toLowerCase();
+            
+            // Pastikan objeknya ada dulu
+            if (!cachedTokenPrices[lowerAddr]) {
+                cachedTokenPrices[lowerAddr] = { usd: 0, usd_24h_change: 0 };
+            }
+
+            // TIMPA HARGA DENGAN DATA COINGECKO
+            cachedTokenPrices[lowerAddr].usd = val.usd;
+        }
+
     } catch (e) {
-        console.warn("⚠️ Gagal ambil CoinGecko (Pakai harga DexScreener saja):", e);
+        console.warn("CoinGecko Error (Pakai harga DexScreener):", e);
     }
 
     lastPriceFetchTime = Date.now();
-
-    // 4. Update Tampilan
+    
+    // Refresh Tampilan
     if(typeof refreshAllTokenBalances === 'function') {
         refreshAllTokenBalances();
     }
-        }
+}
         
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
