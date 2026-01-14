@@ -1092,6 +1092,40 @@ label {
         </div>
     </div>
     </div>
+
+    <div class="menu-card" style="margin-top: 15px;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+        <div class="sidebar-label" style="margin:0;">Analisis Arsip</div>
+        <div style="font-size:10px; color:#2ecc71; background:rgba(46, 204, 113, 0.1); padding:2px 6px; border-radius:4px;">
+            <span class="pulse-dot"></span> Live
+        </div>
+    </div>
+
+    <div style="text-align:center; padding:15px 0; border-bottom:1px dashed rgba(255,255,255,0.1); margin-bottom:15px;">
+        <div style="font-size: 10px; color: #7385a5; text-transform:uppercase; letter-spacing:1px;">Total Terindeks</div>
+        <div style="font-size: 28px; font-weight: 800; color: #fff; margin: 5px 0;">
+            <span id="statTotalItems">0</span> <span style="font-size:12px; color:#555; font-weight:normal;">Item</span>
+        </div>
+        <div style="font-size:10px; color:#aaa;">
+            Di Jaringan Base Mainnet
+        </div>
+    </div>
+
+    <div class="sidebar-label" style="margin-bottom:8px;">Dominasi Golongan</div>
+    <div id="categoryStatsContainer">
+        <div style="text-align:center; font-size:10px; color:#555; padding:10px;">
+            <i class="fas fa-circle-notch fa-spin"></i> Menganalisis data...
+        </div>
+    </div>
+
+    <div style="margin-top:15px; background:rgba(255,255,255,0.03); padding:8px; border-radius:6px; display:flex; gap:10px; align-items:center;">
+        <div style="background:#3498db; width:3px; height:25px; border-radius:2px;"></div>
+        <div>
+            <div style="font-size:9px; color:#7385a5;">Gaya Terpopuler</div>
+            <div style="font-size:11px; font-weight:bold; color:#fff;" id="statTopStyle">-</div>
+        </div>
+    </div>
+    </div>
 </aside>
     
 <main class="main-feed">
@@ -1979,6 +2013,8 @@ function clearSearch() {
         for(let id of feedIds) {
             await renderCard(id, container);
         }
+
+    updateArchiveAnalysis();
 
     } catch(e) {
         console.error(e);
@@ -3285,6 +3321,100 @@ async function executeTransfer() {
     } catch(err) {
         console.error(err);
         showToast("Gagal: " + (err.reason || err.message), "error");
+    }
+}
+
+    // Variabel untuk menyimpan statistik sementara
+let archiveStats = {
+    golongan: {},
+    gaya: {},
+    totalLoaded: 0
+};
+
+async function updateArchiveAnalysis() {
+    // 1. AMBIL TOTAL SUPPLY REAL DARI KONTRAK
+    try {
+        const provider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        const supply = await contract.totalSupply();
+        
+        const elTotal = document.getElementById("statTotalItems");
+        if(elTotal) {
+            // Efek counter animasi sederhana
+            elTotal.innerText = supply.toString();
+        }
+    } catch(e) {}
+
+    // 2. ANALISIS DATA SAMPEL (DARI FEED YANG SUDAH DILOAD)
+    // Kita memanfaatkan array global 'allWayangs' atau 'feedData' yang Abang punya
+    // Asumsi variabel penampung data wayang Abang bernama 'feedData' atau sejenisnya
+    const dataToAnalyze = (typeof feedData !== 'undefined') ? feedData : []; 
+
+    if(dataToAnalyze.length === 0) {
+        document.getElementById("categoryStatsContainer").innerHTML = 
+            `<div style="font-size:10px; color:#555; text-align:center;">Menunggu data feed...</div>`;
+        return;
+    }
+
+    // Reset Hitungan
+    archiveStats.golongan = {};
+    archiveStats.gaya = {};
+
+    // Loop Analisis
+    dataToAnalyze.forEach(item => {
+        // Hitung Golongan (Satria, Dewa, dll)
+        // Pastikan key-nya konsisten (misal item.attributes[0].value atau item.golongan)
+        let gol = item.golongan || "Lainnya"; 
+        archiveStats.golongan[gol] = (archiveStats.golongan[gol] || 0) + 1;
+
+        // Hitung Gaya (Cirebon, Solo, dll)
+        let style = item.gaya || "Lainnya";
+        archiveStats.gaya[style] = (archiveStats.gaya[style] || 0) + 1;
+    });
+
+    renderAnalysisUI(dataToAnalyze.length);
+}
+
+function renderAnalysisUI(totalSample) {
+    // A. RENDER BAR GOLONGAN
+    const container = document.getElementById("categoryStatsContainer");
+    let html = "";
+    
+    // Urutkan golongan dari terbanyak
+    const sortedGol = Object.entries(archiveStats.golongan)
+        .sort((a,b) => b[1] - a[1])
+        .slice(0, 4); // Ambil Top 4 saja biar muat
+
+    sortedGol.forEach(([name, count]) => {
+        const percent = ((count / totalSample) * 100).toFixed(1);
+        
+        // Tentukan warna bar berdasarkan nama (biar cantik)
+        let barColor = "#7385a5";
+        if(name.includes("Satria")) barColor = "#3498db"; // Biru
+        if(name.includes("Buta") || name.includes("Yaksa")) barColor = "#e74c3c"; // Merah
+        if(name.includes("Dewa")) barColor = "#f1c40f"; // Emas
+        if(name.includes("Punggawa")) barColor = "#2ecc71"; // Hijau
+
+        html += `
+        <div style="margin-bottom:8px;">
+            <div style="display:flex; justify-content:space-between; font-size:10px; margin-bottom:3px; color:#ccc;">
+                <span>${name}</span>
+                <span>${percent}%</span>
+            </div>
+            <div style="width:100%; background:rgba(255,255,255,0.1); height:4px; border-radius:2px;">
+                <div style="width:${percent}%; background:${barColor}; height:100%; border-radius:2px; transition:width 1s ease;"></div>
+            </div>
+        </div>`;
+    });
+
+    if(container) container.innerHTML = html;
+
+    // B. UPDATE GAYA TERPOPULER
+    const sortedStyle = Object.entries(archiveStats.gaya).sort((a,b) => b[1] - a[1]);
+    if(sortedStyle.length > 0) {
+        const topStyle = sortedStyle[0][0]; // Ambil nama gaya terbanyak
+        const elStyle = document.getElementById("statTopStyle");
+        if(elStyle) elStyle.innerText = topStyle;
     }
 }
         
