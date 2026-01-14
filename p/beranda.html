@@ -2827,46 +2827,66 @@ async function refreshAllTokenBalances() {
     }
  }
 
-// --- FUNGSI AMBIL HARGA & PERSENTASE (UPDATE) ---
+// --- FUNGSI AMBIL HARGA (VERSI DEXSCREENER - ANTI CORS TOTAL) ---
 async function updateMarketPrices() {
-    console.log("🔄 Mengambil update harga pasar...");
+    console.log("🔄 Mengambil update harga via DexScreener...");
+
+    // 1. Alamat Wajib (WETH untuk harga ETH, USDC, USDT)
+    const WETH_BASE = "0x4200000000000000000000000000000000000006"; // Di Base, harga ETH = harga WETH
+    const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
+    const USDT_BASE = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
+
+    // 2. Gabungkan Semua Alamat Token
+    let allAddresses = [WETH_BASE, USDC_BASE, USDT_BASE];
+    
+    // Masukkan token import user
+    if(myTokens && myTokens.length > 0) {
+        const userAddrs = myTokens.map(t => t.address);
+        allAddresses = [...allAddresses, ...userAddrs];
+    }
+
+    // Gabung jadi string dipisah koma (Maksimal 30 alamat per request di DexScreener)
+    // Kita pakai Set biar tidak ada duplikat
+    const uniqueAddrs = [...new Set(allAddresses)].join(',');
+
     try {
-        // 1. Ambil Harga ETH
-        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd");
-        const dataEth = await resEth.json();
-        if(dataEth.ethereum.usd) {
-            cachedEthPrice = dataEth.ethereum.usd;
-        }
+        // 3. API Call Langsung (Tanpa Proxy!)
+        // DexScreener sangat bersahabat dengan frontend
+        const url = `https://api.dexscreener.com/latest/dex/tokens/${uniqueAddrs}`;
+        const res = await fetch(url);
+        const data = await res.json();
 
-        // 2. Ambil Harga Token Import
-        const tokenAddrs = myTokens.map(t => t.address).join(',');
-        if(tokenAddrs.length > 0) {
-            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${tokenAddrs}&vs_currencies=usd`;
-            const resToken = await fetch(url);
-            const dataToken = await resToken.json();
-            
-            // Gabungkan ke cache lama (update yg ada saja)
-            cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
-        }
-        
-        lastPriceFetchTime = Date.now(); // Reset timer
-        
-        // Panggil refresh sekali lagi agar angka di layar update dengan harga baru
+        if (!data.pairs) return;
+
+        // 4. Proses Data
+        // DexScreener mengembalikan banyak 'pairs', kita ambil data dari situ
+        data.pairs.forEach(pair => {
+            const tokenAddr = pair.baseToken.address.toLowerCase();
+            const price = parseFloat(pair.priceUsd);
+            const change = pair.priceChange.h24;
+
+            // A. Cek Khusus: Apakah ini WETH? (Kita pakai untuk harga Native ETH)
+            if (tokenAddr === WETH_BASE.toLowerCase()) {
+                cachedEthPrice = price;
+                cachedEthChange = change;
+            }
+
+            // B. Masukkan ke Cache Token (USDC, USDT, Import)
+            // Format disamakan dengan struktur lama biar script refresh tidak error
+            cachedTokenPrices[tokenAddr] = {
+                usd: price,
+                usd_24h_change: change
+            };
+        });
+
+        lastPriceFetchTime = Date.now();
         refreshAllTokenBalances();
+        console.log("✅ Harga Update Mulus via DexScreener!");
 
-    } catch(e) {
-        console.warn("Gagal update harga (Limit API), pakai harga lama.");
+    } catch (e) {
+        console.warn("Gagal update harga DexScreener:", e);
     }
 }
-
-// Helper Format Uang
-const fmtUSD = (val) => {
-    if(!val) val = 0;
-    if(val === 0) return "$0.00";
-    if(val < 0.01) return "$" + val.toFixed(6);
-    if(val < 1) return "$" + val.toFixed(4);
-    return new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(val);
-};
         
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
