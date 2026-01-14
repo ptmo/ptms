@@ -2808,21 +2808,23 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (VERSI ANTI-GLITCH + FIXED LOGIC) ---
+// --- FUNGSI AMBIL HARGA (VERSI V3: CEK ADRESS STABLECOIN) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Smart Filter V2)...");
+    console.log("🔄 Update Harga (Smart Filter V3)...");
 
-    // 1. Definisi Alamat Penting (WETH Base untuk harga ETH)
-    const WETH = "0x4200000000000000000000000000000000000006"; 
-    const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
-    const USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; 
+    // 1. Definisi Alamat Penting (Huruf Kecil Semua biar aman)
+    const WETH_ADDR  = "0x4200000000000000000000000000000000000006"; 
+    const USDC_ADDR  = "0x833589fcd6edb6e08f4c7c32d4f71b54bda02913"; // USDC Base Official
+    const USDBC_ADDR = "0xd9aaec86b65d86f6a7b5b1b0c42ffa531710b6ca"; // USDbC Base (Bridged)
+    const USDT_ADDR  = "0xfde4c96c8593536e31f229ea8f37b2ada2699bb2"; 
 
     // 2. Gabungkan Target
-    let targets = [WETH, USDC, USDT];
-    if (myTokens && myTokens.length > 0) {
+    let targets = [WETH_ADDR, USDC_ADDR, USDT_ADDR];
+    if (typeof myTokens !== 'undefined' && myTokens.length > 0) {
         const importAddrs = myTokens.map(t => t.address);
         targets = [...targets, ...importAddrs];
     }
+    // Hapus duplikat
     const uniqueTargets = [...new Set(targets)].join(',');
 
     try {
@@ -2832,64 +2834,54 @@ async function updateMarketPrices() {
 
         if (!data.pairs) return;
 
-        // 3. LOGIKA FILTER PINTAR
+        // 3. LOGIKA FILTER (PAKE ALAMAT KONTRAK)
         let liquidityMap = {}; 
 
         data.pairs.forEach(pair => {
-            if (pair.chainId !== 'base') return; // Hanya jaringan Base
+            if (pair.chainId !== 'base') return; 
 
             const addr = pair.baseToken.address.toLowerCase();
-            const quoteSym = pair.quoteToken.symbol; // Pasangannya apa?
+            const quoteAddr = pair.quoteToken.address.toLowerCase(); // Kita cek alamat pasangan
             const price = parseFloat(pair.priceUsd);
             const change = pair.priceChange ? pair.priceChange.h24 : 0;
             const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
             // --- A. LOGIKA KHUSUS ETH (WETH) ---
-            if (addr === WETH.toLowerCase()) {
-                // Hanya terima jika pasangan adalah Stablecoin (USDC/USDbC/USD/DAI)
-                // Agar harga tidak "teracuni" oleh pool micin yang harganya ngaco
-                if (quoteSym === 'USDC' || quoteSym === 'USDbC' || quoteSym === 'USD' || quoteSym === 'DAI') {
+            if (addr === WETH_ADDR) {
+                // HANYA TERIMA JIKA PASANGANNYA ADALAH USDC ATAU USDbC
+                // Ini obat anti-glitch harga $6500 dan anti-nol
+                if (quoteAddr === USDC_ADDR || quoteAddr === USDBC_ADDR) {
                     
-                    // Cari pool Stablecoin TERBESAR
+                    // Ambil yang likuiditasnya paling besar
                     if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
                         liquidityMap[addr] = liq;
                         cachedEthPrice = price;
                         cachedEthChange = change;
+                        console.log(`✅ Ketemu ETH Valid: Pair dengan ${pair.quoteToken.symbol}, Liq: $${Math.floor(liq)}`);
                     }
                 }
-                // PENTING: JANGAN 'RETURN' DI SINI! 
-                // Biarkan loop lanjut mencari pair lain sampai ketemu yang USDC.
-                return; 
-            }
-
-            // --- B. LOGIKA TOKEN LAIN (USDC/USDT/IMPORT) ---
-            // Cari pool dengan Likuiditas Terbanyak (tanpa peduli pasangannya apa)
-            if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
-                liquidityMap[addr] = liq;
-                
-                cachedTokenPrices[addr] = {
-                    usd: price,
-                    usd_24h_change: change
-                };
+                // JANGAN PAKAI RETURN DISINI. BIARKAN LOOPING JALAN TERUS.
+            } 
+            
+            // --- B. LOGIKA TOKEN LAIN ---
+            else {
+                if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
+                    liquidityMap[addr] = liq;
+                    cachedTokenPrices[addr] = {
+                        usd: price,
+                        usd_24h_change: change
+                    };
+                }
             }
         });
 
         lastPriceFetchTime = Date.now();
-        
-        // Simpan Cache agar reload berikutnya instan
-        const dataToSave = {
-            ethPrice: cachedEthPrice,
-            ethChange: cachedEthChange,
-            tokenPrices: cachedTokenPrices
-        };
-        localStorage.setItem('walletMarketData', JSON.stringify(dataToSave));
-
-        console.log(`✅ Harga Stabil: ETH @ $${cachedEthPrice}`);
+        console.log(`✅ Harga Final: ETH @ ${fmtUSD(cachedEthPrice)}`);
 
     } catch (e) {
         console.warn("Gagal update harga:", e);
     } finally {
-        // 4. PAKSA REFRESH TAMPILAN
+        // 4. UPDATE TAMPILAN
         if(typeof refreshAllTokenBalances === 'function') {
             refreshAllTokenBalances();
         }
