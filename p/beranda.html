@@ -2808,16 +2808,16 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (VERSI ANTI-GLITCH & STABIL) ---
+// --- FUNGSI AMBIL HARGA (VERSI ANTI-GLITCH + FIXED LOGIC) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Smart Filter)...");
+    console.log("🔄 Update Harga (Smart Filter V2)...");
 
-    // 1. Definisi Alamat Penting
+    // 1. Definisi Alamat Penting (WETH Base untuk harga ETH)
     const WETH = "0x4200000000000000000000000000000000000006"; 
     const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
     const USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; 
 
-    // 2. Gabungkan Target (WETH + USDC + USDT + Import)
+    // 2. Gabungkan Target
     let targets = [WETH, USDC, USDT];
     if (myTokens && myTokens.length > 0) {
         const importAddrs = myTokens.map(t => t.address);
@@ -2839,28 +2839,31 @@ async function updateMarketPrices() {
             if (pair.chainId !== 'base') return; // Hanya jaringan Base
 
             const addr = pair.baseToken.address.toLowerCase();
-            const quoteSym = pair.quoteToken.symbol; // Pasangannya apa? (USDC, WETH, dll)
+            const quoteSym = pair.quoteToken.symbol; // Pasangannya apa?
             const price = parseFloat(pair.priceUsd);
             const change = pair.priceChange ? pair.priceChange.h24 : 0;
             const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-            // --- Aturan Khusus ETH (WETH) ---
-            // ETH hanya boleh update jika pasangannya adalah USD/USDC/DAI
-            // Ini MENCEGAH harga double/ngaco dari pool micin
+            // --- A. LOGIKA KHUSUS ETH (WETH) ---
             if (addr === WETH.toLowerCase()) {
-                if (quoteSym === 'USDC' || quoteSym === 'USDbC' || quoteSym === 'USD') {
-                    // Prioritaskan pool dengan likuiditas terbesar di antara stable pair
+                // Hanya terima jika pasangan adalah Stablecoin (USDC/USDbC/USD/DAI)
+                // Agar harga tidak "teracuni" oleh pool micin yang harganya ngaco
+                if (quoteSym === 'USDC' || quoteSym === 'USDbC' || quoteSym === 'USD' || quoteSym === 'DAI') {
+                    
+                    // Cari pool Stablecoin TERBESAR
                     if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
                         liquidityMap[addr] = liq;
                         cachedEthPrice = price;
                         cachedEthChange = change;
                     }
                 }
-                return; // Selesai untuk ETH, lanjut token lain
+                // PENTING: JANGAN 'RETURN' DI SINI! 
+                // Biarkan loop lanjut mencari pair lain sampai ketemu yang USDC.
+                return; 
             }
 
-            // --- Aturan Token Lain (USDC, USDT, Import) ---
-            // Cari pool dengan Duit (Likuiditas) Terbanyak
+            // --- B. LOGIKA TOKEN LAIN (USDC/USDT/IMPORT) ---
+            // Cari pool dengan Likuiditas Terbanyak (tanpa peduli pasangannya apa)
             if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
                 liquidityMap[addr] = liq;
                 
@@ -2872,13 +2875,24 @@ async function updateMarketPrices() {
         });
 
         lastPriceFetchTime = Date.now();
+        
+        // Simpan Cache agar reload berikutnya instan
+        const dataToSave = {
+            ethPrice: cachedEthPrice,
+            ethChange: cachedEthChange,
+            tokenPrices: cachedTokenPrices
+        };
+        localStorage.setItem('walletMarketData', JSON.stringify(dataToSave));
+
         console.log(`✅ Harga Stabil: ETH @ $${cachedEthPrice}`);
 
     } catch (e) {
         console.warn("Gagal update harga:", e);
     } finally {
-        // 4. PAKSA REFRESH TAMPILAN SETELAH DAPAT DATA
-        refreshAllTokenBalances();
+        // 4. PAKSA REFRESH TAMPILAN
+        if(typeof refreshAllTokenBalances === 'function') {
+            refreshAllTokenBalances();
+        }
     }
 }
         
