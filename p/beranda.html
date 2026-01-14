@@ -1992,6 +1992,8 @@ function clearSearch() {
     const container = document.getElementById("feedContent");
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
+    window.feedData = [];
+            
     try {
         // Parallel Fetch ID dari semua golongan
         const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
@@ -2045,7 +2047,18 @@ function clearSearch() {
             imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=500&q=75&output=webp`;
         } catch(e) {
             console.warn("Gagal ambil metadata/gambar untuk ID:", id);
-        }
+        ,}
+
+if(window.feedData) {
+            // Kita simpan info penting ke wadah global untuk dianalisis oleh Sidebar
+            window.feedData.push({
+                id: id,
+                nama: info.nama,
+                golongan: info.golongan, // Penting untuk grafik batang
+                gaya: info.gaya,         // Penting untuk 'Gaya Terpopuler'
+                owner: owner
+            });
+}
 
         // 1. Cek apakah wallet adalah Official
 const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
