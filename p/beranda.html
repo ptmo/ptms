@@ -1604,26 +1604,17 @@ window.onload = async () => {
     // Tugas: Menghitung ulang total aset berdasarkan harga yang ada di memori
     setInterval(() => {
         if (typeof modalUserAddr !== 'undefined' && modalUserAddr) {
-            if(typeof refreshAllTokenBalances === 'function') {
-                refreshAllTokenBalances();
-            }
+            refreshAllTokenBalances(); // Hitung ulang saldo
         }
     }, 5000); 
 
-    // B. TIMER API HARGA (Sedang - Tiap 20 Detik)
-    // Tugas: Mengambil data baru dari DexScreener
-    // Kita pisah biar dia jalan mandiri dan tidak tergantung refresh saldo
+    // Timer 2: Ambil Data Harga (Sedang - 20 detik)
     setInterval(() => {
-        if(typeof updateMarketPrices === 'function') {
-            updateMarketPrices();
-        }
+        updateMarketPrices(); // Tembak DexScreener
     }, 20000);
 
-    // C. TEMBAK HARGA PERTAMA KALI (Jeda 3 detik setelah load)
-    // Supaya user tidak menunggu 20 detik pertama untuk melihat harga
-    setTimeout(() => {
-        if(typeof updateMarketPrices === 'function') updateMarketPrices();
-    }, 3000);
+    // Tembak Harga Pertama Kali (Jeda 2 detik setelah buka web)
+    setTimeout(updateMarketPrices, 2000); 
 };
         
 async function connectWallet() {
@@ -2817,78 +2808,76 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (UPDATE SEMUA: STATIS + IMPORT) ---
+// --- FUNGSI AMBIL HARGA (VERSI ANTI-GLITCH & STABIL) ---
 async function updateMarketPrices() {
-    console.log("🔄 Update Harga (Semua Aset)...");
+    console.log("🔄 Update Harga (Smart Filter)...");
 
-    // 1. Pastikan Data Token Import Terbaca
-    if (!myTokens || myTokens.length === 0) {
-        const stored = localStorage.getItem("myTokens");
-        if (stored) try { myTokens = JSON.parse(stored); } catch(e){}
-    }
+    // 1. Definisi Alamat Penting
+    const WETH = "0x4200000000000000000000000000000000000006"; 
+    const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; 
+    const USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; 
 
-    // 2. Siapkan Daftar Alamat yang Mau Dicek
-    const WETH = "0x4200000000000000000000000000000000000006"; // Native ETH Wrapper
-    const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // USDC Base
-    const USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; // USDT Base
-
-    // Gabungkan Token Wajib + Token Import
+    // 2. Gabungkan Target (WETH + USDC + USDT + Import)
     let targets = [WETH, USDC, USDT];
-    
-    if (myTokens.length > 0) {
+    if (myTokens && myTokens.length > 0) {
         const importAddrs = myTokens.map(t => t.address);
         targets = [...targets, ...importAddrs];
     }
-
-    // Buat satu string panjang (dipisah koma), Hapus duplikat
     const uniqueTargets = [...new Set(targets)].join(',');
 
     try {
-        // 3. Tembak API DexScreener (Satu kali request untuk SEMUA)
-        // API ini support hingga 30 alamat sekaligus
         const url = `https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`;
         const res = await fetch(url);
         const data = await res.json();
 
         if (!data.pairs) return;
 
-        // 4. Proses Data dengan Filter Likuiditas
-        let liquidityMap = {}; // Untuk mencatat likuiditas tertinggi
+        // 3. LOGIKA FILTER PINTAR
+        let liquidityMap = {}; 
 
         data.pairs.forEach(pair => {
-            // FILTER WAJIB: Pastikan datanya dari jaringan BASE
-            if (pair.chainId !== 'base') return;
+            if (pair.chainId !== 'base') return; // Hanya jaringan Base
 
             const addr = pair.baseToken.address.toLowerCase();
+            const quoteSym = pair.quoteToken.symbol; // Pasangannya apa? (USDC, WETH, dll)
             const price = parseFloat(pair.priceUsd);
             const change = pair.priceChange ? pair.priceChange.h24 : 0;
             const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-            // Algoritma Cerdas: Pilih harga dari Pool Terbesar (Paling Akurat)
+            // --- Aturan Khusus ETH (WETH) ---
+            // ETH hanya boleh update jika pasangannya adalah USD/USDC/DAI
+            // Ini MENCEGAH harga double/ngaco dari pool micin
+            if (addr === WETH.toLowerCase()) {
+                if (quoteSym === 'USDC' || quoteSym === 'USDbC' || quoteSym === 'USD') {
+                    // Prioritaskan pool dengan likuiditas terbesar di antara stable pair
+                    if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
+                        liquidityMap[addr] = liq;
+                        cachedEthPrice = price;
+                        cachedEthChange = change;
+                    }
+                }
+                return; // Selesai untuk ETH, lanjut token lain
+            }
+
+            // --- Aturan Token Lain (USDC, USDT, Import) ---
+            // Cari pool dengan Duit (Likuiditas) Terbanyak
             if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
-                liquidityMap[addr] = liq; // Update rekor likuiditas
+                liquidityMap[addr] = liq;
                 
-                // Simpan Harga ke Cache
                 cachedTokenPrices[addr] = {
                     usd: price,
                     usd_24h_change: change
                 };
-
-                // Khusus ETH (WETH), simpan ke variabel khusus juga
-                if (addr === WETH.toLowerCase()) {
-                    cachedEthPrice = price;
-                    cachedEthChange = change;
-                }
             }
         });
 
         lastPriceFetchTime = Date.now();
-        console.log(`✅ Sukses update harga untuk ${Object.keys(liquidityMap).length} token.`);
+        console.log(`✅ Harga Stabil: ETH @ $${cachedEthPrice}`);
 
     } catch (e) {
         console.warn("Gagal update harga:", e);
     } finally {
-        // 5. Refresh Tampilan (Penting! Agar angka di layar berubah)
+        // 4. PAKSA REFRESH TAMPILAN SETELAH DAPAT DATA
         refreshAllTokenBalances();
     }
 }
