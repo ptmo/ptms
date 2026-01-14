@@ -2827,69 +2827,54 @@ async function refreshAllTokenBalances() {
     }
  }
 
-// --- FUNGSI AMBIL HARGA (VERSI ANTI-CORS & PROXY) ---
+// --- FUNGSI AMBIL HARGA & PERSENTASE (UPDATE) ---
 async function updateMarketPrices() {
-    console.log("🔄 Mengambil update harga (Lewat Jalur Proxy)...");
-
-    // 1. Definisikan Proxy & Token Wajib (USDC/USDT)
-    const PROXY_URL = "https://corsproxy.io/?";
+    console.log("🔄 Mengambil update harga & persentase pasar...");
+    
+    // Daftar Token Wajib (USDC & USDT Base Mainnet) agar persentase mereka juga muncul
     const staticBaseTokens = [
         "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913", // USDC
         "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"  // USDT
     ];
 
     try {
-        // ==========================================
-        // A. AMBIL HARGA ETH (NATIVE)
-        // ==========================================
-        // URL Asli CoinGecko
-        const targetEth = "https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true";
-        
-        // Bungkus dengan Proxy agar tidak kena blokir CORS
-        const finalUrlEth = PROXY_URL + encodeURIComponent(targetEth);
-
-        const resEth = await fetch(finalUrlEth);
+        // 1. Ambil Harga ETH (Native) + Change 24h
+        // Tambahan parameter: &include_24hr_change=true
+        const resEth = await fetch("https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_24hr_change=true");
         const dataEth = await resEth.json();
         
         if(dataEth.ethereum) {
             cachedEthPrice = dataEth.ethereum.usd;
-            // Ambil persentase (jika null, set 0)
+            // Ambil data perubahan 24 jam, kalau null jadikan 0
             cachedEthChange = dataEth.ethereum.usd_24h_change || 0; 
         }
 
-        // ==========================================
-        // B. AMBIL HARGA TOKEN (IMPORT + STATIC)
-        // ==========================================
-        // Gabungkan token user dengan token wajib (USDC/USDT)
+        // 2. Ambil Harga Token Import + USDC + USDT
+        // Gabungkan token import user dengan token wajib (USDC/USDT)
         const userTokenAddrs = myTokens.map(t => t.address);
-        // Hapus duplikat dan gabung jadi string
         const allTokenAddrs = [...new Set([...staticBaseTokens, ...userTokenAddrs])].join(',');
 
         if(allTokenAddrs.length > 0) {
-            // URL Asli CoinGecko (Token Price)
-            const targetToken = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${allTokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
+            // Tambahan parameter: &include_24hr_change=true
+            const url = `https://api.coingecko.com/api/v3/simple/token_price/base?contract_addresses=${allTokenAddrs}&vs_currencies=usd&include_24hr_change=true`;
             
-            // Bungkus dengan Proxy
-            const finalUrlToken = PROXY_URL + encodeURIComponent(targetToken);
-            
-            const resToken = await fetch(finalUrlToken);
+            const resToken = await fetch(url);
             const dataToken = await resToken.json();
             
             // Gabungkan ke cache lama (update yg ada saja)
-            // Kunci alamat dari CoinGecko selalu huruf kecil (lowercase)
+            // Kunci alamat dari Coingecko selalu huruf kecil (lowercase)
             cachedTokenPrices = { ...cachedTokenPrices, ...dataToken };
         }
         
         lastPriceFetchTime = Date.now(); // Reset timer
         
-        // Panggil refresh agar UI berubah (Angka jadi Hijau/Merah)
+        // Panggil refresh tampilan agar angka berubah hijau/merah
         refreshAllTokenBalances();
-        console.log("✅ Harga sukses diupdate lewat Proxy!");
 
     } catch(e) {
-        console.warn("⚠️ Gagal update harga (Mungkin Proxy Sedang Sibuk). Tetap pakai harga terakhir.", e);
+        console.warn("Gagal update harga (Mungkin Limit API), pakai harga lama.");
     }
-}
+    }}}
         
         // --- FITUR AUTO-IMPORT TOKEN SULTAN ---
 async function autoScanTokens() {
