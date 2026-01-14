@@ -2817,64 +2817,79 @@ async function refreshAllTokenBalances() {
     }
 }
 
-// --- FUNGSI AMBIL HARGA (VERSI DEXSCREENER - ANTI CORS TOTAL) ---
+// --- FUNGSI AMBIL HARGA (UPDATE SEMUA: STATIS + IMPORT) ---
 async function updateMarketPrices() {
-    console.log("🔄 Mengambil update harga via DexScreener...");
+    console.log("🔄 Update Harga (Semua Aset)...");
 
-    // 1. Alamat Wajib (WETH untuk harga ETH, USDC, USDT)
-    const WETH_BASE = "0x4200000000000000000000000000000000000006"; // Di Base, harga ETH = harga WETH
-    const USDC_BASE = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913";
-    const USDT_BASE = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2";
-
-    // 2. Gabungkan Semua Alamat Token
-    let allAddresses = [WETH_BASE, USDC_BASE, USDT_BASE];
-    
-    // Masukkan token import user
-    if(myTokens && myTokens.length > 0) {
-        const userAddrs = myTokens.map(t => t.address);
-        allAddresses = [...allAddresses, ...userAddrs];
+    // 1. Pastikan Data Token Import Terbaca
+    if (!myTokens || myTokens.length === 0) {
+        const stored = localStorage.getItem("myTokens");
+        if (stored) try { myTokens = JSON.parse(stored); } catch(e){}
     }
 
-    // Gabung jadi string dipisah koma (Maksimal 30 alamat per request di DexScreener)
-    // Kita pakai Set biar tidak ada duplikat
-    const uniqueAddrs = [...new Set(allAddresses)].join(',');
+    // 2. Siapkan Daftar Alamat yang Mau Dicek
+    const WETH = "0x4200000000000000000000000000000000000006"; // Native ETH Wrapper
+    const USDC = "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913"; // USDC Base
+    const USDT = "0xfde4C96c8593536E31F229EA8f37b2ADa2699bb2"; // USDT Base
+
+    // Gabungkan Token Wajib + Token Import
+    let targets = [WETH, USDC, USDT];
+    
+    if (myTokens.length > 0) {
+        const importAddrs = myTokens.map(t => t.address);
+        targets = [...targets, ...importAddrs];
+    }
+
+    // Buat satu string panjang (dipisah koma), Hapus duplikat
+    const uniqueTargets = [...new Set(targets)].join(',');
 
     try {
-        // 3. API Call Langsung (Tanpa Proxy!)
-        // DexScreener sangat bersahabat dengan frontend
-        const url = `https://api.dexscreener.com/latest/dex/tokens/${uniqueAddrs}`;
+        // 3. Tembak API DexScreener (Satu kali request untuk SEMUA)
+        // API ini support hingga 30 alamat sekaligus
+        const url = `https://api.dexscreener.com/latest/dex/tokens/${uniqueTargets}`;
         const res = await fetch(url);
         const data = await res.json();
 
         if (!data.pairs) return;
 
-        // 4. Proses Data
-        // DexScreener mengembalikan banyak 'pairs', kita ambil data dari situ
+        // 4. Proses Data dengan Filter Likuiditas
+        let liquidityMap = {}; // Untuk mencatat likuiditas tertinggi
+
         data.pairs.forEach(pair => {
-            const tokenAddr = pair.baseToken.address.toLowerCase();
+            // FILTER WAJIB: Pastikan datanya dari jaringan BASE
+            if (pair.chainId !== 'base') return;
+
+            const addr = pair.baseToken.address.toLowerCase();
             const price = parseFloat(pair.priceUsd);
-            const change = pair.priceChange.h24;
+            const change = pair.priceChange ? pair.priceChange.h24 : 0;
+            const liq = pair.liquidity ? pair.liquidity.usd : 0;
 
-            // A. Cek Khusus: Apakah ini WETH? (Kita pakai untuk harga Native ETH)
-            if (tokenAddr === WETH_BASE.toLowerCase()) {
-                cachedEthPrice = price;
-                cachedEthChange = change;
+            // Algoritma Cerdas: Pilih harga dari Pool Terbesar (Paling Akurat)
+            if (!liquidityMap[addr] || liq > liquidityMap[addr]) {
+                liquidityMap[addr] = liq; // Update rekor likuiditas
+                
+                // Simpan Harga ke Cache
+                cachedTokenPrices[addr] = {
+                    usd: price,
+                    usd_24h_change: change
+                };
+
+                // Khusus ETH (WETH), simpan ke variabel khusus juga
+                if (addr === WETH.toLowerCase()) {
+                    cachedEthPrice = price;
+                    cachedEthChange = change;
+                }
             }
-
-            // B. Masukkan ke Cache Token (USDC, USDT, Import)
-            // Format disamakan dengan struktur lama biar script refresh tidak error
-            cachedTokenPrices[tokenAddr] = {
-                usd: price,
-                usd_24h_change: change
-            };
         });
 
         lastPriceFetchTime = Date.now();
-        refreshAllTokenBalances();
-        console.log("✅ Harga Update Mulus via DexScreener!");
+        console.log(`✅ Sukses update harga untuk ${Object.keys(liquidityMap).length} token.`);
 
     } catch (e) {
-        console.warn("Gagal update harga DexScreener:", e);
+        console.warn("Gagal update harga:", e);
+    } finally {
+        // 5. Refresh Tampilan (Penting! Agar angka di layar berubah)
+        refreshAllTokenBalances();
     }
 }
         
