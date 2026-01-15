@@ -960,6 +960,44 @@ label {
 .token-scroll-area::-webkit-scrollbar-track {
     background: transparent;
 }
+
+        /* --- CSS RIWAYAT TRANSAKSI --- */
+.history-container {
+    max-height: 250px;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+.history-item {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 10px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+    transition: 0.2s;
+}
+
+.history-item:last-child { border-bottom: none; }
+.history-item:hover { background: #f8f9fa; border-radius:6px; padding: 10px 5px; }
+
+.history-icon {
+    width: 32px; height: 32px;
+    border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 14px;
+    flex-shrink: 0;
+}
+
+/* Warna-Warni Ikon */
+.icon-mint { background: rgba(155, 89, 182, 0.15); color: #9b59b6; } /* Ungu: Mint */
+.icon-in { background: rgba(46, 204, 113, 0.15); color: #2ecc71; }   /* Hijau: Masuk */
+.icon-out { background: rgba(231, 76, 60, 0.15); color: #e74c3c; }   /* Merah: Keluar */
+.icon-tip { background: rgba(241, 196, 15, 0.15); color: #f39c12; }  /* Kuning: Sawer */
+
+.history-content { flex: 1; }
+.history-title { font-size: 12px; font-weight: bold; color: #2c3e50; }
+.history-sub { font-size: 10px; color: #7f8c8d; margin-top: 2px; }
+.history-val { font-size: 11px; font-weight: bold; color: #34495e; text-align: right; }
     </style>
 </head>
 <body>
@@ -1091,6 +1129,26 @@ label {
             </div>
         </div>
     </div>
+    </div>
+
+    <div class="menu-card" style="margin-top: 15px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="sidebar-label" style="margin: 0;">Jejak Aktivitas</div>
+        <div style="font-size: 10px; color: #aaa; cursor: pointer;" onclick="loadUserHistory(modalUserAddr)">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+    </div>
+
+    <div id="txHistoryList" class="history-container">
+        <div style="text-align:center; font-size:11px; color:#aaa; padding:10px;">
+            <i class="fas fa-circle-notch fa-spin"></i> Memuat jejak...
+        </div>
+    </div>
+    
+    <a href="https://basescan.org/" target="_blank" id="linkBasescan" 
+       style="display:block; text-align:center; font-size:10px; color:#3498db; margin-top:10px; text-decoration:none;">
+       Lihat Selengkapnya di BaseScan <i class="fas fa-external-link-alt"></i>
+    </a>
     </div>
 </aside>
     
@@ -3284,6 +3342,122 @@ async function executeTransfer() {
     } catch(err) {
         console.error(err);
         showToast("Gagal: " + (err.reason || err.message), "error");
+    }
+}
+
+        // --- FITUR RIWAYAT TRANSAKSI (JEJAK DIGITAL) ---
+async function loadUserHistory(userAddr) {
+    if (!userAddr) return;
+    
+    const container = document.getElementById("txHistoryList");
+    const linkScan = document.getElementById("linkBasescan");
+    if(linkScan) linkScan.href = `https://basescan.org/address/${userAddr}`;
+
+    // container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:10px;"><i class="fas fa-circle-notch fa-spin"></i> Sinkronisasi Blockchain...</div>`;
+
+    try {
+        const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL); // Pakai RPC Stabil
+        const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        
+        // Kita ambil 2000 blok terakhir agar loading tidak berat (RPC Publik ada limit)
+        // Kalau user aktif banget, bisa ditambah.
+        const currentBlock = await provider.getBlockNumber();
+        const fromBlock = currentBlock - 50000; // ~1-2 Hari terakhir (Base block time cepat)
+
+        // 1. FILTER TRANSFER NFT (Mint / Kirim / Terima)
+        const filterTo = contract.filters.Transfer(null, userAddr);
+        const filterFrom = contract.filters.Transfer(userAddr, null);
+        
+        // 2. FILTER SAWERAN (TipSent)
+        const filterTipTo = contract.filters.TipSent(null, userAddr);
+        const filterTipFrom = contract.filters.TipSent(userAddr, null);
+
+        // Jalankan Query Paralel
+        const [logsTo, logsFrom, tipsTo, tipsFrom] = await Promise.all([
+            contract.queryFilter(filterTo, fromBlock, "latest"),
+            contract.queryFilter(filterFrom, fromBlock, "latest"),
+            contract.queryFilter(filterTipTo, fromBlock, "latest"),
+            contract.queryFilter(filterTipFrom, fromBlock, "latest")
+        ]);
+
+        // Gabungkan Semua Event
+        let allEvents = [
+            ...logsTo.map(l => ({ ...l, type: 'nft_in' })),
+            ...logsFrom.map(l => ({ ...l, type: 'nft_out' })),
+            ...tipsTo.map(l => ({ ...l, type: 'tip_in' })),
+            ...tipsFrom.map(l => ({ ...l, type: 'tip_out' }))
+        ];
+
+        // Urutkan dari Block Terbesar (Terbaru)
+        allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
+
+        // Ambil 7 Transaksi Terakhir saja (biar sidebar rapi)
+        const recentEvents = allEvents.slice(0, 7);
+
+        if (recentEvents.length === 0) {
+            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas terbaru.</div>`;
+            return;
+        }
+
+        container.innerHTML = ""; // Bersihkan loading
+
+        // Render HTML
+        for (let ev of recentEvents) {
+            let icon, title, sub, valStr;
+            
+            // LOGIKA DETEKSI TIPE TRANSAKSI
+            if (ev.type === 'nft_in') {
+                // Cek apakah ini MINTING? (Dari 0x000...)
+                if (ev.args.from === "0x0000000000000000000000000000000000000000") {
+                    icon = `<div class="history-icon icon-mint"><i class="fas fa-paint-brush"></i></div>`;
+                    title = "Minting Wayang";
+                    sub = `ID Koleksi #${ev.args.tokenId}`;
+                    valStr = `<span style="color:#9b59b6;">+1 NFT</span>`;
+                } else {
+                    icon = `<div class="history-icon icon-in"><i class="fas fa-arrow-down"></i></div>`;
+                    title = "Terima Wayang";
+                    sub = `Dari: ${ev.args.from.substring(0,4)}...${ev.args.from.slice(-4)}`;
+                    valStr = `<span style="color:#2ecc71;">+1 NFT</span>`;
+                }
+            } 
+            else if (ev.type === 'nft_out') {
+                icon = `<div class="history-icon icon-out"><i class="fas fa-paper-plane"></i></div>`;
+                title = "Kirim Wayang";
+                sub = `Ke: ${ev.args.to.substring(0,4)}...${ev.args.to.slice(-4)}`;
+                valStr = `<span style="color:#e74c3c;">-1 NFT</span>`;
+            }
+            else if (ev.type.includes('tip')) {
+                const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
+                if (ev.type === 'tip_in') {
+                    icon = `<div class="history-icon icon-tip"><i class="fas fa-gift"></i></div>`;
+                    title = "Dapat Saweran";
+                    sub = `Dari Fans`;
+                    valStr = `<span style="color:#f39c12;">+${amount} ETH</span>`;
+                } else {
+                    icon = `<div class="history-icon icon-out"><i class="fas fa-donate"></i></div>`;
+                    title = "Kirim Saweran";
+                    sub = `Dukungan Karya`;
+                    valStr = `<span style="color:#e74c3c;">-${amount} ETH</span>`;
+                }
+            }
+
+            // HTML Item
+            const html = `
+            <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" style="cursor:pointer;">
+                ${icon}
+                <div class="history-content">
+                    <div class="history-title">${title}</div>
+                    <div class="history-sub">${sub}</div>
+                </div>
+                <div class="history-val">${valStr}</div>
+            </div>`;
+            
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+    } catch (e) {
+        console.warn("Gagal load history:", e);
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data RPC.</div>`;
     }
 }
         
