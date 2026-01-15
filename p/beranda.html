@@ -3345,40 +3345,37 @@ async function executeTransfer() {
     }
 }
 
-        // --- FITUR RIWAYAT TRANSAKSI (JEJAK DIGITAL) ---
+    // --- FITUR RIWAYAT TRANSAKSI (FIXED: LINK & GOLONGAN) ---
 async function loadUserHistory(userAddr) {
     if (!userAddr) return;
-
-    const linkScan = document.getElementById("linkBasescan");
-    if(linkScan) {
-        // Gabungkan URL BaseScan dengan Alamat User
-        linkScan.href = `https://basescan.org/address/${userAddr}`;
-    }
     
+    // 1. SETUP UI (Deklarasi Variabel Cukup Sekali)
     const container = document.getElementById("txHistoryList");
     const linkScan = document.getElementById("linkBasescan");
-    if(linkScan) linkScan.href = `https://basescan.org/address/${userAddr}`;
+    
+    // Update Link ke BaseScan
+    if(linkScan) {
+        linkScan.href = `https://basescan.org/address/${userAddr}`;
+    }
 
+    // Tampilkan Loading
     // container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:10px;"><i class="fas fa-circle-notch fa-spin"></i> Sinkronisasi Blockchain...</div>`;
 
     try {
-        const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL); // Pakai RPC Stabil
+        const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
         
-        // Kita ambil 2000 blok terakhir agar loading tidak berat (RPC Publik ada limit)
-        // Kalau user aktif banget, bisa ditambah.
+        // Ambil blok history (sesuaikan range blok jika loading lama)
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 50000; // ~1-2 Hari terakhir (Base block time cepat)
+        const fromBlock = currentBlock - 50000; 
 
-        // 1. FILTER TRANSFER NFT (Mint / Kirim / Terima)
+        // 2. SIAPKAN FILTER
         const filterTo = contract.filters.Transfer(null, userAddr);
         const filterFrom = contract.filters.Transfer(userAddr, null);
-        
-        // 2. FILTER SAWERAN (TipSent)
         const filterTipTo = contract.filters.TipSent(null, userAddr);
         const filterTipFrom = contract.filters.TipSent(userAddr, null);
 
-        // Jalankan Query Paralel
+        // 3. AMBIL DATA DARI BLOCKCHAIN
         const [logsTo, logsFrom, tipsTo, tipsFrom] = await Promise.all([
             contract.queryFilter(filterTo, fromBlock, "latest"),
             contract.queryFilter(filterFrom, fromBlock, "latest"),
@@ -3386,7 +3383,7 @@ async function loadUserHistory(userAddr) {
             contract.queryFilter(filterTipFrom, fromBlock, "latest")
         ]);
 
-        // Gabungkan Semua Event
+        // Gabungkan
         let allEvents = [
             ...logsTo.map(l => ({ ...l, type: 'nft_in' })),
             ...logsFrom.map(l => ({ ...l, type: 'nft_out' })),
@@ -3394,69 +3391,59 @@ async function loadUserHistory(userAddr) {
             ...tipsFrom.map(l => ({ ...l, type: 'tip_out' }))
         ];
 
-        // Urutkan dari Block Terbesar (Terbaru)
+        // Urutkan (Terbaru di atas)
         allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
-
-        // Ambil 7 Transaksi Terakhir saja (biar sidebar rapi)
-        const recentEvents = allEvents.slice(0, 7);
+        const recentEvents = allEvents.slice(0, 7); // Ambil 7 terakhir
 
         if (recentEvents.length === 0) {
             container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas terbaru.</div>`;
             return;
         }
 
-        container.innerHTML = ""; // Bersihkan loading
+        container.innerHTML = ""; 
 
-        // Render HTML
+        // 4. RENDER HTML (LOOPING)
         for (let ev of recentEvents) {
             let icon, title, sub, valStr;
-            let namaGolongan = ""; // Siapkan variabel kosong
+            let namaGolongan = ""; 
 
-            // --- [BARU] AMBIL DATA GOLONGAN DARI KONTRAK ---
-            // Kita cek dulu apakah ini transaksi NFT? Kalau iya, kita cari tau golongannya
+            // --- [LOGIKA BARU] CARI NAMA GOLONGAN ---
             if (ev.type === 'nft_in' || ev.type === 'nft_out') {
                 try {
-                    // Panggil Smart Contract: "Eh, Token ID sekian ini golongannya apa?"
+                    // Ambil data wayang dari kontrak berdasarkan Token ID
                     const info = await contract.getInfoWayang(ev.args.tokenId);
                     namaGolongan = info.golongan; // Hasil: "Satria", "Dewa", dll
                 } catch (e) {
-                    namaGolongan = ""; // Kalau gagal load, kosongin aja
+                    namaGolongan = ""; 
                 }
             }
-            // ------------------------------------------------
+            // ----------------------------------------
 
-            // LOGIKA DETEKSI TIPE TRANSAKSI
+            // LOGIKA TAMPILAN
             if (ev.type === 'nft_in') {
-                // Cek apakah ini MINTING? (Dari 0x000...)
                 if (ev.args.from === "0x0000000000000000000000000000000000000000") {
+                    // MINTING
                     icon = `<div class="history-icon icon-mint"><i class="fas fa-paint-brush"></i></div>`;
-                    
-                    // Tampilkan Nama Golongan disini
-                    title = `Mint Wayang ${namaGolongan}`;
-                    
+                    title = `Mint Wayang ${namaGolongan}`; // Nama Golongan Masuk Disini
                     sub = `ID Koleksi #${ev.args.tokenId}`;
                     valStr = `<span style="color:#9b59b6;">+1 NFT</span>`;
                 } else {
+                    // TERIMA
                     icon = `<div class="history-icon icon-in"><i class="fas fa-arrow-down"></i></div>`;
-                    
-                    // Tampilkan Nama Golongan disini juga
                     title = `Terima Wayang ${namaGolongan}`;
-                    
                     sub = `Dari: ${ev.args.from.substring(0,4)}...${ev.args.from.slice(-4)}`;
                     valStr = `<span style="color:#2ecc71;">+1 NFT</span>`;
                 }
             } 
             else if (ev.type === 'nft_out') {
+                // KIRIM
                 icon = `<div class="history-icon icon-out"><i class="fas fa-paper-plane"></i></div>`;
-                
-                // Sekalian update yang Kirim biar lengkap
                 title = `Kirim Wayang ${namaGolongan}`;
-                
                 sub = `Ke: ${ev.args.to.substring(0,4)}...${ev.args.to.slice(-4)}`;
                 valStr = `<span style="color:#e74c3c;">-1 NFT</span>`;
             }
             else if (ev.type.includes('tip')) {
-                // ... (Kode bagian tip tetap sama seperti sebelumnya) ...
+                // SAWERAN
                 const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
                 if (ev.type === 'tip_in') {
                     icon = `<div class="history-icon icon-tip"><i class="fas fa-gift"></i></div>`;
@@ -3471,7 +3458,7 @@ async function loadUserHistory(userAddr) {
                 }
             }
 
-            // HTML Item (Tetap sama)
+            // TEMPEL KE HTML
             const html = `
             <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" style="cursor:pointer;">
                 ${icon}
@@ -3484,6 +3471,7 @@ async function loadUserHistory(userAddr) {
             
             container.insertAdjacentHTML('beforeend', html);
         }
+
     } catch (e) {
         console.warn("Gagal load history:", e);
         container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data RPC.</div>`;
