@@ -1626,8 +1626,14 @@ async function loadNextBatch() {
 window.addEventListener('scroll', handleInfiniteScroll);
 
 async function renderCards(ids, container, isSearchMode, requestId) {
-    const promises = ids.map(async (id) => {
+    // 1. Bersihkan ID ganda dari sumber data (Array Deduplication)
+    const uniqueIds = [...new Set(ids)];
+
+    const promises = uniqueIds.map(async (id) => {
         try {
+            // Cek cepat: Kalau elemen sudah ada di layar, skip fetch data biar ringan
+            // if (!isSearchMode && document.getElementById(`card-${id}`)) return null; 
+
             const [info, owner, likes, ratingRaw, uri] = await Promise.all([
                 contractReader.getInfoWayang(id),
                 contractReader.ownerOf(id),
@@ -1656,6 +1662,12 @@ async function renderCards(ids, container, isSearchMode, requestId) {
     const cleanResults = results.filter(item => item !== null);
 
     for (const w of cleanResults) {
+        // 2. CEK DUPLIKASI VISUAL (SATPAM)
+        // Jika elemen dengan ID "card-123" sudah ada, jangan render lagi!
+        if (document.getElementById(`card-${w.id}`)) {
+            continue; // Skip ke item berikutnya
+        }
+
         const isOfficial = (w.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());         
         const badge = isOfficial 
             ? `<div class="owner-badge" 
@@ -1683,7 +1695,6 @@ async function renderCards(ids, container, isSearchMode, requestId) {
 }
 
 function generateCardHTML(w, badge) {
-
     const editBtn = `
         <button onclick="bukaRevisi(event, '${w.id}')" 
              title="Masuk Halaman Revisi" 
@@ -1707,8 +1718,9 @@ function generateCardHTML(w, badge) {
         </button>`;
     }
 
+    // PERBAIKAN DISINI: Menambahkan id="card-${w.id}" pada div pembungkus
     return `
-        <div class="wayang-card-wrapper" style="position:relative;">
+        <div class="wayang-card-wrapper" id="card-${w.id}" style="position:relative;">
             
             ${editBtn} <a href="detail?id=${w.id}" class="wayang-card">
                 <div class="wayang-img">
