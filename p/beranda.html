@@ -1568,10 +1568,7 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         let cachedEthChange = 0;      // [BARU] Wajib ada untuk simpan % ETH
         let cachedTokenChanges = {};
         let cachedTokenPrices = {};   // (Tetap)
-        let lastPriceFetchTime = 0;   // (Tetap)
-        let userHistoryLogs = [];     // Wadah data mentah
-let historyCursor = 0;        // Penanda posisi scroll
-let isHistoryLoading = false;
+        let lastPriceFetchTime = 0;   // (Tetap) 
         const PRICE_CACHE_DURATION = 15000;
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
@@ -3348,11 +3345,11 @@ async function executeTransfer() {
     }
 }
 
-    // --- FITUR RIWAYAT TRANSAKSI (INFINITE SCROLL: 10 ITEM / BATCH) ---
-    async function loadUserHistory(userAddr) {
+    // --- FITUR RIWAYAT TRANSAKSI (FIXED: LINK & GOLONGAN) ---
+async function loadUserHistory(userAddr) {
     if (!userAddr) return;
     
-    // 1. SETUP UI (FIX: Deklarasi Variabel Cukup Sekali)
+    // 1. SETUP UI (Deklarasi Variabel Cukup Sekali)
     const container = document.getElementById("txHistoryList");
     const linkScan = document.getElementById("linkBasescan");
     
@@ -3361,38 +3358,33 @@ async function executeTransfer() {
         linkScan.href = `https://basescan.org/address/${userAddr}`;
     }
 
-    // Reset Data & Tampilkan Loading
-    userHistoryLogs = [];
-    historyCursor = 0;
-    isHistoryLoading = false;
-    container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:20px;"><i class="fas fa-circle-notch fa-spin"></i> Memindai Blockchain...</div>`;
-
-    // --- SENSOR INFINITE SCROLL ---
-    // Saat user scroll ke bawah, otomatis muat 10 data lagi
-    container.onscroll = function() {
-        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
-            renderNextHistoryBatch();
-        }
-    };
+    // Tampilkan Loading
+    // container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:10px;"><i class="fas fa-circle-notch fa-spin"></i> Sinkronisasi Blockchain...</div>`;
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
         
-        // OPTIMASI: Kurangi range blok jadi 20.000 agar tidak kena Rate Limit RPC
+        // Ambil blok history (sesuaikan range blok jika loading lama)
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 20000; 
+        const fromBlock = currentBlock - 50000; 
 
-        // 2. AMBIL DATA MENTAH DARI BLOCKCHAIN (PARALEL)
+        // 2. SIAPKAN FILTER
+        const filterTo = contract.filters.Transfer(null, userAddr);
+        const filterFrom = contract.filters.Transfer(userAddr, null);
+        const filterTipTo = contract.filters.TipSent(null, userAddr);
+        const filterTipFrom = contract.filters.TipSent(userAddr, null);
+
+        // 3. AMBIL DATA DARI BLOCKCHAIN
         const [logsTo, logsFrom, tipsTo, tipsFrom] = await Promise.all([
-            contract.queryFilter(contract.filters.Transfer(null, userAddr), fromBlock, "latest"),
-            contract.queryFilter(contract.filters.Transfer(userAddr, null), fromBlock, "latest"),
-            contract.queryFilter(contract.filters.TipSent(null, userAddr), fromBlock, "latest"),
-            contract.queryFilter(contract.filters.TipSent(userAddr, null), fromBlock, "latest")
+            contract.queryFilter(filterTo, fromBlock, "latest"),
+            contract.queryFilter(filterFrom, fromBlock, "latest"),
+            contract.queryFilter(filterTipTo, fromBlock, "latest"),
+            contract.queryFilter(filterTipFrom, fromBlock, "latest")
         ]);
 
         // Gabungkan
-        userHistoryLogs = [
+        let allEvents = [
             ...logsTo.map(l => ({ ...l, type: 'nft_in' })),
             ...logsFrom.map(l => ({ ...l, type: 'nft_out' })),
             ...tipsTo.map(l => ({ ...l, type: 'tip_in' })),
@@ -3400,127 +3392,91 @@ async function executeTransfer() {
         ];
 
         // Urutkan (Terbaru di atas)
-        userHistoryLogs.sort((a, b) => b.blockNumber - a.blockNumber);
+        allEvents.sort((a, b) => b.blockNumber - a.blockNumber);
+        const recentEvents = allEvents.slice(0, 7); // Ambil 7 terakhir
 
-        // Bersihkan Loading
-        container.innerHTML = ""; 
-
-        if (userHistoryLogs.length === 0) {
-            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas (24 jam terakhir).</div>`;
+        if (recentEvents.length === 0) {
+            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas terbaru.</div>`;
             return;
         }
 
-        // TAMPILKAN 10 DATA PERTAMA
-        await renderNextHistoryBatch();
+        container.innerHTML = ""; 
+
+        // 4. RENDER HTML (LOOPING)
+        for (let ev of recentEvents) {
+            let icon, title, sub, valStr;
+            let namaGolongan = ""; 
+
+            // --- [LOGIKA BARU] CARI NAMA GOLONGAN ---
+            if (ev.type === 'nft_in' || ev.type === 'nft_out') {
+                try {
+                    // Ambil data wayang dari kontrak berdasarkan Token ID
+                    const info = await contract.getInfoWayang(ev.args.tokenId);
+                    namaGolongan = info.golongan; // Hasil: "Satria", "Dewa", dll
+                } catch (e) {
+                    namaGolongan = ""; 
+                }
+            }
+            // ----------------------------------------
+
+            // LOGIKA TAMPILAN
+            if (ev.type === 'nft_in') {
+                if (ev.args.from === "0x0000000000000000000000000000000000000000") {
+                    // MINTING
+                    icon = `<div class="history-icon icon-mint"><i class="fas fa-paint-brush"></i></div>`;
+                    title = `Mint Wayang ${namaGolongan}`; // Nama Golongan Masuk Disini
+                    sub = `ID Koleksi #${ev.args.tokenId}`;
+                    valStr = `<span style="color:#9b59b6;">+1 NFT</span>`;
+                } else {
+                    // TERIMA
+                    icon = `<div class="history-icon icon-in"><i class="fas fa-arrow-down"></i></div>`;
+                    title = `Terima Wayang ${namaGolongan}`;
+                    sub = `Dari: ${ev.args.from.substring(0,4)}...${ev.args.from.slice(-4)}`;
+                    valStr = `<span style="color:#2ecc71;">+1 NFT</span>`;
+                }
+            } 
+            else if (ev.type === 'nft_out') {
+                // KIRIM
+                icon = `<div class="history-icon icon-out"><i class="fas fa-paper-plane"></i></div>`;
+                title = `Kirim Wayang ${namaGolongan}`;
+                sub = `Ke: ${ev.args.to.substring(0,4)}...${ev.args.to.slice(-4)}`;
+                valStr = `<span style="color:#e74c3c;">-1 NFT</span>`;
+            }
+            else if (ev.type.includes('tip')) {
+                // SAWERAN
+                const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
+                if (ev.type === 'tip_in') {
+                    icon = `<div class="history-icon icon-tip"><i class="fas fa-gift"></i></div>`;
+                    title = "Dapat Saweran";
+                    sub = `Dari Fans`;
+                    valStr = `<span style="color:#f39c12;">+${amount} ETH</span>`;
+                } else {
+                    icon = `<div class="history-icon icon-out"><i class="fas fa-donate"></i></div>`;
+                    title = "Kirim Saweran";
+                    sub = `Dukungan Karya`;
+                    valStr = `<span style="color:#e74c3c;">-${amount} ETH</span>`;
+                }
+            }
+
+            // TEMPEL KE HTML
+            const html = `
+            <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" style="cursor:pointer;">
+                ${icon}
+                <div class="history-content">
+                    <div class="history-title">${title}</div>
+                    <div class="history-sub">${sub}</div>
+                </div>
+                <div class="history-val">${valStr}</div>
+            </div>`;
+            
+            container.insertAdjacentHTML('beforeend', html);
+        }
 
     } catch (e) {
         console.warn("Gagal load history:", e);
-        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data (RPC Busy).</div>`;
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data RPC.</div>`;
     }
-    }
-
-    async function renderNextHistoryBatch() {
-    // Cek: Apakah sedang loading? Atau data sudah habis?
-    if (isHistoryLoading || historyCursor >= userHistoryLogs.length) return;
-    
-    isHistoryLoading = true;
-    const container = document.getElementById("txHistoryList");
-    const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-
-    // Tampilkan Loader Kecil di Bawah
-    const loaderId = "miniLoaderHistory";
-    if(!document.getElementById(loaderId)) {
-        container.insertAdjacentHTML('beforeend', 
-            `<div id="${loaderId}" style="text-align:center; padding:10px; font-size:10px; color:#aaa;">
-                <i class="fas fa-circle-notch fa-spin"></i> Memuat...
-            </div>`
-        );
-    }
-
-    // AMBIL 10 DATA BERIKUTNYA
-    const batch = userHistoryLogs.slice(historyCursor, historyCursor + 10);
-
-    // LOOPING SATU PER SATU (Agar Ringan)
-    for (let ev of batch) {
-        let icon, title, sub, valStr;
-        let namaGolongan = ""; 
-
-        // CARI NAMA GOLONGAN (Khusus NFT)
-        if (ev.type.includes('nft')) {
-            try {
-                const info = await contract.getInfoWayang(ev.args.tokenId);
-                namaGolongan = info.golongan ? ` ${info.golongan}` : ""; 
-            } catch (e) { namaGolongan = ""; }
-        }
-
-        // LOGIKA TAMPILAN
-        if (ev.type === 'nft_in') {
-            if (ev.args.from === "0x0000000000000000000000000000000000000000") {
-                icon = `<div class="history-icon icon-mint"><i class="fas fa-paint-brush"></i></div>`;
-                title = `Mint Wayang${namaGolongan}`;
-                sub = `ID #${ev.args.tokenId}`;
-                valStr = `<span style="color:#9b59b6;">+1 NFT</span>`;
-            } else {
-                icon = `<div class="history-icon icon-in"><i class="fas fa-arrow-down"></i></div>`;
-                title = `Terima Wayang${namaGolongan}`;
-                sub = `Dari: ${ev.args.from.substring(0,4)}...`;
-                valStr = `<span style="color:#2ecc71;">+1 NFT</span>`;
-            }
-        } 
-        else if (ev.type === 'nft_out') {
-            icon = `<div class="history-icon icon-out"><i class="fas fa-paper-plane"></i></div>`;
-            title = `Kirim Wayang${namaGolongan}`;
-            sub = `Ke: ${ev.args.to.substring(0,4)}...`;
-            valStr = `<span style="color:#e74c3c;">-1 NFT</span>`;
-        }
-        else if (ev.type.includes('tip')) {
-            const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
-            if (ev.type === 'tip_in') {
-                icon = `<div class="history-icon icon-tip"><i class="fas fa-gift"></i></div>`;
-                title = "Dapat Saweran";
-                sub = `Dari Fans`;
-                valStr = `<span style="color:#f39c12;">+${amount} ETH</span>`;
-            } else {
-                icon = `<div class="history-icon icon-out"><i class="fas fa-donate"></i></div>`;
-                title = "Kirim Saweran";
-                sub = `Dukungan Karya`;
-                valStr = `<span style="color:#e74c3c;">-${amount} ETH</span>`;
-            }
-        }
-
-        // RENDER HTML
-        const html = `
-        <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" 
-             style="cursor:pointer; animation: fadeIn 0.3s ease;">
-            ${icon}
-            <div class="history-content">
-                <div class="history-title">${title}</div>
-                <div class="history-sub">${sub}</div>
-            </div>
-            <div class="history-val">${valStr}</div>
-        </div>`;
-        
-        // Sisipkan sebelum loader
-        const loaderEl = document.getElementById(loaderId);
-        if(loaderEl) loaderEl.insertAdjacentHTML('beforebegin', html);
-    }
-
-    // Update Posisi
-    historyCursor += 10;
-    isHistoryLoading = false;
-    
-    // Hapus Loader jika habis
-    if(historyCursor >= userHistoryLogs.length) {
-        const loaderEl = document.getElementById(loaderId);
-        if(loaderEl) loaderEl.remove();
-    }
-    
-    // Auto-fill jika layar besar
-    if (container.scrollHeight <= container.clientHeight && historyCursor < userHistoryLogs.length) {
-        renderNextHistoryBatch();
-    }
-    }
+                        }
         
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
