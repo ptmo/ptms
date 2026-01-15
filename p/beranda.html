@@ -1569,8 +1569,8 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
         let cachedTokenChanges = {};
         let cachedTokenPrices = {};   // (Tetap)
         let lastPriceFetchTime = 0;   // (Tetap)
-        let userHistoryLogs = [];     // Menyimpan semua data mentah dari blockchain
-let historyCursor = 0;        // Penanda posisi data yang sudah tampil
+        let userHistoryLogs = [];     // Wadah data mentah
+let historyCursor = 0;        // Penanda posisi scroll
 let isHistoryLoading = false;
         const PRICE_CACHE_DURATION = 15000;
 
@@ -3349,26 +3349,27 @@ async function executeTransfer() {
 }
 
     // --- FITUR RIWAYAT TRANSAKSI (INFINITE SCROLL: 10 ITEM / BATCH) ---
-
-// FUNGSI 1: AMBIL DATA DARI BLOCKCHAIN (SEKALI SAJA DI AWAL)
-async function loadUserHistory(userAddr) {
+    async function loadUserHistory(userAddr) {
     if (!userAddr) return;
     
+    // 1. SETUP UI (FIX: Deklarasi Variabel Cukup Sekali)
     const container = document.getElementById("txHistoryList");
     const linkScan = document.getElementById("linkBasescan");
     
-    // Update Link BaseScan
-    if(linkScan) linkScan.href = `https://basescan.org/address/${userAddr}`;
-    
-    // Reset Data & Tampilkan Loading Awal
+    // Update Link ke BaseScan
+    if(linkScan) {
+        linkScan.href = `https://basescan.org/address/${userAddr}`;
+    }
+
+    // Reset Data & Tampilkan Loading
     userHistoryLogs = [];
     historyCursor = 0;
     isHistoryLoading = false;
     container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:20px;"><i class="fas fa-circle-notch fa-spin"></i> Memindai Blockchain...</div>`;
 
-    // --- SENSOR SCROLL INFINITY ---
+    // --- SENSOR INFINITE SCROLL ---
+    // Saat user scroll ke bawah, otomatis muat 10 data lagi
     container.onscroll = function() {
-        // Jika scroll sudah mau mentok bawah (sisa 50px), muat lagi
         if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
             renderNextHistoryBatch();
         }
@@ -3378,25 +3379,19 @@ async function loadUserHistory(userAddr) {
         const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
         
-        // Ambil blok history (Scan 50.000 blok terakhir)
+        // OPTIMASI: Kurangi range blok jadi 20.000 agar tidak kena Rate Limit RPC
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 25000; 
+        const fromBlock = currentBlock - 20000; 
 
-        // SIAPKAN FILTER (Sesuai kode Stabil Bapak)
-        const filterTo = contract.filters.Transfer(null, userAddr);
-        const filterFrom = contract.filters.Transfer(userAddr, null);
-        const filterTipTo = contract.filters.TipSent(null, userAddr);
-        const filterTipFrom = contract.filters.TipSent(userAddr, null);
-
-        // AMBIL DATA PARALEL
+        // 2. AMBIL DATA MENTAH DARI BLOCKCHAIN (PARALEL)
         const [logsTo, logsFrom, tipsTo, tipsFrom] = await Promise.all([
-            contract.queryFilter(filterTo, fromBlock, "latest"),
-            contract.queryFilter(filterFrom, fromBlock, "latest"),
-            contract.queryFilter(filterTipTo, fromBlock, "latest"),
-            contract.queryFilter(filterTipFrom, fromBlock, "latest")
+            contract.queryFilter(contract.filters.Transfer(null, userAddr), fromBlock, "latest"),
+            contract.queryFilter(contract.filters.Transfer(userAddr, null), fromBlock, "latest"),
+            contract.queryFilter(contract.filters.TipSent(null, userAddr), fromBlock, "latest"),
+            contract.queryFilter(contract.filters.TipSent(userAddr, null), fromBlock, "latest")
         ]);
 
-        // GABUNGKAN SEMUA JADI SATU LIST
+        // Gabungkan
         userHistoryLogs = [
             ...logsTo.map(l => ({ ...l, type: 'nft_in' })),
             ...logsFrom.map(l => ({ ...l, type: 'nft_out' })),
@@ -3404,28 +3399,27 @@ async function loadUserHistory(userAddr) {
             ...tipsFrom.map(l => ({ ...l, type: 'tip_out' }))
         ];
 
-        // URUTKAN DARI TERBARU
+        // Urutkan (Terbaru di atas)
         userHistoryLogs.sort((a, b) => b.blockNumber - a.blockNumber);
 
-        // HAPUS LOADING & MULAI TAMPILKAN
+        // Bersihkan Loading
         container.innerHTML = ""; 
-        
+
         if (userHistoryLogs.length === 0) {
-            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas.</div>`;
+            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas (24 jam terakhir).</div>`;
             return;
         }
 
-        // Panggil Batch Pertama (10 Data Awal)
+        // TAMPILKAN 10 DATA PERTAMA
         await renderNextHistoryBatch();
 
     } catch (e) {
         console.warn("Gagal load history:", e);
-        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data RPC.</div>`;
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat data (RPC Busy).</div>`;
     }
-}
+    }
 
-// FUNGSI 2: TAMPILKAN DATA PER 10 ITEM (DIPANGGIL SAAT SCROLL)
-async function renderNextHistoryBatch() {
+    async function renderNextHistoryBatch() {
     // Cek: Apakah sedang loading? Atau data sudah habis?
     if (isHistoryLoading || historyCursor >= userHistoryLogs.length) return;
     
@@ -3434,7 +3428,7 @@ async function renderNextHistoryBatch() {
     const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
     const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-    // Tampilkan Loader Kecil di Bawah (Indikator)
+    // Tampilkan Loader Kecil di Bawah
     const loaderId = "miniLoaderHistory";
     if(!document.getElementById(loaderId)) {
         container.insertAdjacentHTML('beforeend', 
@@ -3445,65 +3439,57 @@ async function renderNextHistoryBatch() {
     }
 
     // AMBIL 10 DATA BERIKUTNYA
-    const BATCH_SIZE = 10;
-    const end = Math.min(historyCursor + BATCH_SIZE, userHistoryLogs.length);
-    const batch = userHistoryLogs.slice(historyCursor, end);
+    const batch = userHistoryLogs.slice(historyCursor, historyCursor + 10);
 
-    // LOOPING SATU PER SATU (Sequential) AGAR RINGAN
+    // LOOPING SATU PER SATU (Agar Ringan)
     for (let ev of batch) {
         let icon, title, sub, valStr;
         let namaGolongan = ""; 
 
-        // 1. CARI NAMA GOLONGAN (Khusus NFT)
+        // CARI NAMA GOLONGAN (Khusus NFT)
         if (ev.type.includes('nft')) {
             try {
-                // await di sini membuat dia loading satu-satu (antri) jadi tidak berat
                 const info = await contract.getInfoWayang(ev.args.tokenId);
                 namaGolongan = info.golongan ? ` ${info.golongan}` : ""; 
             } catch (e) { namaGolongan = ""; }
         }
 
-        // 2. LOGIKA TAMPILAN (Sesuai Kode Stabil Bapak)
+        // LOGIKA TAMPILAN
         if (ev.type === 'nft_in') {
             if (ev.args.from === "0x0000000000000000000000000000000000000000") {
-                // MINTING
                 icon = `<div class="history-icon icon-mint"><i class="fas fa-paint-brush"></i></div>`;
                 title = `Mint Wayang${namaGolongan}`;
-                sub = `ID Koleksi #${ev.args.tokenId}`;
+                sub = `ID #${ev.args.tokenId}`;
                 valStr = `<span style="color:#9b59b6;">+1 NFT</span>`;
             } else {
-                // TERIMA NFT
                 icon = `<div class="history-icon icon-in"><i class="fas fa-arrow-down"></i></div>`;
                 title = `Terima Wayang${namaGolongan}`;
-                sub = `Dari: ${ev.args.from.substring(0,4)}...${ev.args.from.slice(-4)}`;
+                sub = `Dari: ${ev.args.from.substring(0,4)}...`;
                 valStr = `<span style="color:#2ecc71;">+1 NFT</span>`;
             }
         } 
         else if (ev.type === 'nft_out') {
-            // KIRIM NFT
             icon = `<div class="history-icon icon-out"><i class="fas fa-paper-plane"></i></div>`;
             title = `Kirim Wayang${namaGolongan}`;
-            sub = `Ke: ${ev.args.to.substring(0,4)}...${ev.args.to.slice(-4)}`;
+            sub = `Ke: ${ev.args.to.substring(0,4)}...`;
             valStr = `<span style="color:#e74c3c;">-1 NFT</span>`;
         }
         else if (ev.type.includes('tip')) {
-            // SAWERAN ETH
             const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
             if (ev.type === 'tip_in') {
                 icon = `<div class="history-icon icon-tip"><i class="fas fa-gift"></i></div>`;
-                title = "Dapat Dukungan";
+                title = "Dapat Saweran";
                 sub = `Dari Fans`;
                 valStr = `<span style="color:#f39c12;">+${amount} ETH</span>`;
             } else {
                 icon = `<div class="history-icon icon-out"><i class="fas fa-donate"></i></div>`;
-                title = "Kirim Dukungan";
+                title = "Kirim Saweran";
                 sub = `Dukungan Karya`;
                 valStr = `<span style="color:#e74c3c;">-${amount} ETH</span>`;
             }
         }
 
-        // 3. RENDER HTML ITEM
-        // Kita sisipkan SEBELUM loader kecil
+        // RENDER HTML
         const html = `
         <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" 
              style="cursor:pointer; animation: fadeIn 0.3s ease;">
@@ -3515,30 +3501,26 @@ async function renderNextHistoryBatch() {
             <div class="history-val">${valStr}</div>
         </div>`;
         
+        // Sisipkan sebelum loader
         const loaderEl = document.getElementById(loaderId);
-        if(loaderEl) {
-            loaderEl.insertAdjacentHTML('beforebegin', html);
-        } else {
-            container.insertAdjacentHTML('beforeend', html);
-        }
+        if(loaderEl) loaderEl.insertAdjacentHTML('beforebegin', html);
     }
 
-    // Update Posisi Cursor & Matikan Status Loading
-    historyCursor = end;
+    // Update Posisi
+    historyCursor += 10;
     isHistoryLoading = false;
     
-    // Hapus Loader jika data sudah habis
+    // Hapus Loader jika habis
     if(historyCursor >= userHistoryLogs.length) {
         const loaderEl = document.getElementById(loaderId);
         if(loaderEl) loaderEl.remove();
-        container.insertAdjacentHTML('beforeend', `<div style="text-align:center; font-size:9px; color:#ddd; padding:5px;">- Akhir Riwayat -</div>`);
     }
-
-    // AUTO-FILL: Jika layar monitor besar dan data belum memenuhi kotak, load lagi otomatis
+    
+    // Auto-fill jika layar besar
     if (container.scrollHeight <= container.clientHeight && historyCursor < userHistoryLogs.length) {
         renderNextHistoryBatch();
     }
-}
+    }
         
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
