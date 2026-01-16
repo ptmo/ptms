@@ -4001,29 +4001,26 @@ async function loadGlobalFeed() {
 }
 
 // ==========================================
-// 1. PANGGIL DATA & BUKA MODAL (FIXED & SAFER)
+// 1. PANGGIL DATA & BUKA MODAL
 // ==========================================
 async function panggilSawerDetail(id) { 
     try {
-        // 1. Fallback ID jika tidak ada parameter
+        // 1. Fallback ID
         if (!id) {
             const params = new URLSearchParams(window.location.search);
             id = params.get('id');
         }
-
-        activeSawerId = id;
-
         if (!id) return showToast("ID Wayang tidak ditemukan.", 'error');
 
-        // 2. Ambil Nama Wayang dari Halaman (Visual saja)
+        // --- TAMBAHAN PENTING (REAL-TIME) ---
+        activeSawerId = id; // Simpan ID agar nanti bisa diupdate angkanya
+        // ------------------------------------
+
+        // 2. Ambil Nama Wayang
         const elNama = document.getElementById("displayName");
-        
-        // --- PERBAIKAN TYPO DISINI ---
-        // Sebelumnya: `Wayang ${namaWYang} #${id}` (Error karena namaWYang tidak ada)
-        // Sekarang: Kita pakai "Wayang" saja kalau elemen nama tidak ketemu.
         const namaWayang = elNama ? elNama.innerText : `Wayang #${id}`;
         
-        // Tampilkan Loading di Tombol (Feedback Visual)
+        // Loading Tombol
         const btnId = `btnSawer-${id}`; 
         const btn = document.getElementById(btnId);
         let originalIcon = "";
@@ -4035,32 +4032,26 @@ async function panggilSawerDetail(id) {
         }
 
         try {
-            // Gunakan 'contractReader' global yang sudah ada
+            // Gunakan contractReader global
             const ownerAddress = await contractReader.ownerOf(id);
             
-            // Cek validitas owner
             if(!ownerAddress || ownerAddress === "0x0000000000000000000000000000000000000000") {
                 throw new Error("Invalid Owner Address");
             }
 
-            // 3. Buat Pesan Otomatis
             const autoMessage = `Dukungan untuk: ${namaWayang} (ID #${id})`;
-
-            // 4. Buka Modal
             await bukaModalSawer(ownerAddress, namaWayang, autoMessage);
 
         } catch (err) {
             console.error("Error Blockchain:", err);
-            showToast("Gagal memuat data pemilik (Cek Koneksi).", 'error');
+            showToast("Gagal memuat data pemilik.", 'error');
         } finally {
-            // Kembalikan tombol seperti semula
             if(btn) {
                 btn.innerHTML = originalIcon;
                 btn.disabled = false;
             }
         }
     } catch (e) {
-        // Tangkap error javascript lain (seperti typo variabel)
         console.error("Error Script:", e);
         showToast("Terjadi kesalahan sistem.", 'error');
     }
@@ -4163,14 +4154,12 @@ function setSawerPercent(percent) {
 }
         
 // ==========================================
-// 4. EKSEKUSI TRANSAKSI (DENGAN LOADING DI TOMBOL KARTU)
+// 4. EKSEKUSI TRANSAKSI (UPDATE REAL-TIME)
 // ==========================================
 async function eksekusiSawer() {
     const amountVal = document.getElementById("sawerAmount").value;
     const msgVal = document.getElementById("sawerMessage").value;
-    
-    // Tombol di dalam Modal
-    const btnModal = document.getElementById("btnKirimSawer");
+    const btn = document.getElementById("btnKirimSawer");
 
     if (!sawerTargetAddress) {
         showToast("Error: Target penerima hilang.", 'error');
@@ -4182,97 +4171,82 @@ async function eksekusiSawer() {
         return;
     }
 
-    // --- 1. SIAPKAN TOMBOL KARTU (TOMBOL ASAL) ---
-    let btnCard = null;
-    let originalCardContent = "";
-    
-    // Cari tombol di kartu berdasarkan ID yang kita simpan tadi
-    if (activeSawerId) {
-        btnCard = document.getElementById(`btnSawer-${activeSawerId}`);
-        if (btnCard) {
-            originalCardContent = btnCard.innerHTML; // Simpan tampilan lama
-        }
-    }
-
     try {
-        // Efek Loading di Tombol Modal
-        btnModal.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
-        btnModal.disabled = true;
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+        btn.disabled = true;
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
+        
+        // Pastikan pakai variabel 'ABI' yang benar
         const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
+
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
-        // KIRIM TRANSAKSI
+        // Kirim Transaksi
         const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { 
             value: amountWei,
-            gasLimit: 190000 
+            gasLimit: 300000 
         });
         
-        // --- 2. TRANSAKSI DIKIRIM (MODAL TUTUP, KARTU LOADING) ---
         toggleSawerModal(false); 
-        showToast("Transaksi sedang berjalan...", 'load');
+        showToast("Transaksi dikirim ke Blockchain...", 'load');
 
-        // UBAH TOMBOL DI KARTU JADI LOADING
-        if (btnCard) {
-            btnCard.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-            btnCard.disabled = true; // Kunci tombol biar gak dipencet lagi
-        }
-
-        // TUNGGU TRANSAKSI SELESAI
+        // TUNGGU SAMPAI SELESAI
         await tx.wait();
         
         showToast(`Sukses terkirim!`, 'success');
+        
+        // Refresh saldo user
         if (typeof userAddress !== 'undefined') refreshUserBalance(userAddress);
 
-        // --- 3. TRANSAKSI SUKSES: UPDATE ANGKA & BALIKIN TOMBOL ---
+        // ============================================================
+        // 🔥 UPDATE ANGKA DI TOMBOL SECARA REAL-TIME 🔥
+        // ============================================================
         if (activeSawerId && sawerTargetAddress) {
             try {
-                // Ambil data terbaru dari blockchain
+                // 1. Ambil jumlah tip terbaru dari Owner
+                // Kita gunakan 'contractReader' (RPC) atau 'contractWrite' juga bisa
                 const updatedCount = await contractWrite.getTipCount(sawerTargetAddress);
                 
-                // Update Tombol Kartu dengan Angka Baru
-                if (btnCard) {
-                    btnCard.innerHTML = `<i class="fas fa-gift"></i> <span id="sawerCount-${activeSawerId}">${updatedCount}</span>`;
-                    btnCard.disabled = false; // Buka kunci
-                    
-                    // Efek kedip hijau sedikit biar user sadar
-                    btnCard.style.color = "#2ecc71";
-                    setTimeout(() => btnCard.style.color = "", 1000);
+                // 2. Cari elemen angka di HTML berdasarkan ID yang disimpan tadi
+                const elCount = document.getElementById(`sawerCount-${activeSawerId}`);
+                
+                // 3. Update teksnya langsung!
+                if(elCount) {
+                    // Efek animasinya sedikit biar kelihatan berubah
+                    elCount.style.opacity = 0;
+                    setTimeout(() => {
+                        elCount.innerText = updatedCount.toString();
+                        elCount.style.opacity = 1;
+                    }, 200);
                 }
-            } catch (e) {
-                console.warn("Gagal update angka:", e);
-                // Kalau gagal update angka, minimal balikin tombolnya
-                if (btnCard) {
-                    btnCard.innerHTML = originalCardContent; 
-                    btnCard.disabled = false;
-                }
+            } catch (eUpdate) {
+                console.warn("Gagal update angka realtime:", eUpdate);
             }
         }
+        // ============================================================
 
     } catch (err) {
         console.error("Sawer Error:", err);
         let msg = "Transaksi Gagal.";
-        if (err.code === 4001 || (err.error && err.error.code === 4001)) msg = "Dibatalkan user.";
-        else if (err.message && err.message.includes("insufficient funds")) msg = "Saldo kurang.";
+        
+        if (err.code === 4001 || (err.error && err.error.code === 4001)) {
+            msg = "Transaksi dibatalkan user.";
+        } else if (err.message && err.message.includes("insufficient funds")) {
+            msg = "Saldo ETH tidak cukup.";
+        } else if (err.message && err.message.includes("minimal")) {
+            msg = "Nominal di bawah batas minimal.";
+        }
         
         showToast(msg, 'error');
-
-        // Kalau gagal, balikin tombol kartu seperti semula (jangan loading terus)
-        if (btnCard) {
-            btnCard.innerHTML = originalCardContent;
-            btnCard.disabled = false;
-        }
-
     } finally {
-        // Balikin tombol Modal
-        if(btnModal) {
-            btnModal.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
-            btnModal.disabled = false;
+        if(btn) {
+            btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+            btn.disabled = false;
         }
     }
-                  }
+}
 
 // ==========================================
 // 5. HELPER LAINNYA
