@@ -2723,36 +2723,23 @@ sawerCount = 0;
                     starColor = "color: #f1c40f;";
                 }
             } catch (e) {}
-
-            // 1. Definisikan Placeholder Default
-            let imgUrl = "img/loading-placeholder.gif"; 
-
+           
+          let imgUrl = "img/loading-placeholder.gif";
             try {
-                // Proses URL
                 const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
-                
-                // Ambil Metadata (Timeout 5 detik biar gak kelamaan nunggu)
                 const res = await axios.get(jsonUrl, { timeout: 5000 });
                 const rawImg = res.data.image || res.data.image_url;
-                
-                // Convert ke WSRV (WebP + Resize 300px)
-                // Kita tambahkan parameter '&n=-1' agar wsrv tidak cache error jika gagal pertama kali
-                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=70&output=webp&n=-1`;
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
+            } catch (e) {}
 
-            } catch (e) {
-                // Jika gagal total (metadata rusak), biarkan imgUrl tetap placeholder
-                // Atau bisa ganti ke gambar "Image Not Found" statis
-                console.warn(`Gagal fetch gambar ID ${id}`);
-            }
-
-            // Susun Data Object (Sama seperti kode Bapak)
+            // Susun Data Object
             renderData = {
                 id,
                 info: {
                     nama: info.nama,
                     golongan: info.golongan,
                     gaya: info.gaya,
-                    timestamp: info.timestamp.toString()
+                    timestamp: info.timestamp.toString() // Convert BigNumber to string
                 },
                 owner,
                 likes: likes.toString(),
@@ -2760,12 +2747,12 @@ sawerCount = 0;
                 avgRatingDisplay,
                 starColor,
                 reviewCount,
-                imgUrl // <--- Ini URL yang akan dicoba load
+                imgUrl
             };
 
-            // SIMPAN KE CACHE
+            // SIMPAN KE CACHE (Biar next load super cepat)
             localStorage.setItem(itemCacheKey, JSON.stringify(renderData));
-
+            
         } catch (e) {
             console.warn("Gagal fetch ID", id);
             return;
@@ -2812,14 +2799,9 @@ sawerCount = 0;
         </div>
 
         <div class="card-image" onclick="window.location.href='detail?id=${id}'">
-            <img src="${renderData.imgUrl}" 
-                 loading="lazy"
-                 data-retry="0" 
-                 data-src="${renderData.imgUrl}"
-                 onerror="retryFeedImage(this)"
-                 alt="${renderData.info.nama}">
-        </div>
-
+                <img src="${imgUrl}" loading="lazy">
+            </div>
+            
         <div class="card-actions">
             <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
                 <i class="fas fa-heart"></i> ${renderData.likes}
