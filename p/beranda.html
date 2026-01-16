@@ -2004,49 +2004,77 @@ const ERC20_ABI = [
     "function approve(address spender, uint amount) returns (bool)"
 ];
         
-        const PINATA_API_KEY = "d209d53257fcc57219af";    
+const PINATA_API_KEY = "d209d53257fcc57219af";    
 const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
 
-        const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-        let provider, contractReader, signer;
-        let feedData = [];
-        let globalSearchIndex = [];
-        const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
-        let currentSearchTicket = 0;
-        let isWalletConnected = false;
-        let modalTipCursor = 0;
-        let modalUserAddr = null;
-        let isModalFetching = false;  // (Tetap)
-        let myTokens = [];            // (Tetap)
-        let activeToken = null;       // (Tetap)
-        let cachedEthPrice = 0;       // (Tetap)
-        let cachedEthChange = 0;      // [BARU] Wajib ada untuk simpan % ETH
-        let cachedTokenChanges = {};
-        let cachedTokenPrices = {};   // (Tetap)
-        let lastPriceFetchTime = 0;
-        let sawerTargetAddress = null; // (Tetap)
-        let activeSawerId = null;      // <--- INI YANG HILANG (PENTING!)
-        // --- VARIABEL GLOBAL HISTORY ---
-let userHistoryLogs = [];     // Wadah semua data mentah yang ditemukan
-let historyCursor = 0;        // Penanda posisi scroll saat ini
-let isHistoryLoading = false; // Pengaman agar tidak loading ganda
-        // --- GLOBAL FEED VARIABLES ---
-let activeReviewId = null;
-let cachedReviews = []; // Menyimpan semua data ulasan sementara
-let reviewCursor = 0;   // Posisi scroll saat ini
-        let avgRatingDisplay = "";
-        let reviewCount = 0; // Variabel untuk jumlah ulasan
-        let starColor = "";
+        // ==========================================
+// 1. VARIABEL INTI & KONFIGURASI
+// ==========================================
+const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+const INDEX_STORAGE_KEY = "WAYANG_INDEX_FULL_V1";
+const PRICE_CACHE_DURATION = 15000;
+const MIN_TIP = 0.0001;
+const MAX_TIP = 0.005;
 
-        // --- VARIABEL GLOBAL FEED ---
-let globalFeedLogs = [];       // Wadah data feed global
-let globalFeedCursor = 0;      // Penanda scroll
-let isGlobalFeedLoading = false; // Status loading
-        
-        
-        const PRICE_CACHE_DURATION = 15000;
-        const MIN_TIP = 0.0001;
-        const MAX_TIP = 0.005;
+let provider, contractReader, signer;
+let isWalletConnected = false;
+let modalUserAddr = null;
+
+// ==========================================
+// 2. VARIABEL FEED UTAMA (BERANDA - TENGAH)
+// ==========================================
+// Cache & Optimasi Feed
+const FEED_IDS_CACHE_KEY = "WAYANG_FEED_IDS_V1";
+const FEED_ITEM_CACHE_PREFIX = "WAYANG_ITEM_";
+const FEED_CACHE_DURATION = 1000 * 60 * 60; // 1 Jam
+
+let globalFeedIds = [];       // Menyimpan Daftar ID Wayang untuk Beranda
+let feedCursor = 0;           // Penanda scroll Beranda
+let isFeedLoading = false;    // Status loading Beranda
+let feedData = [];            // Data memori untuk pencarian cepat
+
+// ==========================================
+// 3. VARIABEL PENCARIAN (SEARCH)
+// ==========================================
+let globalSearchIndex = [];   // Index pencarian deep
+let currentSearchTicket = 0;  // Tiket untuk race condition search
+
+// ==========================================
+// 4. VARIABEL FITUR KEUANGAN (TOKEN & SAWER)
+// ==========================================
+let myTokens = [];            
+let activeToken = null;       
+let cachedEthPrice = 0;       
+let cachedEthChange = 0;      
+let cachedTokenChanges = {};
+let cachedTokenPrices = {};   
+let lastPriceFetchTime = 0;
+
+let sawerTargetAddress = null; 
+let activeSawerId = null;      // PENTING: Untuk loading tombol sawer per kartu
+
+// ==========================================
+// 5. VARIABEL MODAL HISTORY & REVIEW
+// ==========================================
+let modalTipCursor = 0;       // Pagination riwayat di Modal Wallet
+let isModalFetching = false;  
+
+let activeReviewId = null;    // ID Wayang yang sedang dibuka review-nya
+let cachedReviews = [];       // Menyimpan data ulasan sementara
+let reviewCursor = 0;         // Pagination scroll ulasan
+
+// ==========================================
+// 6. VARIABEL SIDEBAR (GLOBAL LOGS & HISTORY)
+// ==========================================
+// History Pribadi (Sidebar Kiri)
+let userHistoryLogs = [];     
+let historyCursor = 0;        
+let isHistoryLoading = false; 
+
+// Global Activity Feed (Sidebar Kiri - Bawah)
+let globalFeedLogs = [];      
+let globalFeedCursor = 0;      
+let isGlobalFeedLoading = false;
 
         // DATABASE TOKEN POPULER BASE (Updated + USDT)
 const POPULAR_BASE_TOKENS = [
@@ -2493,8 +2521,8 @@ function clearSearch() {
     smartSearch(""); 
 }
 
-// --- LOGIKA FEED (GABUNGAN SEMUA DATA) ---
-        async function loadFeed() {
+// --- LOGIKA FEED SUPER CEPAT (CACHE FIRST) ---
+async function loadFeed() {
     const container = document.getElementById("feedContent");
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
@@ -2504,41 +2532,76 @@ function clearSearch() {
     feedCursor = 0;
     isFeedLoading = false;
 
-    // --- SENSOR INFINITE SCROLL (GAYA FACEBOOK) ---
-    // Deteksi saat user scroll halaman utama sampai bawah
+    // --- SENSOR INFINITE SCROLL ---
     window.onscroll = function() {
         if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
-            // Jika sisa jarak bawah tinggal 500px, muat lagi!
             loadNextFeedBatch();
         }
     };
 
     try {
-        // 1. AMBIL SEMUA ID DARI SEMUA GOLONGAN (PARALEL)
+        // 1. CEK CACHE LOCALSTORAGE
+        const cachedIdsJson = localStorage.getItem(FEED_IDS_CACHE_KEY);
+        const cacheTime = localStorage.getItem(FEED_IDS_CACHE_KEY + "_TIME");
+        const now = Date.now();
+
+        // Jika cache ada dan masih valid (belum expired)
+        if (cachedIdsJson && cacheTime && (now - parseInt(cacheTime) < FEED_CACHE_DURATION)) {
+            console.log("🚀 Load Feed dari Cache...");
+            globalFeedIds = JSON.parse(cachedIdsJson);
+            
+            // Langsung tampilkan!
+            container.innerHTML = "";
+            if(globalFeedIds.length === 0) {
+                container.innerHTML = "<div style='text-align:center; padding:40px; color:#aaa;'>Belum ada postingan wayang.</div>";
+            } else {
+                await loadNextFeedBatch();
+            }
+            
+            // Opsional: Tetap cek update di background (biar data baru masuk nanti)
+            updateFeedInBackground(golongans); 
+            return;
+        }
+
+        // 2. JIKA CACHE KOSONG / EXPIRED -> AMBIL DARI BLOCKCHAIN
+        console.log("🔄 Fetch Feed dari Blockchain...");
         const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
         
-        // 2. GABUNGKAN & HILANGKAN DUPLIKAT
         let allIds = results.flat().map(id => parseInt(id));
-        
-        // 3. URUTKAN DARI TERBARU (DESCENDING) & SIMPAN KE VARIABLE GLOBAL
         globalFeedIds = [...new Set(allIds)].sort((a, b) => b - a);
 
-        container.innerHTML = ""; // Bersihkan loading awal
+        // Simpan ke Cache
+        localStorage.setItem(FEED_IDS_CACHE_KEY, JSON.stringify(globalFeedIds));
+        localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", now.toString());
+
+        container.innerHTML = ""; 
 
         if(globalFeedIds.length === 0) {
             container.innerHTML = "<div style='text-align:center; padding:40px; color:#aaa;'>Belum ada postingan wayang.</div>";
             return;
         }
 
-        // 4. LOAD BATCH PERTAMA (Langsung Tampil)
         await loadNextFeedBatch();
 
     } catch(e) {
         console.error(e);
-        container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
+        container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed (Koneksi Buruk).</p>";
     }
-        }
+}
+
+// Helper: Update data di background tanpa ganggu user
+async function updateFeedInBackground(golongans) {
+    try {
+        const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
+        let allIds = results.flat().map(id => parseInt(id));
+        const newIds = [...new Set(allIds)].sort((a, b) => b - a);
         
+        // Update Cache untuk next visit
+        localStorage.setItem(FEED_IDS_CACHE_KEY, JSON.stringify(newIds));
+        localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", Date.now().toString());
+    } catch(e) { console.warn("Background update failed", e); }
+}
+     
         async function loadNextFeedBatch() {
     // Cek: Sedang loading? Atau data sudah habis?
     if (isFeedLoading || feedCursor >= globalFeedIds.length) return;
@@ -2583,137 +2646,158 @@ function clearSearch() {
             </div>`
         );
     }
-        }
+}
 
+// --- RENDER CARD DENGAN ITEM CACHING ---
 async function renderCard(id, container) {
     // 1. Cek Duplikasi Visual
     if (document.getElementById(`card-${id}`)) return;
 
-    try {
-        // 2. Ambil Data Utama (Info, URI, Owner, Likes)
-        // Kita pakai Promise.all biar cepat
-        const [info, uri, owner, likes] = await Promise.all([
-            contractReader.getInfoWayang(id),
-            contractReader.tokenURI(id),
-            contractReader.ownerOf(id),
-            contractReader.totalLikes(id)
-        ]);
+    // --- CEK CACHE ITEM ---
+    const itemCacheKey = FEED_ITEM_CACHE_PREFIX + id;
+    const cachedItem = localStorage.getItem(itemCacheKey);
+    
+    let renderData = null;
 
-        if(!info.isActive) return;
-
-        // --- PERBAIKAN UTAMA DISINI ---
-        // 3. Ambil Data Saweran (Tip Count) milik Owner
-        // Kita pisah di try-catch kecil agar kalau gagal, kartu tetap muncul (nilai 0)
-        let sawerCount = 0;
-try {
-const countBN = await contractReader.getTipCount(owner);
-sawerCount = parseInt(countBN);
-} catch(errTip) {
-sawerCount = 0; // Default kalau gagal ambil
-}
-
-        try {
-            // 1. Ambil Rata-rata (0-50)
-            const avgBN = await contractReader.getAverageRating(id); 
-            const avgVal = parseInt(avgBN);
-            
-            // 2. Ambil Array Review untuk dihitung jumlahnya
-            // (Karena kontrak tidak punya fungsi getCount, kita ambil array-nya lalu cek .length)
-            const reviewsArr = await contractReader.getReviews(id);
-            reviewCount = reviewsArr.length;
-            
-            // 3. Logika Tampilan
-            if (avgVal > 0) {
-                avgRatingDisplay = (avgVal / 10).toFixed(1); // Contoh: 4.5
-                starColor = "color: #f1c40f;"; // Warna Kuning Emas
-            }
-        } catch (e) {
-            // Error handling silent
-        }
-
-        // 4. Proses Gambar (Weserv)
-        let imgUrl = "img/loading-placeholder.gif"; 
-        try {
-            const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
-            const res = await axios.get(jsonUrl, { timeout: 5000 });
-            const rawImg = res.data.image || res.data.image_url;
-            imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
-        } catch(e) { }
-
-        // 5. Identitas & Badge
-        const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-        const badge = isOfficial 
-            ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
-            : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
-        
-        const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "...";
-        const avatar = isOfficial ? "img/icon-192.png" : `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
-
-        // 6. Simpan ke Memori (Penting untuk Search)
-        const existingData = feedData.find(x => x.id === id);
-        if (!existingData) {
-            feedData.push({ id, nama: info.nama, golongan: info.golongan, gaya: info.gaya, owner });
-        }
-
-        let avgRatingDisplay = "";
-let starColor = "";
-        
-        const html = `
-        <div class="feed-card" id="card-${id}">
-            <div class="card-header">
-                <a href="profile?address=${owner}" class="user-info" style="text-decoration:none;">
-                    <img src="${avatar}" class="user-pic">
-                    <div>
-                        <div class="user-name" style="color:#2c3e50;">${senderName} ${badge}</div>
-                        <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
-                    </div>
-                </a>
-                <i class="fas fa-edit" style="color:#7385a5; cursor:pointer;" 
-                   onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'"></i>
-            </div>
-            
-            <div class="card-content">
-                <h3 class="wayang-title">${info.nama}</h3>
-                <div class="wayang-desc">
-                    <span class="tag-badge">${info.golongan}</span> 
-                    <span class="tag-badge" style="background:#fef3c7; color:#d97706;">${info.gaya}</span>
-                </div>
-            </div>
-
-            <div class="card-image" onclick="window.location.href='detail?id=${id}'">
-                <img src="${imgUrl}" loading="lazy">
-            </div>
-
-            <div class="card-actions">
-                <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
-                    <i class="fas fa-heart"></i> ${likes}
-                </button>
-                
-                <button id="btnSawer-${id}" class="action-btn" onclick="event.stopPropagation(); panggilSawerDetail('${id}')" title="Kirim Apresiasi">
-    <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${sawerCount}</span>
-</button>
-
-                <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
-                    <i class="fas fa-star" style="${starColor}"></i> 
-                    <span style="font-size:12px; margin-left:3px; font-weight:bold;">${avgRatingDisplay}</span>
-                    ${reviewCount}   
-                </button>
-                
-                <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
-                    <i class="fas fa-shopping-cart"></i>
-                </button>
-                
-                <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
-                    <i class="fas fa-share-alt"></i>
-                </button>
-            </div>
-        </div>`;
-
-        container.insertAdjacentHTML('beforeend', html);
-
-    } catch(e) { 
-        console.log("Gagal render ID", id, e); 
+    if (cachedItem) {
+        renderData = JSON.parse(cachedItem);
     }
+
+    // Jika tidak ada di cache, atau kita ingin refresh data (opsional), fetch baru
+    if (!renderData) {
+        try {
+            // Fetch Data Paralel
+            const [info, uri, owner, likes] = await Promise.all([
+                contractReader.getInfoWayang(id),
+                contractReader.tokenURI(id),
+                contractReader.ownerOf(id),
+                contractReader.totalLikes(id)
+            ]);
+
+            if (!info.isActive) return;
+
+            // Fetch Data Tambahan (Sawer, Rating, Image)
+            let sawerCount = 0;
+            try { sawerCount = await getTipCountByID(id, owner); } catch (e) {}
+
+            let avgRatingDisplay = "";
+            let starColor = "";
+            let reviewCount = 0;
+            try {
+                const avgBN = await contractReader.getAverageRating(id);
+                const avgVal = parseInt(avgBN);
+                const reviewsArr = await contractReader.getReviews(id);
+                reviewCount = reviewsArr.length;
+                if (avgVal > 0) {
+                    avgRatingDisplay = (avgVal / 10).toFixed(1);
+                    starColor = "color: #f1c40f;";
+                }
+            } catch (e) {}
+
+            let imgUrl = "img/loading-placeholder.gif";
+            try {
+                const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
+                const res = await axios.get(jsonUrl, { timeout: 5000 });
+                const rawImg = res.data.image || res.data.image_url;
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
+            } catch (e) {}
+
+            // Susun Data Object
+            renderData = {
+                id,
+                info: {
+                    nama: info.nama,
+                    golongan: info.golongan,
+                    gaya: info.gaya,
+                    timestamp: info.timestamp.toString() // Convert BigNumber to string
+                },
+                owner,
+                likes: likes.toString(),
+                sawerCount,
+                avgRatingDisplay,
+                starColor,
+                reviewCount,
+                imgUrl
+            };
+
+            // SIMPAN KE CACHE (Biar next load super cepat)
+            localStorage.setItem(itemCacheKey, JSON.stringify(renderData));
+
+        } catch (e) {
+            console.warn("Gagal fetch ID", id);
+            return;
+        }
+    }
+
+    // --- RENDER HTML DARI DATA (Entah Cache atau Baru) ---
+    // Gunakan renderData...
+    
+    const isOfficial = (renderData.owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+    const badge = isOfficial 
+        ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
+        : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
+    
+    const senderName = isOfficial ? "Putramas Official" : renderData.owner.substring(0,6) + "...";
+    const avatar = isOfficial ? "img/icon-192.png" : `https://api.dicebear.com/7.x/identicon/svg?seed=${renderData.owner}`;
+
+    // Simpan ke Memori Search (Runtime)
+    const existingData = feedData.find(x => x.id === id);
+    if (!existingData) {
+        feedData.push({ id: id, nama: renderData.info.nama, golongan: renderData.info.golongan, gaya: renderData.info.gaya, owner: renderData.owner });
+    }
+
+    const html = `
+    <div class="feed-card" id="card-${id}">
+        <div class="card-header">
+            <a href="profile?address=${renderData.owner}" class="user-info" style="text-decoration:none;">
+                <img src="${avatar}" class="user-pic">
+                <div>
+                    <div class="user-name" style="color:#2c3e50;">${senderName} ${badge}</div>
+                    <div class="post-time">${new Date(parseInt(renderData.info.timestamp) * 1000).toLocaleDateString()} • ID #${id}</div>
+                </div>
+            </a>
+            <i class="fas fa-edit" style="color:#7385a5; cursor:pointer;" 
+               onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'"></i>
+        </div>
+        
+        <div class="card-content">
+            <h3 class="wayang-title">${renderData.info.nama}</h3>
+            <div class="wayang-desc">
+                <span class="tag-badge">${renderData.info.golongan}</span> 
+                <span class="tag-badge" style="background:#fef3c7; color:#d97706;">${renderData.info.gaya}</span>
+            </div>
+        </div>
+
+        <div class="card-image" onclick="window.location.href='detail?id=${id}'">
+            <img src="${renderData.imgUrl}" loading="lazy">
+        </div>
+
+        <div class="card-actions">
+            <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
+                <i class="fas fa-heart"></i> ${renderData.likes}
+            </button>
+            
+            <button id="btnSawer-${id}" class="action-btn" onclick="event.stopPropagation(); panggilSawerDetail('${id}')" title="Kirim Apresiasi">
+                <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${renderData.sawerCount}</span>
+            </button>
+
+            <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
+                <i class="fas fa-star" style="${renderData.starColor}"></i> 
+                <span style="font-size:12px; margin-left:3px; font-weight:bold;">${renderData.avgRatingDisplay}</span>
+                <span style="font-size:10px; color:#888; margin-left:2px;">(${renderData.reviewCount})</span>   
+            </button>
+            
+            <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
+                <i class="fas fa-shopping-cart"></i>
+            </button>
+            
+            <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${renderData.info.nama}')">
+                <i class="fas fa-share-alt"></i>
+            </button>
+        </div>
+    </div>`;
+
+    container.insertAdjacentHTML('beforeend', html);
 }
 
 // 1. BUKA MODAL & LOAD DATA
