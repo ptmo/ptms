@@ -1595,6 +1595,10 @@ const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b
 let userHistoryLogs = [];     // Wadah semua data mentah yang ditemukan
 let historyCursor = 0;        // Penanda posisi scroll saat ini
 let isHistoryLoading = false; // Pengaman agar tidak loading ganda
+        // --- GLOBAL FEED VARIABLES ---
+let globalFeedIds = [];       // Menyimpan SEMUA ID wayang yang ada
+let feedCursor = 0;           // Penanda kita sudah sampai mana
+let isFeedLoading = false;    // Pengaman biar gak loading dobel
         
         const PRICE_CACHE_DURATION = 15000;
 
@@ -2044,31 +2048,90 @@ function clearSearch() {
     const container = document.getElementById("feedContent");
     const golongans = ['Satria', 'Dewa', 'Yaksa', 'Wanara', 'Panakawan', 'Kayon', 'Bambangan', 'Punggawa', 'Krodan', 'Resi', 'Putren', 'Buta Kiwe', 'Sato', 'Gaman'];
 
+    // Reset State
+    container.innerHTML = `<div style="text-align:center; padding:40px; color:#aaa;"><i class="fas fa-circle-notch fa-spin"></i> Menyiapkan Beranda...</div>`;
+    globalFeedIds = [];
+    feedCursor = 0;
+    isFeedLoading = false;
+
+    // --- SENSOR INFINITE SCROLL (GAYA FACEBOOK) ---
+    // Deteksi saat user scroll halaman utama sampai bawah
+    window.onscroll = function() {
+        if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 500) {
+            // Jika sisa jarak bawah tinggal 500px, muat lagi!
+            loadNextFeedBatch();
+        }
+    };
+
     try {
-        // Parallel Fetch ID dari semua golongan
+        // 1. AMBIL SEMUA ID DARI SEMUA GOLONGAN (PARALEL)
         const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
         
-        // MENGHILANGKAN DUPLIKAT SEJAK AWAL
+        // 2. GABUNGKAN & HILANGKAN DUPLIKAT
         let allIds = results.flat().map(id => parseInt(id));
-        const finalUniqueIds = [...new Set(allIds)].sort((a, b) => b - a);
+        
+        // 3. URUTKAN DARI TERBARU (DESCENDING) & SIMPAN KE VARIABLE GLOBAL
+        globalFeedIds = [...new Set(allIds)].sort((a, b) => b - a);
 
-        const feedIds = finalUniqueIds.slice(0, 15); // Ambil 15 terbaru saja agar cepat
+        container.innerHTML = ""; // Bersihkan loading awal
 
-        if(feedIds.length === 0) {
-            container.innerHTML = "<p style='text-align:center; padding:20px;'>Belum ada postingan.</p>";
+        if(globalFeedIds.length === 0) {
+            container.innerHTML = "<div style='text-align:center; padding:40px; color:#aaa;'>Belum ada postingan wayang.</div>";
             return;
         }
 
-        container.innerHTML = ""; 
-
-        // Render satu per satu secara sekuensial agar urutan terjaga
-        for(let id of feedIds) {
-            await renderCard(id, container);
-        }
+        // 4. LOAD BATCH PERTAMA (Langsung Tampil)
+        await loadNextFeedBatch();
 
     } catch(e) {
         console.error(e);
         container.innerHTML = "<p style='color:red; text-align:center;'>Gagal memuat feed.</p>";
+    }
+        }
+
+        async function loadNextFeedBatch() {
+    // Cek: Sedang loading? Atau data sudah habis?
+    if (isFeedLoading || feedCursor >= globalFeedIds.length) return;
+
+    isFeedLoading = true;
+    const container = document.getElementById("feedContent");
+
+    // Tampilkan Loader Kecil di Bawah
+    const loaderId = "feedLoaderBottom";
+    if (!document.getElementById(loaderId)) {
+        container.insertAdjacentHTML('beforeend', 
+            `<div id="${loaderId}" style="text-align:center; padding:20px; color:#aaa;">
+                <i class="fas fa-circle-notch fa-spin"></i> Memuat lainnya...
+            </div>`
+        );
+    }
+
+    // --- AMBIL 5 DATA BERIKUTNYA ---
+    // Kenapa 5? Agar rendering cepat dan scroll terasa halus
+    const BATCH_SIZE = 5;
+    const nextIds = globalFeedIds.slice(feedCursor, feedCursor + BATCH_SIZE);
+
+    // Render satu per satu (Sequential) agar urutan terjaga rapi
+    for (let id of nextIds) {
+        // Pastikan renderCard append ke container, bukan replace innerHTML
+        await renderCard(id, container); 
+    }
+
+    // Update Cursor
+    feedCursor += nextIds.length;
+    isFeedLoading = false;
+
+    // Hapus Loader Bawah
+    const loaderEl = document.getElementById(loaderId);
+    if (loaderEl) loaderEl.remove();
+
+    // Cek jika sudah habis total
+    if (feedCursor >= globalFeedIds.length) {
+        container.insertAdjacentHTML('beforeend', 
+            `<div style="text-align:center; padding:20px; color:#ddd; font-size:12px;">
+                — Anda sudah mencapai dasar —
+            </div>`
+        );
     }
         }
 
