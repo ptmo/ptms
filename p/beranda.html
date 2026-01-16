@@ -1216,6 +1216,83 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
 /* Custom Scrollbar untuk Modal */
 .review-scroll-area::-webkit-scrollbar { width: 4px; }
 .review-scroll-area::-webkit-scrollbar-thumb { background: #ddd; border-radius: 4px; }
+
+        /* --- WIDGET POPULER (LANDSCAPE CARD) --- */
+.pop-card {
+    display: flex;
+    align-items: center;
+    background: #fff;
+    border-radius: 8px;
+    overflow: hidden;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+    border: 1px solid #eee;
+    transition: transform 0.2s;
+    cursor: pointer;
+    height: 60px; /* Tinggi fix biar rapi */
+}
+
+.pop-card:hover {
+    transform: translateX(5px);
+    border-color: #7385a5;
+}
+
+/* Gambar di Kiri (Landscape Crop) */
+.pop-img-box {
+    width: 80px;
+    height: 100%;
+    flex-shrink: 0;
+    position: relative;
+    overflow: hidden;
+}
+
+.pop-img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+/* Overlay Ranking (1, 2, 3) */
+.rank-badge {
+    position: absolute;
+    top: 0; left: 0;
+    background: linear-gradient(135deg, #e74c3c, #c0392b);
+    color: #fff;
+    font-size: 10px;
+    font-weight: bold;
+    padding: 2px 6px;
+    border-bottom-right-radius: 8px;
+    box-shadow: 2px 2px 5px rgba(0,0,0,0.3);
+}
+
+/* Info di Kanan */
+.pop-info {
+    flex: 1;
+    padding: 0 10px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+.pop-title {
+    font-size: 12px;
+    font-weight: bold;
+    color: #2c3e50;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+}
+
+.pop-stats {
+    font-size: 10px;
+    color: #7f8c8d;
+    margin-top: 3px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.fire-text { color: #e74c3c; font-weight: bold; }
     </style>
 </head>
 <body>
@@ -1380,6 +1457,23 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     <div id="globalFeedList" class="history-container" style="max-height: 250px;">
         <div style="text-align:center; font-size:11px; color:#aaa; padding:10px;">
             <i class="fas fa-satellite-dish fa-spin"></i> Sedang Menghubungkan....
+        </div>
+    </div>
+    </div>
+
+    <div class="menu-card" style="margin-top: 10px; border: 1px solid rgba(231, 76, 60, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+        <div class="sidebar-label" style="margin: 0; color: #c0392b;">
+            <i class="fas fa-fire-alt fa-beat" style="margin-right:5px;"></i> Sedang Panas
+        </div>
+        <div style="font-size: 10px; color: #aaa; cursor: pointer;" onclick="loadPopularSection()">
+            <i class="fas fa-sync-alt"></i>
+        </div>
+    </div>
+
+    <div id="popularList" style="display: flex; flex-direction: column; gap: 10px;">
+        <div style="text-align:center; padding:20px; color:#aaa; font-size:10px;">
+            <i class="fas fa-circle-notch fa-spin"></i> Mencari yang viral...
         </div>
     </div>
     </div>
@@ -2065,6 +2159,10 @@ window.updateLocalTokens = function(cloudData) {
             refreshAllTokenBalances();
         }
     }, 15000);
+
+setTimeout(() => {
+        loadPopularSection();
+    }, 2000);
 };
 
 async function connectWallet() {
@@ -4724,7 +4822,109 @@ function toggleSawerModal(show) {
 
 function closeSawer(event) {
     if (event.target.id === "sawerModal") toggleSawerModal(false);
-            }
+    }
+
+    // ==========================================
+// ALGORITMA POPULER (RANDOM TOURNAMENT)
+// ==========================================
+async function loadPopularSection() {
+    const container = document.getElementById("popularList");
+    if (!container) return;
+
+    container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:10px;"><i class="fas fa-circle-notch fa-spin"></i> Mengkurasi data...</div>`;
+
+    try {
+        // 1. Ambil Sumber Data (ID dari Indexer atau Feed)
+        // Jika globalSearchIndex kosong (belum load), pakai angka random manual
+        let candidateIds = [];
+        
+        if (globalSearchIndex && globalSearchIndex.length > 10) {
+            // Ambil dari index yang sudah ada (lebih cepat)
+            candidateIds = globalSearchIndex.map(x => x.id);
+        } else {
+            // Fallback: Generate ID random (misal 1 sampai 50)
+            candidateIds = Array.from({length: 50}, (_, i) => i + 1);
+        }
+
+        // 2. SHUFFLE (ACAK) ARRAY - "Agresif Random"
+        // Kita ambil 15 kandidat secara acak untuk diadu
+        const candidates = candidateIds.sort(() => 0.5 - Math.random()).slice(0, 15);
+
+        // 3. FETCH DATA LIKE UNTUK 15 KANDIDAT (PARALEL)
+        // Kita cari mana yang likenya terbanyak dari sampel acak ini
+        const promises = candidates.map(async (id) => {
+            try {
+                const likesBN = await contractReader.totalLikes(id);
+                const likes = parseInt(likesBN);
+                return { id, likes };
+            } catch (e) { return null; }
+        });
+
+        const results = await Promise.all(promises);
+        
+        // 4. FILTER & SORTIR (Cari Juara)
+        const validResults = results.filter(x => x !== null);
+        
+        // Urutkan dari Like Terbanyak -> Sedikit
+        validResults.sort((a, b) => b.likes - a.likes);
+
+        // Ambil TOP 3
+        const top3 = validResults.slice(0, 3);
+
+        // 5. RENDER KE HTML
+        container.innerHTML = "";
+        
+        if(top3.length === 0) {
+             container.innerHTML = `<div style="text-align:center; font-size:10px;">Data belum cukup.</div>`;
+             return;
+        }
+
+        // Loop render Top 3
+        for (let i = 0; i < top3.length; i++) {
+            const item = top3[i];
+            
+            // Ambil detail wayang (Nama & Gambar)
+            // Kita fetch manual karena mungkin belum ada di feedData
+            let nama = "Wayang #" + item.id;
+            let imgUrl = "img/loading-placeholder.gif";
+
+            try {
+                // Ambil Nama
+                const info = await contractReader.getInfoWayang(item.id);
+                nama = info.nama;
+
+                // Ambil Gambar (Optimized)
+                const uri = await contractReader.tokenURI(item.id);
+                const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
+                const res = await axios.get(jsonUrl);
+                const rawImg = res.data.image || res.data.image_url;
+                // Pakai wsrv.nl biar ringan di sidebar
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=150&h=150&output=webp`;
+            } catch(e) {}
+
+            const html = `
+            <div class="pop-card" onclick="window.location.href='detail?id=${item.id}'">
+                <div class="pop-img-box">
+                    <span class="rank-badge">#${i+1}</span>
+                    <img src="${imgUrl}" class="pop-img" loading="lazy">
+                </div>
+                <div class="pop-info">
+                    <div class="pop-title">${nama}</div>
+                    <div class="pop-stats">
+                        <span class="fire-text"><i class="fas fa-heart"></i> ${item.likes}</span>
+                        <span>• ID ${item.id}</span>
+                    </div>
+                </div>
+            </div>`;
+            
+            container.insertAdjacentHTML('beforeend', html);
+        }
+
+    } catch (e) {
+        console.warn("Popular Widget Error:", e);
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat.</div>`;
+    }
+}
         
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
