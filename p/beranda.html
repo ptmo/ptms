@@ -2619,6 +2619,19 @@ async function updateFeedInBackground(golongans) {
         localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", Date.now().toString());
     } catch(e) { console.warn("Background update failed", e); }
 }
+
+// Helper: Update data di background tanpa ganggu user
+async function updateFeedInBackground(golongans) {
+    try {
+        const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
+        let allIds = results.flat().map(id => parseInt(id));
+        const newIds = [...new Set(allIds)].sort((a, b) => b - a);
+        
+        // Update Cache untuk next visit
+        localStorage.setItem(FEED_IDS_CACHE_KEY, JSON.stringify(newIds));
+        localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", Date.now().toString());
+    } catch(e) { console.warn("Background update failed", e); }
+}
      
         async function loadNextFeedBatch() {
     // 1. Cek: Sedang loading? Atau data sudah habis?
@@ -2673,8 +2686,8 @@ async function updateFeedInBackground(golongans) {
         }
     }, 1000);
  }
-        
-// --- RENDER CARD DENGAN ITEM CACHING ---
+
+        // --- RENDER CARD DENGAN ITEM CACHING ---
 async function renderCard(id, container) {
     // 1. Cek Duplikasi Visual
     if (document.getElementById(`card-${id}`)) return;
@@ -2703,13 +2716,9 @@ async function renderCard(id, container) {
             if (!info.isActive) return;
 
             // Fetch Data Tambahan (Sawer, Rating, Image)
-             let sawerCount = 0;
-try {
-const countBN = await contractReader.getTipCount(owner);
-sawerCount = parseInt(countBN);
-} catch(errTip) {
-sawerCount = 0;
-        }
+            let sawerCount = 0;
+            try { sawerCount = await getTipCountByID(id, owner); } catch (e) {}
+
             let avgRatingDisplay = "";
             let starColor = "";
             let reviewCount = 0;
@@ -2723,8 +2732,8 @@ sawerCount = 0;
                     starColor = "color: #f1c40f;";
                 }
             } catch (e) {}
-           
-          let imgUrl = "img/loading-placeholder.gif";
+
+            let imgUrl = "img/loading-placeholder.gif";
             try {
                 const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
                 const res = await axios.get(jsonUrl, { timeout: 5000 });
@@ -2752,7 +2761,7 @@ sawerCount = 0;
 
             // SIMPAN KE CACHE (Biar next load super cepat)
             localStorage.setItem(itemCacheKey, JSON.stringify(renderData));
-            
+
         } catch (e) {
             console.warn("Gagal fetch ID", id);
             return;
@@ -2799,9 +2808,9 @@ sawerCount = 0;
         </div>
 
         <div class="card-image" onclick="window.location.href='detail?id=${id}'">
-                <img src="${imgUrl}" loading="lazy">
-            </div>
-            
+            <img src="${renderData.imgUrl}" loading="lazy">
+        </div>
+
         <div class="card-actions">
             <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
                 <i class="fas fa-heart"></i> ${renderData.likes}
@@ -2814,7 +2823,7 @@ sawerCount = 0;
             <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
                 <i class="fas fa-star" style="${renderData.starColor}"></i> 
                 <span style="font-size:12px; margin-left:3px; font-weight:bold;">${renderData.avgRatingDisplay}</span>
-                ${renderData.reviewCount}
+                <span style="font-size:10px; color:#888; margin-left:2px;">(${renderData.reviewCount})</span>   
             </button>
             
             <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
@@ -2829,38 +2838,7 @@ sawerCount = 0;
 
     container.insertAdjacentHTML('beforeend', html);
 }
-
-// --- HELPER: AUTO RETRY GAMBAR FEED (MAX 3 KALI) ---
-function retryFeedImage(img) {
-    const maxRetries = 3; 
-    
-    // Ambil jumlah percobaan saat ini
-    let retries = parseInt(img.getAttribute('data-retry') || "0");
-    // Ambil URL asli
-    let originalSrc = img.getAttribute('data-src');
-
-    // Jika belum mencapai batas maksimal dan URL-nya bukan placeholder
-    if (retries < maxRetries && originalSrc && !originalSrc.includes("loading-placeholder")) {
-        retries++;
-        img.setAttribute('data-retry', retries);
-        
-        // Jeda waktu (Backoff: 1 detik, 2 detik, 3 detik)
-        setTimeout(() => {
-            console.log(`🔄 Retrying image... (${retries}/${maxRetries})`);
-            
-            // Tambahkan timestamp (&t=...) untuk memaksa browser ambil ulang (Bypass Cache Error)
-            const separator = originalSrc.includes('?') ? '&' : '?';
-            img.src = `${originalSrc}${separator}t=${Date.now()}`;
-            
-        }, retries * 1000); 
-
-    } else {
-        // JIKA SUDAH MENYERAH (Gagal 3x)
-        img.onerror = null; // Hentikan loop error
-        img.src = "img/broken-image.png"; // Ganti dengan gambar 'Rusak' atau Placeholder statis
-        img.style.opacity = "0.5"; // Bikin agak transparan tandanya gagal
-    }
-}
+                    
 
 // 1. BUKA MODAL & LOAD DATA
 async function bukaModalReview(id) {
