@@ -1934,6 +1934,9 @@ let isFeedLoading = false;    // Pengaman biar gak loading dobel
 let activeReviewId = null;
 let cachedReviews = []; // Menyimpan semua data ulasan sementara
 let reviewCursor = 0;   // Posisi scroll saat ini
+        let avgRatingDisplay = "";
+        let reviewCount = 0; // Variabel untuk jumlah ulasan
+        let starColor = "";
         
         
         const PRICE_CACHE_DURATION = 15000;
@@ -2501,15 +2504,23 @@ sawerCount = 0; // Default kalau gagal ambil
 }
 
         try {
-    // getAverageRating returns 0-50 (skala 5.0 * 10)
-    const avgBN = await contractReader.getAverageRating(id); 
-    const avgVal = parseInt(avgBN);
-    
-    if (avgVal > 0) {
-        avgRatingDisplay = (avgVal / 10).toFixed(1); // Contoh: 4.5
-        starColor = "color: #f1c40f;"; // Warna Kuning Emas
-    }
-} catch (e) {}
+            // 1. Ambil Rata-rata (0-50)
+            const avgBN = await contractReader.getAverageRating(id); 
+            const avgVal = parseInt(avgBN);
+            
+            // 2. Ambil Array Review untuk dihitung jumlahnya
+            // (Karena kontrak tidak punya fungsi getCount, kita ambil array-nya lalu cek .length)
+            const reviewsArr = await contractReader.getReviews(id);
+            reviewCount = reviewsArr.length;
+            
+            // 3. Logika Tampilan
+            if (avgVal > 0) {
+                avgRatingDisplay = (avgVal / 10).toFixed(1); // Contoh: 4.5
+                starColor = "color: #f1c40f;"; // Warna Kuning Emas
+            }
+        } catch (e) {
+            // Error handling silent
+        }
 
         // 4. Proses Gambar (Weserv)
         let imgUrl = "img/loading-placeholder.gif"; 
@@ -2573,10 +2584,11 @@ let starColor = "";
     <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${sawerCount}</span>
 </button>
 
-                <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')">
-        <i class="fas fa-star" style="${starColor}"></i> 
-        <span style="font-size:12px; margin-left:4px; font-weight:bold;">${avgRatingDisplay}</span>
-    </button>
+                <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
+                    <i class="fas fa-star" style="${starColor}"></i> 
+                    <span style="font-size:12px; margin-left:3px; font-weight:bold;">${avgRatingDisplay}</span>
+                    <span style="font-size:10px; color:#888; margin-left:2px;">(${reviewCount})</span>
+                </button>
                 
                 <button class="action-" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
                     <i class="fas fa-shopping-cart"></i>
@@ -4249,7 +4261,7 @@ async function loadGlobalFeed() {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
         
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 5000; // Scan 5000 blok terakhir (aman)
+        const fromBlock = currentBlock - 100000; // Scan 5000 blok terakhir (aman)
 
         let allFeed = [];
 
