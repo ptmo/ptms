@@ -2724,22 +2724,35 @@ sawerCount = 0;
                 }
             } catch (e) {}
 
-            let imgUrl = "img/loading-placeholder.gif";
+            // 1. Definisikan Placeholder Default
+            let imgUrl = "img/loading-placeholder.gif"; 
+
             try {
+                // Proses URL
                 const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
+                
+                // Ambil Metadata (Timeout 5 detik biar gak kelamaan nunggu)
                 const res = await axios.get(jsonUrl, { timeout: 5000 });
                 const rawImg = res.data.image || res.data.image_url;
-                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
-            } catch (e) {}
+                
+                // Convert ke WSRV (WebP + Resize 300px)
+                // Kita tambahkan parameter '&n=-1' agar wsrv tidak cache error jika gagal pertama kali
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=70&output=webp&n=-1`;
 
-            // Susun Data Object
+            } catch (e) {
+                // Jika gagal total (metadata rusak), biarkan imgUrl tetap placeholder
+                // Atau bisa ganti ke gambar "Image Not Found" statis
+                console.warn(`Gagal fetch gambar ID ${id}`);
+            }
+
+            // Susun Data Object (Sama seperti kode Bapak)
             renderData = {
                 id,
                 info: {
                     nama: info.nama,
                     golongan: info.golongan,
                     gaya: info.gaya,
-                    timestamp: info.timestamp.toString() // Convert BigNumber to string
+                    timestamp: info.timestamp.toString()
                 },
                 owner,
                 likes: likes.toString(),
@@ -2747,10 +2760,10 @@ sawerCount = 0;
                 avgRatingDisplay,
                 starColor,
                 reviewCount,
-                imgUrl
+                imgUrl // <--- Ini URL yang akan dicoba load
             };
 
-            // SIMPAN KE CACHE (Biar next load super cepat)
+            // SIMPAN KE CACHE
             localStorage.setItem(itemCacheKey, JSON.stringify(renderData));
 
         } catch (e) {
@@ -2799,7 +2812,12 @@ sawerCount = 0;
         </div>
 
         <div class="card-image" onclick="window.location.href='detail?id=${id}'">
-            <img src="${renderData.imgUrl}" loading="lazy">
+            <img src="${renderData.imgUrl}" 
+                 loading="lazy"
+                 data-retry="0" 
+                 data-src="${renderData.imgUrl}"
+                 onerror="retryFeedImage(this)"
+                 alt="${renderData.info.nama}">
         </div>
 
         <div class="card-actions">
@@ -2828,6 +2846,38 @@ sawerCount = 0;
     </div>`;
 
     container.insertAdjacentHTML('beforeend', html);
+}
+
+// --- HELPER: AUTO RETRY GAMBAR FEED (MAX 3 KALI) ---
+function retryFeedImage(img) {
+    const maxRetries = 3; 
+    
+    // Ambil jumlah percobaan saat ini
+    let retries = parseInt(img.getAttribute('data-retry') || "0");
+    // Ambil URL asli
+    let originalSrc = img.getAttribute('data-src');
+
+    // Jika belum mencapai batas maksimal dan URL-nya bukan placeholder
+    if (retries < maxRetries && originalSrc && !originalSrc.includes("loading-placeholder")) {
+        retries++;
+        img.setAttribute('data-retry', retries);
+        
+        // Jeda waktu (Backoff: 1 detik, 2 detik, 3 detik)
+        setTimeout(() => {
+            console.log(`🔄 Retrying image... (${retries}/${maxRetries})`);
+            
+            // Tambahkan timestamp (&t=...) untuk memaksa browser ambil ulang (Bypass Cache Error)
+            const separator = originalSrc.includes('?') ? '&' : '?';
+            img.src = `${originalSrc}${separator}t=${Date.now()}`;
+            
+        }, retries * 1000); 
+
+    } else {
+        // JIKA SUDAH MENYERAH (Gagal 3x)
+        img.onerror = null; // Hentikan loop error
+        img.src = "img/broken-image.png"; // Ganti dengan gambar 'Rusak' atau Placeholder statis
+        img.style.opacity = "0.5"; // Bikin agak transparan tandanya gagal
+    }
 }
 
 // 1. BUKA MODAL & LOAD DATA
