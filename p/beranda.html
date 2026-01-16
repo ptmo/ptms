@@ -4137,7 +4137,7 @@ function setSawerPercent(percent) {
 }
 
 // ==========================================
-// 4. EKSEKUSI TRANSAKSI
+// 4. EKSEKUSI TRANSAKSI (FIXED ABI)
 // ==========================================
 async function eksekusiSawer() {
     const amountVal = document.getElementById("sawerAmount").value;
@@ -4162,17 +4162,20 @@ async function eksekusiSawer() {
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
+        
+        // PERBAIKAN: Gunakan 'ABI', bukan 'CONTRACT_ABI'
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
 
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
         // Kirim Transaksi
         const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { 
-            value: amountWei
+            value: amountWei,
+            gasLimit: 300000 // Tambah gas limit manual biar aman
         });
         
         toggleSawerModal(false); 
-        showToast("Transaksi dikirim...", 'load');
+        showToast("Transaksi dikirim ke Blockchain...", 'load');
 
         await tx.wait();
         
@@ -4184,15 +4187,23 @@ async function eksekusiSawer() {
     } catch (err) {
         console.error("Sawer Error:", err);
         let msg = "Transaksi Gagal.";
+        
+        // Deteksi Error Umum
         if (err.code === 4001 || (err.error && err.error.code === 4001)) {
             msg = "Transaksi dibatalkan user.";
-        } else if (err.message.includes("insufficient funds")) {
+        } else if (err.message && err.message.includes("insufficient funds")) {
             msg = "Saldo ETH tidak cukup.";
+        } else if (err.message && err.message.includes("minimal")) {
+            msg = "Nominal di bawah batas minimal.";
         }
+        
         showToast(msg, 'error');
     } finally {
-        btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
-        btn.disabled = false;
+        // Kembalikan tombol
+        if(btn) {
+            btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+            btn.disabled = false;
+        }
     }
 }
 
