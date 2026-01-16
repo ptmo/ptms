@@ -4250,7 +4250,7 @@ async function renderNextHistoryBatch() {
  }
 
 // ==========================================
-// FITUR GLOBAL FEED (SMART SCAN + INFINITE SCROLL)
+// FITUR GLOBAL FEED (FIXED AMBIGUITY)
 // ==========================================
 
 // FUNGSI 1: SCANNING DATA (Cari data mundur per blok)
@@ -4282,9 +4282,9 @@ async function loadGlobalFeed() {
 
         // --- KONFIGURASI SMART SCAN ---
         const currentBlock = await provider.getBlockNumber();
-        const DEPLOY_BLOCK = 40502777; // Blok awal kontrak (Optimasi waktu scan)
-        const CHUNK_SIZE = 10000;      // Chunk lebih kecil karena event global lebih banyak
-        const MIN_DATA_NEEDED = 10;    // Cari minimal 10 data sebelum ditampilkan
+        const DEPLOY_BLOCK = 40502777; // Blok awal kontrak
+        const CHUNK_SIZE = 10000;      
+        const MIN_DATA_NEEDED = 10;    
 
         let toBlock = currentBlock;
         let fromBlock = Math.max(currentBlock - CHUNK_SIZE, DEPLOY_BLOCK);
@@ -4302,10 +4302,10 @@ async function loadGlobalFeed() {
                 </div>`;
             }
 
-            // 1. AMBIL EVENT PARALEL (WayangLahir, Reviewed, TipSent)
-            // Kita gunakan try-catch individual di dalam Promise.all agar jika satu error, yang lain tetap jalan
+            // 1. AMBIL EVENT PARALEL
+            // PERBAIKAN: Gunakan Signature String untuk WayangLahir agar tidak error "Duplicate definition"
             const [logsMint, logsReview, logsTip] = await Promise.all([
-                contract.queryFilter(contract.filters.WayangLahir(), fromBlock, toBlock).catch(()=>[]),
+                contract.queryFilter(contract.filters['WayangLahir(uint256,string,string,bool,address)'](), fromBlock, toBlock).catch(()=>[]),
                 contract.queryFilter(contract.filters.Reviewed(), fromBlock, toBlock).catch(()=>[]),
                 contract.queryFilter(contract.filters.TipSent(), fromBlock, toBlock).catch(()=>[])
             ]);
@@ -4348,7 +4348,8 @@ async function loadGlobalFeed() {
 
     } catch (e) {
         console.warn("Global Feed Error:", e);
-        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed.</div>`;
+        // Error handling yang lebih halus, jangan biarkan kosong
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed (Cek Console).</div>`;
     } finally {
         if(refreshIcon) setTimeout(() => refreshIcon.classList.remove("fa-spin"), 500);
     }
@@ -4383,7 +4384,7 @@ async function renderNextFeedBatch() {
         if (ev.feedType === 'MINT') {
             const creator = ev.args.creator;
             const namaWayang = ev.args.nama;
-            const isOfficial = ev.args.isOfficial; // Pastikan ABI support ini
+            const isOfficial = ev.args.isOfficial; 
             const actor = (isOfficial) ? "Putramas Official" : shortAddr(creator);
             
             icon = `<div class="history-icon" style="background:rgba(231,76,60,0.1); color:#e74c3c;"><i class="fas fa-fire"></i></div>`;
