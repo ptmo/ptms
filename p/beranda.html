@@ -4000,59 +4000,66 @@ async function loadGlobalFeed() {
 }
 
 // ==========================================
-// 1. PANGGIL DATA & BUKA MODAL (FIXED)
+// 1. PANGGIL DATA & BUKA MODAL (FIXED & SAFER)
 // ==========================================
 async function panggilSawerDetail(id) { 
-    // 1. Fallback ID jika tidak ada parameter
-    if (!id) {
-        const params = new URLSearchParams(window.location.search);
-        id = params.get('id');
-    }
-
-    if (!id) return showToast("ID Wayang tidak ditemukan.", 'error');
-
-    // 2. Ambil Nama Wayang dari Halaman (Visual saja)
-    const elNama = document.getElementById("displayName");
-    const namaWayang = elNama ? elNama.innerText : `Wayang ${namaWayang} #${id}`;
-    
-    // Tampilkan Loading di Tombol (Feedback Visual)
-    const btnId = `btnSawer-${id}`; // Pastikan button punya ID unik kalau mau loading
-    const btn = document.getElementById(btnId);
-    let originalIcon = "";
-    
-    if(btn) {
-        originalIcon = btn.innerHTML;
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-        btn.disabled = true;
-    }
-
     try {
-        // --- PERBAIKAN UTAMA DISINI ---
-        // Jangan bikin Provider baru. Gunakan 'contractReader' yang sudah ada di script utama.
-        // contractReader menggunakan BASE_RPC_URL yang sudah kita set sebelumnya.
-        
-        const ownerAddress = await contractReader.ownerOf(id);
-        
-        // Cek apakah ownernya valid
-        if(!ownerAddress || ownerAddress === "0x0000000000000000000000000000000000000000") {
-            throw new Error("Invalid Owner");
+        // 1. Fallback ID jika tidak ada parameter
+        if (!id) {
+            const params = new URLSearchParams(window.location.search);
+            id = params.get('id');
         }
 
-        // 3. Buat Pesan Otomatis
-        const autoMessage = `Dukungan untuk: ${namaWayang} (ID #${id})`;
+        if (!id) return showToast("ID Wayang tidak ditemukan.", 'error');
 
-        // 4. Buka Modal
-        await bukaModalSawer(ownerAddress, namaWayang, autoMessage);
-
-    } catch (err) {
-        console.error("Gagal ambil data owner:", err);
-        showToast("Gagal memuat data pemilik (Cek Koneksi).", 'error');
-    } finally {
-        // Kembalikan tombol seperti semula
+        // 2. Ambil Nama Wayang dari Halaman (Visual saja)
+        const elNama = document.getElementById("displayName");
+        
+        // --- PERBAIKAN TYPO DISINI ---
+        // Sebelumnya: `Wayang ${namaWYang} #${id}` (Error karena namaWYang tidak ada)
+        // Sekarang: Kita pakai "Wayang" saja kalau elemen nama tidak ketemu.
+        const namaWayang = elNama ? elNama.innerText : `Wayang #${id}`;
+        
+        // Tampilkan Loading di Tombol (Feedback Visual)
+        const btnId = `btnSawer-${id}`; 
+        const btn = document.getElementById(btnId);
+        let originalIcon = "";
+        
         if(btn) {
-            btn.innerHTML = originalIcon;
-            btn.disabled = false;
+            originalIcon = btn.innerHTML;
+            btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+            btn.disabled = true;
         }
+
+        try {
+            // Gunakan 'contractReader' global yang sudah ada
+            const ownerAddress = await contractReader.ownerOf(id);
+            
+            // Cek validitas owner
+            if(!ownerAddress || ownerAddress === "0x0000000000000000000000000000000000000000") {
+                throw new Error("Invalid Owner Address");
+            }
+
+            // 3. Buat Pesan Otomatis
+            const autoMessage = `Dukungan untuk: ${namaWayang} (ID #${id})`;
+
+            // 4. Buka Modal
+            await bukaModalSawer(ownerAddress, namaWayang, autoMessage);
+
+        } catch (err) {
+            console.error("Error Blockchain:", err);
+            showToast("Gagal memuat data pemilik (Cek Koneksi).", 'error');
+        } finally {
+            // Kembalikan tombol seperti semula
+            if(btn) {
+                btn.innerHTML = originalIcon;
+                btn.disabled = false;
+            }
+        }
+    } catch (e) {
+        // Tangkap error javascript lain (seperti typo variabel)
+        console.error("Error Script:", e);
+        showToast("Terjadi kesalahan sistem.", 'error');
     }
 }
 
