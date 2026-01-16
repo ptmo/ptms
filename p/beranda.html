@@ -1927,16 +1927,17 @@ let userHistoryLogs = [];     // Wadah semua data mentah yang ditemukan
 let historyCursor = 0;        // Penanda posisi scroll saat ini
 let isHistoryLoading = false; // Pengaman agar tidak loading ganda
         // --- GLOBAL FEED VARIABLES ---
-let globalFeedIds = [];       // Menyimpan SEMUA ID wayang yang ada
-let feedCursor = 0;           // Penanda kita sudah sampai mana
-let isFeedLoading = false;    // Pengaman biar gak loading dobel
-        // --- GLOBAL VARS REVIEW ---
 let activeReviewId = null;
 let cachedReviews = []; // Menyimpan semua data ulasan sementara
 let reviewCursor = 0;   // Posisi scroll saat ini
         let avgRatingDisplay = "";
         let reviewCount = 0; // Variabel untuk jumlah ulasan
         let starColor = "";
+
+        // --- VARIABEL GLOBAL FEED ---
+let globalFeedLogs = [];       // Wadah data feed global
+let globalFeedCursor = 0;      // Penanda scroll
+let isGlobalFeedLoading = false; // Status loading
         
         
         const PRICE_CACHE_DURATION = 15000;
@@ -2587,10 +2588,10 @@ let starColor = "";
                 <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
                     <i class="fas fa-star" style="${starColor}"></i> 
                     <span style="font-size:12px; margin-left:3px; font-weight:bold;">${avgRatingDisplay}</span>
-                    <span style="font-size:10px; color:#888; margin-left:2px;">(${reviewCount})</span>
+                    ${reviewCount}   
                 </button>
                 
-                <button class="action-" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
+                <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
                     <i class="fas fa-shopping-cart"></i>
                 </button>
                 
@@ -4248,119 +4249,198 @@ async function renderNextHistoryBatch() {
     }
  }
 
-// --- FITUR GLOBAL ACTIVITY FEED (SAFE MODE) ---
+// ==========================================
+// FITUR GLOBAL FEED (SMART SCAN + INFINITE SCROLL)
+// ==========================================
+
+// FUNGSI 1: SCANNING DATA (Cari data mundur per blok)
 async function loadGlobalFeed() {
     const container = document.getElementById("globalFeedList");
     const refreshIcon = document.getElementById("btnRefreshFeed");
     
+    // Animasi Icon Refresh
     if(refreshIcon) refreshIcon.classList.add("fa-spin");
-    container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;"><i class="fas fa-circle-notch fa-spin"></i> Memuat kabar jagat...</div>`;
+
+    // Reset State
+    globalFeedLogs = [];
+    globalFeedCursor = 0;
+    isGlobalFeedLoading = false;
+
+    // Tampilkan Loading Awal
+    container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:20px;"><i class="fas fa-circle-notch fa-spin"></i> Memuat kabar jagat...</div>`;
+
+    // PASANG SENSOR SCROLL PADA CONTAINER
+    container.onscroll = function() {
+        if (container.scrollTop + container.clientHeight >= container.scrollHeight - 50) {
+            renderNextFeedBatch();
+        }
+    };
 
     try {
         const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-        
+
+        // --- KONFIGURASI SMART SCAN ---
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 100000; // Scan 5000 blok terakhir (aman)
+        const DEPLOY_BLOCK = 40502777; // Blok awal kontrak (Optimasi waktu scan)
+        const CHUNK_SIZE = 10000;      // Chunk lebih kecil karena event global lebih banyak
+        const MIN_DATA_NEEDED = 10;    // Cari minimal 10 data sebelum ditampilkan
 
-        let allFeed = [];
+        let toBlock = currentBlock;
+        let fromBlock = Math.max(currentBlock - CHUNK_SIZE, DEPLOY_BLOCK);
+        let foundEnoughData = false;
+        let loopCount = 0;
+        const MAX_LOOPS = 50; 
 
-        // 1. AMBIL EVENT SECARA TERPISAH (Agar kalau satu error, yg lain tetap jalan)
-        
-        // A. Event WayangLahir
-        try {
-            if (contract.filters.WayangLahir) {
-                const logs = await contract.queryFilter(contract.filters.WayangLahir(), fromBlock, "latest");
-                allFeed.push(...logs.map(l => ({ ...l, feedType: 'MINT' })));
+        // --- LOOPING MUNDUR ---
+        while (!foundEnoughData && loopCount < MAX_LOOPS && toBlock > DEPLOY_BLOCK) {
+            
+            // Indikator Progress
+            if(loopCount > 0) {
+                container.innerHTML = `<div style="text-align:center; font-size:10px; color:#aaa; padding:20px;">
+                    <i class="fas fa-satellite-dish"></i> Memindai blok... (Ditemukan: ${globalFeedLogs.length})
+                </div>`;
             }
-        } catch (err) { console.warn("Skip WayangLahir:", err.message); }
 
-        // B. Event Reviewed
-        try {
-            if (contract.filters.Reviewed) {
-                const logs = await contract.queryFilter(contract.filters.Reviewed(), fromBlock, "latest");
-                allFeed.push(...logs.map(l => ({ ...l, feedType: 'REVIEW' })));
+            // 1. AMBIL EVENT PARALEL (WayangLahir, Reviewed, TipSent)
+            // Kita gunakan try-catch individual di dalam Promise.all agar jika satu error, yang lain tetap jalan
+            const [logsMint, logsReview, logsTip] = await Promise.all([
+                contract.queryFilter(contract.filters.WayangLahir(), fromBlock, toBlock).catch(()=>[]),
+                contract.queryFilter(contract.filters.Reviewed(), fromBlock, toBlock).catch(()=>[]),
+                contract.queryFilter(contract.filters.TipSent(), fromBlock, toBlock).catch(()=>[])
+            ]);
+
+            // 2. GABUNGKAN HASIL & BERI LABEL TIPE
+            const newLogs = [
+                ...logsMint.map(l => ({ ...l, feedType: 'MINT' })),
+                ...logsReview.map(l => ({ ...l, feedType: 'REVIEW' })),
+                ...logsTip.map(l => ({ ...l, feedType: 'TIP' }))
+            ];
+
+            // Masukkan ke array global
+            globalFeedLogs = [...globalFeedLogs, ...newLogs];
+
+            // 3. CEK KECUKUPAN DATA
+            if (globalFeedLogs.length >= MIN_DATA_NEEDED) {
+                foundEnoughData = true;
+            } else {
+                // Mundur lagi
+                toBlock = fromBlock - 1;
+                fromBlock = Math.max(toBlock - CHUNK_SIZE, DEPLOY_BLOCK);
+                loopCount++;
             }
-        } catch (err) { console.warn("Skip Reviewed:", err.message); }
-
-        // C. Event TipSent
-        try {
-            if (contract.filters.TipSent) {
-                const logs = await contract.queryFilter(contract.filters.TipSent(), fromBlock, "latest");
-                allFeed.push(...logs.map(l => ({ ...l, feedType: 'TIP' })));
-            }
-        } catch (err) { console.warn("Skip TipSent:", err.message); }
-
-
-        // 2. URUTKAN & TAMPILKAN
-        allFeed.sort((a, b) => b.blockNumber - a.blockNumber);
-        const recentFeed = allFeed.slice(0, 10);
-
-        if (recentFeed.length === 0) {
-            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas baru.</div>`;
-            return;
         }
 
-        container.innerHTML = ""; 
+        // --- SELESAI SCAN ---
+        
+        // Urutkan data (Terbaru di atas)
+        globalFeedLogs.sort((a, b) => b.blockNumber - a.blockNumber);
 
-        for (let ev of recentFeed) {
-            let icon, contentHtml;
-            const shortAddr = (addr) => addr.substring(0,5) + "..." + addr.substring(addr.length-3);
+        // Bersihkan Container
+        container.innerHTML = "";
 
-            if (ev.feedType === 'MINT') {
-                const creator = ev.args.creator;
-                const namaWayang = ev.args.nama;
-                const isOfficial = ev.args.isOfficial;
-                const actor = isOfficial ? "Putramas Official" : shortAddr(creator);
-                
-                icon = `<div class="history-icon" style="background:rgba(231,76,60,0.1); color:#e74c3c;"><i class="fas fa-fire"></i></div>`;
-                contentHtml = `<div class="history-title"><b>${actor}</b> Mint<span style="color:#e74c3c;">${namaWayang}</span></div><div class="history-sub">Wayang baru lahir!</div>`;
-            } 
-            else if (ev.feedType === 'REVIEW') {
-                const user = ev.args.user;
-                const stars = ev.args.star;
-                
-                // Icon Bulat di Kiri (Tetap)
-                icon = `<div class="history-icon" style="background:rgba(241,196,15,0.1); color:#f39c12;"><i class="fas fa-star"></i></div>`;
-                
-                // ISI KONTEN (Emoji Bintang diganti FA Icon)
-                contentHtml = `
-                    <div class="history-title"><b>${shortAddr(user)}</b> Memberi Rating</div>
-                    <div class="history-sub">
-                        <i class="fas fa-star" style="color:#f39c12; margin-right:4px;"></i> ${stars}/5
-                    </div>`;
-            }
-            else if (ev.feedType === 'TIP') {
-                const from = ev.args.from;
-                const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
-                
-                // Icon Bulat di Kiri (Tetap)
-                icon = `<div class="history-icon" style="background:rgba(46,204,113,0.1); color:#2ecc71;"><i class="fas fa-heart"></i></div>`;
-                
-                // ISI KONTEN (Emoji diganti FA Icon)
-                contentHtml = `
-                    <div class="history-title"><b>${shortAddr(from)}</b> Dukung</div>
-                    <div class="history-sub">
-                        <i class="fas fa-heart" style="color:#2ecc71; margin-right:4px;"></i> ${amount} ETH
-                    </div>`;
-            }
-
-            const html = `
-            <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" style="cursor:pointer; animation: fadeIn 0.5s ease;">
-                ${icon}
-                <div class="history-content">${contentHtml}</div>
-            </div>`;
-            container.insertAdjacentHTML('beforeend', html);
+        if (globalFeedLogs.length === 0) {
+            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas baru.</div>`;
+        } else {
+            // RENDER BATCH PERTAMA
+            await renderNextFeedBatch();
         }
 
     } catch (e) {
-        console.warn("Feed Error Global:", e);
-        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed (Check ABI).</div>`;
+        console.warn("Global Feed Error:", e);
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed.</div>`;
     } finally {
         if(refreshIcon) setTimeout(() => refreshIcon.classList.remove("fa-spin"), 500);
     }
 }
 
+// FUNGSI 2: RENDER BATCH (INFINITE SCROLL)
+async function renderNextFeedBatch() {
+    // Cek Loading / Data Habis
+    if (isGlobalFeedLoading || globalFeedCursor >= globalFeedLogs.length) return;
+
+    isGlobalFeedLoading = true;
+    const container = document.getElementById("globalFeedList");
+
+    // Loader Kecil di Bawah
+    const loaderId = "miniLoaderFeed";
+    if(!document.getElementById(loaderId)) {
+        container.insertAdjacentHTML('beforeend', 
+            `<div id="${loaderId}" style="text-align:center; padding:10px; font-size:10px; color:#aaa;">
+                <i class="fas fa-circle-notch fa-spin"></i>
+            </div>`
+        );
+    }
+
+    // AMBIL 10 DATA BERIKUTNYA
+    const batch = globalFeedLogs.slice(globalFeedCursor, globalFeedCursor + 10);
+    const shortAddr = (addr) => addr.substring(0,5) + "..." + addr.substring(addr.length-3);
+
+    // LOOPING RENDER
+    for (let ev of batch) {
+        let icon, contentHtml;
+
+        if (ev.feedType === 'MINT') {
+            const creator = ev.args.creator;
+            const namaWayang = ev.args.nama;
+            const isOfficial = ev.args.isOfficial; // Pastikan ABI support ini
+            const actor = (isOfficial) ? "Putramas Official" : shortAddr(creator);
+            
+            icon = `<div class="history-icon" style="background:rgba(231,76,60,0.1); color:#e74c3c;"><i class="fas fa-fire"></i></div>`;
+            contentHtml = `<div class="history-title"><b>${actor}</b> Mint <span style="color:#e74c3c;">${namaWayang}</span></div><div class="history-sub">Wayang baru lahir!</div>`;
+        } 
+        else if (ev.feedType === 'REVIEW') {
+            const user = ev.args.user;
+            const stars = ev.args.star;
+            
+            icon = `<div class="history-icon" style="background:rgba(241,196,15,0.1); color:#f39c12;"><i class="fas fa-star"></i></div>`;
+            contentHtml = `
+                <div class="history-title"><b>${shortAddr(user)}</b> Memberi Rating</div>
+                <div class="history-sub">
+                    <i class="fas fa-star" style="color:#f39c12; margin-right:2px;"></i> ${stars}/5
+                </div>`;
+        }
+        else if (ev.feedType === 'TIP') {
+            const from = ev.args.from;
+            const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
+            
+            icon = `<div class="history-icon" style="background:rgba(46,204,113,0.1); color:#2ecc71;"><i class="fas fa-heart"></i></div>`;
+            contentHtml = `
+                <div class="history-title"><b>${shortAddr(from)}</b> Dukung</div>
+                <div class="history-sub">
+                    <i class="fas fa-heart" style="color:#2ecc71; margin-right:2px;"></i> ${amount} ETH
+                </div>`;
+        }
+
+        const html = `
+        <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" 
+             style="cursor:pointer; animation: fadeIn 0.3s ease;">
+            ${icon}
+            <div class="history-content">${contentHtml}</div>
+        </div>`;
+
+        // Sisipkan sebelum loader
+        const loaderEl = document.getElementById(loaderId);
+        if(loaderEl) loaderEl.insertAdjacentHTML('beforebegin', html);
+    }
+
+    // UPDATE CURSOR
+    globalFeedCursor += 10;
+    isGlobalFeedLoading = false;
+
+    // HAPUS LOADER JIKA SUDAH HABIS
+    if(globalFeedCursor >= globalFeedLogs.length) {
+        const loaderEl = document.getElementById(loaderId);
+        if(loaderEl) loaderEl.remove();
+        container.insertAdjacentHTML('beforeend', `<div style="text-align:center; font-size:9px; color:#ddd; padding:5px;">- Tidak ada aktivitas lagi -</div>`);
+    }
+
+    // AUTO-FILL (Jika layar besar)
+    if (container.scrollHeight <= container.clientHeight && globalFeedCursor < globalFeedLogs.length) {
+        renderNextFeedBatch();
+    }
+}
+        
 // ==========================================
 // 1. PANGGIL DATA & BUKA MODAL
 // ==========================================
