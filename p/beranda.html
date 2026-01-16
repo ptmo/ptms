@@ -4158,77 +4158,118 @@ function setSawerPercent(percent) {
 
     document.getElementById("sawerAmount").value = parseFloat(amount.toFixed(5));
 }
-
+        
 // ==========================================
-// 4. EKSEKUSI TRANSAKSI (FIXED ABI)
+// 4. EKSEKUSI TRANSAKSI (DENGAN LOADING DI TOMBOL KARTU)
 // ==========================================
 async function eksekusiSawer() {
     const amountVal = document.getElementById("sawerAmount").value;
     const msgVal = document.getElementById("sawerMessage").value;
-    const btn = document.getElementById("btnKirimSawer");
+    
+    // Tombol di dalam Modal
+    const btnModal = document.getElementById("btnKirimSawer");
 
-    // Ambil target dari variabel global
     if (!sawerTargetAddress) {
         showToast("Error: Target penerima hilang.", 'error');
         return;
     }
 
-    // Validasi Input
     if (!amountVal || amountVal < MIN_TIP || amountVal > MAX_TIP) {
         showToast(`Nominal harus antara ${MIN_TIP} - ${MAX_TIP} ETH`, 'warning');
         return;
     }
 
+    // --- 1. SIAPKAN TOMBOL KARTU (TOMBOL ASAL) ---
+    let btnCard = null;
+    let originalCardContent = "";
+    
+    // Cari tombol di kartu berdasarkan ID yang kita simpan tadi
+    if (activeSawerId) {
+        btnCard = document.getElementById(`btnSawer-${activeSawerId}`);
+        if (btnCard) {
+            originalCardContent = btnCard.innerHTML; // Simpan tampilan lama
+        }
+    }
+
     try {
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
-        btn.disabled = true;
+        // Efek Loading di Tombol Modal
+        btnModal.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+        btnModal.disabled = true;
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        
-        // PERBAIKAN: Gunakan 'ABI', bukan 'CONTRACT_ABI'
         const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
-        // Kirim Transaksi
+        // KIRIM TRANSAKSI
         const tx = await contractWrite.sendTip(sawerTargetAddress, msgVal, { 
             value: amountWei,
-            gasLimit: 300000 // Tambah gas limit manual biar aman
+            gasLimit: 89000 
         });
         
+        // --- 2. TRANSAKSI DIKIRIM (MODAL TUTUP, KARTU LOADING) ---
         toggleSawerModal(false); 
-        showToast("Transaksi dikirim...", 'load');
+        showToast("Transaksi sedang berjalan...", 'load');
 
+        // UBAH TOMBOL DI KARTU JADI LOADING
+        if (btnCard) {
+            btnCard.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+            btnCard.disabled = true; // Kunci tombol biar gak dipencet lagi
+        }
+
+        // TUNGGU TRANSAKSI SELESAI
         await tx.wait();
         
         showToast(`Sukses terkirim!`, 'success');
-        
-        // Refresh saldo user
         if (typeof userAddress !== 'undefined') refreshUserBalance(userAddress);
+
+        // --- 3. TRANSAKSI SUKSES: UPDATE ANGKA & BALIKIN TOMBOL ---
+        if (activeSawerId && sawerTargetAddress) {
+            try {
+                // Ambil data terbaru dari blockchain
+                const updatedCount = await contractWrite.getTipCount(sawerTargetAddress);
+                
+                // Update Tombol Kartu dengan Angka Baru
+                if (btnCard) {
+                    btnCard.innerHTML = `<i class="fas fa-gift"></i> <span id="sawerCount-${activeSawerId}">${updatedCount}</span>`;
+                    btnCard.disabled = false; // Buka kunci
+                    
+                    // Efek kedip hijau sedikit biar user sadar
+                    btnCard.style.color = "#2ecc71";
+                    setTimeout(() => btnCard.style.color = "", 1000);
+                }
+            } catch (e) {
+                console.warn("Gagal update angka:", e);
+                // Kalau gagal update angka, minimal balikin tombolnya
+                if (btnCard) {
+                    btnCard.innerHTML = originalCardContent; 
+                    btnCard.disabled = false;
+                }
+            }
+        }
 
     } catch (err) {
         console.error("Sawer Error:", err);
         let msg = "Transaksi Gagal.";
-        
-        // Deteksi Error Umum
-        if (err.code === 4001 || (err.error && err.error.code === 4001)) {
-            msg = "Transaksi dibatalkan user.";
-        } else if (err.message && err.message.includes("insufficient funds")) {
-            msg = "Saldo ETH tidak cukup.";
-        } else if (err.message && err.message.includes("minimal")) {
-            msg = "Nominal di bawah batas minimal.";
-        }
+        if (err.code === 4001 || (err.error && err.error.code === 4001)) msg = "Dibatalkan user.";
+        else if (err.message && err.message.includes("insufficient funds")) msg = "Saldo kurang.";
         
         showToast(msg, 'error');
+
+        // Kalau gagal, balikin tombol kartu seperti semula (jangan loading terus)
+        if (btnCard) {
+            btnCard.innerHTML = originalCardContent;
+            btnCard.disabled = false;
+        }
+
     } finally {
-        // Kembalikan tombol
-        if(btn) {
-            btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
-            btn.disabled = false;
+        // Balikin tombol Modal
+        if(btnModal) {
+            btnModal.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+            btnModal.disabled = false;
         }
     }
-}
+                  }
 
 // ==========================================
 // 5. HELPER LAINNYA
