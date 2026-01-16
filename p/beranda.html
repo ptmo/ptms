@@ -1585,6 +1585,47 @@ const ERC20_ABI = [
     "function transfer(address to, uint amount) returns (bool)",
     "function approve(address spender, uint amount) returns (bool)"
 ];
+
+// ... (kode ABI lama Bapak di atas) ...
+
+// --- TAMBAHAN UNTUK FEED ---
+{
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "id", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "nama", "type": "string" },
+      { "indexed": false, "internalType": "string", "name": "golongan", "type": "string" },
+      { "indexed": false, "internalType": "bool", "name": "isOfficial", "type": "bool" },
+      { "indexed": false, "internalType": "address", "name": "creator", "type": "address" }
+    ],
+    "name": "WayangLahir",
+    "type": "event"
+},
+{
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "uint256", "name": "id", "type": "uint256" },
+      { "indexed": false, "internalType": "address", "name": "user", "type": "address" },
+      { "indexed": false, "internalType": "uint8", "name": "star", "type": "uint8" },
+      { "indexed": false, "internalType": "string", "name": "ulasan", "type": "string" }
+    ],
+    "name": "Reviewed",
+    "type": "event"
+},
+{
+    "anonymous": false,
+    "inputs": [
+      { "indexed": true, "internalType": "address", "name": "from", "type": "address" },
+      { "indexed": true, "internalType": "address", "name": "to", "type": "address" },
+      { "indexed": false, "internalType": "uint256", "name": "amount", "type": "uint256" },
+      { "indexed": false, "internalType": "string", "name": "message", "type": "string" },
+      { "indexed": false, "internalType": "uint256", "name": "timestamp", "type": "uint256" }
+    ],
+    "name": "TipSent",
+    "type": "event"
+}
+
+// ... (kurung tutup ] ABI ada di sini)
         
         const PINATA_API_KEY = "d209d53257fcc57219af";    
 const PINATA_SECRET_KEY = "c65d0f4b9de3d144cbb09da6394b2f8dd690e09a9a7b1533d465b541350e7c0d";
@@ -3666,12 +3707,11 @@ async function renderNextHistoryBatch() {
     }
  }
 
-    // --- FITUR GLOBAL ACTIVITY FEED (TIMELINE) ---
+// --- FITUR GLOBAL ACTIVITY FEED (SAFE MODE) ---
 async function loadGlobalFeed() {
     const container = document.getElementById("globalFeedList");
     const refreshIcon = document.getElementById("btnRefreshFeed");
     
-    // Animasi Loading
     if(refreshIcon) refreshIcon.classList.add("fa-spin");
     container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;"><i class="fas fa-circle-notch fa-spin"></i> Memuat kabar jagat...</div>`;
 
@@ -3679,119 +3719,88 @@ async function loadGlobalFeed() {
         const provider = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
         const contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
         
-        // Ambil data 24 jam terakhir (±50.000 blok) biar feed selalu fresh
         const currentBlock = await provider.getBlockNumber();
-        const fromBlock = currentBlock - 20000; 
+        const fromBlock = currentBlock - 5000; // Scan 5000 blok terakhir (aman)
 
-        // 1. SIAPKAN FILTER (GLOBAL = Parameter null semua)
-        // Kita tangkap: WayangLahir, Reviewed, TipSent
-        // Transfer tidak kita ambil supaya tidak spam (karena Minting sudah ada event Lahir)
-        const fLahir = contract.filters.WayangLahir(); 
-        const fReview = contract.filters.Reviewed();
-        const fTip = contract.filters.TipSent();
+        let allFeed = [];
 
-        // 2. AMBIL DATA PARALEL
-        const [logsLahir, logsReview, logsTip] = await Promise.all([
-            contract.queryFilter(fLahir, fromBlock, "latest"),
-            contract.queryFilter(fReview, fromBlock, "latest"),
-            contract.queryFilter(fTip, fromBlock, "latest")
-        ]);
-
-        // 3. GABUNGKAN & NORMALISASI DATA
-        let allFeed = [
-            ...logsLahir.map(l => ({ ...l, feedType: 'MINT' })),
-            ...logsReview.map(l => ({ ...l, feedType: 'REVIEW' })),
-            ...logsTip.map(l => ({ ...l, feedType: 'TIP' }))
-        ];
-
-        // Urutkan (Terbaru di atas)
-        allFeed.sort((a, b) => b.blockNumber - a.blockNumber);
+        // 1. AMBIL EVENT SECARA TERPISAH (Agar kalau satu error, yg lain tetap jalan)
         
-        // Ambil 15 Teratas saja biar ringan
-        const recentFeed = allFeed.slice(0, 15);
+        // A. Event WayangLahir
+        try {
+            if (contract.filters.WayangLahir) {
+                const logs = await contract.queryFilter(contract.filters.WayangLahir(), fromBlock, "latest");
+                allFeed.push(...logs.map(l => ({ ...l, feedType: 'MINT' })));
+            }
+        } catch (err) { console.warn("Skip WayangLahir:", err.message); }
+
+        // B. Event Reviewed
+        try {
+            if (contract.filters.Reviewed) {
+                const logs = await contract.queryFilter(contract.filters.Reviewed(), fromBlock, "latest");
+                allFeed.push(...logs.map(l => ({ ...l, feedType: 'REVIEW' })));
+            }
+        } catch (err) { console.warn("Skip Reviewed:", err.message); }
+
+        // C. Event TipSent
+        try {
+            if (contract.filters.TipSent) {
+                const logs = await contract.queryFilter(contract.filters.TipSent(), fromBlock, "latest");
+                allFeed.push(...logs.map(l => ({ ...l, feedType: 'TIP' })));
+            }
+        } catch (err) { console.warn("Skip TipSent:", err.message); }
+
+
+        // 2. URUTKAN & TAMPILKAN
+        allFeed.sort((a, b) => b.blockNumber - a.blockNumber);
+        const recentFeed = allFeed.slice(0, 10);
 
         if (recentFeed.length === 0) {
-            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada kabar terbaru di jagat ini.</div>`;
+            container.innerHTML = `<div style="text-align:center; font-size:11px; color:#aaa; padding:15px;">Belum ada aktivitas baru.</div>`;
             return;
         }
 
-        container.innerHTML = ""; // Bersihkan
+        container.innerHTML = ""; 
 
-        // 4. RENDER HTML
         for (let ev of recentFeed) {
-            let icon, contentHtml, timeago;
-            
-            // Helper: Potong Address (0x1234...abcd)
+            let icon, contentHtml;
             const shortAddr = (addr) => addr.substring(0,5) + "..." + addr.substring(addr.length-3);
 
             if (ev.feedType === 'MINT') {
-                // Event WayangLahir(id, nama, golongan, isOfficial, creator)
                 const creator = ev.args.creator;
                 const namaWayang = ev.args.nama;
                 const isOfficial = ev.args.isOfficial;
-                
-                icon = `<div class="history-icon" style="background:rgba(231,76,60,0.1); color:#e74c3c;"><i class="fas fa-fire"></i></div>`;
-                
-                // Cek apakah Official (Putramas) atau User
                 const actor = isOfficial ? "Putramas Official" : shortAddr(creator);
                 
-                contentHtml = `
-                    <div class="history-title"><b>${actor}</b> minting <span style="color:#e74c3c;">${namaWayang}</span></div>
-                    <div class="history-sub">Wayang baru telah lahir!</div>
-                `;
+                icon = `<div class="history-icon" style="background:rgba(231,76,60,0.1); color:#e74c3c;"><i class="fas fa-fire"></i></div>`;
+                contentHtml = `<div class="history-title"><b>${actor}</b> minting <span style="color:#e74c3c;">${namaWayang}</span></div><div class="history-sub">Wayang baru lahir!</div>`;
             } 
             else if (ev.feedType === 'REVIEW') {
-                // Event Reviewed(id, user, star, ulasan)
                 const user = ev.args.user;
                 const stars = ev.args.star;
-                const tokenId = ev.args.id;
-                
-                // Kita perlu ambil nama wayang karena event Review cuma simpan ID
-                let namaWayang = `Wayang #${tokenId}`;
-                try {
-                    const info = await contract.getInfoWayang(tokenId);
-                    namaWayang = info.nama;
-                } catch(e){}
-
                 icon = `<div class="history-icon" style="background:rgba(241,196,15,0.1); color:#f39c12;"><i class="fas fa-star"></i></div>`;
-                
-                contentHtml = `
-                    <div class="history-title"><b>${shortAddr(user)}</b> memberi rating</div>
-                    <div class="history-sub">⭐ ${stars}/5 untuk <b>${namaWayang}</b></div>
-                `;
+                contentHtml = `<div class="history-title"><b>${shortAddr(user)}</b> memberi rating</div><div class="history-sub">⭐ ${stars}/5</div>`;
             }
             else if (ev.feedType === 'TIP') {
-                // Event TipSent(from, to, amount, message)
                 const from = ev.args.from;
                 const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
-                
                 icon = `<div class="history-icon" style="background:rgba(46,204,113,0.1); color:#2ecc71;"><i class="fas fa-heart"></i></div>`;
-                
-                contentHtml = `
-                    <div class="history-title"><b>${shortAddr(from)}</b> memberi saweran</div>
-                    <div class="history-sub">💚 ${amount} ETH sebagai dukungan</div>
-                `;
+                contentHtml = `<div class="history-title"><b>${shortAddr(from)}</b> sawer</div><div class="history-sub">💚 ${amount} ETH</div>`;
             }
 
-            // Template Item
             const html = `
             <div class="history-item" onclick="window.open('https://basescan.org/tx/${ev.transactionHash}', '_blank')" style="cursor:pointer; animation: fadeIn 0.5s ease;">
                 ${icon}
-                <div class="history-content">
-                    ${contentHtml}
-                </div>
+                <div class="history-content">${contentHtml}</div>
             </div>`;
-            
             container.insertAdjacentHTML('beforeend', html);
         }
 
     } catch (e) {
-        console.warn("Feed Error:", e);
-        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed.</div>`;
+        console.warn("Feed Error Global:", e);
+        container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat feed (Check ABI).</div>`;
     } finally {
-        if(refreshIcon) {
-            setTimeout(() => refreshIcon.classList.remove("fa-spin"), 500);
-        }
+        if(refreshIcon) setTimeout(() => refreshIcon.classList.remove("fa-spin"), 500);
     }
 }
         
