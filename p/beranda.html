@@ -4172,7 +4172,7 @@ async function eksekusiSawer() {
         return;
     }
 
-    // --- 1. DEFINISIKAN btnCard DI SINI (Supaya tidak error di bawah) ---
+    // --- 1. DEFINISIKAN btnCard DI SINI ---
     let btnCard = null;
     let originalCardContent = "";
     
@@ -4183,7 +4183,6 @@ async function eksekusiSawer() {
             originalCardContent = btnCard.innerHTML; // Simpan icon lama
         }
     }
-    // ------------------------------------------------------------------
 
     try {
         // Loading di Modal
@@ -4192,7 +4191,7 @@ async function eksekusiSawer() {
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer); // Pastikan pakai 'ABI'
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer); 
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
         // Kirim Transaksi
@@ -4224,7 +4223,7 @@ async function eksekusiSawer() {
                 const updatedCount = await getTipCountByID(activeSawerId, sawerTargetAddress);
                 
                 if (btnCard) {
-                    // Update Text HTML
+                    // Update Text HTML (jika ada elemen span terpisah)
                     const elCount = document.getElementById(`sawerCount-${activeSawerId}`);
                     if(elCount) elCount.innerText = updatedCount;
 
@@ -4238,7 +4237,7 @@ async function eksekusiSawer() {
                 }
             } catch (e) {
                 console.warn("Gagal update angka:", e);
-                // Kalau gagal hitung, balikin tampilan tombol lama biar gak loading terus
+                // Kalau gagal hitung, balikin tampilan tombol lama
                 if (btnCard) {
                     btnCard.innerHTML = originalCardContent; 
                     btnCard.disabled = false;
@@ -4258,7 +4257,7 @@ async function eksekusiSawer() {
         
         showToast(msg, 'error');
 
-        // Kalau Error, Kembalikan Tombol Kartu (Jangan Loading Terus)
+        // Kalau Error, Kembalikan Tombol Kartu
         if (btnCard) {
             btnCard.innerHTML = originalCardContent;
             btnCard.disabled = false;
@@ -4272,15 +4271,14 @@ async function eksekusiSawer() {
         }
     }
 }
-        
 
-        // --- HELPER: HITUNG SAWERAN PER ITEM (FILTER BY MESSAGE) ---
+// --- HELPER: HITUNG SAWERAN PER ITEM (FILTER BY MESSAGE) ---
 async function getTipCountByID(wayangId, ownerAddress) {
     try {
         // 1. Ambil semua riwayat saweran ke Owner ini
         const filter = contractReader.filters.TipSent(null, ownerAddress);
         
-        // Scan 50.000 blok terakhir (±1 Minggu) agar loading cepat
+        // Scan 50.000 blok terakhir agar loading cepat
         const currentBlock = await contractReader.provider.getBlockNumber();
         const fromBlock = Math.max(0, currentBlock - 50000); 
 
@@ -4288,13 +4286,10 @@ async function getTipCountByID(wayangId, ownerAddress) {
 
         // 2. HITUNG MANUAL: Cek isi pesannya satu per satu
         let count = 0;
-        const targetTag = `ID #${wayangId}`; // Kunci pencarian kita
+        const targetTag = `ID #${wayangId}`; 
 
         for (let log of logs) {
-            // Ambil pesan dari event (args[3])
             const msg = log.args.message || "";
-            
-            // Jika di dalam pesan ada tulisan "ID #19", berarti ini buat wayang 19
             if (msg.includes(targetTag)) {
                 count++;
             }
@@ -4302,55 +4297,7 @@ async function getTipCountByID(wayangId, ownerAddress) {
         return count;
 
     } catch (e) {
-        return 0; // Kalau gagal/kosong, anggap 0
-    }
-}
-
-        // ============================================================
-        // 🔥 UPDATE ANGKA DI TOMBOL SECARA REAL-TIME 🔥
-        // ============================================================
-        if (activeSawerId && sawerTargetAddress) {
-            try {
-                // 1. Ambil jumlah tip terbaru dari Owner
-                // Kita gunakan 'contractReader' (RPC) atau 'contractWrite' juga bisa
-                const updatedCount = await contractWrite.getTipCount(sawerTargetAddress);
-                
-                // 2. Cari elemen angka di HTML berdasarkan ID yang disimpan tadi
-                const elCount = document.getElementById(`sawerCount-${activeSawerId}`);
-                
-                // 3. Update teksnya langsung!
-                if(elCount) {
-                    // Efek animasinya sedikit biar kelihatan berubah
-                    elCount.style.opacity = 0;
-                    setTimeout(() => {
-                        elCount.innerText = updatedCount.toString();
-                        elCount.style.opacity = 1;
-                    }, 200);
-                }
-            } catch (eUpdate) {
-                console.warn("Gagal update angka realtime:", eUpdate);
-            }
-        }
-        // ============================================================
-
-    } catch (err) {
-        console.error("Sawer Error:", err);
-        let msg = "Transaksi Gagal.";
-        
-        if (err.code === 4001 || (err.error && err.error.code === 4001)) {
-            msg = "Transaksi dibatalkan user.";
-        } else if (err.message && err.message.includes("insufficient funds")) {
-            msg = "Saldo ETH tidak cukup.";
-        } else if (err.message && err.message.includes("minimal")) {
-            msg = "Nominal di bawah batas minimal.";
-        }
-        
-        showToast(msg, 'error');
-    } finally {
-        if(btn) {
-            btn.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
-            btn.disabled = false;
-        }
+        return 0; 
     }
 }
 
@@ -4363,14 +4310,11 @@ async function refreshUserBalance(address) {
         const balanceBN = await walletProvider.getBalance(address);
         const ethVal = ethers.utils.formatEther(balanceBN);
 
-const elSaldo = document.getElementById("sawerUserBalance");
-if(elSaldo) {
-    // Gunakan 8 desimal agar presisi, pastikan diakhiri titik koma saja
-    elSaldo.innerText = parseFloat(ethVal).toFixed(8) + " ETH";
-    
-    // Simpan nilai asli di atribut data (untuk perhitungan persen)
-    elSaldo.setAttribute('data-balance', ethVal);
-}
+        const elSaldo = document.getElementById("sawerUserBalance");
+        if(elSaldo) {
+            elSaldo.innerText = parseFloat(ethVal).toFixed(8) + " ETH";
+            elSaldo.setAttribute('data-balance', ethVal);
+        }
     } catch (e) { console.error(e); }
 }
 
@@ -4388,9 +4332,9 @@ function toggleSawerModal(show) {
 
 function closeSawer(event) {
     if (event.target.id === "sawerModal") toggleSawerModal(false);
-            }
+}
         
-    document.getElementById("year").innerText = new Date().getFullYear();
+document.getElementById("year").innerText = new Date().getFullYear();
 </script>
 </body>
-                                                     </html>
+</html>
