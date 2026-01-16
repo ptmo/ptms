@@ -2434,9 +2434,9 @@ async function renderCard(id, container) {
                     <i class="fas fa-heart"></i> ${likes}
                 </button>
                 
-                <button class="action-btn" onclick="event.stopPropagation(); panggilSawerDetail('${id}')" title="Kirim Apresiasi">
-                    <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${sawerCount}</span>
-                </button>
+                <button id="btnSawer-${id}" class="action-btn" onclick="event.stopPropagation(); panggilSawerDetail('${id}')" title="Kirim Apresiasi">
+    <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${sawerCount}</span>
+</button>
 
                 <button class="action-btn"><i class="fas fa-star"></i></button>
                 
@@ -3984,11 +3984,10 @@ async function loadGlobalFeed() {
 }
 
 // ==========================================
-// 1. PANGGIL DATA & BUKA MODAL
+// 1. PANGGIL DATA & BUKA MODAL (FIXED)
 // ==========================================
-// Menerima parameter id dari tombol onclick
 async function panggilSawerDetail(id) { 
-    // Jika id tidak dikirim via parameter, coba ambil dari URL (fallback)
+    // 1. Fallback ID jika tidak ada parameter
     if (!id) {
         const params = new URLSearchParams(window.location.search);
         id = params.get('id');
@@ -3996,32 +3995,49 @@ async function panggilSawerDetail(id) {
 
     if (!id) return showToast("ID Wayang tidak ditemukan.", 'error');
 
-    // Ambil elemen nama (jika ada di halaman detail) atau set default
+    // 2. Ambil Nama Wayang dari Halaman (Visual saja)
     const elNama = document.getElementById("displayName");
     const namaWayang = elNama ? elNama.innerText : `Wayang #${id}`;
-
-    // Efek loading pada tombol (Optional)
-    // const btn = document.querySelector(`button[onclick*="${id}"]`); 
-    // if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+    
+    // Tampilkan Loading di Tombol (Feedback Visual)
+    const btnId = `btnSawer-${id}`; // Pastikan button punya ID unik kalau mau loading
+    const btn = document.getElementById(btnId);
+    let originalIcon = "";
+    
+    if(btn) {
+        originalIcon = btn.innerHTML;
+        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        btn.disabled = true;
+    }
 
     try {
-        // Ambil Owner Terbaru dari Blockchain (Read-Only)
-        // Ganti URL RPC sesuai jaringan (Mainnet/Sepolia)
-        const rpcProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org"); 
-        const readOnlyContract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, rpcProvider);
-        const ownerAddress = await readOnlyContract.ownerOf(id);
+        // --- PERBAIKAN UTAMA DISINI ---
+        // Jangan bikin Provider baru. Gunakan 'contractReader' yang sudah ada di script utama.
+        // contractReader menggunakan BASE_RPC_URL yang sudah kita set sebelumnya.
+        
+        const ownerAddress = await contractReader.ownerOf(id);
+        
+        // Cek apakah ownernya valid
+        if(!ownerAddress || ownerAddress === "0x0000000000000000000000000000000000000000") {
+            throw new Error("Invalid Owner");
+        }
 
-        // Buat Pesan Otomatis
+        // 3. Buat Pesan Otomatis
         const autoMessage = `Saweran untuk: ${namaWayang} (ID #${id})`;
 
-        // Buka Modal
+        // 4. Buka Modal
         await bukaModalSawer(ownerAddress, namaWayang, autoMessage);
 
     } catch (err) {
-        console.error("Gagal ambil data:", err);
-        showToast("Gagal memuat data pemilik.", 'error');
-    } 
-    // finally { if(btn) btn.innerHTML = ...; } // Balikin icon jika perlu
+        console.error("Gagal ambil data owner:", err);
+        showToast("Gagal memuat data pemilik (Cek Koneksi).", 'error');
+    } finally {
+        // Kembalikan tombol seperti semula
+        if(btn) {
+            btn.innerHTML = originalIcon;
+            btn.disabled = false;
+        }
+    }
 }
 
 // ==========================================
