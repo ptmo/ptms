@@ -2370,10 +2370,11 @@ async function renderCard(id, container) {
         // Kita pisah di try-catch kecil agar kalau gagal, kartu tetap muncul (nilai 0)
         let sawerCount = 0;
         try {
-            const countBN = await contractReader.getTipCount(owner);
-            sawerCount = parseInt(countBN);
+            // JANGAN pakai getTipCount (karena itu total saldo owner)
+            // PAKAI fungsi filter manual kita:
+            sawerCount = await getTipCountByID(id, owner);
         } catch(errTip) {
-            sawerCount = 0; // Default kalau gagal ambil
+            sawerCount = 0;
         }
         // ------------------------------
 
@@ -4154,12 +4155,12 @@ function setSawerPercent(percent) {
 }
         
 // ==========================================
-// 4. EKSEKUSI TRANSAKSI (UPDATE REAL-TIME)
+// 4. EKSEKUSI TRANSAKSI (FINAL - CORRECT COUNT)
 // ==========================================
 async function eksekusiSawer() {
     const amountVal = document.getElementById("sawerAmount").value;
     const msgVal = document.getElementById("sawerMessage").value;
-    const btn = document.getElementById("btnKirimSawer");
+    const btnModal = document.getElementById("btnKirimSawer");
 
     if (!sawerTargetAddress) {
         showToast("Error: Target penerima hilang.", 'error');
@@ -4171,16 +4172,27 @@ async function eksekusiSawer() {
         return;
     }
 
+    // --- 1. DEFINISIKAN btnCard DI SINI (Supaya tidak error di bawah) ---
+    let btnCard = null;
+    let originalCardContent = "";
+    
+    // Cek apakah kita sedang memproses ID tertentu
+    if (activeSawerId) {
+        btnCard = document.getElementById(`btnSawer-${activeSawerId}`);
+        if (btnCard) {
+            originalCardContent = btnCard.innerHTML; // Simpan icon lama
+        }
+    }
+    // ------------------------------------------------------------------
+
     try {
-        btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
-        btn.disabled = true;
+        // Loading di Modal
+        btnModal.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+        btnModal.disabled = true;
 
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         const signer = provider.getSigner();
-        
-        // Pastikan pakai variabel 'ABI' yang benar
-        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-
+        const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer); // Pastikan pakai 'ABI'
         const amountWei = ethers.utils.parseEther(amountVal.toString());
 
         // Kirim Transaksi
@@ -4189,16 +4201,110 @@ async function eksekusiSawer() {
             gasLimit: 300000 
         });
         
+        // Modal Tutup, Toast Muncul
         toggleSawerModal(false); 
         showToast("Transaksi dikirim ke Blockchain...", 'load');
+
+        // UBAH TOMBOL KARTU JADI LOADING (Feedback Visual)
+        if (btnCard) {
+            btnCard.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+            btnCard.disabled = true;
+        }
 
         // TUNGGU SAMPAI SELESAI
         await tx.wait();
         
         showToast(`Sukses terkirim!`, 'success');
-        
-        // Refresh saldo user
         if (typeof userAddress !== 'undefined') refreshUserBalance(userAddress);
+
+        // --- 2. UPDATE ANGKA SPESIFIK (FILTER PESAN) ---
+        if (activeSawerId && sawerTargetAddress) {
+            try {
+                // Hitung ulang khusus ID ini (Pakai fungsi helper baru)
+                const updatedCount = await getTipCountByID(activeSawerId, sawerTargetAddress);
+                
+                if (btnCard) {
+                    // Update Text HTML
+                    const elCount = document.getElementById(`sawerCount-${activeSawerId}`);
+                    if(elCount) elCount.innerText = updatedCount;
+
+                    // Balikin Tombol Jadi Icon Kado + Angka Baru
+                    btnCard.innerHTML = `<i class="fas fa-gift"></i> <span id="sawerCount-${activeSawerId}">${updatedCount}</span>`;
+                    btnCard.disabled = false;
+                    
+                    // Efek visual sukses (Hijau sebentar)
+                    btnCard.style.color = "#2ecc71";
+                    setTimeout(() => btnCard.style.color = "", 1000);
+                }
+            } catch (e) {
+                console.warn("Gagal update angka:", e);
+                // Kalau gagal hitung, balikin tampilan tombol lama biar gak loading terus
+                if (btnCard) {
+                    btnCard.innerHTML = originalCardContent; 
+                    btnCard.disabled = false;
+                }
+            }
+        }
+
+    } catch (err) {
+        console.error("Sawer Error:", err);
+        let msg = "Transaksi Gagal.";
+        
+        if (err.code === 4001 || (err.error && err.error.code === 4001)) {
+            msg = "Transaksi dibatalkan user.";
+        } else if (err.message && err.message.includes("insufficient funds")) {
+            msg = "Saldo ETH tidak cukup.";
+        }
+        
+        showToast(msg, 'error');
+
+        // Kalau Error, Kembalikan Tombol Kartu (Jangan Loading Terus)
+        if (btnCard) {
+            btnCard.innerHTML = originalCardContent;
+            btnCard.disabled = false;
+        }
+
+    } finally {
+        // Balikin Tombol Modal
+        if (btnModal) {
+            btnModal.innerHTML = `<i class="fas fa-paper-plane"></i> Kirim Apresiasi`;
+            btnModal.disabled = false;
+        }
+    }
+}
+        
+
+        // --- HELPER: HITUNG SAWERAN PER ITEM (FILTER BY MESSAGE) ---
+async function getTipCountByID(wayangId, ownerAddress) {
+    try {
+        // 1. Ambil semua riwayat saweran ke Owner ini
+        const filter = contractReader.filters.TipSent(null, ownerAddress);
+        
+        // Scan 50.000 blok terakhir (±1 Minggu) agar loading cepat
+        const currentBlock = await contractReader.provider.getBlockNumber();
+        const fromBlock = Math.max(0, currentBlock - 50000); 
+
+        const logs = await contractReader.queryFilter(filter, fromBlock, "latest");
+
+        // 2. HITUNG MANUAL: Cek isi pesannya satu per satu
+        let count = 0;
+        const targetTag = `ID #${wayangId}`; // Kunci pencarian kita
+
+        for (let log of logs) {
+            // Ambil pesan dari event (args[3])
+            const msg = log.args.message || "";
+            
+            // Jika di dalam pesan ada tulisan "ID #19", berarti ini buat wayang 19
+            if (msg.includes(targetTag)) {
+                count++;
+            }
+        }
+        return count;
+
+    } catch (e) {
+        return 0; // Kalau gagal/kosong, anggap 0
+    }
+}
 
         // ============================================================
         // 🔥 UPDATE ANGKA DI TOMBOL SECARA REAL-TIME 🔥
