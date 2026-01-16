@@ -3957,14 +3957,30 @@ async function loadGlobalFeed() {
             else if (ev.feedType === 'REVIEW') {
                 const user = ev.args.user;
                 const stars = ev.args.star;
+                
+                // Icon Bulat di Kiri (Tetap)
                 icon = `<div class="history-icon" style="background:rgba(241,196,15,0.1); color:#f39c12;"><i class="fas fa-star"></i></div>`;
-                contentHtml = `<div class="history-title"><b>${shortAddr(user)}</b> memberi rating</div><div class="history-sub">⭐ ${stars}/5</div>`;
+                
+                // ISI KONTEN (Emoji Bintang diganti FA Icon)
+                contentHtml = `
+                    <div class="history-title"><b>${shortAddr(user)}</b> memberi rating</div>
+                    <div class="history-sub">
+                        <i class="fas fa-star" style="color:#f39c12; margin-right:4px;"></i> ${stars}/5
+                    </div>`;
             }
             else if (ev.feedType === 'TIP') {
                 const from = ev.args.from;
                 const amount = parseFloat(ethers.utils.formatEther(ev.args.amount)).toFixed(4);
+                
+                // Icon Bulat di Kiri (Tetap)
                 icon = `<div class="history-icon" style="background:rgba(46,204,113,0.1); color:#2ecc71;"><i class="fas fa-heart"></i></div>`;
-                contentHtml = `<div class="history-title"><b>${shortAddr(from)}</b> sawer</div><div class="history-sub">💚 ${amount} ETH</div>`;
+                
+                // ISI KONTEN (Emoji diganti FA Icon)
+                contentHtml = `
+                    <div class="history-title"><b>${shortAddr(from)}</b> sawer</div>
+                    <div class="history-sub">
+                        <i class="fas fa-heart" style="color:#2ecc71; margin-right:4px;"></i> ${amount} ETH
+                    </div>`;
             }
 
             const html = `
@@ -3997,7 +4013,7 @@ async function panggilSawerDetail(id) {
 
     // 2. Ambil Nama Wayang dari Halaman (Visual saja)
     const elNama = document.getElementById("displayName");
-    const namaWayang = elNama ? elNama.innerText : `Wayang #${id}`;
+    const namaWayang = elNama ? elNama.innerText : `Wayang ${namaWYang} #${id}`;
     
     // Tampilkan Loading di Tombol (Feedback Visual)
     const btnId = `btnSawer-${id}`; // Pastikan button punya ID unik kalau mau loading
@@ -4023,7 +4039,7 @@ async function panggilSawerDetail(id) {
         }
 
         // 3. Buat Pesan Otomatis
-        const autoMessage = `Saweran untuk: ${namaWayang} (ID #${id})`;
+        const autoMessage = `Dukungan untuk: ${namaWayang} (ID #${id})`;
 
         // 4. Buka Modal
         await bukaModalSawer(ownerAddress, namaWayang, autoMessage);
@@ -4066,9 +4082,9 @@ async function bukaModalSawer(address, name, autoMsg = "") {
     }
 
     if (currentUser.toLowerCase() === address.toLowerCase()) {
-        showToast("Anda adalah pemilik wayang ini.", 'info');
+        showToast("Tidak bisa dukung diri sendiri.", 'info');
         // Tetap lanjut (untuk testing) atau return jika ingin dilarang
-        // return; 
+        return; 
     }
 
     // Set Global Target
@@ -4106,7 +4122,7 @@ function setSawerPercent(percent) {
     }
 
     let balanceEth = parseFloat(rawBalance);
-    const GAS_RESERVE = 0.0001; // Cadangan untuk gas fee
+    const GAS_RESERVE = 0.000001; // Cadangan untuk gas fee
 
     // Saldo yang aman digunakan
     let maxSafeUser = balanceEth - GAS_RESERVE;
@@ -4129,7 +4145,7 @@ function setSawerPercent(percent) {
     // Jika saldo user bahkan tidak cukup untuk minimum + gas
     if (maxSafeUser < MIN_TIP) {
         document.getElementById("sawerAmount").value = "";
-        showToast("Saldo tidak cukup (Butuh min 0.0001 + Gas).", 'error');
+        showToast("Saldo tidak cukup (Butuh min 0.000001 + Gas).", 'error');
         return;
     }
 
@@ -4175,7 +4191,7 @@ async function eksekusiSawer() {
         });
         
         toggleSawerModal(false); 
-        showToast("Transaksi dikirim ke Blockchain...", 'load');
+        showToast("Transaksi dikirim...", 'load');
 
         await tx.wait();
         
@@ -4218,7 +4234,7 @@ async function refreshUserBalance(address) {
         
         const elSaldo = document.getElementById("sawerUserBalance");
         if(elSaldo) {
-            elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+            elSaldo.innerText = parseFloat(ethVal).toFixed(8) + " ETH";                                               8) + " ETH";
             elSaldo.setAttribute('data-balance', ethVal);
         }
     } catch (e) { console.error(e); }
