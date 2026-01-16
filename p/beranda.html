@@ -2603,13 +2603,13 @@ async function updateFeedInBackground(golongans) {
 }
      
         async function loadNextFeedBatch() {
-    // Cek: Sedang loading? Atau data sudah habis?
+    // 1. Cek: Sedang loading? Atau data sudah habis?
     if (isFeedLoading || feedCursor >= globalFeedIds.length) return;
 
     isFeedLoading = true;
     const container = document.getElementById("feedContent");
 
-    // Tampilkan Loader Kecil di Bawah
+    // 2. Tampilkan Loader Kecil di Bawah
     const loaderId = "feedLoaderBottom";
     if (!document.getElementById(loaderId)) {
         container.insertAdjacentHTML('beforeend', 
@@ -2620,34 +2620,42 @@ async function updateFeedInBackground(golongans) {
     }
 
     // --- AMBIL 5 DATA BERIKUTNYA ---
-    // Kenapa 5? Agar rendering cepat dan scroll terasa halus
     const BATCH_SIZE = 5;
     const nextIds = globalFeedIds.slice(feedCursor, feedCursor + BATCH_SIZE);
 
-    // Render satu per satu (Sequential) agar urutan terjaga rapi
-    for (let id of nextIds) {
-        // Pastikan renderCard append ke container, bukan replace innerHTML
-        await renderCard(id, container); 
-    }
+    // ============================================================
+    // [PERUBAHAN DISINI] LOAD SECARA PARALEL (CEPAT)
+    // ============================================================
+    // Kita ganti 'for loop await' dengan 'forEach'
+    // Efeknya: 5 Kartu akan muncul bersamaan (siapa cepat dia tampil duluan)
+    nextIds.forEach(id => {
+        renderCard(id, container);
+    });
+    // ============================================================
 
-    // Update Cursor
+    // 3. Update Cursor
     feedCursor += nextIds.length;
-    isFeedLoading = false;
+    
+    // Matikan status loading (biar user bisa scroll lagi)
+    // Kita beri sedikit jeda 1 detik agar tidak spam scroll
+    setTimeout(() => {
+        isFeedLoading = false;
+        
+        // Hapus Loader Bawah
+        const loaderEl = document.getElementById(loaderId);
+        if (loaderEl) loaderEl.remove();
 
-    // Hapus Loader Bawah
-    const loaderEl = document.getElementById(loaderId);
-    if (loaderEl) loaderEl.remove();
-
-    // Cek jika sudah habis total
-    if (feedCursor >= globalFeedIds.length) {
-        container.insertAdjacentHTML('beforeend', 
-            `<div style="text-align:center; padding:20px; color:#ddd; font-size:12px;">
-                — Anda sudah mencapai dasar —
-            </div>`
-        );
-    }
-}
-
+        // Cek jika sudah habis total
+        if (feedCursor >= globalFeedIds.length) {
+            container.insertAdjacentHTML('beforeend', 
+                `<div style="text-align:center; padding:20px; color:#ddd; font-size:12px;">
+                    — Anda sudah mencapai dasar —
+                </div>`
+            );
+        }
+    }, 1000);
+ }
+        
 // --- RENDER CARD DENGAN ITEM CACHING ---
 async function renderCard(id, container) {
     // 1. Cek Duplikasi Visual
@@ -2699,7 +2707,7 @@ async function renderCard(id, container) {
                 const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
                 const res = await axios.get(jsonUrl, { timeout: 5000 });
                 const rawImg = res.data.image || res.data.image_url;
-                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
+                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=300&q=75&output=webp`;
             } catch (e) {}
 
             // Susun Data Object
@@ -2784,7 +2792,7 @@ async function renderCard(id, container) {
             <button class="action-btn" onclick="event.stopPropagation(); bukaModalReview('${id}')" title="Beri Ulasan">
                 <i class="fas fa-star" style="${renderData.starColor}"></i> 
                 <span style="font-size:12px; margin-left:3px; font-weight:bold;">${renderData.avgRatingDisplay}</span>
-                <span style="font-size:10px; color:#888; margin-left:2px;">(${renderData.reviewCount})</span>   
+                ${renderData.reviewCount}
             </button>
             
             <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
