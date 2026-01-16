@@ -2348,11 +2348,13 @@ function clearSearch() {
     }
         }
 
-        async function renderCard(id, container) {
-    // Mencegah duplikasi visual: Cek apakah ID ini sudah dirender di layar
+async function renderCard(id, container) {
+    // 1. Cek Duplikasi Visual
     if (document.getElementById(`card-${id}`)) return;
 
     try {
+        // 2. Ambil Data Utama (Info, URI, Owner, Likes)
+        // Kita pakai Promise.all biar cepat
         const [info, uri, owner, likes] = await Promise.all([
             contractReader.getInfoWayang(id),
             contractReader.tokenURI(id),
@@ -2362,83 +2364,98 @@ function clearSearch() {
 
         if(!info.isActive) return;
 
-        let imgUrl = "img/loading-placeholder.gif"; // Gunakan placeholder lokal
+        // --- PERBAIKAN UTAMA DISINI ---
+        // 3. Ambil Data Saweran (Tip Count) milik Owner
+        // Kita pisah di try-catch kecil agar kalau gagal, kartu tetap muncul (nilai 0)
+        let sawerCount = 0;
+        try {
+            const countBN = await contractReader.getTipCount(owner);
+            sawerCount = parseInt(countBN);
+        } catch(errTip) {
+            sawerCount = 0; // Default kalau gagal ambil
+        }
+        // ------------------------------
+
+        // 4. Proses Gambar (Weserv)
+        let imgUrl = "img/loading-placeholder.gif"; 
         try {
             const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
             const res = await axios.get(jsonUrl, { timeout: 5000 });
             const rawImg = res.data.image || res.data.image_url;
-            imgUrl = rawImg.replace("ipfs://", PINATA_GATEWAY);
-            imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(imgUrl)}&w=500&q=75&output=webp`;
-        } catch(e) {
-            console.warn("Gagal ambil metadata/gambar untuk ID:", id);
+            imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=500&q=75&output=webp`;
+        } catch(e) { }
+
+        // 5. Identitas & Badge
+        const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
+        const badge = isOfficial 
+            ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
+            : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
+        
+        const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "...";
+        const avatar = isOfficial ? "img/icon-192.png" : `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`;
+
+        // 6. Simpan ke Memori (Penting untuk Search)
+        const existingData = feedData.find(x => x.id === id);
+        if (!existingData) {
+            feedData.push({ id, nama: info.nama, golongan: info.golongan, gaya: info.gaya, owner });
         }
 
-        // 1. Cek apakah wallet adalah Official
-const isOfficial = (owner.toLowerCase() === OFFICIAL_WALLET.toLowerCase());
-
-// 2. Tentukan Badge (Verified Gold untuk Official)
-const badge = isOfficial 
-    ? `<i class="fas fa-check-circle verified-gold" title="Official"></i>` 
-    : `<i class="fas fa-check-circle verified-badge" title="Verified Creator"></i>`;
-
-// 3. Tentukan Nama Pengirim
-const senderName = isOfficial ? "Putramas Official" : owner.substring(0,6) + "..." + owner.slice(-4);
-const profileUrl = `profile?address=${owner}`;
-// 4. LOGIKA CUSTOM AVATAR: Gunakan Logo Resmi jika Official
-const avatar = isOfficial 
-    ? "img/icon-192.png" // Path logo resmi Anda
-    : `https://api.dicebear.com/7.x/identicon/svg?seed=${owner}`; // Avatar random untuk user biasa
-        // Tambahkan ID pada div terluar kartu: id="card-${id}"
+        // 7. RENDER HTML (FIXED)
+        // - ID tombol dihapus (diganti class) biar tidak duplikat
+        // - sawerCount sudah aman
         const html = `
-                <div class="feed-card" id="card-${id}">
-    <div class="card-header">
-        <a href="${profileUrl}" class="user-info" style="text-decoration: none; display: flex; align-items: center; gap: 10px;">
-            <img src="${avatar}" class="user-pic" alt="Avatar">
-            <div>
-                <div class="user-name" style="color: #7385a5;">${senderName} ${badge}</div>
-                <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
-            </div>
-        </a>
-<i class="fas fa-edit" 
-   style="color:#d35400; cursor: pointer; font-size:16px;" 
-   onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'" 
-   title="Revisi Data">
-</i>
-    </div>
-    
-    <div class="card-content">
-        <h3 class="wayang-title">${info.nama}</h3>
-        <div class="wayang-desc">
-            Wayang golongan <span class="tag-badge">${info.golongan}</span> 
-            gaya <span class="tag-badge">${info.gaya}</span>
-        </div>
-    </div>
-                    <div class="card-image" onclick="window.location.href='detail?id=${id}'" style="cursor:pointer;">
-                        <img src="${imgUrl}" loading="lazy">
+        <div class="feed-card" id="card-${id}">
+            <div class="card-header">
+                <a href="profile?address=${owner}" class="user-info" style="text-decoration:none;">
+                    <img src="${avatar}" class="user-pic">
+                    <div>
+                        <div class="user-name" style="color:#2c3e50;">${senderName} ${badge}</div>
+                        <div class="post-time">${new Date(info.timestamp * 1000).toLocaleDateString()} • ID #${id}</div>
                     </div>
+                </a>
+                <i class="fas fa-edit" style="color:#7385a5; cursor:pointer;" 
+                   onclick="event.stopPropagation(); window.location.href='revisi?id=${id}'"></i>
+            </div>
+            
+            <div class="card-content">
+                <h3 class="wayang-title">${info.nama}</h3>
+                <div class="wayang-desc">
+                    <span class="tag-badge">${info.golongan}</span> 
+                    <span class="tag-badge" style="background:#fef3c7; color:#d97706;">${info.gaya}</span>
+                </div>
+            </div>
 
-                    <div class="card-actions">
-      <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
-          <i class="fas fa-heart"></i> ${likes}
-      </button>
+            <div class="card-image" onclick="window.location.href='detail?id=${id}'">
+                <img src="${imgUrl}" loading="lazy">
+            </div>
 
-      
+            <div class="card-actions">
+                <button class="action-btn" onclick="event.stopPropagation(); kirimLike('${id}', this)">
+                    <i class="fas fa-heart"></i> ${likes}
+                </button>
+                
+                <button class="action-btn" onclick="event.stopPropagation(); panggilSawerDetail('${id}')" title="Kirim Apresiasi">
+                    <i class="fas fa-gift"></i> <span id="sawerCount-${id}">${sawerCount}</span>
+                </button>
 
-      <button class="action-btn"><i class="fa fa-star"></i></button>
-      <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
-          <i class="fas fa-shopping-cart"></i>
-      </button>
-      <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
-          <i class="fas fa-share-alt"></i>
-      </button>
-  </div>
-                </div>`;
+                <button class="action-btn"><i class="fas fa-star"></i></button>
+                
+                <button class="action-btn" onclick="event.stopPropagation(); window.open('https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${id}', '_blank')">
+                    <i class="fas fa-shopping-cart"></i>
+                </button>
+                
+                <button class="action-btn" onclick="event.stopPropagation(); shareWayang('${id}', '${info.nama}')">
+                    <i class="fas fa-share-alt"></i>
+                </button>
+            </div>
+        </div>`;
 
         container.insertAdjacentHTML('beforeend', html);
+
     } catch(e) { 
-        console.log("Gagal render kartu ID", id); 
+        console.log("Gagal render ID", id, e); 
     }
-        }
+}
 
         // --- DEEP INDEXER (JALAN DI BACKGROUND - ANTI DUPLIKAT) ---
 async function initDeepIndexer() {
