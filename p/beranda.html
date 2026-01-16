@@ -4834,8 +4834,8 @@ function closeSawer(event) {
     if (event.target.id === "sawerModal") toggleSawerModal(false);
     }
 
-    // ==========================================
-// ALGORITMA POPULER (RANDOM TOURNAMENT)
+// ==========================================
+// ALGORITMA POPULER (TOP 6) - DENGAN AUTO RETRY GAMBAR
 // ==========================================
 async function loadPopularSection() {
     const container = document.getElementById("popularList");
@@ -4844,24 +4844,20 @@ async function loadPopularSection() {
     container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; font-size:10px;"><i class="fas fa-circle-notch fa-spin"></i> Mengkurasi data...</div>`;
 
     try {
-        // 1. Ambil Sumber Data (ID dari Indexer atau Feed)
-        // Jika globalSearchIndex kosong (belum load), pakai angka random manual
+        // 1. Ambil Sumber Data
         let candidateIds = [];
         
         if (globalSearchIndex && globalSearchIndex.length > 10) {
-            // Ambil dari index yang sudah ada (lebih cepat)
             candidateIds = globalSearchIndex.map(x => x.id);
         } else {
-            // Fallback: Generate ID random (misal 1 sampai 50)
+            // Fallback: Generate ID random
             candidateIds = Array.from({length: 50}, (_, i) => i + 1);
         }
 
-        // 2. SHUFFLE (ACAK) ARRAY - "Agresif Random"
-        // Kita ambil 15 kandidat secara acak untuk diadu
-        const candidates = candidateIds.sort(() => 0.5 - Math.random()).slice(0, 15);
+        // 2. SHUFFLE (ACAK) - Ambil 20 kandidat
+        const candidates = candidateIds.sort(() => 0.5 - Math.random()).slice(0, 20);
 
-        // 3. FETCH DATA LIKE UNTUK 15 KANDIDAT (PARALEL)
-        // Kita cari mana yang likenya terbanyak dari sampel acak ini
+        // 3. FETCH DATA LIKE (PARALEL)
         const promises = candidates.map(async (id) => {
             try {
                 const likesBN = await contractReader.totalLikes(id);
@@ -4872,13 +4868,11 @@ async function loadPopularSection() {
 
         const results = await Promise.all(promises);
         
-        // 4. FILTER & SORTIR (Cari Juara)
+        // 4. FILTER & SORTIR (Like Terbanyak di Atas)
         const validResults = results.filter(x => x !== null);
-        
-        // Urutkan dari Like Terbanyak -> Sedikit
         validResults.sort((a, b) => b.likes - a.likes);
 
-        // Ambil TOP 3
+        // --- AMBIL TOP 6 ---
         const top6 = validResults.slice(0, 6);
 
         // 5. RENDER KE HTML
@@ -4889,34 +4883,49 @@ async function loadPopularSection() {
              return;
         }
 
-        // Loop render Top 3
+        // Loop render Top 6
         for (let i = 0; i < top6.length; i++) {
             const item = top6[i];
             
-            // Ambil detail wayang (Nama & Gambar)
-            // Kita fetch manual karena mungkin belum ada di feedData
             let nama = "Wayang #" + item.id;
-            let imgUrl = "img/loading-placeholder.gif";
+            // Default placeholder sebelum gambar asli termuat
+            let imgUrl = "img/loading-placeholder.gif"; 
+            
+            // Variabel untuk menyimpan URL asli (buat retry)
+            let originalSrc = ""; 
 
             try {
-                // Ambil Nama
                 const info = await contractReader.getInfoWayang(item.id);
                 nama = info.nama;
 
-                // Ambil Gambar (Optimized)
                 const uri = await contractReader.tokenURI(item.id);
                 const jsonUrl = uri.replace("ipfs://", PINATA_GATEWAY);
                 const res = await axios.get(jsonUrl);
                 const rawImg = res.data.image || res.data.image_url;
-                // Pakai wsrv.nl biar ringan di sidebar
-                imgUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=150&h=150&output=webp`;
-            } catch(e) {}
+                
+                // URL Utama via wsrv.nl (Resize & Convert to WebP)
+                originalSrc = `https://wsrv.nl/?url=${encodeURIComponent(rawImg.replace("ipfs://", PINATA_GATEWAY))}&w=150&h=150&output=webp`;
+                
+                // Set imgUrl ke originalSrc
+                imgUrl = originalSrc;
+                
+            } catch(e) {
+                // Jika fetch metadata gagal, biarkan imgUrl tetap placeholder
+                console.warn(`Gagal fetch metadata ID ${item.id}`);
+            }
 
+            // --- HTML DENGAN RETRY LOGIC ---
+            // 'this.onerror=null' mencegah infinite loop jika fallback juga gagal
+            // Fungsi retryImage() didefinisikan di bawah (global helper)
+            
             const html = `
             <div class="pop-card" onclick="window.location.href='detail?id=${item.id}'">
                 <div class="pop-img-box">
                     <span class="rank-badge">#${i+1}</span>
-                    <img src="${imgUrl}" class="pop-img" loading="lazy">
+                    <img src="${imgUrl}" class="pop-img" loading="lazy"
+                         data-retry="0" 
+                         data-original="${imgUrl}"
+                         onerror="retryImageLoad(this)">
                 </div>
                 <div class="pop-info">
                     <div class="pop-title">${nama}</div>
@@ -4934,7 +4943,33 @@ async function loadPopularSection() {
         console.warn("Popular Widget Error:", e);
         container.innerHTML = `<div style="text-align:center; font-size:10px; color:#e74c3c;">Gagal memuat.</div>`;
     }
+            }
+
+        // --- HELPER: AUTO RETRY GAMBAR RUSAK ---
+function retryImageLoad(img) {
+    const maxRetries = 3; // Coba ulang maksimal 3 kali
+    let retries = parseInt(img.getAttribute('data-retry') || "0");
+    const originalSrc = img.getAttribute('data-original');
+
+    if (retries < maxRetries && originalSrc && originalSrc !== "img/loading-placeholder.gif") {
+        retries++;
+        img.setAttribute('data-retry', retries);
+        
+        // Jeda sedikit sebelum retry (Backoff: 1s, 2s, 3s)
+        setTimeout(() => {
+            // Tambahkan timestamp agar browser tidak mengambil dari cache yang rusak
+            const separator = originalSrc.includes('?') ? '&' : '?';
+            img.src = `${originalSrc}${separator}retry=${Date.now()}`;
+            console.log(`Retrying image (${retries}/${maxRetries}):`, originalSrc);
+        }, retries * 1000); 
+    } else {
+        // Jika sudah mentok maxRetries, ganti ke gambar rusak/placeholder final
+        img.onerror = null; // Stop looping error
+        img.src = "img/loading-placeholder.gif"; // Atau gambar default wayang
+        img.style.opacity = "0.5"; // Tandai visual kalau gagal
+    }
 }
+
         
     document.getElementById("year").innerText = new Date().getFullYear();
 </script>
