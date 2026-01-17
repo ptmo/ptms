@@ -2492,23 +2492,25 @@ async function smartSearch(query) {
     currentSearchTicket++;
     const myTicket = currentSearchTicket;
 
-    if (query.length === 0) {
-        clearBtn.style.display = "none";
+    if (!query || query.length === 0) {
+        if(clearBtn) clearBtn.style.display = "none";
         container.innerHTML = "";
         loadFeed(); // Kembali ke feed awal
         return;
     }
 
-    clearBtn.style.display = "block";
+    if(clearBtn) clearBtn.style.display = "block";
+    
+    // Simpan query asli buat tampilan, lalu lowercase buat logika
+    const originalQuery = query; 
     query = query.toLowerCase().trim();
 
     // Tampilkan Loading
     container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa;"><i class="fas fa-circle-notch fa-spin"></i> Mencari...</div>`;
 
     // 1. FILTER UNIK dari Index
-    // Kita filter dulu ID-nya agar tidak ada ID yang sama masuk ke proses render
     const matchedItems = globalSearchIndex.filter(item => 
-        item.nama.includes(query) || 
+        item.nama.toLowerCase().includes(query) || 
         (item.id.toString() === query)
     );
 
@@ -2517,9 +2519,10 @@ async function smartSearch(query) {
 
     // Jika tidak ada hasil
     if (uniqueMatchedIds.length === 0) {
+        // --- PERBAIKAN DISINI (Ganti inputEl.value jadi originalQuery) ---
         container.innerHTML = `<div style="grid-column: 1/-1; padding: 40px 20px; text-align: center; animation: fadeIn 0.5s;">
                 <div class="nf-box">
-                    <img src="img/stl.svg" class="nf-icon" style="width: 80px; opacity: 0.6; margin-bottom: 15px;">
+                    <img src="img/stl.svg" class="nf-icon" style="width: 80px; opacity: 0.6; margin-bottom: 15px;" onerror="this.src='img/loading-placeholder.gif'">
                     
                     <h3 style="color: #7385a5; margin: 0 0 10px 0; font-size: 18px;">
                         Pencarian Tidak Ditemukan
@@ -2527,7 +2530,7 @@ async function smartSearch(query) {
                     
                     <p style="color: #95a5a6; font-size: 14px; margin: 0;">
                         Tidak dapat menemukan wayang dengan kata kunci: <br>
-                        <b style="color: #e74c3c; background: #fff0f0; padding: 2px 8px; border-radius: 4px;"><br>
+                        <b style="color: #e74c3c; background: #fff0f0; padding: 2px 8px; border-radius: 4px; display:inline-block; margin-top:5px;">
                             "${originalQuery}"
                         </b>
                     </p>
@@ -2540,10 +2543,10 @@ async function smartSearch(query) {
     container.innerHTML = ""; // Bersihkan loading
     
     // Ambil maksimal 10 hasil teratas untuk performa
-    const targetIds = uniqueMatchedIds.slice(0, 10);
+    const targetIds = uniqueMatchedIds.slice(0, 50);
 
     for (let id of targetIds) {
-        // Cek apakah tiket masih valid (user belum mengetik huruf baru)
+        // Cek apakah tiket masih valid
         if (myTicket !== currentSearchTicket) return; 
         await renderCard(id, container);
     }
