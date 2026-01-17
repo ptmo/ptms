@@ -2637,19 +2637,6 @@ async function updateFeedInBackground(golongans) {
         localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", Date.now().toString());
     } catch(e) { console.warn("Background update failed", e); }
 }
-
-// Helper: Update data di background tanpa ganggu user
-async function updateFeedInBackground(golongans) {
-    try {
-        const results = await Promise.all(golongans.map(gol => contractReader.getIdsByGolongan(gol)));
-        let allIds = results.flat().map(id => parseInt(id));
-        const newIds = [...new Set(allIds)].sort((a, b) => b - a);
-        
-        // Update Cache untuk next visit
-        localStorage.setItem(FEED_IDS_CACHE_KEY, JSON.stringify(newIds));
-        localStorage.setItem(FEED_IDS_CACHE_KEY + "_TIME", Date.now().toString());
-    } catch(e) { console.warn("Background update failed", e); }
-}
      
         async function loadNextFeedBatch() {
     // 1. Cek: Sedang loading? Atau data sudah habis?
@@ -2735,8 +2722,12 @@ async function renderCard(id, container) {
 
             // Fetch Data Tambahan (Sawer, Rating, Image)
             let sawerCount = 0;
-            try { sawerCount = await getTipCountByID(id, owner); } catch (e) {}
-
+try {
+const countBN = await contractReader.getTipCount(owner);
+sawerCount = parseInt(countBN);
+} catch(errTip) {
+sawerCount = 0; // Default kalau gagal ambil
+}
             let avgRatingDisplay = "";
             let starColor = "";
             let reviewCount = 0;
