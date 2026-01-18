@@ -2,251 +2,263 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wayang Cloud Wallet</title>
-    
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Wayang Lite</title>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
-
+    
     <style>
-        /* --- GAYA TAMPILAN (SAMA SEPERTI SEBELUMNYA) --- */
-        :root { --primary: #FF9800; --bg: #121212; --card: #1e1e1e; --text: #fff; --radius: 12px; }
-        * { box-sizing: border-box; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); margin: 0; min-height: 100vh; display: flex; flex-direction: column; }
-        .container { padding: 20px; max-width: 480px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; }
+        /* --- CSS RINGAN (Tanpa External Fonts) --- */
+        :root { --primary: #d35400; --bg: #0a0a0a; --card: #141414; --text: #eee; }
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
+        body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+
+        /* Helpers */
         .hidden { display: none !important; }
-        .btn { width: 100%; padding: 15px; background: var(--primary); border: none; border-radius: var(--radius); color: #000; font-weight: bold; font-size: 16px; margin-bottom: 10px; cursor: pointer; }
-        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
-        .btn-danger { background: #e74c3c; color: #fff; }
-        input { width: 100%; padding: 15px; background: #2c2c2c; border: 1px solid #333; border-radius: var(--radius); color: #fff; margin-bottom: 15px; font-size: 16px; }
-        .card { background: var(--card); padding: 20px; border-radius: var(--radius); margin-bottom: 20px; border: 1px solid #333; }
+        .full-h { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
+        
+        /* UI Components */
+        .btn { background: var(--primary); color: #fff; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; font-size: 16px; margin-bottom: 10px; cursor: pointer; }
+        .btn:active { opacity: 0.8; }
+        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
+        .input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 8px; margin-bottom: 15px; font-size: 16px; }
+        .input:focus { border-color: var(--primary); outline: none; }
+        
+        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
         
         /* Loader */
         #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 99; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 1s infinite linear; margin-bottom: 15px; }
+        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
         @keyframes spin { to { transform: rotate(360deg); } }
+
+        /* Navbar */
+        .nav { display: flex; border-top: 1px solid #222; background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
+        .nav-item { flex: 1; padding: 15px; text-align: center; color: #666; font-size: 24px; cursor: pointer; }
+        .nav-item.active { color: var(--primary); }
+        
+        /* Browser Frame */
+        #browser-view { display: flex; flex-direction: column; height: 100%; }
+        .url-bar { padding: 10px; background: #222; display: flex; gap: 10px; }
+        iframe { flex: 1; border: none; background: #fff; }
     </style>
 </head>
 <body>
 
     <div id="loader" class="hidden">
         <div class="spinner"></div>
-        <p id="loader-msg">Menghubungkan ke Firebase...</p>
+        <p style="margin-top: 15px; font-size: 14px;" id="loader-txt">Memproses...</p>
     </div>
 
-    <div id="view-setup" class="container">
-        <div style="text-align: center; margin: 40px 0;">
-            <h1 style="color: var(--primary);">Wayang Cloud</h1>
-            <p style="color: #aaa;">Wallet tersinkronisasi via Firebase</p>
+    <div id="pg-onboard" class="full-h">
+        <div style="flex:1; display: flex; flex-direction: column; justify-content: center; text-align: center;">
+            <div style="font-size: 60px;">🛡️</div>
+            <h1 style="margin: 20px 0;">Wayang Lite</h1>
+            <p style="color:#aaa;">Wallet Web3 Super Ringan</p>
         </div>
-
-        <div class="card">
-            <h3>Mulai Session</h3>
-            <p style="font-size: 12px; color: #aaa; margin-bottom: 10px;">Masukkan Username unik untuk menyimpan/mengambil wallet Anda dari cloud.</p>
-            <input type="text" id="user-id" placeholder="Username (misal: user123)">
-            <button class="btn" onclick="WalletFlow.checkUser()">Lanjut</button>
-        </div>
+        <button class="btn" onclick="goTo('pg-create')">Buat Wallet</button>
+        <button class="btn btn-outline" onclick="goTo('pg-import')">Import</button>
     </div>
 
-    <div id="view-create" class="container hidden">
-        <h2>Setup Wallet Baru</h2>
-        <p>Username ini belum memiliki wallet. Mari buat baru.</p>
-        <div class="card">
-            <label>Buat Password Enkripsi</label>
-            <input type="password" id="create-pwd" placeholder="Password (Wajib diingat!)">
-            <button class="btn" onclick="WalletFlow.createWallet()">Generate & Simpan ke Cloud</button>
-        </div>
-        <button class="btn btn-outline" onclick="UI.show('view-setup')">Kembali</button>
-    </div>
-
-    <div id="view-login" class="container hidden">
-        <h2>Unlock Wallet</h2>
-        <p>Wallet ditemukan di Cloud. Masukkan password untuk mendekripsi.</p>
-        <div class="card">
-            <input type="password" id="login-pwd" placeholder="Password Wallet">
-            <button class="btn" onclick="WalletFlow.unlockWallet()">Buka Wallet</button>
-        </div>
-        <button class="btn btn-outline" onclick="UI.show('view-setup')">Ganti User</button>
-    </div>
-
-    <div id="view-dashboard" class="container hidden">
+    <div id="pg-dash" class="full-h hidden">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3 id="dash-username">User</h3>
-            <button class="btn-danger" style="width: auto; padding: 8px 15px; font-size: 12px;" onclick="location.reload()">Logout</button>
+            <h3>Wayang Wallet</h3>
+            <span style="font-size: 12px; color: var(--primary);">● Sepolia</span>
         </div>
 
-        <div class="card" style="text-align: center; background: linear-gradient(135deg, var(--primary), #e65100);">
-            <p style="font-size: 12px; color: #000;">Sepolia Balance</p>
-            <h1 id="dash-balance" style="color: #000; margin: 10px 0;">0.00 ETH</h1>
-            <div style="background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 20px; display: inline-block; font-size: 12px; cursor: pointer;" onclick="WalletFlow.copyAddress()">
-                <span id="dash-address">0x...</span> 📋
+        <div class="card" style="text-align: center; background: linear-gradient(135deg, #d35400, #a04000);">
+            <p style="font-size: 12px; opacity: 0.8;">Total Saldo</p>
+            <h1 style="font-size: 32px; margin: 10px 0;" id="bal-txt">0.00 ETH</h1>
+            <div style="background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 20px; font-size: 12px; display: inline-block; cursor: pointer;" onclick="copyAddr()">
+                <span id="addr-txt">0x...</span> 📋
             </div>
         </div>
 
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-            <button class="btn" onclick="alert('Fitur Kirim sama seperti sebelumnya')">Kirim</button>
-            <button class="btn btn-outline">Terima</button>
+        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
+            <button class="btn" style="flex:1; margin:0;" onclick="alert('Fitur Kirim Sederhana')">⬆️ Kirim</button>
+            <button class="btn btn-outline" style="flex:1; margin:0;">⬇️ Terima</button>
         </div>
     </div>
 
-<script type="module">
-        // Import SDK
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-        import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js";
-        import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js"; // Pastikan ethers terload jika pakai module
+    <div id="pg-browser" class="hidden" style="flex: 1; flex-direction: column;">
+        <div class="url-bar">
+            <input type="text" id="url-input" class="input" style="margin:0; padding: 10px;" value="https://uniswap.org" placeholder="https://...">
+            <button class="btn" style="width: auto; margin:0; padding: 0 20px;" onclick="loadIframe()">Go</button>
+        </div>
+        <iframe id="web-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+    </div>
 
-        // --- CONFIG FIREBASE ANDA ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyCn1j8acLWDEVjoO2VB3qeN8rh8qUVBRR8",
-            authDomain: "putramas-cc719.firebaseapp.com",
-            databaseURL: "https://putramas-cc719-default-rtdb.firebaseio.com",
-            projectId: "putramas-cc719",
-            storageBucket: "putramas-cc719.firebasestorage.app",
-            messagingSenderId: "1841157194",
-            appId: "1:1841157194:web:012d80abf7293bd43d02b3",
-            measurementId: "G-38XGWE5H38"
-        };
+    <div id="pg-create" class="full-h hidden">
+        <h2>Setup Wallet</h2>
+        <p style="color:#888; margin-bottom: 20px;">Masukkan password pengaman lokal.</p>
+        <input type="password" id="pwd-input" class="input" placeholder="Password (min 6 char)">
+        <button class="btn" onclick="processWallet('create')">Proses</button>
+        <button class="btn btn-outline" onclick="goTo('pg-onboard')">Batal</button>
+    </div>
+    
+    <div id="pg-import" class="full-h hidden">
+        <h2>Import Phrase</h2>
+        <textarea id="phrase-input" class="input" rows="3" placeholder="12 kata rahasia..."></textarea>
+        <input type="password" id="import-pwd" class="input" placeholder="Password Baru App">
+        <button class="btn" onclick="processWallet('import')">Import Sekarang</button>
+        <button class="btn btn-outline" onclick="goTo('pg-onboard')">Batal</button>
+    </div>
 
-        // Init Firebase
-        const app = initializeApp(firebaseConfig);
-        const db = getFirestore(app);
+    <div id="navbar" class="nav hidden">
+        <div class="nav-item active" onclick="switchTab('dash')">👛</div>
+        <div class="nav-item" onclick="switchTab('browser')">🌏</div>
+        <div class="nav-item" onclick="alert('Settings')">⚙️</div>
+    </div>
 
-        // --- LOGIC DATABASE ---
-        class CloudDB {
-            static async getUserWallet(username) {
-                // Debugging: Cek koneksi
-                console.log("Mencoba mengambil data user:", username);
-                
-                try {
-                    const docRef = doc(db, "wallets", username);
-                    const docSnap = await getDoc(docRef);
-                    
-                    if (docSnap.exists()) {
-                        return docSnap.data().encryptedData;
-                    } else {
-                        return null;
-                    }
-                } catch (error) {
-                    console.error("Firebase Error Detail:", error);
-                    // Lempar error agar ditangkap di UI
-                    throw new Error(error.code || error.message);
-                }
-            }
+    <script>
+        // CONFIG
+        const STORAGE_KEY = 'wayang_lite_v1';
+        const PROVIDER_URL = "https://rpc.ankr.com/eth_sepolia";
+        let provider, wallet;
 
-            static async saveUserWallet(username, encryptedJson) {
-                try {
-                    await setDoc(doc(db, "wallets", username), {
-                        encryptedData: encryptedJson,
-                        createdAt: new Date().toISOString()
-                    });
-                } catch (error) {
-                    console.error("Gagal menyimpan:", error);
-                    throw new Error("Gagal menyimpan ke database. Cek Rules!");
-                }
+        // UI HELPERS
+        const el = (id) => document.getElementById(id);
+        const pages = ['pg-onboard', 'pg-dash', 'pg-browser', 'pg-create', 'pg-import'];
+
+        // 1. NAVIGATION
+        function goTo(pid) {
+            pages.forEach(p => el(p).classList.add('hidden'));
+            el(pid).classList.remove('hidden');
+            if(pid === 'pg-dash' || pid === 'pg-browser') el('navbar').classList.remove('hidden');
+            else el('navbar').classList.add('hidden');
+        }
+
+        function switchTab(tab) {
+            if(tab === 'dash') {
+                el('pg-dash').classList.remove('hidden');
+                el('pg-browser').classList.add('hidden');
+                document.querySelectorAll('.nav-item')[0].classList.add('active');
+                document.querySelectorAll('.nav-item')[1].classList.remove('active');
+            } else {
+                el('pg-dash').classList.add('hidden');
+                el('pg-browser').classList.remove('hidden');
+                el('pg-browser').style.display = 'flex'; // Fix display
+                document.querySelectorAll('.nav-item')[0].classList.remove('active');
+                document.querySelectorAll('.nav-item')[1].classList.add('active');
             }
         }
 
-        // --- LOGIC WALLET (SAMA SEPERTI SEBELUMNYA) ---
-        const RPC_URL = "https://rpc.ankr.com/eth_sepolia";
-        window.activeWallet = null;
-        window.currentUser = null;
+        function loading(show, txt) {
+            el('loader').classList.toggle('hidden', !show);
+            if(txt) el('loader-txt').innerText = txt;
+        }
 
-        window.WalletFlow = class {
-            static async checkUser() {
-                const username = document.getElementById('user-id').value.trim();
-                if(!username) return alert("Isi username dulu");
+        // 2. WALLET CORE (NON-BLOCKING)
+        function processWallet(mode) {
+            const pwd = mode === 'create' ? el('pwd-input').value : el('import-pwd').value;
+            if(pwd.length < 6) return alert("Password kurang panjang!");
 
-                UI.loading(true, "Mengecek Database...");
-                
+            loading(true, "Mengenkripsi... (Tunggu)");
+
+            // SETTIMEOUT HACK: Agar UI Loader muncul dulu sebelum JS macet karena enkripsi
+            setTimeout(async () => {
                 try {
-                    const data = await CloudDB.getUserWallet(username);
-                    window.currentUser = username;
+                    let w;
+                    if(mode === 'create') {
+                        w = ethers.Wallet.createRandom();
+                    } else {
+                        const phrase = el('phrase-input').value.trim();
+                        w = ethers.Wallet.fromPhrase(phrase);
+                    }
                     
-                    UI.loading(false);
-                    if(data) {
-                        UI.show('view-login');
-                    } else {
-                        UI.show('view-create');
-                    }
+                    // Proses Berat di sini
+                    const json = await w.encrypt(pwd);
+                    localStorage.setItem(STORAGE_KEY, json);
+                    
+                    // Login otomatis
+                    provider = new ethers.JsonRpcProvider(PROVIDER_URL);
+                    wallet = w.connect(provider);
+                    
+                    updateUI();
+                    goTo('pg-dash');
                 } catch(e) {
-                    UI.loading(false);
-                    // Tampilkan pesan error detail
-                    if (e.message.includes("permission-denied")) {
-                        alert("Error: Izin Ditolak. Pastikan Rules Firebase sudah 'allow read, write: if true;'");
-                    } else {
-                        alert("Firebase Error: " + e.message);
-                    }
+                    alert("Error: " + e.message);
+                } finally {
+                    loading(false);
                 }
-            }
+            }, 100); 
+        }
 
-            // ... (Fungsi createWallet dan unlockWallet sama seperti sebelumnya) ...
-            static async createWallet() {
-                const pwd = document.getElementById('create-pwd').value;
-                if(pwd.length < 6) return alert("Password minimal 6 karakter");
-
-                UI.loading(true, "Enkripsi & Upload...");
+        async function init() {
+            const data = localStorage.getItem(STORAGE_KEY);
+            if(data) {
+                // Auto login simple (Minta password idealnya, tapi ini versi lite)
+                const pwd = prompt("Masukkan Password Wallet Anda:");
+                if(!pwd) return;
+                loading(true, "Membuka...");
                 setTimeout(async () => {
                     try {
-                        const wallet = ethers.Wallet.createRandom();
-                        const json = await wallet.encrypt(pwd);
-                        await CloudDB.saveUserWallet(window.currentUser, json);
-                        window.activeWallet = wallet.connect(new ethers.JsonRpcProvider(RPC_URL));
-                        this.enterDashboard();
+                        const w = await ethers.Wallet.fromEncryptedJson(data, pwd);
+                        provider = new ethers.JsonRpcProvider(PROVIDER_URL);
+                        wallet = w.connect(provider);
+                        updateUI();
+                        goTo('pg-dash');
                     } catch(e) {
-                        alert("Gagal: " + e.message);
+                        alert("Password Salah / Data Rusak");
+                        goTo('pg-onboard');
                     } finally {
-                        UI.loading(false);
+                        loading(false);
                     }
-                }, 100);
+                }, 50);
+            } else {
+                goTo('pg-onboard');
             }
+        }
 
-            static async unlockWallet() {
-                const pwd = document.getElementById('login-pwd').value;
-                UI.loading(true, "Decrypting...");
-                setTimeout(async () => {
-                    try {
-                        const json = await CloudDB.getUserWallet(window.currentUser);
-                        const wallet = await ethers.Wallet.fromEncryptedJson(json, pwd);
-                        window.activeWallet = wallet.connect(new ethers.JsonRpcProvider(RPC_URL));
-                        this.enterDashboard();
-                    } catch(e) {
-                        alert("Password Salah / Error Decrypt");
-                    } finally {
-                        UI.loading(false);
+        async function updateUI() {
+            const addr = wallet.address;
+            el('addr-txt').innerText = addr.substring(0,6) + "..." + addr.substring(addr.length-4);
+            try {
+                const bal = await provider.getBalance(addr);
+                el('bal-txt').innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " ETH";
+            } catch(e) {}
+        }
+
+        // 3. BROWSER & INJECTION ATTEMPT
+        function loadIframe() {
+            let url = el('url-input').value;
+            if(!url.startsWith('http')) url = 'https://' + url;
+            
+            loading(true, "Memuat Website...");
+            const frame = el('web-frame');
+            
+            // Bersihkan dulu biar ringan
+            frame.src = "about:blank";
+            
+            setTimeout(() => {
+                frame.src = url;
+                loading(false);
+                // Coba kirim pesan handshake ke Iframe (Walaupun kemungkinan besar diblokir DApp)
+                injectProvider(frame); 
+            }, 500);
+        }
+
+        function injectProvider(frame) {
+            // Ini adalah upaya terbaik komunikasi postMessage
+            // DApp harus punya listener "message" untuk ini bekerja.
+            frame.onload = () => {
+                const msg = {
+                    type: 'ETHEREUM_PROVIDER_ANNOUNCE',
+                    data: {
+                        chainId: "0xaa36a7", // Sepolia
+                        address: wallet ? wallet.address : null
                     }
-                }, 100);
-            }
+                };
+                // Mencoba mengirim data wallet ke dalam iframe
+                frame.contentWindow.postMessage(msg, "*");
+            };
+        }
 
-            static enterDashboard() {
-                UI.show('view-dashboard');
-                document.getElementById('dash-username').innerText = window.currentUser;
-                const addr = window.activeWallet.address;
-                document.getElementById('dash-address').innerText = addr.substring(0,6) + "..." + addr.substring(addr.length-4);
-                window.activeWallet.provider.getBalance(addr).then(bal => {
-                    document.getElementById('dash-balance').innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " ETH";
-                });
-            }
-
-            static copyAddress() {
-                if(window.activeWallet) navigator.clipboard.writeText(window.activeWallet.address);
-                alert("Address Disalin");
-            }
-        };
-
-        window.UI = class {
-            static show(id) {
-                document.querySelectorAll('.container').forEach(el => el.classList.add('hidden'));
-                document.getElementById(id).classList.remove('hidden');
-            }
-            static loading(show, msg) {
-                const el = document.getElementById('loader');
-                if(show) {
-                    el.classList.remove('hidden');
-                    if(msg) document.getElementById('loader-msg').innerText = msg;
-                } else {
-                    el.classList.add('hidden');
-                }
-            }
-        };
+        // Start
+        window.onload = init;
+        
+        window.copyAddr = () => {
+            if(wallet) navigator.clipboard.writeText(wallet.address);
+            alert("Disalin!");
+        }
     </script>
 </body>
 </html>
