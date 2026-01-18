@@ -3,67 +3,123 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wayang Wallet (Import Fixed)</title>
+    <title>Wayang Wallet Ultimate</title>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
-        /* --- CSS SAMA SEPERTI SEBELUMNYA, DITAMBAH TAB STYLE --- */
+        /* --- GABUNGAN CSS --- */
         :root {
             --primary: #d35400; 
             --bg: #121212;
             --surface: #1e1e1e;
             --text: #ffffff;
+            --text-sec: #b0b0b0;
             --safe-bottom: env(safe-area-inset-bottom);
         }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; }
-        body { background-color: var(--bg); color: var(--text); min-height: 100vh; display: flex; flex-direction: column; user-select: none; }
-        
+
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
         .container { padding: 20px; max-width: 500px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        
-        /* Input & Buttons */
-        input, textarea { width: 100%; padding: 15px; background: #252525; border: 2px solid #333; border-radius: 12px; color: white; margin-bottom: 15px; font-size: 14px; }
-        input:focus, textarea:focus { outline: none; border-color: var(--primary); }
-        .btn { width: 100%; padding: 16px; border: none; border-radius: 12px; background: var(--primary); color: white; font-weight: bold; cursor: pointer; margin-bottom: 10px; }
+
+        /* TYPOGRAPHY */
+        h1, h2, h3 { font-weight: 700; margin-bottom: 10px; }
+        p { color: var(--text-sec); font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+
+        /* INPUTS & BUTTONS */
+        input, textarea {
+            width: 100%; padding: 16px; background: #252525; border: 2px solid #333;
+            border-radius: 12px; color: white; font-size: 16px; margin-bottom: 15px; transition: 0.3s;
+        }
+        input:focus, textarea:focus { outline: none; border-color: var(--primary); background: #2a2a2a; }
+
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            background: var(--primary); color: white; font-size: 16px; font-weight: bold;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;
+        }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
         .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
         .btn-secondary { background: #333; color: #ccc; }
+        .btn-danger { background: #c0392b; color: white; }
 
-        /* TAB SWITCHER */
+        /* TABS (Dari Snippet 1) */
         .tab-group { display: flex; gap: 10px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #333; background: transparent; color: #888; cursor: pointer; }
         .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
 
-        /* Loader */
-        #loader { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.9); z-index: 9999; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top: 4px solid var(--primary); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
+        /* CARDS (Dari Snippet 2) */
+        .card { background: var(--surface); padding: 20px; border-radius: 16px; border: 1px solid #333; margin-bottom: 20px; }
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary) 0%, #a04000 100%);
+            border: none; text-align: center; padding: 30px 20px;
+        }
+        .address-pill {
+            background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 20px;
+            display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;
+        }
+
+        /* NAVIGATION */
+        .bottom-nav {
+            background: var(--surface); border-top: 1px solid #333;
+            display: flex; justify-content: space-around; padding: 12px 0;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            position: sticky; bottom: 0; z-index: 500;
+        }
+        .nav-item { text-align: center; color: var(--text-sec); font-size: 10px; cursor: pointer; flex: 1; }
+        .nav-item.active { color: var(--primary); }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; display: block; }
+
+        /* LOADER */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333; border-top: 5px solid var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
 
-        /* Dashboard Items */
-        .card { background: var(--surface); padding: 20px; border-radius: 16px; margin-bottom: 20px; }
-        .bottom-nav { position: sticky; bottom: 0; background: var(--surface); display: flex; padding: 15px 0; border-top: 1px solid #333; padding-bottom: calc(15px + var(--safe-bottom)); }
-        .nav-item { flex: 1; text-align: center; color: #666; font-size: 10px; }
-        .nav-item.active { color: var(--primary); }
-        .nav-item i { font-size: 20px; display: block; margin-bottom: 5px; }
+        /* BROWSER FRAME */
+        .browser-frame { width: 100%; height: 100%; border: none; background: white; }
+        .browser-bar { padding: 10px; background: #252525; display: flex; gap: 10px; align-items: center; }
+        
+        /* QR Code Placeholder */
+        .qr-placeholder { background: white; padding: 10px; display: inline-block; border-radius: 10px; margin: 20px 0; }
     </style>
 </head>
 <body>
 
     <div id="loader" class="hidden">
         <div class="spinner"></div>
-        <p id="loader-text">Memproses...</p>
+        <h3 id="loader-text">Memproses...</h3>
+        <p>Enkripsi tingkat tinggi sedang berjalan.</p>
     </div>
 
     <div id="view-onboarding" class="container">
         <div style="text-align: center; margin: 50px 0;">
-            <i class="fa-solid fa-wallet" style="font-size: 60px; color: var(--primary);"></i>
-            <h1 style="margin-top: 20px;">Wayang Wallet</h1>
-            <p>Kelola aset crypto & NFT Wayang Anda.</p>
+            <i class="fa-solid fa-shield-halved" style="font-size: 60px; color: var(--primary);"></i>
+            <h1 style="margin-top: 20px;">Wayang Secure</h1>
+            <p>Wallet Web3 berbasis Browser.<br>Data Anda terenkripsi di perangkat ini.</p>
         </div>
         
         <button class="btn" onclick="switchView('view-create')">Buat Wallet Baru</button>
-        <button class="btn btn-outline" onclick="switchView('view-import')">Impor Wallet (JSON/Frasa)</button>
+        <button class="btn btn-outline" onclick="switchView('view-import')">Impor Wallet</button>
     </div>
 
     <div id="view-create" class="container hidden">
@@ -79,23 +135,21 @@
         
         <div class="tab-group">
             <button class="tab-btn active" onclick="setImportMode('phrase')" id="tab-phrase">Frasa (12 Kata)</button>
-            <button class="tab-btn" onclick="setImportMode('json')" id="tab-json">JSON / Keystore</button>
+            <button class="tab-btn" onclick="setImportMode('json')" id="tab-json">JSON File</button>
         </div>
 
         <div id="area-phrase">
-            <textarea id="import-phrase" rows="3" placeholder="masukkan 12 kata rahasia dipisahkan spasi..."></textarea>
+            <textarea id="import-phrase" rows="3" placeholder="masukkan 12 kata rahasia..."></textarea>
         </div>
 
         <div id="area-json" class="hidden">
             <textarea id="import-json-text" rows="5" placeholder='Paste teks JSON dimulai dengan {"crypto":... '></textarea>
-            <p style="font-size: 12px; margin-bottom: 5px;">Password lama JSON:</p>
-            <input type="password" id="import-json-old-pwd" placeholder="Password file JSON ini...">
+            <input type="password" id="import-json-old-pwd" placeholder="Password Lama JSON ini..." style="margin-top: 10px;">
         </div>
 
         <hr style="border-color: #333; margin: 20px 0;">
-        
         <p style="font-size: 12px; margin-bottom: 5px;">Buat Password Baru untuk App ini:</p>
-        <input type="password" id="import-new-pwd" placeholder="Password Baru (min 6 karakter)">
+        <input type="password" id="import-new-pwd" placeholder="Password Baru App (min 6 karakter)">
 
         <button class="btn" onclick="handleImportAction()">Impor Sekarang</button>
         <button class="btn btn-secondary" onclick="switchView('view-onboarding')">Batal</button>
@@ -103,88 +157,179 @@
 
     <div id="view-login" class="container hidden">
         <div style="margin: auto 0;">
-            <h2>Buka Wallet</h2>
-            <input type="password" id="login-pwd" placeholder="Masukkan Password App">
-            <button class="btn" onclick="handleLogin()">Buka</button>
-            <button class="btn btn-outline" style="border:none; color: #e74c3c;" onclick="resetApp()">Hapus Wallet</button>
+            <h2>Selamat Datang Kembali</h2>
+            <p>Masukkan password Anda untuk membuka dompet.</p>
+            <input type="password" id="login-pwd" placeholder="Password Anda">
+            <button class="btn" onclick="handleLogin()">Buka Dompet</button>
+            <button class="btn btn-outline btn-danger" style="margin-top: 20px; border: none;" onclick="resetApp()">Hapus Wallet</button>
         </div>
     </div>
 
     <div id="view-dashboard" class="container hidden" style="padding-bottom: 0;">
-        <div class="card" style="background: linear-gradient(135deg, #d35400, #e67e22); text-align: center;">
-            <p style="opacity: 0.8;">Total Saldo</p>
-            <h1 id="dash-balance">0.0000 ETH</h1>
-            <div style="background: rgba(0,0,0,0.2); padding: 5px 10px; border-radius: 15px; display: inline-block; font-size: 12px; margin-top: 10px;">
-                <span id="dash-address">0x...</span> <i class="fa-solid fa-copy"></i>
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 35px; height: 35px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div style="font-size: 14px; font-weight: bold;">User Wayang</div>
+            </div>
+            <i class="fa-solid fa-wifi" style="color: var(--primary);"></i>
+        </div>
+
+        <div class="card balance-card">
+            <div style="opacity: 0.8; font-size: 14px;">Total Balance</div>
+            <h1 style="font-size: 36px; margin: 10px 0;" id="display-balance">0.00 ETH</h1>
+            <div class="address-pill" onclick="copyAddress()">
+                <span id="display-address">0x...</span> <i class="fa-regular fa-copy"></i>
             </div>
         </div>
-        
-        <h3 style="margin-bottom: 10px;">Aset</h3>
-        <div class="card" style="display: flex; justify-content: space-between; align-items: center;">
-            <div style="display: flex; align-items: center; gap: 10px;">
-                <div style="width: 40px; height: 40px; background: #333; border-radius: 50%; display: flex; justify-content: center; align-items: center;">
-                    <i class="fa-brands fa-ethereum"></i>
-                </div>
-                <div>
-                    <b>Ethereum</b><br><span style="font-size: 12px; color: #888;">Sepolia Testnet</span>
-                </div>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <button class="btn" style="flex: 1;" onclick="openSend()"><i class="fa-solid fa-arrow-up"></i> Kirim</button>
+            <button class="btn btn-outline" style="flex: 1; margin:0;" onclick="openReceive()"><i class="fa-solid fa-arrow-down"></i> Terima</button>
+        </div>
+
+        <h3>DApp Browser</h3>
+        <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;" onclick="openBrowserTab()">
+            <div style="padding: 15px; border-bottom: 1px solid #333; background: #252525; display: flex; gap: 10px;">
+                <input type="text" value="https://uniswap.org" style="padding: 8px; font-size: 14px; margin:0; pointer-events: none;" disabled>
             </div>
-            <div id="asset-val">0</div>
+            <div style="padding: 30px; text-align: center; color: #555;">
+                <i class="fa-solid fa-globe" style="font-size: 40px; margin-bottom: 10px;"></i>
+                <p style="margin:0;">Tap untuk buka Browser</p>
+            </div>
         </div>
     </div>
 
+    <div id="view-send" class="container hidden">
+        <h2>Kirim ETH</h2>
+        <div class="card">
+            <label>Alamat Tujuan</label>
+            <input type="text" id="send-to" placeholder="0x...">
+            
+            <label>Jumlah (ETH)</label>
+            <input type="number" id="send-amount" placeholder="0.0">
+            
+            <p style="font-size: 12px; margin-top: 5px;">Estimasi Gas: <span id="gas-est">Menghitung...</span></p>
+        </div>
+        <button class="btn" onclick="executeSend()">Konfirmasi Kirim</button>
+        <button class="btn btn-secondary" onclick="switchView('view-dashboard')">Batal</button>
+    </div>
+
+    <div id="view-receive" class="container hidden" style="text-align: center;">
+        <h2>Terima ETH</h2>
+        <p>Scan QR code ini untuk mengirim ke akun Anda.</p>
+        
+        <div class="qr-placeholder">
+            <img id="qr-image" src="" alt="QR Code" style="width: 200px; height: 200px;">
+        </div>
+        
+        <div class="card" style="word-break: break-all;">
+            <p style="margin-bottom: 5px; font-size: 12px;">Alamat Anda:</p>
+            <b id="receive-address" style="color: var(--primary);">0x...</b>
+        </div>
+        
+        <button class="btn" onclick="copyAddress()">Salin Alamat</button>
+        <button class="btn btn-secondary" onclick="switchView('view-dashboard')">Tutup</button>
+    </div>
+
+    <div id="view-browser" class="hidden" style="display: flex; flex-direction: column; height: 100vh;">
+        <div class="browser-bar">
+            <input type="text" id="browser-url" value="https://uniswap.org" style="margin:0; padding: 10px;">
+            <button onclick="loadUrl()" style="padding: 10px; background: var(--primary); border: none; color: white; border-radius: 8px;">Go</button>
+        </div>
+        <iframe id="browser-frame" class="browser-frame" src=""></iframe>
+    </div>
+
     <div id="nav-bar" class="bottom-nav hidden">
-        <div class="nav-item active"><i class="fa-solid fa-wallet"></i>Wallet</div>
-        <div class="nav-item"><i class="fa-solid fa-compass"></i>Browser</div>
-        <div class="nav-item"><i class="fa-solid fa-gear"></i>Setting</div>
+        <div class="nav-item active" onclick="switchView('view-dashboard')">
+            <i class="fa-solid fa-wallet"></i> Wallet
+        </div>
+        <div class="nav-item" onclick="openBrowserTab()">
+            <i class="fa-solid fa-compass"></i> Browser
+        </div>
+        <div class="nav-item" onclick="alert('Fitur Setting belum dibuat')">
+            <i class="fa-solid fa-gear"></i> Settings
+        </div>
     </div>
 
     <script>
         // --- CONFIG ---
-        const STORAGE_KEY = 'wayang_wallet_v1';
+        const STORAGE_KEY = 'wayang_wallet_v2';
+        // Gunakan Sepolia Testnet
         const provider = new ethers.JsonRpcProvider("https://rpc.ankr.com/eth_sepolia");
+        
         let activeWallet = null;
-        let importMode = 'phrase'; // 'phrase' or 'json'
+        let importMode = 'phrase';
 
-        // --- ELEMENTS ---
+        // --- UI ELEMENTS ---
         const els = {
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text'),
+            nav: document.getElementById('nav-bar'),
             views: {
                 onboarding: document.getElementById('view-onboarding'),
                 create: document.getElementById('view-create'),
                 import: document.getElementById('view-import'),
                 login: document.getElementById('view-login'),
-                dashboard: document.getElementById('view-dashboard')
+                dashboard: document.getElementById('view-dashboard'),
+                send: document.getElementById('view-send'),
+                receive: document.getElementById('view-receive'),
+                browser: document.getElementById('view-browser')
             },
-            nav: document.getElementById('nav-bar'),
-            loader: document.getElementById('loader'),
-            loaderText: document.getElementById('loader-text')
+            dash: {
+                balance: document.getElementById('display-balance'),
+                address: document.getElementById('display-address')
+            }
         };
 
         // --- INIT ---
         window.onload = () => {
-            if(localStorage.getItem(STORAGE_KEY)) {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
                 switchView('view-login');
             } else {
                 switchView('view-onboarding');
             }
         };
 
-        // --- NAVIGATION ---
+        // --- NAVIGATION LOGIC ---
         function switchView(viewId) {
+            // Sembunyikan semua view
             Object.values(els.views).forEach(el => el.classList.add('hidden'));
-            els.nav.classList.add('hidden');
-            
+            els.nav.classList.add('hidden'); // Default nav hidden
+
+            // Tampilkan target
             document.getElementById(viewId).classList.remove('hidden');
-            
-            if(viewId === 'view-dashboard') els.nav.classList.remove('hidden');
+
+            // Aturan Nav Bar
+            if (viewId === 'view-dashboard') els.nav.classList.remove('hidden');
+            if (viewId === 'view-browser') els.nav.classList.remove('hidden');
         }
 
+        // --- WALLET CORE (Dari Snippet 1) ---
+        
+        // 1. CREATE
+        async function handleCreate() {
+            const pwd = document.getElementById('create-pwd').value;
+            if(pwd.length < 6) return alert("Password min 6 karakter!");
+            
+            showLoader(true, "Membuat Wallet...");
+            setTimeout(async () => {
+                try {
+                    const wallet = ethers.Wallet.createRandom();
+                    await saveWallet(wallet, pwd);
+                    enterDashboard(wallet);
+                } catch(e) { alert(e.message); showLoader(false); }
+            }, 100);
+        }
+
+        // 2. IMPORT
         function setImportMode(mode) {
             importMode = mode;
-            // Update Tab UI
             document.getElementById('tab-phrase').className = mode === 'phrase' ? 'tab-btn active' : 'tab-btn';
             document.getElementById('tab-json').className = mode === 'json' ? 'tab-btn active' : 'tab-btn';
-            // Update Input Area
+            
             if(mode === 'phrase') {
                 document.getElementById('area-phrase').classList.remove('hidden');
                 document.getElementById('area-json').classList.add('hidden');
@@ -194,138 +339,157 @@
             }
         }
 
-        // --- LOGIC: CREATE NEW ---
-        async function handleCreate() {
-            const pwd = document.getElementById('create-pwd').value;
-            if(pwd.length < 6) return alert("Password terlalu pendek!");
-            
-            showLoader(true, "Membuat Wallet...");
-            
-            setTimeout(async () => {
-                try {
-                    const wallet = ethers.Wallet.createRandom();
-                    await saveWallet(wallet, pwd);
-                    enterDashboard(wallet);
-                } catch(e) {
-                    alert("Error: " + e.message);
-                    showLoader(false);
-                }
-            }, 100);
-        }
-
-        // --- LOGIC: IMPORT (INTI PERMINTAAN ANDA) ---
         async function handleImportAction() {
             const newPwd = document.getElementById('import-new-pwd').value;
-            if(newPwd.length < 6) return alert("Buat password baru minimal 6 karakter!");
+            if(newPwd.length < 6) return alert("Password baru kurang kuat!");
 
-            showLoader(true, "Memvalidasi & Mengimpor...");
-
+            showLoader(true, "Membuka Kunci & Import...");
             setTimeout(async () => {
                 try {
                     let wallet;
-
-                    // A. IMPORT VIA PHRASE
                     if(importMode === 'phrase') {
                         const phrase = document.getElementById('import-phrase').value.trim();
-                        // Validasi sederhana (hitung kata)
-                        if(phrase.split(" ").length < 12) throw new Error("Frasa harus 12 kata atau lebih.");
-                        
-                        // Ethers v6: fromPhrase
+                        if(phrase.split(" ").length < 12) throw new Error("Frasa minimal 12 kata.");
                         wallet = ethers.Wallet.fromPhrase(phrase);
-                    } 
-                    // B. IMPORT VIA JSON
-                    else {
+                    } else {
                         const jsonText = document.getElementById('import-json-text').value.trim();
                         const oldPwd = document.getElementById('import-json-old-pwd').value;
-                        
-                        if(!jsonText || !oldPwd) throw new Error("JSON dan Password Lama wajib diisi.");
-                        
-                        // Dekripsi JSON lama (Berat!)
-                        showLoader(true, "Mendekripsi JSON Lama...");
                         wallet = await ethers.Wallet.fromEncryptedJson(jsonText, oldPwd);
                     }
-
-                    // Jika sukses mendapatkan object wallet, simpan dengan password BARU
-                    showLoader(true, "Menyimpan ke App...");
                     await saveWallet(wallet, newPwd);
                     enterDashboard(wallet);
-
-                } catch (e) {
+                } catch(e) {
                     showLoader(false);
-                    console.error(e);
-                    // Pesan error yang user-friendly
-                    if(e.message.includes("password")) {
-                        alert("Gagal: Password JSON lama salah!");
-                    } else if (e.message.includes("mnemonic")) {
-                        alert("Gagal: Frasa/Mnemonic tidak valid (Checksum salah).");
-                    } else {
-                        alert("Gagal Import: " + e.message);
-                    }
+                    alert("Gagal Import: " + e.message);
                 }
             }, 100);
         }
 
-        // --- LOGIC: LOGIN ---
+        // 3. LOGIN
         async function handleLogin() {
             const pwd = document.getElementById('login-pwd').value;
             const encryptedJson = localStorage.getItem(STORAGE_KEY);
             
-            showLoader(true, "Membuka...");
-            
+            showLoader(true, "Membuka Brankas...");
             setTimeout(async () => {
                 try {
                     const wallet = await ethers.Wallet.fromEncryptedJson(encryptedJson, pwd);
                     enterDashboard(wallet);
-                } catch (e) {
+                } catch(e) {
                     showLoader(false);
                     alert("Password Salah!");
                 }
             }, 100);
         }
 
-        // --- HELPER FUNCTIONS ---
-        async function saveWallet(wallet, password) {
-            // Enkripsi wallet dengan password user sebelum disimpan
-            const json = await wallet.encrypt(password);
+        // --- DASHBOARD FUNCTIONS ---
+
+        async function saveWallet(wallet, pwd) {
+            const json = await wallet.encrypt(pwd);
             localStorage.setItem(STORAGE_KEY, json);
         }
 
         async function enterDashboard(wallet) {
             activeWallet = wallet.connect(provider);
             
-            // Update UI
+            // Set UI Address
             const addr = activeWallet.address;
-            document.getElementById('dash-address').innerText = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+            els.dash.address.innerText = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
             
             switchView('view-dashboard');
             showLoader(false);
+            
+            updateBalance();
+        }
 
-            // Cek Saldo
+        async function updateBalance() {
+            if(!activeWallet) return;
             try {
-                const bal = await provider.getBalance(addr);
-                const eth = parseFloat(ethers.formatEther(bal)).toFixed(4);
-                document.getElementById('dash-balance').innerText = eth + " ETH";
-                document.getElementById('asset-val').innerText = eth;
+                const bal = await provider.getBalance(activeWallet.address);
+                els.dash.balance.innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " ETH";
+            } catch(e) { console.log("RPC Error"); }
+        }
+
+        // --- NEW FEATURES: SEND & RECEIVE ---
+
+        function openSend() {
+            switchView('view-send');
+            // Estimasi gas dummy (bisa diganti real call)
+            document.getElementById('gas-est').innerText = "0.000021 ETH (Standard)";
+        }
+
+        async function executeSend() {
+            const to = document.getElementById('send-to').value;
+            const amount = document.getElementById('send-amount').value;
+
+            if(!ethers.isAddress(to)) return alert("Alamat tujuan tidak valid!");
+            
+            showLoader(true, "Mengirim Transaksi...");
+            try {
+                const tx = await activeWallet.sendTransaction({
+                    to: to,
+                    value: ethers.parseEther(amount)
+                });
+                await tx.wait(); // Tunggu konfirmasi blok
+                alert("Berhasil! Hash: " + tx.hash);
+                showLoader(false);
+                switchView('view-dashboard');
+                updateBalance();
             } catch(e) {
-                console.log("Offline/RPC Error");
+                showLoader(false);
+                alert("Gagal Kirim: " + (e.reason || e.message));
             }
         }
 
+        function openReceive() {
+            switchView('view-receive');
+            const addr = activeWallet.address;
+            document.getElementById('receive-address').innerText = addr;
+            // Generate QR Code menggunakan API publik sederhana
+            document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${addr}`;
+        }
+
+        // --- NEW FEATURE: BROWSER ---
+        
+        function openBrowserTab() {
+            switchView('view-browser');
+            // Load default URL jika iframe kosong
+            if(document.getElementById('browser-frame').src === "") {
+                loadUrl();
+            }
+        }
+
+        function loadUrl() {
+            let url = document.getElementById('browser-url').value;
+            if(!url.startsWith('http')) url = 'https://' + url;
+            
+            // Note: Banyak situs (Google, etc) memblokir akses via Iframe (X-Frame-Options).
+            // Wikipedia atau situs statis biasanya bisa.
+            document.getElementById('browser-frame').src = url;
+        }
+
+        // --- UTILS ---
+        
         function showLoader(show, text) {
             if(show) {
                 els.loader.classList.remove('hidden');
                 if(text) els.loaderText.innerText = text;
-            } else {
-                els.loader.classList.add('hidden');
+            } else { els.loader.classList.add('hidden'); }
+        }
+
+        window.copyAddress = () => {
+            if(activeWallet) {
+                navigator.clipboard.writeText(activeWallet.address);
+                alert("Alamat disalin!");
             }
         }
 
         function resetApp() {
-            if(confirm("Yakin hapus? Data hilang permanen.")) {
+            if(confirm("Yakin hapus? Aset akan hilang permanen!")) {
                 localStorage.removeItem(STORAGE_KEY);
                 location.reload();
             }
         }
     </script>
 </body>
-</html>
+                </html>
