@@ -2,262 +2,546 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Wayang Lite</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Wayang Multi-Chain</title>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* --- CSS RINGAN (Tanpa External Fonts) --- */
-        :root { --primary: #d35400; --bg: #0a0a0a; --card: #141414; --text: #eee; }
-        * { box-sizing: border-box; margin: 0; padding: 0; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
-        body { background: var(--bg); color: var(--text); display: flex; flex-direction: column; height: 100vh; overflow: hidden; }
+        /* --- CSS TETAP SAMA DENGAN TAMBAHAN UNTUK SELECTOR --- */
+        :root {
+            --primary: #d35400; 
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text: #ffffff;
+            --text-sec: #b0b0b0;
+            --safe-bottom: env(safe-area-inset-bottom);
+        }
 
-        /* Helpers */
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
+
+        body {
+            background-color: var(--bg);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            user-select: none; 
+            -webkit-user-select: none;
+        }
+
+        .container { padding: 20px; max-width: 500px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; }
         .hidden { display: none !important; }
-        .full-h { flex: 1; overflow-y: auto; padding: 20px; display: flex; flex-direction: column; }
-        
-        /* UI Components */
-        .btn { background: var(--primary); color: #fff; border: none; padding: 15px; border-radius: 8px; width: 100%; font-weight: bold; font-size: 16px; margin-bottom: 10px; cursor: pointer; }
-        .btn:active { opacity: 0.8; }
-        .btn-outline { background: transparent; border: 1px solid var(--primary); color: var(--primary); }
-        .input { width: 100%; padding: 15px; background: #222; border: 1px solid #333; color: white; border-radius: 8px; margin-bottom: 15px; font-size: 16px; }
-        .input:focus { border-color: var(--primary); outline: none; }
-        
-        .card { background: var(--card); padding: 20px; border-radius: 12px; margin-bottom: 15px; border: 1px solid #222; }
-        
-        /* Loader */
-        #loader { position: fixed; inset: 0; background: rgba(0,0,0,0.9); z-index: 99; display: flex; flex-direction: column; align-items: center; justify-content: center; }
-        .spinner { width: 40px; height: 40px; border: 4px solid #333; border-top-color: var(--primary); border-radius: 50%; animation: spin 0.8s linear infinite; }
-        @keyframes spin { to { transform: rotate(360deg); } }
 
-        /* Navbar */
-        .nav { display: flex; border-top: 1px solid #222; background: var(--card); padding-bottom: env(safe-area-inset-bottom); }
-        .nav-item { flex: 1; padding: 15px; text-align: center; color: #666; font-size: 24px; cursor: pointer; }
+        h1, h2, h3 { font-weight: 700; margin-bottom: 10px; }
+        p { color: var(--text-sec); font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
+
+        input, textarea, select {
+            width: 100%; padding: 16px; background: #252525; border: 2px solid #333;
+            border-radius: 12px; color: white; font-size: 16px; margin-bottom: 15px; transition: 0.3s;
+            appearance: none; /* Hilangkan panah default browser */
+        }
+        input:focus, textarea:focus, select:focus { outline: none; border-color: var(--primary); background: #2a2a2a; }
+
+        .btn {
+            width: 100%; padding: 16px; border: none; border-radius: 12px;
+            background: var(--primary); color: white; font-size: 16px; font-weight: bold;
+            cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 10px; margin-bottom: 10px;
+        }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
+        .btn-secondary { background: #333; color: #ccc; }
+        .btn-danger { background: #c0392b; color: white; }
+
+        /* TABS */
+        .tab-group { display: flex; gap: 10px; margin-bottom: 20px; }
+        .tab-btn { flex: 1; padding: 10px; border-radius: 8px; border: 1px solid #333; background: transparent; color: #888; cursor: pointer; }
+        .tab-btn.active { background: var(--primary); color: white; border-color: var(--primary); }
+
+        /* CARDS */
+        .card { background: var(--surface); padding: 20px; border-radius: 16px; border: 1px solid #333; margin-bottom: 20px; }
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary) 0%, #a04000 100%);
+            border: none; text-align: center; padding: 30px 20px;
+        }
+        .address-pill {
+            background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 20px;
+            display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;
+        }
+
+        /* NETWORK SELECTOR STYLE (NEW) */
+        .network-select-wrapper {
+            position: relative;
+            background: #333;
+            border-radius: 20px;
+            padding: 5px 15px;
+            font-size: 12px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        .network-select {
+            background: transparent;
+            border: none;
+            color: white;
+            font-size: 12px;
+            padding: 0;
+            margin: 0;
+            width: auto;
+            cursor: pointer;
+        }
+        .dot { height: 8px; width: 8px; background-color: #2ecc71; border-radius: 50%; display: inline-block; }
+
+        /* NAV */
+        .bottom-nav {
+            background: var(--surface); border-top: 1px solid #333;
+            display: flex; justify-content: space-around; padding: 12px 0;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            position: sticky; bottom: 0; z-index: 500;
+        }
+        .nav-item { text-align: center; color: var(--text-sec); font-size: 10px; cursor: pointer; flex: 1; }
         .nav-item.active { color: var(--primary); }
-        
-        /* Browser Frame */
-        #browser-view { display: flex; flex-direction: column; height: 100%; }
-        .url-bar { padding: 10px; background: #222; display: flex; gap: 10px; }
-        iframe { flex: 1; border: none; background: #fff; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; display: block; }
+
+        /* LOADER */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333; border-top: 5px solid var(--primary);
+            border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        .browser-frame { width: 100%; height: 100%; border: none; background: white; }
+        .browser-bar { padding: 10px; background: #252525; display: flex; gap: 10px; align-items: center; }
+        .qr-placeholder { background: white; padding: 10px; display: inline-block; border-radius: 10px; margin: 20px 0; }
     </style>
 </head>
 <body>
 
     <div id="loader" class="hidden">
         <div class="spinner"></div>
-        <p style="margin-top: 15px; font-size: 14px;" id="loader-txt">Memproses...</p>
+        <h3 id="loader-text">Memproses...</h3>
+        <p>Enkripsi tingkat tinggi sedang berjalan.</p>
     </div>
 
-    <div id="pg-onboard" class="full-h">
-        <div style="flex:1; display: flex; flex-direction: column; justify-content: center; text-align: center;">
-            <div style="font-size: 60px;">🛡️</div>
-            <h1 style="margin: 20px 0;">Wayang Lite</h1>
-            <p style="color:#aaa;">Wallet Web3 Super Ringan</p>
+    <div id="view-onboarding" class="container">
+        <div style="text-align: center; margin: 50px 0;">
+            <i class="fa-solid fa-shield-halved" style="font-size: 60px; color: var(--primary);"></i>
+            <h1 style="margin-top: 20px;">Wayang Chain</h1>
+            <p>Wallet Web3 Multi-Chain.<br>Satu kunci untuk semua jaringan.</p>
         </div>
-        <button class="btn" onclick="goTo('pg-create')">Buat Wallet</button>
-        <button class="btn btn-outline" onclick="goTo('pg-import')">Import</button>
+        <button class="btn" onclick="switchView('view-create')">Buat Wallet Baru</button>
+        <button class="btn btn-outline" onclick="switchView('view-import')">Impor Wallet</button>
     </div>
 
-    <div id="pg-dash" class="full-h hidden">
+    <div id="view-create" class="container hidden">
+        <h2>Buat Password</h2>
+        <p>Password ini untuk mengunci wallet di HP ini.</p>
+        <input type="password" id="create-pwd" placeholder="Password Baru (min 6 karakter)">
+        <button class="btn" onclick="handleCreate()">Buat & Simpan</button>
+        <button class="btn btn-secondary" onclick="switchView('view-onboarding')">Batal</button>
+    </div>
+
+    <div id="view-import" class="container hidden">
+        <h2>Impor Wallet</h2>
+        <div class="tab-group">
+            <button class="tab-btn active" onclick="setImportMode('phrase')" id="tab-phrase">Frasa</button>
+            <button class="tab-btn" onclick="setImportMode('json')" id="tab-json">JSON</button>
+        </div>
+        <div id="area-phrase">
+            <textarea id="import-phrase" rows="3" placeholder="masukkan 12 kata rahasia..."></textarea>
+        </div>
+        <div id="area-json" class="hidden">
+            <textarea id="import-json-text" rows="5" placeholder='Paste teks JSON...'></textarea>
+            <input type="password" id="import-json-old-pwd" placeholder="Password Lama JSON ini..." style="margin-top: 10px;">
+        </div>
+        <hr style="border-color: #333; margin: 20px 0;">
+        <p style="font-size: 12px; margin-bottom: 5px;">Buat Password Baru untuk App ini:</p>
+        <input type="password" id="import-new-pwd" placeholder="Password Baru App">
+        <button class="btn" onclick="handleImportAction()">Impor Sekarang</button>
+        <button class="btn btn-secondary" onclick="switchView('view-onboarding')">Batal</button>
+    </div>
+
+    <div id="view-login" class="container hidden">
+        <div style="margin: auto 0;">
+            <h2>Buka Wallet</h2>
+            <input type="password" id="login-pwd" placeholder="Password Anda">
+            <button class="btn" onclick="handleLogin()">Buka Dompet</button>
+            <button class="btn btn-outline btn-danger" style="margin-top: 20px; border: none;" onclick="resetApp()">Hapus Wallet</button>
+        </div>
+    </div>
+
+    <div id="view-dashboard" class="container hidden" style="padding-bottom: 0;">
         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-            <h3>Wayang Wallet</h3>
-            <span style="font-size: 12px; color: var(--primary);">● Sepolia</span>
-        </div>
-
-        <div class="card" style="text-align: center; background: linear-gradient(135deg, #d35400, #a04000);">
-            <p style="font-size: 12px; opacity: 0.8;">Total Saldo</p>
-            <h1 style="font-size: 32px; margin: 10px 0;" id="bal-txt">0.00 ETH</h1>
-            <div style="background: rgba(0,0,0,0.3); padding: 5px 10px; border-radius: 20px; font-size: 12px; display: inline-block; cursor: pointer;" onclick="copyAddr()">
-                <span id="addr-txt">0x...</span> 📋
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 35px; height: 35px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-user"></i>
+                </div>
+                <div style="font-size: 14px; font-weight: bold;">User</div>
+            </div>
+            
+            <div class="network-select-wrapper">
+                <span class="dot"></span>
+                <select id="network-select" class="network-select" onchange="changeNetwork()">
+                    </select>
             </div>
         </div>
 
-        <div style="display: flex; gap: 10px; margin-bottom: 20px;">
-            <button class="btn" style="flex:1; margin:0;" onclick="alert('Fitur Kirim Sederhana')">⬆️ Kirim</button>
-            <button class="btn btn-outline" style="flex:1; margin:0;">⬇️ Terima</button>
+        <div class="card balance-card">
+            <div style="opacity: 0.8; font-size: 14px;">Total Balance</div>
+            <h1 style="font-size: 36px; margin: 10px 0;" id="display-balance">0.00 ETH</h1>
+            <div class="address-pill" onclick="copyAddress()">
+                <span id="display-address">0x...</span> <i class="fa-regular fa-copy"></i>
+            </div>
+        </div>
+
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <button class="btn" style="flex: 1;" onclick="openSend()"><i class="fa-solid fa-arrow-up"></i> Kirim</button>
+            <button class="btn btn-outline" style="flex: 1; margin:0;" onclick="openReceive()"><i class="fa-solid fa-arrow-down"></i> Terima</button>
+        </div>
+
+        <h3>DApp Browser</h3>
+        <div class="card" style="padding: 0; overflow: hidden; cursor: pointer;" onclick="openBrowserTab()">
+            <div style="padding: 15px; border-bottom: 1px solid #333; background: #252525; display: flex; gap: 10px;">
+                <input type="text" value="https://uniswap.org" style="padding: 8px; font-size: 14px; margin:0; pointer-events: none;" disabled>
+            </div>
+            <div style="padding: 30px; text-align: center; color: #555;">
+                <i class="fa-solid fa-globe" style="font-size: 40px; margin-bottom: 10px;"></i>
+                <p style="margin:0;">Tap untuk buka Browser</p>
+            </div>
         </div>
     </div>
 
-    <div id="pg-browser" class="hidden" style="flex: 1; flex-direction: column;">
-        <div class="url-bar">
-            <input type="text" id="url-input" class="input" style="margin:0; padding: 10px;" value="https://uniswap.org" placeholder="https://...">
-            <button class="btn" style="width: auto; margin:0; padding: 0 20px;" onclick="loadIframe()">Go</button>
+    <div id="view-send" class="container hidden">
+        <h2>Kirim <span id="send-symbol">ETH</span></h2>
+        <div class="card">
+            <label>Alamat Tujuan</label>
+            <input type="text" id="send-to" placeholder="0x...">
+            
+            <label>Jumlah (<span id="amount-symbol">ETH</span>)</label>
+            <input type="number" id="send-amount" placeholder="0.0">
         </div>
-        <iframe id="web-frame" sandbox="allow-scripts allow-same-origin allow-popups allow-forms"></iframe>
+        <button class="btn" onclick="executeSend()">Konfirmasi Kirim</button>
+        <button class="btn btn-secondary" onclick="switchView('view-dashboard')">Batal</button>
     </div>
 
-    <div id="pg-create" class="full-h hidden">
-        <h2>Setup Wallet</h2>
-        <p style="color:#888; margin-bottom: 20px;">Masukkan password pengaman lokal.</p>
-        <input type="password" id="pwd-input" class="input" placeholder="Password (min 6 char)">
-        <button class="btn" onclick="processWallet('create')">Proses</button>
-        <button class="btn btn-outline" onclick="goTo('pg-onboard')">Batal</button>
-    </div>
-    
-    <div id="pg-import" class="full-h hidden">
-        <h2>Import Phrase</h2>
-        <textarea id="phrase-input" class="input" rows="3" placeholder="12 kata rahasia..."></textarea>
-        <input type="password" id="import-pwd" class="input" placeholder="Password Baru App">
-        <button class="btn" onclick="processWallet('import')">Import Sekarang</button>
-        <button class="btn btn-outline" onclick="goTo('pg-onboard')">Batal</button>
+    <div id="view-receive" class="container hidden" style="text-align: center;">
+        <h2>Terima Aset</h2>
+        <p>Alamat ini sama untuk semua jaringan EVM.</p>
+        <div class="qr-placeholder">
+            <img id="qr-image" src="" alt="QR Code" style="width: 200px; height: 200px;">
+        </div>
+        <div class="card" style="word-break: break-all;">
+            <b id="receive-address" style="color: var(--primary);">0x...</b>
+        </div>
+        <button class="btn" onclick="copyAddress()">Salin Alamat</button>
+        <button class="btn btn-secondary" onclick="switchView('view-dashboard')">Tutup</button>
     </div>
 
-    <div id="navbar" class="nav hidden">
-        <div class="nav-item active" onclick="switchTab('dash')">👛</div>
-        <div class="nav-item" onclick="switchTab('browser')">🌏</div>
-        <div class="nav-item" onclick="alert('Settings')">⚙️</div>
+    <div id="view-browser" class="hidden" style="display: flex; flex-direction: column; height: 100vh;">
+        <div class="browser-bar">
+            <input type="text" id="browser-url" value="https://uniswap.org" style="margin:0; padding: 10px;">
+            <button onclick="loadUrl()" style="padding: 10px; background: var(--primary); border: none; color: white; border-radius: 8px;">Go</button>
+        </div>
+        <iframe id="browser-frame" class="browser-frame" src=""></iframe>
+    </div>
+
+    <div id="nav-bar" class="bottom-nav hidden">
+        <div class="nav-item active" onclick="switchView('view-dashboard')">
+            <i class="fa-solid fa-wallet"></i> Wallet
+        </div>
+        <div class="nav-item" onclick="openBrowserTab()">
+            <i class="fa-solid fa-compass"></i> Browser
+        </div>
+        <div class="nav-item" onclick="alert('Fitur Setting belum dibuat')">
+            <i class="fa-solid fa-gear"></i> Settings
+        </div>
     </div>
 
     <script>
-        // CONFIG
-        const STORAGE_KEY = 'wayang_lite_v1';
-        const PROVIDER_URL = "https://rpc.ankr.com/eth_sepolia";
-        let provider, wallet;
+        // --- CONFIG MULTICHAIN ---
+        // Anda bisa menambahkan jaringan lain di sini
+        const NETWORKS = [
+            { id: "sepolia", name: "Sepolia (Test)", rpc: "https://rpc.ankr.com/eth_sepolia", symbol: "ETH" },
+            { id: "eth", name: "Ethereum Mainnet", rpc: "https://rpc.ankr.com/eth", symbol: "ETH" },
+            { id: "polygon", name: "Polygon", rpc: "https://rpc.ankr.com/polygon", symbol: "MATIC" },
+            { id: "bsc", name: "BSC", rpc: "https://rpc.ankr.com/bsc", symbol: "BNB" },
+            { id: "base", name: "Base", rpc: "https://mainnet.base.org", symbol: "ETH" },
+            { id: "fantom", name: "Fantom", rpc: "https://rpc.ankr.com/fantom", symbol: "FTM" }
+        ];
 
-        // UI HELPERS
-        const el = (id) => document.getElementById(id);
-        const pages = ['pg-onboard', 'pg-dash', 'pg-browser', 'pg-create', 'pg-import'];
+        const STORAGE_KEY = 'wayang_wallet_v2';
+        
+        // State Global
+        let activeWallet = null; // Wallet dengan Provider aktif
+        let baseWallet = null;   // Wallet 'mentah' (tanpa provider)
+        let currentNetIndex = 0; // Default: Sepolia
+        let importMode = 'phrase';
 
-        // 1. NAVIGATION
-        function goTo(pid) {
-            pages.forEach(p => el(p).classList.add('hidden'));
-            el(pid).classList.remove('hidden');
-            if(pid === 'pg-dash' || pid === 'pg-browser') el('navbar').classList.remove('hidden');
-            else el('navbar').classList.add('hidden');
-        }
-
-        function switchTab(tab) {
-            if(tab === 'dash') {
-                el('pg-dash').classList.remove('hidden');
-                el('pg-browser').classList.add('hidden');
-                document.querySelectorAll('.nav-item')[0].classList.add('active');
-                document.querySelectorAll('.nav-item')[1].classList.remove('active');
-            } else {
-                el('pg-dash').classList.add('hidden');
-                el('pg-browser').classList.remove('hidden');
-                el('pg-browser').style.display = 'flex'; // Fix display
-                document.querySelectorAll('.nav-item')[0].classList.remove('active');
-                document.querySelectorAll('.nav-item')[1].classList.add('active');
+        // --- ELEMENTS ---
+        const els = {
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text'),
+            nav: document.getElementById('nav-bar'),
+            netSelect: document.getElementById('network-select'),
+            views: {
+                onboarding: document.getElementById('view-onboarding'),
+                create: document.getElementById('view-create'),
+                import: document.getElementById('view-import'),
+                login: document.getElementById('view-login'),
+                dashboard: document.getElementById('view-dashboard'),
+                send: document.getElementById('view-send'),
+                receive: document.getElementById('view-receive'),
+                browser: document.getElementById('view-browser')
+            },
+            dash: {
+                balance: document.getElementById('display-balance'),
+                address: document.getElementById('display-address')
             }
+        };
+
+        // --- INIT ---
+        window.onload = () => {
+            initNetworkSelector();
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                switchView('view-login');
+            } else {
+                switchView('view-onboarding');
+            }
+        };
+
+        function initNetworkSelector() {
+            els.netSelect.innerHTML = "";
+            NETWORKS.forEach((net, index) => {
+                const opt = document.createElement("option");
+                opt.value = index;
+                opt.text = net.name;
+                els.netSelect.appendChild(opt);
+            });
         }
 
-        function loading(show, txt) {
-            el('loader').classList.toggle('hidden', !show);
-            if(txt) el('loader-txt').innerText = txt;
+        // --- NAVIGATION LOGIC ---
+        function switchView(viewId) {
+            Object.values(els.views).forEach(el => el.classList.add('hidden'));
+            els.nav.classList.add('hidden');
+            document.getElementById(viewId).classList.remove('hidden');
+            if (viewId === 'view-dashboard') els.nav.classList.remove('hidden');
+            if (viewId === 'view-browser') els.nav.classList.remove('hidden');
         }
 
-        // 2. WALLET CORE (NON-BLOCKING)
-        function processWallet(mode) {
-            const pwd = mode === 'create' ? el('pwd-input').value : el('import-pwd').value;
-            if(pwd.length < 6) return alert("Password kurang panjang!");
+        // --- NETWORK SWITCHING LOGIC (CORE MULTICHAIN) ---
+        async function changeNetwork() {
+            // 1. Ambil pilihan user
+            const idx = els.netSelect.value;
+            currentNetIndex = idx;
+            const net = NETWORKS[idx];
 
-            loading(true, "Mengenkripsi... (Tunggu)");
+            // 2. Tampilkan Loading
+            showLoader(true, `Pindah ke ${net.name}...`);
 
-            // SETTIMEOUT HACK: Agar UI Loader muncul dulu sebelum JS macet karena enkripsi
             setTimeout(async () => {
                 try {
-                    let w;
-                    if(mode === 'create') {
-                        w = ethers.Wallet.createRandom();
-                    } else {
-                        const phrase = el('phrase-input').value.trim();
-                        w = ethers.Wallet.fromPhrase(phrase);
+                    // 3. Buat Provider Baru
+                    const newProvider = new ethers.JsonRpcProvider(net.rpc);
+                    
+                    // 4. Update Wallet Aktif dengan Provider baru
+                    // Kita gunakan baseWallet (kunci asli) lalu connect ke provider baru
+                    if (baseWallet) {
+                        activeWallet = baseWallet.connect(newProvider);
+                        await updateBalance(); // Refresh saldo
                     }
+
+                    // 5. Update UI Symbol
+                    updateCurrencySymbols(net.symbol);
                     
-                    // Proses Berat di sini
-                    const json = await w.encrypt(pwd);
-                    localStorage.setItem(STORAGE_KEY, json);
-                    
-                    // Login otomatis
-                    provider = new ethers.JsonRpcProvider(PROVIDER_URL);
-                    wallet = w.connect(provider);
-                    
-                    updateUI();
-                    goTo('pg-dash');
+                    showLoader(false);
                 } catch(e) {
-                    alert("Error: " + e.message);
-                } finally {
-                    loading(false);
+                    showLoader(false);
+                    alert("Gagal koneksi ke RPC jaringan ini.");
                 }
-            }, 100); 
-        }
-
-        async function init() {
-            const data = localStorage.getItem(STORAGE_KEY);
-            if(data) {
-                // Auto login simple (Minta password idealnya, tapi ini versi lite)
-                const pwd = prompt("Masukkan Password Wallet Anda:");
-                if(!pwd) return;
-                loading(true, "Membuka...");
-                setTimeout(async () => {
-                    try {
-                        const w = await ethers.Wallet.fromEncryptedJson(data, pwd);
-                        provider = new ethers.JsonRpcProvider(PROVIDER_URL);
-                        wallet = w.connect(provider);
-                        updateUI();
-                        goTo('pg-dash');
-                    } catch(e) {
-                        alert("Password Salah / Data Rusak");
-                        goTo('pg-onboard');
-                    } finally {
-                        loading(false);
-                    }
-                }, 50);
-            } else {
-                goTo('pg-onboard');
-            }
-        }
-
-        async function updateUI() {
-            const addr = wallet.address;
-            el('addr-txt').innerText = addr.substring(0,6) + "..." + addr.substring(addr.length-4);
-            try {
-                const bal = await provider.getBalance(addr);
-                el('bal-txt').innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " ETH";
-            } catch(e) {}
-        }
-
-        // 3. BROWSER & INJECTION ATTEMPT
-        function loadIframe() {
-            let url = el('url-input').value;
-            if(!url.startsWith('http')) url = 'https://' + url;
-            
-            loading(true, "Memuat Website...");
-            const frame = el('web-frame');
-            
-            // Bersihkan dulu biar ringan
-            frame.src = "about:blank";
-            
-            setTimeout(() => {
-                frame.src = url;
-                loading(false);
-                // Coba kirim pesan handshake ke Iframe (Walaupun kemungkinan besar diblokir DApp)
-                injectProvider(frame); 
             }, 500);
         }
 
-        function injectProvider(frame) {
-            // Ini adalah upaya terbaik komunikasi postMessage
-            // DApp harus punya listener "message" untuk ini bekerja.
-            frame.onload = () => {
-                const msg = {
-                    type: 'ETHEREUM_PROVIDER_ANNOUNCE',
-                    data: {
-                        chainId: "0xaa36a7", // Sepolia
-                        address: wallet ? wallet.address : null
-                    }
-                };
-                // Mencoba mengirim data wallet ke dalam iframe
-                frame.contentWindow.postMessage(msg, "*");
-            };
+        function updateCurrencySymbols(symbol) {
+            document.getElementById('send-symbol').innerText = symbol;
+            document.getElementById('amount-symbol').innerText = symbol;
         }
 
-        // Start
-        window.onload = init;
+        // --- WALLET CORE ---
         
-        window.copyAddr = () => {
-            if(wallet) navigator.clipboard.writeText(wallet.address);
-            alert("Disalin!");
+        async function handleCreate() {
+            const pwd = document.getElementById('create-pwd').value;
+            if(pwd.length < 6) return alert("Password min 6 karakter!");
+            showLoader(true, "Membuat Wallet...");
+            setTimeout(async () => {
+                try {
+                    const wallet = ethers.Wallet.createRandom();
+                    await saveWallet(wallet, pwd);
+                    baseWallet = wallet; // Simpan raw wallet
+                    changeNetwork(); // Init network default
+                    enterDashboard();
+                } catch(e) { alert(e.message); showLoader(false); }
+            }, 100);
+        }
+
+        function setImportMode(mode) {
+            importMode = mode;
+            document.getElementById('tab-phrase').className = mode === 'phrase' ? 'tab-btn active' : 'tab-btn';
+            document.getElementById('tab-json').className = mode === 'json' ? 'tab-btn active' : 'tab-btn';
+            if(mode === 'phrase') {
+                document.getElementById('area-phrase').classList.remove('hidden');
+                document.getElementById('area-json').classList.add('hidden');
+            } else {
+                document.getElementById('area-phrase').classList.add('hidden');
+                document.getElementById('area-json').classList.remove('hidden');
+            }
+        }
+
+        async function handleImportAction() {
+            const newPwd = document.getElementById('import-new-pwd').value;
+            if(newPwd.length < 6) return alert("Password baru kurang kuat!");
+            showLoader(true, "Importing...");
+            setTimeout(async () => {
+                try {
+                    let wallet;
+                    if(importMode === 'phrase') {
+                        const phrase = document.getElementById('import-phrase').value.trim();
+                        if(phrase.split(" ").length < 12) throw new Error("Frasa minimal 12 kata.");
+                        wallet = ethers.Wallet.fromPhrase(phrase);
+                    } else {
+                        const jsonText = document.getElementById('import-json-text').value.trim();
+                        const oldPwd = document.getElementById('import-json-old-pwd').value;
+                        wallet = await ethers.Wallet.fromEncryptedJson(jsonText, oldPwd);
+                    }
+                    await saveWallet(wallet, newPwd);
+                    baseWallet = wallet;
+                    changeNetwork();
+                    enterDashboard();
+                } catch(e) {
+                    showLoader(false);
+                    alert("Gagal Import: " + e.message);
+                }
+            }, 100);
+        }
+
+        async function handleLogin() {
+            const pwd = document.getElementById('login-pwd').value;
+            const encryptedJson = localStorage.getItem(STORAGE_KEY);
+            showLoader(true, "Membuka Brankas...");
+            setTimeout(async () => {
+                try {
+                    const wallet = await ethers.Wallet.fromEncryptedJson(encryptedJson, pwd);
+                    baseWallet = wallet;
+                    changeNetwork(); // Connect provider default
+                    enterDashboard();
+                } catch(e) {
+                    showLoader(false);
+                    alert("Password Salah!");
+                }
+            }, 100);
+        }
+
+        async function saveWallet(wallet, pwd) {
+            const json = await wallet.encrypt(pwd);
+            localStorage.setItem(STORAGE_KEY, json);
+        }
+
+        function enterDashboard() {
+            const addr = baseWallet.address;
+            els.dash.address.innerText = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+            switchView('view-dashboard');
+            showLoader(false);
+        }
+
+        async function updateBalance() {
+            if(!activeWallet) return;
+            const net = NETWORKS[currentNetIndex];
+            els.dash.balance.innerText = "Loading...";
+            
+            try {
+                const bal = await activeWallet.provider.getBalance(activeWallet.address);
+                els.dash.balance.innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " " + net.symbol;
+            } catch(e) { 
+                els.dash.balance.innerText = "Error"; 
+            }
+        }
+
+        // --- SEND & RECEIVE ---
+
+        function openSend() {
+            switchView('view-send');
+        }
+
+        async function executeSend() {
+            const to = document.getElementById('send-to').value;
+            const amount = document.getElementById('send-amount').value;
+            if(!ethers.isAddress(to)) return alert("Alamat tujuan tidak valid!");
+            
+            showLoader(true, "Mengirim Transaksi...");
+            try {
+                const tx = await activeWallet.sendTransaction({
+                    to: to,
+                    value: ethers.parseEther(amount)
+                });
+                await tx.wait(); 
+                alert("Berhasil! Hash: " + tx.hash);
+                showLoader(false);
+                switchView('view-dashboard');
+                updateBalance();
+            } catch(e) {
+                showLoader(false);
+                alert("Gagal Kirim: " + (e.reason || e.message));
+            }
+        }
+
+        function openReceive() {
+            switchView('view-receive');
+            const addr = baseWallet.address;
+            document.getElementById('receive-address').innerText = addr;
+            document.getElementById('qr-image').src = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${addr}`;
+        }
+
+        // --- BROWSER ---
+        
+        function openBrowserTab() {
+            switchView('view-browser');
+            if(document.getElementById('browser-frame').src === "") loadUrl();
+        }
+
+        function loadUrl() {
+            let url = document.getElementById('browser-url').value;
+            if(!url.startsWith('http')) url = 'https://' + url;
+            document.getElementById('browser-frame').src = url;
+        }
+
+        // --- UTILS ---
+        
+        function showLoader(show, text) {
+            if(show) {
+                els.loader.classList.remove('hidden');
+                if(text) els.loaderText.innerText = text;
+            } else { els.loader.classList.add('hidden'); }
+        }
+
+        window.copyAddress = () => {
+            if(baseWallet) {
+                navigator.clipboard.writeText(baseWallet.address);
+                alert("Alamat disalin!");
+            }
+        }
+
+        function resetApp() {
+            if(confirm("Yakin hapus? Aset akan hilang permanen!")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
         }
     </script>
 </body>
