@@ -3,43 +3,59 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Wayang Web3 Wallet</title>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <title>Wayang Web Wallet (Secure)</title>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.umd.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
     <style>
-        /* --- VARIABLES & RESET --- */
         :root {
-            --primary: #d35400; /* Warna Border Pilihan Anda */
-            --bg-dark: #121212;
-            --bg-card: #1e1e1e;
-            --text-main: #ffffff;
-            --text-muted: #aaaaaa;
-            --danger: #e74c3c;
-            --success: #2ecc71;
-            --safe-area-bottom: env(safe-area-inset-bottom);
+            --primary: #d35400; /* Warna Favorit Anda */
+            --bg: #121212;
+            --surface: #1e1e1e;
+            --text: #ffffff;
+            --text-sec: #b0b0b0;
+            --safe-bottom: env(safe-area-inset-bottom);
         }
 
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif; }
-        
+
         body {
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            /* Padding bawah agar tidak ketutup Nav (Solusi No. 1 & 3 tadi) */
-            padding-bottom: calc(80px + var(--safe-area-bottom)); 
+            background-color: var(--bg);
+            color: var(--text);
             min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow-x: hidden;
+            /* Anti-Select agar kerasa kayak App Native */
+            user-select: none; 
+            -webkit-user-select: none;
         }
 
-        /* --- UTILITIES --- */
-        .hidden { display: none !important; }
-        .container { padding: 20px; max-width: 480px; margin: 0 auto; }
-        h1, h2, h3 { margin-bottom: 15px; font-weight: 600; }
-        p { color: var(--text-muted); line-height: 1.5; margin-bottom: 15px; }
+        /* --- UI COMPONENTS --- */
+        .container { padding: 20px; max-width: 500px; margin: 0 auto; width: 100%; flex: 1; display: flex; flex-direction: column; }
+        
+        h1, h2 { font-weight: 700; margin-bottom: 10px; }
+        p { color: var(--text-sec); font-size: 14px; line-height: 1.5; margin-bottom: 20px; }
 
-        /* --- COMPONENTS --- */
-        .btn {
-            display: block;
+        .input-box { margin-bottom: 15px; position: relative; }
+        label { display: block; margin-bottom: 8px; font-size: 12px; color: var(--text-sec); font-weight: bold; text-transform: uppercase; letter-spacing: 1px; }
+        
+        input, textarea {
             width: 100%;
-            padding: 14px;
+            padding: 16px;
+            background: #252525;
+            border: 2px solid #333;
+            border-radius: 12px;
+            color: white;
+            font-size: 16px;
+            transition: 0.3s;
+        }
+        input:focus { outline: none; border-color: var(--primary); background: #2a2a2a; }
+
+        .btn {
+            width: 100%;
+            padding: 16px;
             border: none;
             border-radius: 12px;
             background: var(--primary);
@@ -47,194 +63,157 @@
             font-size: 16px;
             font-weight: bold;
             cursor: pointer;
-            margin-bottom: 10px;
-            transition: opacity 0.2s;
-        }
-        .btn:active { opacity: 0.8; }
-        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); }
-        .btn-text { background: transparent; color: var(--text-muted); font-size: 14px; }
-
-        .input-group { margin-bottom: 20px; }
-        input, textarea {
-            width: 100%;
-            padding: 15px;
-            background: var(--bg-card);
-            border: 1px solid #333;
-            border-radius: 10px;
-            color: white;
-            font-size: 16px;
-        }
-        input:focus, textarea:focus { outline: none; border-color: var(--primary); }
-
-        /* --- CARDS (Dashboard) --- */
-        .wallet-card {
-            background: linear-gradient(135deg, #d35400 0%, #e67e22 100%);
-            padding: 25px;
-            border-radius: 16px;
-            margin-bottom: 25px;
-            text-align: center;
-            box-shadow: 0 4px 15px rgba(211, 84, 0, 0.3);
-        }
-        .balance-label { font-size: 14px; opacity: 0.9; }
-        .balance-amount { font-size: 32px; font-weight: 800; margin: 10px 0; }
-        .address-box {
-            background: rgba(0,0,0,0.2);
-            padding: 8px 15px;
-            border-radius: 20px;
-            font-size: 12px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-        }
-
-        .section-title { font-size: 18px; margin-bottom: 10px; display: flex; justify-content: space-between; }
-        
-        .asset-list { display: flex; flex-direction: column; gap: 10px; }
-        .asset-item {
-            background: var(--bg-card);
-            padding: 15px;
-            border-radius: 12px;
+            transition: transform 0.1s;
             display: flex;
             align-items: center;
-            justify-content: space-between;
+            justify-content: center;
+            gap: 10px;
         }
-        .asset-icon { width: 40px; height: 40px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 20px; }
+        .btn:active { transform: scale(0.98); opacity: 0.9; }
+        .btn:disabled { background: #555; cursor: not-allowed; opacity: 0.7; }
+        .btn-outline { background: transparent; border: 2px solid var(--primary); color: var(--primary); margin-top: 10px; }
 
-        /* --- BOTTOM NAV --- */
+        /* --- CARDS --- */
+        .card {
+            background: var(--surface);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid #333;
+            margin-bottom: 20px;
+        }
+        .balance-card {
+            background: linear-gradient(135deg, var(--primary) 0%, #a04000 100%);
+            border: none;
+            text-align: center;
+            padding: 30px 20px;
+        }
+
+        /* --- LOADING OVERLAY --- */
+        #loader {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.9);
+            z-index: 9999;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            text-align: center;
+        }
+        .spinner {
+            width: 50px; height: 50px; border: 5px solid #333;
+            border-top: 5px solid var(--primary); border-radius: 50%;
+            animation: spin 1s linear infinite; margin-bottom: 20px;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+
+        /* --- NAVIGATION --- */
         .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            width: 100%;
-            background: var(--bg-card);
+            background: var(--surface);
             border-top: 1px solid #333;
             display: flex;
             justify-content: space-around;
-            padding: 15px 0;
-            /* Safe Area Fix */
-            padding-bottom: calc(15px + var(--safe-area-bottom));
-            z-index: 1000;
+            padding: 12px 0;
+            padding-bottom: calc(12px + var(--safe-bottom));
+            position: sticky; bottom: 0;
         }
-        .nav-item { color: var(--text-muted); text-align: center; font-size: 12px; cursor: pointer; }
+        .nav-item { text-align: center; color: var(--text-sec); font-size: 10px; cursor: pointer; }
         .nav-item.active { color: var(--primary); }
-        .nav-item i { font-size: 20px; margin-bottom: 5px; display: block; }
+        .nav-item i { font-size: 20px; margin-bottom: 4px; display: block; }
 
-        /* --- TOAST --- */
-        #toast {
-            visibility: hidden;
-            min-width: 250px;
-            background-color: #333;
-            color: #fff;
-            text-align: center;
-            border-radius: 50px;
-            padding: 16px;
-            position: fixed;
-            z-index: 2000;
-            left: 50%;
-            bottom: 100px;
-            transform: translateX(-50%);
-            font-size: 14px;
-        }
-        #toast.show { visibility: visible; animation: fadein 0.5s, fadeout 0.5s 2.5s; }
-        @keyframes fadein { from {bottom: 0; opacity: 0;} to {bottom: 100px; opacity: 1;} }
-        @keyframes fadeout { from {bottom: 100px; opacity: 1;} to {bottom: 0; opacity: 0;} }
+        .hidden { display: none !important; }
+        .show { display: block !important; }
 
+        /* Helper for JSON display */
+        pre { background: #000; padding: 10px; border-radius: 8px; overflow-x: scroll; font-size: 10px; color: #0f0; margin-bottom: 10px;}
     </style>
 </head>
 <body>
 
-    <div id="screen-welcome" class="container">
-        <div style="text-align: center; margin-top: 50px; margin-bottom: 50px;">
-            <i class="fa-solid fa-wallet" style="font-size: 60px; color: var(--primary);"></i>
-            <h1 style="margin-top: 20px;">Wayang Wallet</h1>
-            <p>Gerbang aman menuju dunia Web3 dan NFT Wayang.</p>
-        </div>
-        <button class="btn" onclick="showScreen('screen-create')">Buat Dompet Baru</button>
-        <button class="btn btn-outline" onclick="showScreen('screen-import')">Saya Sudah Punya Dompet</button>
+    <div id="loader" class="hidden">
+        <div class="spinner"></div>
+        <h3 id="loader-text">Memproses...</h3>
+        <p>Jangan tutup halaman ini.</p>
     </div>
 
-    <div id="screen-import" class="container hidden">
-        <h2>Impor Dompet</h2>
-        <p>Masukkan Private Key atau Recovery Phrase Anda.</p>
-        <div class="input-group">
-            <textarea id="import-input" rows="4" placeholder="Contoh: 0x123... atau apple banana cat..."></textarea>
+    <div id="view-onboarding" class="container hidden">
+        <div style="text-align: center; margin-top: 40px; margin-bottom: 40px;">
+            <i class="fa-solid fa-shield-halved" style="font-size: 60px; color: var(--primary);"></i>
+            <h1 style="margin-top: 20px;">Wayang Secure</h1>
+            <p>Wallet Web3 berbasis Browser.<br>Data Anda terenkripsi di perangkat ini.</p>
         </div>
-        <button class="btn" onclick="handleImport()">Masuk</button>
-        <button class="btn btn-text" onclick="showScreen('screen-welcome')">Kembali</button>
+        
+        <div class="card">
+            <label>Buat Password Pengaman</label>
+            <input type="password" id="new-password" placeholder="Minimal 6 karakter">
+            <p style="font-size: 11px; margin-top: 5px; color: #e74c3c;">*Password ini tidak bisa di-reset. Jika lupa, aset hilang.</p>
+        </div>
+
+        <button class="btn" onclick="createWallet()">
+            <i class="fa-solid fa-plus-circle"></i> Buat Wallet Baru
+        </button>
+        
+        <div style="text-align: center; margin-top: 20px; border-top: 1px solid #333; padding-top: 20px;">
+            <p>Sudah punya akun?</p>
+            <button class="btn btn-outline" onclick="showImport()">Impor (JSON/Phrase)</button>
+        </div>
     </div>
 
-    <div id="screen-create" class="container hidden">
-        <h2>Dompet Baru</h2>
-        <p class="warning" style="color: var(--danger);">PENTING: Salin Private Key ini. Jika hilang, aset Anda lenyap selamanya.</p>
-        <div class="input-group">
-            <label style="font-size: 12px; color: var(--text-muted);">Private Key Anda:</label>
-            <textarea id="new-pk-display" rows="3" readonly style="color: var(--primary); font-family: monospace;"></textarea>
-        </div>
-        <button class="btn btn-outline" onclick="copyToClipboard(document.getElementById('new-pk-display').value)">Salin Kunci</button>
-        <button class="btn" onclick="finishSetup()">Saya Sudah Simpan</button>
-    </div>
-
-    <div id="screen-dashboard" class="hidden">
-        <div class="container">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
-                <h3>Dashboard</h3>
-                <i class="fa-solid fa-bell" style="color: var(--text-muted);"></i>
-            </div>
-
-            <div class="wallet-card">
-                <div class="balance-label">Total Saldo (ETH)</div>
-                <div class="balance-amount" id="display-balance">0.0000</div>
-                <div class="address-box" onclick="copyAddress()">
-                    <span id="display-address">0x00...0000</span>
-                    <i class="fa-regular fa-copy"></i>
-                </div>
-            </div>
-
-            <div style="display: flex; gap: 15px; margin-bottom: 30px;">
-                <button class="btn" style="flex: 1; margin:0;"><i class="fa-solid fa-paper-plane"></i> Kirim</button>
-                <button class="btn btn-outline" style="flex: 1; margin:0;"><i class="fa-solid fa-qrcode"></i> Terima</button>
-            </div>
-
-            <div class="section-title">
-                <span>Aset & NFT</span>
-                <span style="color: var(--primary); font-size: 14px;">Lihat Semua</span>
+    <div id="view-login" class="container hidden">
+        <div style="margin-top: auto; margin-bottom: auto;">
+            <h2>Selamat Datang Kembali</h2>
+            <p>Masukkan password Anda untuk membuka dompet.</p>
+            
+            <div class="input-box">
+                <input type="password" id="login-password" placeholder="Password Anda">
             </div>
             
-            <div class="asset-list">
-                <div class="asset-item">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div class="asset-icon"><i class="fa-brands fa-ethereum"></i></div>
-                        <div>
-                            <div style="font-weight: bold;">Ethereum</div>
-                            <div style="font-size: 12px; color: var(--text-muted);">ETH</div>
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: bold;" id="asset-eth-val">0</div>
-                        <div style="font-size: 12px; color: var(--success);">+2.4%</div>
-                    </div>
+            <button class="btn" onclick="loginWallet()">
+                <i class="fa-solid fa-lock-open"></i> Buka Dompet
+            </button>
+            <button class="btn btn-outline" style="border:none; color: #e74c3c;" onclick="resetWallet()">
+                Hapus & Reset Dompet
+            </button>
+        </div>
+    </div>
+
+    <div id="view-dashboard" class="container hidden" style="padding-bottom: 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div style="display: flex; align-items: center; gap: 10px;">
+                <div style="width: 35px; height: 35px; background: #333; border-radius: 50%; display: flex; align-items: center; justify-content: center;">
+                    <i class="fa-solid fa-user"></i>
                 </div>
-                <div class="asset-item">
-                    <div style="display: flex; align-items: center; gap: 15px;">
-                        <div class="asset-icon" style="color: gold;"><i class="fa-solid fa-mask"></i></div>
-                        <div>
-                            <div style="font-weight: bold;">Wayang Premium</div>
-                            <div style="font-size: 12px; color: var(--text-muted);">NFT Badge</div>
-                        </div>
-                    </div>
-                    <div style="text-align: right;">
-                        <div style="font-weight: bold;">1</div>
-                        <div style="font-size: 12px; color: var(--text-muted);">Item</div>
-                    </div>
-                </div>
+                <div style="font-size: 14px; font-weight: bold;">User Wayang</div>
+            </div>
+            <i class="fa-solid fa-wifi" style="color: var(--primary);"></i>
+        </div>
+
+        <div class="card balance-card">
+            <div style="opacity: 0.8; font-size: 14px;">Total Balance</div>
+            <h1 style="font-size: 36px; margin: 10px 0;" id="display-balance">0.00 ETH</h1>
+            
+            <div style="background: rgba(0,0,0,0.3); padding: 8px 12px; border-radius: 20px; display: inline-flex; align-items: center; gap: 8px; font-size: 12px; cursor: pointer;" onclick="copyAddress()">
+                <span id="display-address">0x...</span>
+                <i class="fa-regular fa-copy"></i>
             </div>
         </div>
 
-        <div style="height: 20px;"></div>
+        <div style="display: flex; gap: 15px; margin-bottom: 20px;">
+            <button class="btn" style="flex: 1;"><i class="fa-solid fa-arrow-up"></i> Kirim</button>
+            <button class="btn btn-outline" style="flex: 1; margin:0;"><i class="fa-solid fa-arrow-down"></i> Terima</button>
+        </div>
+
+        <h3>DApp Browser</h3>
+        <div class="card" style="padding: 0; overflow: hidden;">
+            <div style="padding: 15px; border-bottom: 1px solid #333; background: #252525; display: flex; gap: 10px;">
+                <input type="text" value="https://app.uniswap.org" style="padding: 8px; font-size: 14px;" disabled>
+                <button style="width: 40px; background: var(--primary); border:none; color: white; border-radius: 8px;"><i class="fa-solid fa-arrow-right"></i></button>
+            </div>
+            <div style="padding: 40px; text-align: center; color: #555;">
+                <i class="fa-solid fa-globe" style="font-size: 40px; margin-bottom: 10px;"></i>
+                <p>Area Webview Browser</p>
+            </div>
+        </div>
     </div>
 
-    <nav id="main-nav" class="bottom-nav hidden">
+    <div id="nav-bar" class="bottom-nav hidden">
         <div class="nav-item active">
             <i class="fa-solid fa-wallet"></i>
             Wallet
@@ -245,130 +224,164 @@
         </div>
         <div class="nav-item">
             <i class="fa-solid fa-gear"></i>
-            Setting
+            Settings
         </div>
-    </nav>
+    </div>
 
-    <div id="toast">Pesan Toast</div>
-
-    <script type="module">
-        import { ethers } from "https://cdnjs.cloudflare.com/ajax/libs/ethers/6.7.0/ethers.min.js";
-
-        // --- STATE VARIABLES ---
-        let currentWallet = null;
-        // Provider Publik (Contoh pakai Sepolia Testnet agar gratis tesnya)
+    <script>
+        // --- KONFIGURASI ---
+        const STORAGE_KEY = 'wayang_encrypted_json';
+        // Gunakan Provider Publik (Contoh: Sepolia Testnet)
         const provider = new ethers.JsonRpcProvider("https://rpc.ankr.com/eth_sepolia");
+        
+        let globalWallet = null; // Wallet instance di RAM (hilang kalau refresh)
 
         // --- DOM ELEMENTS ---
-        const views = {
-            welcome: document.getElementById('screen-welcome'),
-            import: document.getElementById('screen-import'),
-            create: document.getElementById('screen-create'),
-            dashboard: document.getElementById('screen-dashboard'),
-            nav: document.getElementById('main-nav')
+        const els = {
+            loader: document.getElementById('loader'),
+            loaderText: document.getElementById('loader-text'),
+            views: {
+                onboarding: document.getElementById('view-onboarding'),
+                login: document.getElementById('view-login'),
+                dashboard: document.getElementById('view-dashboard')
+            },
+            nav: document.getElementById('nav-bar'),
+            balance: document.getElementById('display-balance'),
+            address: document.getElementById('display-address')
         };
 
-        // --- FUNGSI NAVIGASI ---
-        window.showScreen = (screenName) => {
-            // Sembunyikan semua
-            Object.values(views).forEach(el => el.classList.add('hidden'));
-            
-            // Munculkan yang dipilih
-            if(screenName === 'screen-welcome') views.welcome.classList.remove('hidden');
-            if(screenName === 'screen-import') views.import.classList.remove('hidden');
-            if(screenName === 'screen-create') {
-                createNewWallet(); // Auto generate saat masuk layar ini
-                views.create.classList.remove('hidden');
+        // --- INIT ---
+        window.onload = () => {
+            // Cek apakah ada data wallet tersimpan di LocalStorage
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) {
+                switchView('login');
+            } else {
+                switchView('onboarding');
             }
-            if(screenName === 'screen-dashboard') {
-                views.dashboard.classList.remove('hidden');
-                views.nav.classList.remove('hidden');
-                updateDashboardUI();
-            }
-        }
+        };
 
-        // --- LOGIKA WALLET ---
+        // --- CORE FUNCTIONS (THE REAL LOGIC) ---
 
-        // 1. Buat Wallet Baru
-        async function createNewWallet() {
-            const wallet = ethers.Wallet.createRandom();
-            document.getElementById('new-pk-display').value = wallet.privateKey;
-            currentWallet = wallet.connect(provider);
-            // Simpan sementara di memori (Di Produksi: Simpan ke Android Keystore)
-        }
+        // 1. BUAT WALLET BARU & ENKRIPSI
+        async function createWallet() {
+            const pwd = document.getElementById('new-password').value;
+            if(pwd.length < 6) return alert("Password minimal 6 karakter!");
 
-        // 2. Import Wallet
-        window.handleImport = async () => {
-            const input = document.getElementById('import-input').value.trim();
-            try {
-                let wallet;
-                if (input.includes(" ")) {
-                    // Asumsi Mnemonic phrase
-                    wallet = ethers.Wallet.fromPhrase(input);
-                } else {
-                    // Asumsi Private Key
-                    wallet = new ethers.Wallet(input);
+            showLoader(true, "Membuat Wallet & Mengenkripsi... (Ini memakan waktu 3-5 detik)");
+
+            // Gunakan setTimeout agar UI loader sempat muncul sebelum thread freeze karena enkripsi
+            setTimeout(async () => {
+                try {
+                    // A. Bikin Random Wallet
+                    const wallet = ethers.Wallet.createRandom();
+                    
+                    // B. Enkripsi Wallet jadi JSON (Standard Keystore v3)
+                    // Ini proses berat (CPU intensive) untuk keamanan anti-bruteforce
+                    const json = await wallet.encrypt(pwd);
+                    
+                    // C. Simpan JSON ke Storage
+                    localStorage.setItem(STORAGE_KEY, json);
+
+                    // D. Set Global Wallet
+                    globalWallet = wallet.connect(provider);
+                    
+                    showLoader(false);
+                    enterDashboard();
+
+                } catch (err) {
+                    showLoader(false);
+                    alert("Error: " + err.message);
                 }
-                currentWallet = wallet.connect(provider);
-                showToast("Import Berhasil!");
-                window.showScreen('screen-dashboard');
-            } catch (error) {
-                showToast("Kunci tidak valid!");
-                console.error(error);
-            }
+            }, 100);
         }
 
-        // 3. Selesai Setup Baru
-        window.finishSetup = () => {
-            if(currentWallet) {
-                showToast("Dompet dibuat!");
-                window.showScreen('screen-dashboard');
-            }
+        // 2. LOGIN (DEKRIPSI)
+        async function loginWallet() {
+            const pwd = document.getElementById('login-password').value;
+            const encryptedJson = localStorage.getItem(STORAGE_KEY);
+            
+            if(!encryptedJson) return alert("Data korup. Reset wallet.");
+
+            showLoader(true, "Membuka Brankas Digital...");
+
+            setTimeout(async () => {
+                try {
+                    // A. Dekripsi JSON pakai password
+                    const wallet = await ethers.Wallet.fromEncryptedJson(encryptedJson, pwd);
+                    
+                    // B. Konek ke Provider
+                    globalWallet = wallet.connect(provider);
+                    
+                    showLoader(false);
+                    enterDashboard();
+                } catch (err) {
+                    showLoader(false);
+                    // Ethers.js akan throw error jika password salah
+                    alert("Password Salah! Akses Ditolak.");
+                }
+            }, 100);
         }
 
-        // 4. Update UI Dashboard
-        async function updateDashboardUI() {
-            if(!currentWallet) return;
+        // 3. MASUK DASHBOARD & LOAD DATA
+        async function enterDashboard() {
+            switchView('dashboard');
+            
+            // Tampilkan Address
+            const addr = globalWallet.address;
+            els.address.innerText = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
 
-            // Format Address (0x1234...5678)
-            const addr = currentWallet.address;
-            const shortAddr = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
-            document.getElementById('display-address').innerText = shortAddr;
-
-            // Ambil Saldo (Async)
+            // Cek Saldo
             try {
-                const balance = await provider.getBalance(addr);
-                const ethVal = ethers.formatEther(balance);
-                // Batasi desimal biar rapi (4 angka dibelakang koma)
-                const formatted = parseFloat(ethVal).toFixed(4);
-                
-                document.getElementById('display-balance').innerText = formatted;
-                document.getElementById('asset-eth-val').innerText = formatted;
+                const bal = await provider.getBalance(addr);
+                els.balance.innerText = parseFloat(ethers.formatEther(bal)).toFixed(4) + " ETH";
             } catch (e) {
-                console.log("Gagal ambil saldo (mungkin RPC limit/offline)");
+                console.log("Offline / RPC Error");
             }
         }
 
         // --- UTILITIES ---
-        window.copyToClipboard = (text) => {
-            navigator.clipboard.writeText(text);
-            showToast("Disalin ke clipboard!");
+
+        function switchView(viewName) {
+            // Hide all
+            Object.values(els.views).forEach(el => el.classList.add('hidden'));
+            els.nav.classList.add('hidden');
+
+            // Show target
+            els.views[viewName].classList.remove('hidden');
+
+            if(viewName === 'dashboard') {
+                els.nav.classList.remove('hidden');
+            }
+        }
+
+        function showLoader(isActive, text = "") {
+            if(isActive) {
+                els.loader.classList.remove('hidden');
+                els.loaderText.innerText = text;
+            } else {
+                els.loader.classList.add('hidden');
+            }
+        }
+
+        function resetWallet() {
+            if(confirm("Yakin hapus dompet? Aset akan hilang permanen jika Anda tidak punya backup phrase!")) {
+                localStorage.removeItem(STORAGE_KEY);
+                location.reload();
+            }
         }
 
         window.copyAddress = () => {
-            if(currentWallet) copyToClipboard(currentWallet.address);
+            if(globalWallet) {
+                navigator.clipboard.writeText(globalWallet.address);
+                alert("Alamat disalin!");
+            }
         }
 
-        window.showToast = (msg) => {
-            const toast = document.getElementById("toast");
-            toast.innerText = msg;
-            toast.className = "show";
-            setTimeout(function(){ toast.className = toast.className.replace("show", ""); }, 3000);
-        }
-
-        // Cek Local Storage (Simulasi Auto Login)
-        // Di Android Native nanti, cek SharedPreference di sini
-        // if (hasSavedWallet) showScreen('screen-dashboard');
+        // --- BROWSER SIMULATION ---
+        // Karena ini murni JS, kita tidak bisa inject 'window.ethereum' ke iframe lintas domain (CORS Policy).
+        // Solusinya: Ini adalah "Wallet Connect" Client atau DApp browser khusus yang kita load via proxy (advanced).
+        // Untuk code ini, browser hanya UI placeholder.
     </script>
 </body>
-  </html>
+</html>
