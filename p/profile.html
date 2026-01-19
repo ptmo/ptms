@@ -14,18 +14,121 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+    
 <style>
-      body { font-family: 'Poppins', sans-serif; background-color: #f6f9ff; color: #333; margin: 0; padding: 0; }
-        .navbar { background: white; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
-        .logo { font-weight: 700; color: #7385a5; font-size: 18px; text-decoration: none; }
+* {
+    box-sizing: border-box;
+}
+
+body {
+    font-family: 'Poppins', sans-serif;
+    background-color: #f6f9ff;
+    color: #333;
+    margin: 0;
+    padding: 0;
+    padding-top: 80px;
+    padding-bottom: 80px;
+}
+
+.navbar {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0 5%;
+    height: 70px;
+    background: rgba(255, 255, 255, 0.9); 
+    backdrop-filter: blur(10px);
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+    border-bottom: 1px solid rgba(0,0,0,0.05);
+}
+
+.nav-left {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+.brand-link {
+    display: flex;
+    align-items: center;
+    text-decoration: none;
+    gap: 10px;
+}
+
+.nav-logo {
+    width: 45px; 
+    height: 45px;
+    border-radius: 50%;
+    border: 2px solid #7385a5;
+    object-fit: cover;
+}
+
+.nav-brand {
+    font-size: 20px;
+    color: #7385a5;
+    font-weight: 700;
+    letter-spacing: 0.5px;
+}
+
+.nav-right {
+    display: flex;
+    align-items: center;
+    height: 100%;
+}
+
+
+.btn-connect {
+    background: linear-gradient(135deg, #7385a5, #5c6a84);
+    color: white;
+    border: none;
+    padding: 10px 25px;
+    border-radius: 50px;
+    font-size: 14px;
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 10px rgba(115, 133, 165, 0.2);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-family: 'Poppins', sans-serif;
+}
+
+.btn-connect:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 15px rgba(115, 133, 165, 0.3);
+}
+
+@media (max-width: 600px) {
+    .navbar {
+        padding: 0 20px;
+        height: 60px;
+    }
+    
+    .nav-brand {
+        font-size: 18px;
+    }
+    
+    .btn-connect {
+        padding: 8px 15px;
+        font-size: 12px;
+    }
+    
+    .btn-text {
+        display: none;
+    }
+}
+    
         .container { max-width: 800px; margin: 0 auto; padding: 20px; min-height: 80vh; }
         
         .login-wall { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 80vh; text-align: center; animation: fadeIn 0.5s ease; }
         .lock-icon { font-size: 50px; color: #7385a5; margin-bottom: 20px; background: #e9f0ff; width: 100px; height: 100px; line-height: 100px; border-radius: 50%; box-shadow: 0 10px 30px rgba(115, 133, 165, 0.2); }
-        .btn-connect-big { background: linear-gradient(135deg, #7385a5, #5c6a84); color: white; border: none; padding: 15px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 25px; transition: 0.3s; box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3); display: flex; align-items: center; gap: 10px; }
+       .btn-connect-big { background: linear-gradient(135deg, #7385a5, #5c6a84); color: white; border: none; padding: 15px 40px; border-radius: 50px; font-size: 16px; font-weight: bold; cursor: pointer; margin-top: 25px; transition: 0.3s; box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3); display: flex; align-items: center; gap: 10px; }
         .btn-connect-big:hover { transform: translateY(-3px); box-shadow: 0 10px 25px rgba(115, 133, 165, 0.4); }
 
         #mainContent { display: none; }
@@ -34,7 +137,7 @@
         .profile-card::before { content: ''; position: absolute; top: -50%; left: -20%; width: 200px; height: 200px; background: rgba(255,255,255,0.1); border-radius: 50%; }
         @media (min-width: 768px) { .profile-card { flex-direction: row; text-align: left; justify-content: space-between; } .profile-info-wrapper { display: flex; align-items: center; gap: 20px; } }
         
-        .profile-avatar img { width: 80px; height: 80px; border-radius: 50%; border: 4px solid rgba(255,255,255,0.3); object-fit: cover; background: #fff; }
+        .profile-avatar img { width: 80px; height: 80px; border-radius: 50%; border: 2px solid rgba(255,255,255,0.3); object-fit: cover; background: #ccc; }
         .profile-details h2 { margin: 0; font-size: 13px; font-family: 'Courier New', monospace; letter-spacing: 0.5px; margin-bottom: 5px; }
         .badges { display: flex; gap: 8px; flex-wrap: wrap; justify-content: center; }
         @media (min-width: 768px) { .badges { justify-content: flex-start; } }
@@ -50,26 +153,22 @@
         .wayang-card:hover { transform: translateY(-5px); box-shadow: 0 5px 20px rgba(0,0,0,0.1); }
         .card-img { 
     width: 100%; 
-    height: 180px; 
-    /* Mengatur agar gambar pas di dalam kotak tanpa terpotong */
+    height: 180px;
     object-fit: contain; 
-    /* Memastikan gambar berada di tengah (Horizontal & Vertikal) */
     object-position: center; 
     background: #f8f9fa; 
-    /* Gunakan box-sizing agar padding tidak merusak ukuran lebar 100% */
     box-sizing: border-box; 
     padding: 10px;
     display: block;
         }
 
-    /* Container pembungkus gambar di dalam kartu */
 .card-img-container {
     width: 100%;
     height: 180px;
     background: #f8f9fa;
     display: flex;
-    align-items: center;    /* Tengah vertikal */
-    justify-content: center; /* Tengah horizontal */
+    align-items: center; 
+    justify-content: center;
     overflow: hidden;
     padding: 10px;
     box-sizing: border-box;
@@ -399,31 +498,30 @@
 .modal-card {
     position: absolute;
     top: 70px;
-    right: 20px;
+    right: 20px;  
     width: 300px;
     background: #fff;
     padding: 20px;
     border-radius: 12px;
     box-shadow: 0 5px 30px rgba(0,0,0,0.15); 
-    border: 1px solid rgba(0,0,0,0.05);
+    border: 1px solid rgba(0,0,0,0.05); 
     text-align: center;
     font-family: 'Rubik', sans-serif;
     opacity: 0;
     transform: translateY(-10px) scale(0.95);
     transform-origin: top right;
     transition: all 0.2s cubic-bezier(0.25, 0.8, 0.25, 1);
-}
-
-.modal-overlay.active .modal-card {
-    opacity: 1;
-    transform: translateY(0) scale(1);
+    max-height: 80vh;
+    overflow-y: auto;
+    scrollbar-width: thin;
+    scrollbar-color: #ccc transparent;
 }
 
 .modal-card::before {
     content: "";
     position: absolute;
-    top: -6px;
-    right: 20px;
+    top: -6px; 
+    right: 20px; 
     width: 12px;
     height: 12px;
     background: #fff;
@@ -431,6 +529,22 @@
     border-left: 1px solid rgba(0,0,0,0.05);
     border-top: 1px solid rgba(0,0,0,0.05);
     box-shadow: -2px -2px 5px rgba(0,0,0,0.02);
+}
+
+.modal-card::-webkit-scrollbar {
+    width: 2px;
+}
+.modal-card::-webkit-scrollbar-thumb {
+    background-color: #ccc;
+    border-radius: 10px;
+}
+.modal-card::-webkit-scrollbar-track {
+    background: transparent;
+}
+
+.modal-overlay.active .modal-card {
+    opacity: 1;
+    transform: translateY(0) scale(1);
 }
     
 .modal-header {
@@ -513,9 +627,8 @@
 }
 .action-btn:active { transform: scale(0.98); }
 .action-btn.primary { background: #7385a5; color: white; }
-.action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid}
+.action-btn.danger { background: #fee; color: #e74c3c; border: 1px solid #fcc; }
 
-/* Gaya Kotak Statistik */
 .stat-box-gold, .stat-box-blue {
     flex: 1;
     min-width: 140px;
@@ -541,7 +654,6 @@
 .stat-info h3 { margin: 0; font-size: 16px; color: #7385a5; }
 .stat-label { font-size: 11px; font-weight: bold; color: #95a5a6; text-transform: uppercase; letter-spacing: 0.5px; }
 
-/* Gaya Kartu Pesan (Tip Card) */
 .tip-card {
     background: #fff;
     padding: 15px;
@@ -569,7 +681,7 @@
     margin-top: 8px;
     border: 1px dashed #eee;
 }
-     /* Styling Area History di Modal */
+
 .modal-history-section {
     background: #f8f9fa;
     border: 1px solid #e9ecef;
@@ -579,16 +691,14 @@
 }
 
 .history-scroll-area {
-    max-height: 120px; /* Batasi tinggi agar tidak memenuhi layar */
-    overflow-y: auto;  /* Aktifkan Scroll Vertikal */
+    max-height: 120px;
+    overflow-y: auto;
     padding-right: 5px;
 }
 
-/* Custom Scrollbar Tipis */
 .history-scroll-area::-webkit-scrollbar { width: 4px; }
 .history-scroll-area::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
 
-/* Kartu Item Riwayat Mini */
 .mini-history-item {
     background: #fff;
     border: 1px solid #eee;
@@ -613,18 +723,252 @@
     text-overflow: ellipsis; 
     max-width: 150px;
 }
+
+@keyframes premiumFadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(20px) scale(0.98);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0) scale(1);
+    }
+}
+
+.tip-card {
+    background: #fff;
+    padding: 15px;
+    margin-bottom: 12px;
+    border-radius: 12px;
+    border: 1px solid #eee;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.03);
+    animation: premiumFadeIn 0.6s cubic-bezier(0.22, 1, 0.36, 1) backwards;   
+    transition: all 0.4s cubic-bezier(0.165, 0.84, 0.44, 1);
+    cursor: default;
+    position: relative;
+    overflow: hidden;
+}
+
+.tip-card:hover {
+    transform: translateY(-5px);
+    box-shadow: 0 12px 24px rgba(115, 133, 165, 0.15);
+    border-color: #7385a5;
+}
+
+.tip-card::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    height: 100%;
+    width: 4px;
+    background: #7385a5;
+    transform: scaleY(0);
+    transition: transform 0.3s ease;
+}
+
+.tip-card:hover::before {
+    transform: scaleY(1);
+}
+
+@media (min-width: 768px) {
+    .tip-feed {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 15px;
+    }
+    .tip-card {
+        flex: 1 1 calc(50% - 15px);
+        margin-bottom: 0 !important;
+        min-width: 300px;
+    }
+}
+
+.official-text-glow {
+    background: #f6f9ff;
+    background-size: 200% auto;
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    font-weight: 900 !important;
+    font-size: 24px;
+    letter-spacing: 1px;
+    animation: shineText 4s linear infinite;
+    /* Drop shadow halus biar terbaca di background putih */
+    filter: drop-shadow(0 2px 4px rgba(211, 84, 0, 0.3));
+}
+
+.official-badge {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    margin-left: 10px;
+    color: gold; 
+    font-size: 1.7em; 
+    vertical-align: middle; 
+    transform: translateY(-4px); 
+    animation: pulseBadge 2s infinite ease-in-out;
+}
+
+.official-avatar-border {
+    border: 3px solid #d35400 !important;
+    box-shadow: 0 0 15px rgba(211, 84, 0, 0.4);
+    transition: transform 0.5s ease;
+}
+
+.official-avatar-border:hover {
+    transform: scale(1.05);
+    box-shadow: 0 0 25px rgba(211, 84, 0, 0.6);
+}
+
+.footer {
+            background: none;
+        }
+
+        .social-icons { margin-bottom: 10px; }
+        
+        .social-link {
+            display: inline-flex; justify-content: center; align-items: center;
+            width: 25px; height: 25px; margin: 0 03px;
+            border-radius: 50%; background: #7385a5; color: #fff;
+            font-size: 12px; transition: all 0.3s ease; border: 1.5px solid #7385a5;
+            text-decoration: none;
+        }
+        .social-link:hover {
+            background: #fff; color: #7385a5;
+            transform: translateY(-5px); box-shadow: 0 0 15px #7385a5;
+        }
+
+        .copyright { color: #888; font-size: 11px; letter-spacing: 1px; margin-top: 10px; }
+        
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; width: 100%; height: 65px;
+            background: #fff; border-top: 1px solid #ddd;
+            display: flex; justify-content: space-around; align-items: center;
+            z-index: 5000; box-shadow: 0 -2px 10px rgba(0,0,0,0.05);
+        }
+        
+        .nav-link {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+
+    text-decoration: none;
+    color: #666;
+    font-size: 10px;
+    width: 20%;
+
+    background: none;
+    border: none;
+    padding: 6px 0;
+    cursor: pointer;
+
+    transition:
+        color 0.25s ease,
+        transform 0.25s ease;
+}
+
+.nav-link i {
+    font-size: 22px;
+    margin-bottom: 4px;
+    transition:
+        transform 0.25s ease,
+        color 0.25s ease,
+        filter 0.25s ease;
+}
+
+.nav-link:hover {
+    color: #7385a5;
+}
+
+.nav-link:hover i {
+    transform: translateY(-2px) scale(1.05);
+    color: #7385a5;
+    background: #e9f0ff;
+    border-radius: 50px;
+    border: 1px solid #7385a5;
+    filter: drop-shadow(0 4px 8px rgba(115, 133, 165, 0.25));
+}
+
+.nav-link.active {
+    color: #7385a5;
+}
+
+.nav-link.active i {
+    transform: scale(1.08);
+    filter: drop-shadow(0 6px 12px rgba(115, 133, 165, 0.35));
+}
+
+
+@media (min-width: 1100px) {
+    .bottom-nav {
+        display: none !important;
+    }
+}
+
+.custom-name {
+    font-size: 16px;
+    font-weight: bold;
+    color: #fff;
+    margin-top: -5px;
+    margin-bottom: 5px;
+    min-height: 20px;
+    text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+}
+
+.profile-meta {
+    font-size: 11px;
+    color: rgba(255,255,255,0.8);
+    margin-bottom: 8px;
+    font-weight: bold;
+}
+
+.profile-avatar {
+    position: relative;
+}
+.edit-photo-btn {
+    position: absolute;
+    bottom: 0;
+    right: 0;
+    background: #2c3e50;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 25px;
+    height: 25px;
+    font-size: 12px;
+    cursor: pointer;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.3);
+}
+
+.sawer-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.6); z-index: 9999;
+    display: flex; justify-content: center; align-items: center;
+}
+.sawer-card {
+    background: white; width: 90%; max-width: 320px;
+    padding: 20px; border-radius: 12px; color: #333;
+}
+
 </style>
 </head>
 <body>
-     <nav class="navbar">
-        <a href="index" class="logo"><i class="fas fa-arrow-left"></i>Profile Kolektor</a>
-        <div class="nav-right">
-            <button id="btn-connect" onclick="window.connectWallet()">
-                <i class="fas fa-wallet"></i> Hubungkan
-            </button>
-        </div>
-    </nav>
+    
+    <nav class="navbar">
+    <div class="nav-left">
+        <a href="index" class="brand-link">
+            <img src="img/pwn-logo.png" class="nav-logo" alt="Logo">
+            <span class="nav-brand">Profile</span>
+        </a>
+    </div>
 
+    <div class="nav-right">
+        <button id="btn-connect" class="btn-connect" onclick="window.connectWallet()">
+            <i class="fas fa-wallet"></i> <span class="btn-text">Hubungkan</span>
+        </button>
+    </div>
+</nav>
+    
     <div id="loginSection" class="login-wall">
         <div class="lock-icon"><i class="fas fa-shield-alt"></i></div>
         <h2 style="color:#5c6a84; margin-bottom:5px;">Akses Ruang Koleksi</h2>
@@ -637,6 +981,7 @@
     </div>
 
     <div id="mainContent" class="container">
+    
         <div class="search-capsule">
             <div class="search-icon"><i class="fas fa-search"></i></div>
             <input type="text" id="inputAddress" placeholder="Cari Alamat Wallet Kolektor" onkeypress="window.handleEnter(event)">
@@ -644,22 +989,75 @@
         </div>
         
         <div class="profile-card">
-            <div class="profile-info-wrapper">
-                <div class="profile-avatar">
-                    <img src="" id="avatarImg" alt="Avatar">
-                </div>
-                <div class="profile-details">
-                    <h2 id="displayAddress">Loading...</h2>
-                    <div class="badges">
-                        <span class="badge"><i class="fas fa-crown"></i> Owner</span>
-                        <span class="badge" style="background:rgba(255,255,255,0.3);"><i class="fas fa-cube"></i> <span id="totalItems">0</span> Koleksi</span>
-                    </div>
-                </div>
-            </div>
-            <button onclick="window.copyAddress()" class="btn-copy">
-                <i class="far fa-copy"></i> <span id="btnCopyText">Salin Alamat</span>
+    <div class="profile-info-wrapper">
+        
+        <div class="profile-avatar">
+            <img src="img/placeholder.jpg" id="avatarImg" alt="Avatar" style="object-fit: cover;">
+            <button id="btnEditPhoto" class="edit-photo-btn" onclick="openEditModal()" style="display:none;">
+                <i class="fas fa-camera"></i>
             </button>
         </div>
+
+        <div class="profile-details">
+            <h2 id="displayAddress">Loading...</h2>
+            
+            <div id="profileNickname" class="custom-name"></div>
+
+            <div id="profileMeta" class="profile-meta" style="display:none;">
+                <span id="profileCity"><i class="fas fa-map-marker-alt"></i> -</span> • 
+                <span id="profileBio" style="font-style: italic;">-</span>
+            </div>
+
+            <div class="badges">
+                <span class="badge"><i class="fas fa-crown"></i> Owner</span>
+                <span class="badge" style="background:rgba(255,255,255,0.3);">
+                    <i class="fas fa-cube"></i> <span id="totalItems">0</span> Koleksi
+                </span>
+            </div>
+            
+            <button id="btnEditProfile" onclick="openEditModal()" style="display:none; margin-top:10px; font-size:10px; padding:5px 10px; border-radius:15px; background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.3); color:white; cursor:pointer;">
+                <i class="fas fa-pen"></i> Edit Profil
+            </button>
+        </div>
+    </div>
+    
+    <button onclick="window.copyAddress()" class="btn-copy">
+        <i class="far fa-copy"></i> <span id="btnCopyText">Salin Alamat</span>
+    </button>
+</div>
+
+<div id="editProfileModal" class="sawer-overlay" style="display:none;">
+    <div class="sawer-card">
+        <div class="sawer-header">
+            <h3>Edit Profil Global</h3>
+            <button class="sawer-close" onclick="closeEditModal()"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <div style="text-align:center; margin-bottom:15px;">
+            <label for="inputAvatar" style="cursor:pointer;">
+                <img id="previewAvatar" src="img/placeholder.jpg" style="width:80px; height:80px; border-radius:50%; border:2px dashed #ccc; object-fit:cover;">
+                <br><span style="font-size:10px; color:#aaa;">Klik untuk ganti foto</span>
+            </label>
+            <input type="file" id="inputAvatar" accept="image/*" style="display:none;" onchange="handleImageUpload(this)">
+        </div>
+
+        <div class="input-group" style="margin-bottom:10px;">
+            <input type="text" id="inputName" placeholder="Nama Anda" maxlength="20" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd;">
+        </div>
+
+        <div class="input-group" style="margin-bottom:10px;">
+            <input type="text" id="inputCity" placeholder="Lokasi Anda" maxlength="30" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd;">
+        </div>
+
+        <div class="input-group" style="margin-bottom:15px;">
+            <textarea id="inputBio" placeholder="Bio Singkat..." maxlength="60" style="width:100%; padding:8px; border-radius:5px; border:1px solid #ddd; height:60px;"></textarea>
+        </div>
+
+        <button onclick="saveProfileData()" class="btn-sawer-send" style="width:100%;">
+            <i class="fas fa-save"></i> Simpan
+        </button>
+    </div>
+</div>
 
         <div class="stats-container" style="display:flex; gap:15px; margin-top:20px; flex-wrap:wrap;">
     
@@ -683,7 +1081,7 @@
 
 <div class="history-section" style="margin-top:25px;">
     <h3 class="section-title" style="font-size:16px; margin-bottom:15px;">
-        <i class="fas fa-comment-dots" style="color:#7385a5;"></i> Pesan Semangat Terbaru
+        <i class="fas fa-comment-dots" style="color:#7385a5;"></i> Dukungan Terbaru
     </h3>
     
     <div id="tipHistoryContainer" class="tip-feed">
@@ -712,10 +1110,11 @@
         </div>
 
         <div id="collectionContainer" class="collection-grid"></div>
+        
     </div>
 
-    <div id="walletModal" class="modal-overlay" onclick="window.closeWalletModal(event)" style="display:none;">
-        <div class="modal-card">
+    <div id="walletModal" class="modal-overlay" onclick="closeWalletModal(event)">
+    <div class="modal-card">
     
     <div class="modal-header">
         <h3><i class="fas fa-wallet" style="color:#7385a5;"></i> Wallet Info</h3>
@@ -725,7 +1124,7 @@
     <div class="modal-status">
         <span class="status-label">Status:</span>
         <div class="status-badge">
-            <span class="pulse-dot"></span> Terhubung Base Network
+            <span class="pulse-dot"></span> Terhubung Base
         </div>
     </div>
 
@@ -764,20 +1163,25 @@
         </div>
 
         <button id="btnModalLoadMore" onclick="loadNextModalTips()" style="display:none; width:100%; margin-top:5px; background:none; border:1px dashed #7385a5; color:#7385a5; font-size:10px; padding:5px; cursor:pointer; border-radius:5px;">
-            Muat 2 Lama <i class="fas fa-chevron-down"></i>
+            Muat 3 Lagi <i class="fas fa-chevron-down"></i>
         </button>
     </div>
+    
+    <div class="social-icons">
+                <a href="https://youtube.com/@PutramasOfficial" target="_blank" class="social-link"><i class="fab fa-youtube"></i></a>
+                <a href="https://instagram.com/putramas_official" target="_blank" class="social-link"><i class="fab fa-instagram"></i></a>
+                <a href="https://facebook.com/PutramasOfficialStudio" target="_blank" class="social-link"><i class="fab fa-facebook-f"></i></a>
+                <a href="https://opensea.io/collection/putramas-nusantara-shadows-archive" target="_blank" class="social-link"><i class="fa fa-shopping-cart"></i></a>
+            </div>
+            <p class="copyright">
+                &copy; <span id="year"></span> Powered By <strong>Putramas Official</strong>
+            </p>
 
-    <div class="modal-actions" style="margin-top: 15px;">
-        <button class="action-btn primary" onclick="window.location.href='/profile'">
-            <i class="fas fa-user-circle"></i> Buka Profil Saya
-        </button>
-        
+    <div class="modal-actions" style="margin-top: 15px;">             
         <button class="action-btn danger" onclick="disconnectWallet()">
             <i class="fas fa-sign-out-alt"></i> Putuskan Koneksi
         </button>
     </div>
-    
     </div>
     </div>
 
@@ -823,60 +1227,15 @@
     </div>
 
     <div id="toast"></div>
-
-    <footer class="footer">
-        <p class="copyright">&copy; <span id="year"></span> Powered By <strong>Putramas Official</strong></p>
-                </footer>
     
-        <script>
-
-            // ==========================================
-// 1. KONFIGURASI FIREBASE (Punya Anda)
-// ==========================================
-const firebaseConfig = {
-  apiKey: "AIzaSyCn1j8acLWDEVjoO2VB3qeN8rh8qUVBRR8",
-  authDomain: "putramas-cc719.firebaseapp.com",
-  databaseURL: "https://putramas-cc719-default-rtdb.firebaseio.com",
-  projectId: "putramas-cc719",
-  storageBucket: "putramas-cc719.firebasestorage.app",
-  messagingSenderId: "1841157194",
-  appId: "1:1841157194:web:012d80abf7293bd43d02b3",
-  measurementId: "G-38XGWE5H38"
-};
-
-// Inisialisasi Firebase
-firebase.initializeApp(firebaseConfig);
-const auth = firebase.auth();
-const db = firebase.database();
-
-// ==========================================
-// 2. FUNGSI AUTHENTICATION (Jembatan Wallet -> Firebase)
-// ==========================================
-async function loginFirebase(address) {
-    try {
-        // A. Login Anonim ke Firebase (User tidak perlu input email/pass)
-        const userCredential = await auth.signInAnonymously();
-        const user = userCredential.user;
-        
-        console.log("🔥 Firebase Connected! UID:", user.uid);
-
-        // B. Simpan Wallet Address ke Database
-        // Ini mendaftarkan user di database "users"
-        await db.ref('users/' + user.uid).update({
-            walletAddress: address.toLowerCase(),
-            lastLogin: Date.now(),
-            device: navigator.userAgent
-        });
-
-        return true;
-    } catch (error) {
-        console.error("Firebase Auth Error:", error);
-        window.showToast("Gagal koneksi Database: " + error.message, 'error');
-        return false;
-    }
-}
-  
-const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
+    <nav class="bottom-nav">
+    <a href="index" class="nav-link active"><i class="fas fa-globe-asia"></i><span>Beranda</span></a>
+    <a href="galeri" class="nav-link"><i class="fa fa-university"></i><span>Galeri</span></a>
+    <a href="profile" class="nav-link"><i class="fas fa-user"></i><span>Profile</span></a>    
+    <a href="upload_public" target="_blank" class="nav-link"><i class="fa fa-cloud-upload"></i><span>Upload</span></a>
+</nav>
+<script>
+    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
 
 const CONTRACT_ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
     
@@ -908,54 +1267,6 @@ let modalTipCursor = 0;
 let modalUserAddr = null;    
 let isModalFetching = false; 
 
-window.connectWallet = async function() {
-    const btn = document.getElementById("btn-connect"); 
-    const btnBig = document.getElementById("btnLogin"); 
-
-    if (btn && btn.classList.contains("connected")) {
-        toggleWalletModal();
-        return;
-    }
-
-    if (!window.ethereum) return showToast("Install MetaMask Dulu!", 'wolf');
-
-    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
-
-    try {
-        // 1. Connect MetaMask
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        await switchNetwork();
-
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
-
-        // 2. 🔥 LOGIN KE FIREBASE (AUTO) 🔥
-        const isDbReady = await loginFirebase(address);
-        
-        if (isDbReady) {
-            console.log("✅ Database Siap & Aman!");
-            window.showToast("Database Terhubung!", "success");
-        }
-
-        // 3. Update UI
-        localStorage.setItem('userWallet', address);
-        viewerAddress = address;
-        userAddress = address;
-        
-        await updateModalData(address);
-        await updateModalWalletData(address);
-        updateConnectButtonUI(address);
-        unlockGate(address);
-
-    } catch (err) {
-        console.error("Login Error:", err);
-        showToast("Gagal: " + err.message, 'error');
-        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
-        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
-    }
-};
 
 window.initGatekeeper = async function() {
     if (window.ethereum) {
@@ -1011,17 +1322,65 @@ window.updateModalData = async function(addr) {
     try {
         if(document.getElementById("modalFullAddress")) {
             document.getElementById("modalFullAddress").innerText = addr;
-            document.getElementById("modalShortAddress").innerText = addr.substring(0, 10) + "..." + addr.substring(35);
+            document.getElementById("modalShortAddress").innerText = addr.substring(0, 10) + "..." + addr.substring(34);
         }
 
         const balance = await provider.getBalance(addr);
         const ethBalance = ethers.utils.formatEther(balance);
 
         if(document.getElementById("modalBalance")) {
-            document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(4) + " ETH";
+            document.getElementById("modalBalance").innerText = parseFloat(ethBalance).toFixed(8) + " ETH";
         }
     } catch (err) {
         console.error("Gagal update modal:", err);
+    }
+};
+
+window.connectWallet = async function() {
+    const btn = document.getElementById("btn-connect"); 
+    const btnBig = document.getElementById("btnLogin"); 
+
+    if (btn && btn.classList.contains("connected")) {
+        toggleWalletModal();
+        if(viewerAddress) updateModalData(viewerAddress);
+        return;
+    }
+
+    if (!window.ethereum) return showToast("Install Metamask Atau EVM Wallet Dulu!", 'wolf');
+
+    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+
+    try {
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        
+        await switchNetwork();
+
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
+
+        localStorage.setItem('userWallet', address);
+        viewerAddress = address;
+        
+        await updateModalData(address);
+        await updateModalWalletData(address);
+        updateConnectButtonUI(address);
+        unlockGate(address);
+
+    } catch (err) {
+        console.error("Login Error:", err);
+        showToast("Gagal koneksi: " + err.message, 'error');
+        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
+    }
+};
+
+window.updateConnectButtonUI = function(addr) {
+    const btn = document.getElementById("btn-connect");
+    if(btn) {
+        btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
+        btn.classList.add("connected");
     }
 };
 
@@ -1105,50 +1464,100 @@ window.copyAddressModal = function() {
 
 window.unlockGate = function(profileOwnerAddr) {
     currentAddress = profileOwnerAddr;
-    
+
     const loginSec = document.getElementById("loginSection");
     const mainSec = document.getElementById("mainContent");
     if(loginSec) loginSec.style.display = "none";
     if(mainSec) mainSec.style.display = "block";
-    
+
     updateProfileUI(currentAddress);
     loadDataCepat(currentAddress);
     loadTipData(currentAddress);
+
+    if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
+    
+    window.userAddress = viewerAddress; 
+
+    let isOwner = false;
+    if (viewerAddress && currentAddress) {
+        isOwner = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+    }
+
+    console.log("🔍 [INIT] Viewer:", viewerAddress, "| Target:", currentAddress);
+
+    if (typeof window.loadGlobalProfile === 'function') {
+        window.loadGlobalProfile(currentAddress, isOwner);
+    } else {
+        console.warn("⚠️ frpro.js belum termuat sempurna, mencoba lagi dalam 1 detik...");
+        setTimeout(() => {
+             if (typeof window.loadGlobalProfile === 'function') {
+                window.loadGlobalProfile(currentAddress, isOwner);
+             }
+        }, 1000);
+    }
 };
 
 window.updateProfileUI = function(addr) {
-    const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
-    if(document.getElementById("displayAddress")) {
-        document.getElementById("displayAddress").innerText = short;
-    }
+    const OFFICIAL_ADDRESS = "0xbacc1f6e717bf03db0c40e3044da47318c369b70";
+    
+    const OFFICIAL_NAME = "Putramas Official";
+    const OFFICIAL_LOGO = "img/icon-192.png";
+    
+    const nameEl = document.getElementById("displayAddress");
+    const avatarEl = document.getElementById("avatarImg");
 
-    if(document.getElementById("avatarImg")) {
-        document.getElementById("avatarImg").src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+    if (addr.toLowerCase() === OFFICIAL_ADDRESS) {
+        
+        if (nameEl) {
+            nameEl.innerHTML = `
+                <span class="official-text-glow">${OFFICIAL_NAME}</span>
+                <span class="official-badge" title="Verified Official">
+                    <i class="fas fa-star"></i>
+                </span>
+            `;
+        }
+
+        if (avatarEl) {
+            avatarEl.src = OFFICIAL_LOGO;
+            avatarEl.classList.add("official-avatar-border");
+            avatarEl.onerror = function() {
+                this.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=00f2ea`;
+            };
+        }
+
+    } else {
+        
+        const short = addr.substring(0, 6) + "..." + addr.substring(addr.length - 4);
+        
+        if (nameEl) {
+            nameEl.innerText = short; 
+            nameEl.classList.remove("official-text-glow"); 
+        }
+
+        if (avatarEl) {
+            avatarEl.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${addr}&backgroundColor=7385a5`;
+            avatarEl.classList.remove("official-avatar-border");
+        }
     }
 };
 
-// Panggil fungsi ini di dalam unlockGate() atau loadDataCepat()
 window.loadTipData = async function(targetAddress) {
     const container = document.getElementById("tipHistoryContainer");
     const elTotal = document.getElementById("displayTotalEarnings");
     const elCount = document.getElementById("displaySupporterCount");
 
-    // Gunakan Provider Read-Only (Cepat & Gratis)
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
     try {
-        // 1. AMBIL TOTAL BALANCE (getTipTotalBalance)
         const totalWei = await contract.getTipTotalBalance(targetAddress);
         const totalEth = ethers.utils.formatEther(totalWei);
-        if(elTotal) elTotal.innerText = parseFloat(totalEth).toFixed(4) + " ETH";
+        if(elTotal) elTotal.innerText = parseFloat(totalEth).toFixed(8) + " ETH";
 
-        // 2. AMBIL JUMLAH COUNT (getTipCount)
         const countBN = await contract.getTipCount(targetAddress);
         const count = parseInt(countBN);
         if(elCount) elCount.innerText = count + " Orang";
 
-        // 3. AMBIL DATA LIST (getTipByIndex) - Pake Loop
         if (count === 0) {
             container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; background:#fff; border-radius:10px;">
                 <i class="fas fa-comment-slash" style="margin-bottom:5px;"></i><br>Belum ada pesan dukungan.
@@ -1156,23 +1565,18 @@ window.loadTipData = async function(targetAddress) {
             return;
         }
 
-        container.innerHTML = ""; // Bersihkan loading text
+        container.innerHTML = "";
         let html = "";
 
-        // Loop Terbalik: Dari index terakhir (terbaru) ke index 0
-        // Batasi maksimal 5 pesan terbaru saja biar ringan
         const limit = 5; 
         const start = Math.max(0, count - limit);
 
         for (let i = count - 1; i >= start; i--) {
             try {
-                // Panggil Struct TipRecord
-                const tip = await contract.getTipByIndex(targetAddress, i);
-                
-                // Format Data
+
+                const tip = await contract.getTipByIndex(targetAddress, i);                
                 const senderShort = tip.sender.substring(0,6) + "..." + tip.sender.substring(38);
                 const amount = ethers.utils.formatEther(tip.amount);
-                // Konversi timestamp solidity ke Date JS
                 const dateObj = new Date(tip.timestamp * 1000); 
                 const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short' }) + " " + dateObj.toLocaleTimeString("id-ID", { hour: '2-digit', minute:'2-digit' });
 
@@ -1195,10 +1599,8 @@ window.loadTipData = async function(targetAddress) {
             }
         }
         
-        // Render ke layar
         container.innerHTML = html;
-        
-        // Tombol "Lihat Semua" jika data > 5 (Opsional)
+
         if (count > limit) {
             container.innerHTML += `<div style="text-align:center; font-size:12px; color:#7385a5; margin-top:10px; cursor:pointer;">
                 Lihat ${count - limit} pesan lainnya...
@@ -1210,7 +1612,6 @@ window.loadTipData = async function(targetAddress) {
     }
 };
 
-// 1. FUNGSI UTAMA (Dipanggil saat buka profil)
 window.loadTipData = async function(targetAddress) {
     const container = document.getElementById("tipHistoryContainer");
     const loadMoreBox = document.getElementById("loadMoreContainer");
@@ -1221,23 +1622,20 @@ window.loadTipData = async function(targetAddress) {
     container.innerHTML = `<p style="text-align:center; color:#aaa; font-size:12px;"><i class="fas fa-circle-notch fa-spin"></i> Mengambil data...</p>`;
     loadMoreBox.style.display = 'none';
 
-    // Gunakan Provider Read-Only (Cepat)
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
     try {
-        // A. Ambil Statistik (Total ETH & Jumlah Orang)
+
         const [totalWei, countBN] = await Promise.all([
             contract.getTipTotalBalance(targetAddress),
             contract.getTipCount(targetAddress)
         ]);
 
-        // Update UI Statistik
         if(elTotal) elTotal.innerText = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4) + " ETH";
         const totalCount = parseInt(countBN);
         if(elCount) elCount.innerText = totalCount + " Orang";
-
-        // B. Cek Data Kosong
+        
         if (totalCount === 0) {
             container.innerHTML = `<div style="text-align:center; padding:20px; color:#aaa; background:#fff; border-radius:10px; border:1px dashed #ddd;">
                 <i class="fas fa-comment-slash" style="margin-bottom:5px;"></i><br>Belum ada pesan dukungan.
@@ -1245,14 +1643,10 @@ window.loadTipData = async function(targetAddress) {
             return;
         }
 
-        // C. Siapkan Cursor (Mulai dari Index Terakhir/Terbaru)
-        // Array di Smart Contract mulai dari 0 sampai Length-1.
-        // Kita mulai dari yang paling baru (Length-1).
         tipCursor = totalCount - 1;
 
-        // D. Bersihkan Wadah & Load 5 Pertama
         container.innerHTML = ""; 
-        await loadBatchTips(5); // Load awal 5 biji
+        await loadBatchTips(5);
 
     } catch (err) {
         console.error("Gagal load tips:", err);
@@ -1260,7 +1654,6 @@ window.loadTipData = async function(targetAddress) {
     }
 };
 
-// 2. FUNGSI UNTUK LOAD BATCH (Dipanggil awal & saat klik tombol)
 window.loadBatchTips = async function(batchSize) {
     if (isTipLoading || tipCursor < 0) return;
     
@@ -1269,35 +1662,29 @@ window.loadBatchTips = async function(batchSize) {
     const btn = document.getElementById("btnLoadMoreTips");
     const loadMoreBox = document.getElementById("loadMoreContainer");
 
-    // Ubah tombol jadi loading
     const originalBtnText = btn.innerHTML;
     btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat...`;
 
-    // Gunakan Provider Read-Only
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Hitung batas loop (Mundur)
-    // Contoh: Cursor 49, Batch 10 -> Stop di 40
     let end = tipCursor - batchSize + 1;
-    if (end < 0) end = 0; // Jangan sampai minus
+    if (end < 0) end = 0;
 
     let htmlBuffer = "";
 
-    // LOOP MUNDUR (Dari Terbaru ke Terlama)
+    let animCount = 0; 
+
     for (let i = tipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(tipTargetAddr, i);
-            
-            // Format Data
             const senderShort = tip.sender.substring(0,6) + "..." + tip.sender.substring(38);
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const dateObj = new Date(tip.timestamp * 1000); 
             const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: '2-digit' });
 
-            // HTML Item
             htmlBuffer += `
-            <div class="tip-card" style="animation: fadeIn 0.5s ease;">
+            <div class="tip-card" style="animation-delay: ${animCount * 0.1}s;">
                 <div class="tip-header">
                     <span style="display:flex; align-items:center; gap:6px; background:#f6f9ff; padding:4px 8px; border: 1px solid #7385a5; border-radius:10px; box-shadow:0 1px 4px rgba(115,133,165,0.15);">
                     <i class="fas fa-user-circle" style="color:#7385a5;"></i> 
@@ -1313,30 +1700,28 @@ window.loadBatchTips = async function(batchSize) {
                 </div>
             </div>`;
             
+            animCount++;
+
         } catch (e) {
             console.error("Skip index", i);
         }
     }
 
-    // Tempel ke bawah (Append)
     container.insertAdjacentHTML('beforeend', htmlBuffer);
 
-    // Update Cursor untuk load berikutnya
     tipCursor = end - 1;
     isTipLoading = false;
     btn.innerHTML = originalBtnText;
 
-    // Cek apakah tombol Load More masih perlu ditampilkan?
     if (tipCursor >= 0) {
         loadMoreBox.style.display = 'block';
     } else {
-        loadMoreBox.style.display = 'none'; // Sembunyikan jika data habis
+        loadMoreBox.style.display = 'none';
     }
 };
 
-// 3. EVENT HANDLER TOMBOL
 window.loadNextTipBatch = function() {
-    loadBatchTips(10); // Load 10 berikutnya saat diklik
+    loadBatchTips(10);
 };
 
 window.loadDataCepat = async function(targetAddress) {
@@ -1344,13 +1729,11 @@ window.loadDataCepat = async function(targetAddress) {
     const loading = document.getElementById("loading");
     const empty = document.getElementById("emptyState");
     
-    // 1. Reset State & UI
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
-    // Matikan sensor lama biar gak numpuk
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
@@ -1358,17 +1741,32 @@ window.loadDataCepat = async function(targetAddress) {
 
     let tempProvider = provider;
     if (!tempProvider) {
-        tempProvider = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+        tempProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     }
 
     try {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
-        
-        // 2. Ambil SEMUA ID milik user (Cepat karena cuma angka)
+
         const tokenIds = await contract.walletOfOwner(targetAddress);
         
         if(document.getElementById("totalItems")) {
             document.getElementById("totalItems").innerText = tokenIds.length;
+        }
+
+        if (tokenIds.length > 0) {
+            const OFFICIAL_ADDR_LOWER = "0xbacc1f6e717bf03db0c40e3044da47318c369b70";
+            
+            if (targetAddress.toLowerCase() !== OFFICIAL_ADDR_LOWER) {
+                const nameEl = document.getElementById("displayAddress");
+
+                if (nameEl && !nameEl.innerHTML.includes("fa-check-circle")) {
+                    nameEl.innerHTML += `
+    <span style="display: inline-flex; align-items: center; margin-left: 10px; vertical-align: middle;">
+        <i class="fa fa-check-circle" style="color: #2ecc71; font-size: 1.2em; margin-right: 4px;"></i>
+        <span style="color: #2ecc71; font-size: 1em; font-weight: bold; text-transform: capitalize;">Terverifikasi</span>
+    </span>`;
+                }
+            }
         }
 
         if (tokenIds.length === 0) {
@@ -1377,16 +1775,12 @@ window.loadDataCepat = async function(targetAddress) {
             return;
         }
 
-        // 3. Simpan ID ke Global Variable & Balik Urutan (Terbaru diatas)
         profileGlobalIds = tokenIds.slice().reverse();
 
-        // 4. Sembunyikan Loading Besar
         if(loading) loading.style.display = 'none';
 
-        // 5. Panggil Batch Pertama
         await loadNextProfileBatch();
 
-        // 6. Hidupkan Sensor Scroll
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
@@ -1396,13 +1790,11 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
-    // Cek Pengaman
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Tampilkan Loader Kecil di Bawah
     let bottomLoader = null;
     if (profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1411,41 +1803,33 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Potongan ID (Slice)
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
-    // Setup Provider (Read Only juga oke buat metadata)
-    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Fetch Metadata Secara Paralel
-    // Di dalam fungsi window.loadNextProfileBatch, pastikan bagian pemetaan seperti ini:
 const promises = batchIds.map(async (id) => {
     try {
         const uri = await contract.tokenURI(id);
         const meta = await fetchMetadata(uri);
-        // Pastikan id asli tetap dibawa untuk tombol detail
+
         return { id: id.toString(), meta: meta }; 
     } catch (e) { return null; }
 });
 
     const results = await Promise.all(promises);
 
-    // Hapus Loader Kecil
     if (bottomLoader) bottomLoader.remove();
 
-    // Render Kartu
     results.forEach(item => {
         if (item) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // Update Posisi
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-fill jika layar besar tapi data masih sedikit
     if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
          loadNextProfileBatch();
     }
@@ -1458,11 +1842,9 @@ window.handleProfileScroll = function() {
 };
 
 window.fetchMetadata = async function(tokenURI) {
-    // Gunakan Dedicated Gateway Pinata agar tidak broken/loading lama
     const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
-        // Bersihkan tokenURI dari prefix ipfs://
         const cid = tokenURI.replace("ipfs://", "");
         const url = `${PINATA_GATEWAY}${cid}`;
         
@@ -1471,7 +1853,6 @@ window.fetchMetadata = async function(tokenURI) {
         
         const json = await response.json();
         
-        // Perbaiki link gambar
         let img = json.image || json.image_url;
         if (img && img.startsWith("ipfs://")) {
             img = img.replace("ipfs://", PINATA_GATEWAY);
@@ -1485,7 +1866,7 @@ window.fetchMetadata = async function(tokenURI) {
         };
     } catch (e) {
         console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
-        // Fallback ke Cloudflare jika Pinata bermasalah
+
         try {
             const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
             const res = await fetch(fallbackUrl);
@@ -1503,7 +1884,7 @@ window.fetchMetadata = async function(tokenURI) {
 window.renderCard = function(id, name, img, container) {
     let isMyProfile = false;
     if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
-        // Pastikan tidak error jika salah satu null
+
         if(viewerAddress && currentAddress) {
             isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
         }
@@ -1550,7 +1931,6 @@ window.renderCard = function(id, name, img, container) {
         </div>
     `;
 
-    // PERUBAHAN UTAMA DISINI: Gunakan insertAdjacentHTML agar tidak berat
     container.insertAdjacentHTML('beforeend', html);
 };
 
@@ -1571,7 +1951,7 @@ window.panggilSawerDetail = async function(address, name) {
     sawerTargetAddress = address;
 
     document.getElementById("sawerReceiverName").innerText = name;
-    document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 6) + "..." + address.substring(address.length - 4);
+    document.getElementById("sawerReceiverAddr").innerText = address.substring(0, 10) + "..." + address.substring(address.length - 8);
     document.getElementById("sawerAmount").value = "";
     document.getElementById("sawerMessage").value = "";
 
@@ -1580,7 +1960,7 @@ window.panggilSawerDetail = async function(address, name) {
         const ethVal = ethers.utils.formatEther(balanceBN);
         
         const elSaldo = document.getElementById("sawerUserBalance");
-        elSaldo.innerText = parseFloat(ethVal).toFixed(4) + " ETH";
+        elSaldo.innerText = parseFloat(ethVal).toFixed(8) + " ETH";
         elSaldo.setAttribute('data-balance', ethVal);
     } catch (e) {
         console.error(e);
@@ -1632,17 +2012,9 @@ window.eksekusiSawer = async function() {
         btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
         btn.disabled = true;
 
-        // 1. Siapkan Data Angka & Pesan
         const amountWei = ethers.utils.parseEther(amountVal.toString());
-        
-        // Ambil pesan dari inputan (default "-" jika kosong)
         const messageVal = document.getElementById("sawerMessage").value || "-";
-
-        // 2. Definisi Kontrak Write (Wajib pakai Signer)
         const contractWrite = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, signer);
-
-        // 3. EKSEKUSI YANG BENAR
-        // Urutannya: (Alamat Penerima, Pesan String, { value: Jumlah ETH })
         const tx = await contractWrite.sendTip(sawerTargetAddress, messageVal, {
             value: amountWei
         });
@@ -1654,7 +2026,6 @@ window.eksekusiSawer = async function() {
         
         window.showToast(`Sukses kirim ${amountVal} ETH!`, 'success');
 
-        // Update modal jika ada fungsi update
         if(typeof updateModalWalletData === 'function' && viewerAddress) {
             window.updateModalWalletData(viewerAddress);
         }
@@ -1682,52 +2053,45 @@ async function updateModalWalletData(addr) {
     const badgeEl = document.getElementById("modalTipCountBadge");
     const btnMore = document.getElementById("btnModalLoadMore");
     
-    // Reset UI ke Loading
     if(listEl) listEl.innerHTML = `<div style="text-align:center; padding:10px; color:#7385a5;"><i class="fas fa-spinner fa-spin"></i> Memuat data...</div>`;
     if(btnMore) btnMore.style.display = 'none';
 
     try {
-        // --- PERBAIKAN UTAMA: Gunakan Provider Metamask jika ada (Lebih Stabil) ---
         let readProvider;
         if (provider) {
-            readProvider = provider; // Pakai yang sudah connect
+            readProvider = provider;
         } else {
-            readProvider = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+            readProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
         }
 
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
 
-        // A. Ambil Total Pendapatan
         const totalWei = await contract.getTipTotalBalance(addr);
-        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(4);
-        
-        // Update UI Saldo
+        const totalEth = parseFloat(ethers.utils.formatEther(totalWei)).toFixed(8);
+
         if(balEl) {
             balEl.innerText = totalEth + " ETH";
-            balEl.style.color = totalEth > 0 ? "#7385a5" : "#888"; // Hijau jika ada saldo
+            balEl.style.color = totalEth > 0 ? "#7385a5" : "#888";
         }
 
-        // B. Ambil Jumlah History
         const countBN = await contract.getTipCount(addr);
         const count = parseInt(countBN.toString()); 
         
         if(badgeEl) badgeEl.innerText = count;
 
-        // C. Logika Tampilan List
         if (count === 0) {
             if(listEl) listEl.innerHTML = `<p style="text-align:center; font-size:11px; color:#aaa; margin-top:10px;">Belum ada riwayat masuk.</p>`;
             return;
         }
 
-        // D. Siapkan Batch Pertama (Mulai dari index terakhir)
         modalTipCursor = count - 1; 
-        if(listEl) listEl.innerHTML = ""; // Bersihkan loading
+        if(listEl) listEl.innerHTML = "";
         
         await loadNextModalTips(); 
 
     } catch (e) {
         console.error("Gagal update modal data:", e);
-        // Tampilkan error yang lebih spesifik di console browser (F12)
+
         if(listEl) listEl.innerHTML = `<p style="color:red; font-size:10px; text-align:center;">Gagal koneksi ke Blockchain.<br>Coba refresh.</p>`;
     }
 }
@@ -1741,18 +2105,16 @@ async function loadNextModalTips() {
     
     if(btnMore) btnMore.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat...`;
 
-    // --- PERBAIKAN: Gunakan Provider yang sama dengan fungsi utama ---
     let readProvider;
     if (provider) {
         readProvider = provider;
     } else {
-        readProvider = new ethers.providers.JsonRpcProvider("https://sepolia.base.org");
+        readProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     }
 
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, readProvider);
 
-    // Hitung mundur 5 langkah
-    let end = modalTipCursor - 2 + 1;
+    let end = modalTipCursor - 3 + 1;
     if(end < 0) end = 0;
 
     let html = "";
@@ -1760,11 +2122,8 @@ async function loadNextModalTips() {
     for (let i = modalTipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(modalUserAddr, i);
-            
-            // Format Data
             const senderShort = tip.sender.substring(0,4) + ".." + tip.sender.substring(38);
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
-            // Cek pesan kosong
             const msg = (tip.message && tip.message !== "") ? tip.message : "Tanpa pesan";
 
             html += `
@@ -1782,20 +2141,17 @@ async function loadNextModalTips() {
         }
     }
 
-    // Append (Tempel ke bawah)
     container.insertAdjacentHTML('beforeend', html);
 
-    // Update Status
     modalTipCursor = end - 1;
     isModalFetching = false;
 
-    // Cek Tombol Load More
     if(btnMore) {
         if(modalTipCursor >= 0) {
             btnMore.style.display = 'block';
-            btnMore.innerHTML = `Muat 2 Lama <i class="fas fa-chevron-down"></i>`;
+            btnMore.innerHTML = `Muat 3 Lagi <i class="fas fa-chevron-down"></i>`;
         } else {
-            btnMore.style.display = 'none'; // Data habis
+            btnMore.style.display = 'none';
         }
     }
 }
@@ -1876,7 +2232,7 @@ if(window.ethereum) {
         localStorage.removeItem('userWallet');
         window.location.reload();
     });
-}
-        </script>
-        </body>
-        </html>
+    }
+</script>
+</body>
+</html>
