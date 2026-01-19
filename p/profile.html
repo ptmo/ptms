@@ -1236,400 +1236,212 @@ body {
 </nav>
 
 <script type="module"> 
-
+// 1. IMPORT LIBRARY LENGKAP (APP + DATABASE + AUTH)
 import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js";
-
-import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
-
-
+import { getDatabase, ref, set, update, onValue } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-database.js";
+import { getAuth, signInAnonymously } from "https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js"; // <--- TAMBAHAN PENTING
 
 const firebaseConfig = {
-
     apiKey: "AIzaSyCn1j8acLWDEVjoO2VB3qeN8rh8qUVBRR8",
-
     authDomain: "putramas-cc719.firebaseapp.com",
-
     databaseURL: "https://putramas-cc719-default-rtdb.firebaseio.com",
-
     projectId: "putramas-cc719",
-
     storageBucket: "putramas-cc719.firebasestorage.app",
-
     messagingSenderId: "1841157194",
-
     appId: "1:1841157194:web:012d80abf7293bd43d02b3",
-
     measurementId: "G-38XGWE5H38"
-
 };
 
-
-
+// 2. INISIALISASI
 const app = initializeApp(firebaseConfig);
-
 const db = getDatabase(app);
+const auth = getAuth(app); // <--- INISIALISASI AUTH
 
 let currentBase64Avatar = ""; 
-
 let currentViewingAddress = ""; 
 
+console.log("🔥 [FRPRO] System V5 Loaded (With Auth Integration)");
 
+// --- FUNGSI LOGIN DATABASE (JEMBATAN) ---
+// Fungsi ini dipanggil oleh script MetaMask di bawah
+window.loginFirebase = async function(address) {
+    try {
+        console.log("🔥 Mencoba login database untuk:", address);
+        
+        // A. Login Anonim (Tanpa Password)
+        const userCredential = await signInAnonymously(auth);
+        const user = userCredential.user;
+        
+        console.log("✅ Firebase Auth Sukses! UID:", user.uid);
 
-console.log("🔥 [FRPRO] System V4 Loaded (Fix Missing Function)");
+        // B. Simpan Data Mapping (Wallet <-> UID)
+        // Agar database tahu bahwa UID ini pemilik Wallet tersebut
+        const updateData = {};
+        updateData[`users/${user.uid}/walletAddress`] = address.toLowerCase();
+        updateData[`users/${user.uid}/lastLogin`] = Date.now();
+        
+        // Kita update database
+        await update(ref(db), updateData);
+        
+        return true;
+    } catch (error) {
+        console.error("Firebase Auth Gagal:", error);
+        window.showToast("Gagal Connect Database: " + error.message, "error");
+        return false;
+    }
+};
 
-
-
+// Inject Toast CSS
 const style = document.createElement('style');
-
 style.innerHTML = `#toast-container{position:fixed;top:30px;left:50%;transform:translateX(-50%);z-index:99999;display:flex;flex-direction:column;gap:15px;pointer-events:none}.soft-toast{pointer-events:auto;min-width:320px;background:rgba(255,255,255,0.95);backdrop-filter:blur(12px);padding:14px 20px;border-radius:16px;box-shadow:0 10px 40px rgba(0,0,0,0.1);display:flex;align-items:center;gap:15px;border:1px solid rgba(255,255,255,0.6);animation:slideIn 0.4s cubic-bezier(0.34,1.56,0.64,1)}.toast-icon{width:30px;height:30px;border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px}.t-success{background:linear-gradient(135deg,#2ecc71,#27ae60)}.t-error{background:linear-gradient(135deg,#e74c3c,#c0392b)}.t-loading{background:linear-gradient(135deg,#95a5a6,#7f8c8d)}@keyframes slideIn{from{opacity:0;transform:translateY(-20px) scale(0.95)}to{opacity:1;transform:translateY(0) scale(1)}}`;
-
 document.head.appendChild(style);
-
 const tContainer = document.createElement('div'); tContainer.id = 'toast-container'; document.body.appendChild(tContainer);
 
-
-
 window.showToast = function(msg, type = 'info') {
-
     const icons = { success: 'fa-check', error: 'fa-times', loading: 'fa-spinner fa-spin' };
-
     const colors = { success: 't-success', error: 't-error', loading: 't-loading' };
-
     const el = document.createElement('div');
-
     el.className = 'soft-toast';
-
     el.innerHTML = `<div class="toast-icon ${colors[type]||'t-loading'}"><i class="fas ${icons[type]||'fa-info'}"></i></div><div style="flex:1;font-family:sans-serif;font-size:13px;color:#444;font-weight:600">${msg}</div>`;
-
     tContainer.appendChild(el);
-
     if(type !== 'loading') setTimeout(() => { el.style.opacity = '0'; setTimeout(()=>el.remove(),300); }, 3000);
-
     return el;
-
 };
-
-
 
 window.openEditModal = function() {
-
     const modal = document.getElementById("editProfileModal");
-
     if(!modal) return window.showToast("Modal Error", "error");
-
     
-
     modal.style.display = "flex";
-
     setTimeout(() => modal.classList.add("active"), 10);
 
-
-
     try {
-
         const nick = document.getElementById("profileNickname").innerText.replace(/[()]/g, '').trim();
-
         const city = document.getElementById("profileCity").innerText;
-
         const bio = document.getElementById("profileBio").innerText;
-
         
-
         document.getElementById("inputName").value = nick;
-
         document.getElementById("inputCity").value = (city === "Bumi" || city === "-") ? "" : city;
-
         document.getElementById("inputBio").value = (bio === "-") ? "" : bio;
-
         document.getElementById("previewAvatar").src = document.getElementById("avatarImg").src;
-
     } catch(e) {}
-
 };
-
-
 
 window.closeEditModal = function() {
-
     const modal = document.getElementById("editProfileModal");
-
     if(modal) { modal.classList.remove("active"); setTimeout(()=>modal.style.display="none", 300); }
-
 };
-
-
 
 window.loadGlobalProfile = function(address, isOwner) {
-
     if(!address) return;
-
     currentViewingAddress = address.toLowerCase();
-
     
-
     const checkUI = setInterval(() => {
-
         const btnEdit = document.getElementById("btnEditProfile");
-
         const btnPhoto = document.getElementById("btnEditPhoto");
-
         if(btnEdit && btnPhoto) {
-
             clearInterval(checkUI);
-
             if(isOwner) {
-
                 btnEdit.style.display = "inline-block";
-
                 btnPhoto.style.display = "block";
-
             } else {
-
                 btnEdit.style.display = "none";
-
                 btnPhoto.style.display = "none";
-
             }
-
         }
-
     }, 500);
 
-
-
+    // Baca data berdasarkan Address (Struktur data manual, bukan UID)
+    // Catatan: Jika ingin secure rules, pembacaan harus via UID, 
+    // tapi untuk profil publik, baca via address tidak masalah.
     onValue(ref(db, 'users/' + currentViewingAddress + '/profile'), (snap) => {
-
         const data = snap.val();
-
         updateProfileHTML(data, address);
-
     });
-
 };
-
-
 
 function updateProfileHTML(data, address) {
-
     const update = setInterval(() => {
-
         const elNick = document.getElementById("profileNickname");
-
         const elMeta = document.getElementById("profileMeta");
-
         const elImg = document.getElementById("avatarImg");
-
-
+        const elDisp = document.getElementById("displayAddress");
 
         if(elNick && elMeta && elImg) {
-
             clearInterval(update);
-
             
-
             if (data) {
-
                 elNick.innerText = data.nickname ? `(${data.nickname})` : "";
-
                 
-
                 if(data.city || data.bio) {
-
                     elMeta.style.display = "block";
-
-                    document.getElementById("profileCity").innerText = data.city || "";
-
+                    document.getElementById("profileCity").innerText = data.city || "Bumi";
                     document.getElementById("profileBio").innerText = data.bio || "_";
-
                 } else {
-
                     elMeta.style.display = "none";
-
+                }
+                
+                if(data.avatar && data.avatar.length > 50) elImg.src = data.avatar;
+                
+                if(data.nickname && elDisp) {
+                    elDisp.innerText = data.nickname;
+                    elDisp.style.color = "#2c3e50";
                 }
 
-                
-
-                if(data.avatar && data.avatar.length > 50) elImg.src = data.avatar;
-
             } else {
-
                 elNick.innerText = "";
-
                 elMeta.style.display = "none";
-
                 elImg.src = `https://api.dicebear.com/7.x/identicon/svg?seed=${address}`;
-
             }
-
         }
-
     }, 500);
-
 }
 
-
-
+// Simpan data pakai Address sebagai key agar mudah dicari publik
 window.saveProfileData = function() {
-
     const wallet = window.userAddress || localStorage.getItem('userWallet');
-
     if(!wallet) return window.showToast("Login Dulu!", "error");
 
-
-
     const d = {
-
         nickname: document.getElementById("inputName").value.trim(),
-
         city: document.getElementById("inputCity").value.trim(),
-
         bio: document.getElementById("inputBio").value.trim()
-
     };
-
     if(currentBase64Avatar) d.avatar = currentBase64Avatar;
 
-
-
     window.showToast("Menyimpan...", "loading");
-
+    
+    // Simpan di path users/walletAddress/profile
     set(ref(db, 'users/' + wallet.toLowerCase() + '/profile'), d)
-
     .then(() => {
-
         window.showToast("Berhasil!", "success");
-
         window.closeEditModal();
-
     })
-
     .catch((e) => window.showToast("Gagal: " + e.message, "error"));
-
 };
-
-
-
-window.injectOwnerData = function(targetAddress) {
-
-    if (!targetAddress) return;
-
-    const cleanAddr = targetAddress.toLowerCase();
-
-
-
-    console.log("🔍 [INJECT] Mencari data untuk:", cleanAddr);
-
-
-
-    onValue(ref(db, 'users/' + cleanAddr + '/profile'), (snap) => {
-
-        const data = snap.val();
-
-        
-
-        if (data) {
-
-            console.log("✅ [INJECT] Data Ditemukan:", data);
-
-
-
-            if (data.nickname) {
-
-                const nameElements = document.querySelectorAll(`.name-${cleanAddr}`);
-
-                nameElements.forEach(el => {
-
-                    el.innerText = data.nickname;
-
-                    el.style.color = "#5d6b83"; 
-
-                    el.style.fontWeight = "800";
-
-                });
-
-            }
-
-
-
-            if (data.avatar && data.avatar.length > 100) {
-
-                const imgElements = document.querySelectorAll(`.img-${cleanAddr}`);
-
-                console.log(`🖼️ [INJECT] Mengganti ${imgElements.length} gambar...`);
-
-                
-
-                imgElements.forEach(img => {
-
-                    img.src = data.avatar;
-
-                    img.style.border = "2px solid #7385a5"; 
-
-                });
-
-            } else {
-
-                console.warn("⚠️ [INJECT] User punya data, tapi tidak ada Avatar custom.");
-
-            }
-
-        } else {
-
-            console.log("❌ [INJECT] Data Kosong (User belum set profil).");
-
-        }
-
-    });
-
-};
-
-
 
 window.handleImageUpload = function(input) {
-
     if (input.files && input.files[0]) {
-
         const file = input.files[0];
-
         if(file.size > 5 * 1024 * 1024) return window.showToast("Max 5MB", "error");
-
         
-
         const reader = new FileReader();
-
         reader.onload = function(e) {
-
             const img = new Image(); img.src = e.target.result;
-
             img.onload = function() {
-
                 const cvs = document.createElement('canvas'); const ctx = cvs.getContext('2d');
-
                 const scale = 150 / Math.max(img.width, img.height);
-
                 cvs.width = img.width * scale; cvs.height = img.height * scale;
-
                 ctx.drawImage(img, 0, 0, cvs.width, cvs.height);
-
                 const res = cvs.toDataURL('image/jpeg', 0.7);
-
                 document.getElementById("previewAvatar").src = res;
-
                 currentBase64Avatar = res;
-
             };
-
         };
-
         reader.readAsDataURL(file);
-
     }
-
 };
-
-
-
-                                </script>
+                    </script>
     
 <script>
     const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
@@ -1664,45 +1476,44 @@ let modalTipCursor = 0;
 let modalUserAddr = null;    
 let isModalFetching = false; 
 
-
 window.initGatekeeper = async function() {
-    if (window.ethereum) {
-        try {
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await provider.listAccounts();
-            if (accounts.length > 0) {
-                viewerAddress = accounts[0];
-                userAddress = accounts[0];
-                updateConnectButtonUI(viewerAddress);
-                
-                signer = provider.getSigner();
-                
-                updateModalData(viewerAddress);
-                updateModalWalletData(viewerAddress);
+        if (window.ethereum) {
+            try {
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const accounts = await provider.listAccounts();
+                if (accounts.length > 0) {
+                    viewerAddress = accounts[0];
+                    userAddress = accounts[0];
+                    updateConnectButtonUI(viewerAddress);
+                    
+                    signer = provider.getSigner();
+                    
+                    updateModalData(viewerAddress);
+                    updateModalWalletData(viewerAddress);
+                }
+            } catch (e) {
+                console.log("Visitor mode (Read Only)");
             }
-        } catch (e) {
-            console.log("Visitor mode (Read Only)");
         }
-    }
 
-    const urlParams = new URLSearchParams(window.location.search);
-    const addressParam = urlParams.get('address');
+        const urlParams = new URLSearchParams(window.location.search);
+        const addressParam = urlParams.get('address');
 
-    if (addressParam) {
-        unlockGate(addressParam); 
-        return;
-    }
+        if (addressParam) {
+            unlockGate(addressParam); 
+            return;
+        }
 
-    const cachedAddr = localStorage.getItem('userWallet');
+        const cachedAddr = localStorage.getItem('userWallet');
+        
+        if (viewerAddress) {
+            unlockGate(viewerAddress);
+        } else if (cachedAddr) {
+            unlockGate(cachedAddr);
+            if(window.ethereum) verifyConnection(cachedAddr);
+        }
+    };
     
-    if (viewerAddress) {
-        unlockGate(viewerAddress);
-    } else if (cachedAddr) {
-        unlockGate(cachedAddr);
-        if(window.ethereum) verifyConnection(cachedAddr);
-    }
-};
-
 window.verifyConnection = async function(cachedAddr) {
     try {
         const accounts = await provider.listAccounts();
@@ -1734,44 +1545,50 @@ window.updateModalData = async function(addr) {
 };
 
 window.connectWallet = async function() {
-    const btn = document.getElementById("btn-connect"); 
-    const btnBig = document.getElementById("btnLogin"); 
+        const btn = document.getElementById("btn-connect"); 
+        const btnBig = document.getElementById("btnLogin"); 
 
-    if (btn && btn.classList.contains("connected")) {
-        toggleWalletModal();
-        if(viewerAddress) updateModalData(viewerAddress);
-        return;
-    }
+        if (btn && btn.classList.contains("connected")) {
+            toggleWalletModal();
+            return;
+        }
 
-    if (!window.ethereum) return showToast("Install Metamask Atau EVM Wallet Dulu!", 'wolf');
+        if (!window.ethereum) return window.showToast("Install Metamask!", 'error');
 
-    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+        if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+        if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> ...`;
 
-    try {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        
-        await switchNetwork();
+        try {
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            await provider.send("eth_requestAccounts", []);
+            await switchNetwork();
 
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
 
-        localStorage.setItem('userWallet', address);
-        viewerAddress = address;
-        
-        await updateModalData(address);
-        await updateModalWalletData(address);
-        updateConnectButtonUI(address);
-        unlockGate(address);
+            localStorage.setItem('userWallet', address);
+            viewerAddress = address;
+            window.userAddress = address; // Untuk Firebase
+            
+            // 🔥🔥 PANGGIL FUNGSI LOGIN FIREBASE DISINI 🔥🔥
+            if (typeof window.loginFirebase === 'function') {
+                await window.loginFirebase(address);
+            }
 
-    } catch (err) {
-        console.error("Login Error:", err);
-        showToast("Gagal koneksi: " + err.message, 'error');
-        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
-        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
-    }
-};
+            await updateModalData(address);
+            await updateModalWalletData(address);
+            updateConnectButtonUI(address);
+            unlockGate(address);
+            
+            window.showToast("Berhasil Terhubung!", "success");
+
+        } catch (err) {
+            console.error("Login Error:", err);
+            window.showToast("Gagal: " + err.message, 'error');
+            if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+            if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
+        }
+    };
 
 window.updateConnectButtonUI = function(addr) {
     const btn = document.getElementById("btn-connect");
@@ -1823,20 +1640,45 @@ window.disconnectWallet = function() {
 };
 
 window.toggleWalletModal = function() {
-    const modal = document.getElementById("walletModal");
-    
-    if (modal.classList.contains("active")) {
-        modal.classList.remove("active");
-        setTimeout(() => { modal.style.display = "none"; }, 200); 
-    } else {
-        modal.style.display = "block";
-        setTimeout(() => { modal.classList.add("active"); }, 10);
-        const targetAddr = userAddress || viewerAddress; 
-        if (targetAddr) {
-            updateModalWalletData(targetAddr);
+        const modal = document.getElementById("walletModalCard");
+        if (modal && modal.classList.contains("active")) {
+            modal.classList.remove("active");
+            setTimeout(() => modal.style.display="none", 200);
+        } else if(modal) {
+            modal.style.display="block";
+            setTimeout(() => modal.classList.add("active"), 10);
+            if(viewerAddress) updateModalWalletData(viewerAddress);
         }
-    }
-};
+    };
+
+    // Main Unlock Logic (Gabungan Blockchain & Firebase Profile)
+    window.unlockGate = function(profileOwnerAddr) {
+        currentAddress = profileOwnerAddr;
+        
+        document.getElementById("loginSection").style.display = "none";
+        document.getElementById("mainContent").style.display = "block";
+        
+        // Load data koleksi (Blockchain)
+        loadDataCepat(currentAddress);
+        loadTipData(currentAddress);
+
+        if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
+        window.userAddress = viewerAddress; // Set global var untuk script Firebase
+
+        let isOwner = false;
+        if (viewerAddress && currentAddress) {
+            isOwner = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+        }
+
+        // PANGGIL SCRIPT FIREBASE MODULE
+        if (typeof window.loadGlobalProfile === 'function') {
+            console.log("🚀 Loading Profile Data...");
+            window.loadGlobalProfile(currentAddress, isOwner);
+        } else {
+            console.warn("Script Profile belum siap, coba lagi...");
+            setTimeout(() => { if(typeof window.loadGlobalProfile==='function') window.loadGlobalProfile(currentAddress, isOwner); }, 1000);
+        }
+    };
 
 window.closeWalletModal = function(e) {
     if (e.target.id === "walletModal") {
