@@ -2105,84 +2105,123 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     </script>
 
     <script>
-// --- LOGIKA LOGIN GATEWAY ---
+// --- LOGIKA LOGIN GATEWAY (SECURE & SMART) ---
 
 document.addEventListener("DOMContentLoaded", () => {
-    checkLoginState();
+    // Beri sedikit delay agar LocalStorage siap dibaca browser
+    setTimeout(checkLoginState, 100);
 });
 
 function checkLoginState() {
-    // Cek apakah user pernah login sebelumnya (tersimpan di cache)
     const savedWallet = localStorage.getItem('userWallet');
-    
     const gateTitle = document.getElementById('gateTitle');
     const gateDesc = document.getElementById('gateDesc');
     const btnAction = document.getElementById('btnGateAction');
 
-    if (savedWallet) {
-        // KASUS 1: USER LAMA (SUDAH PERNAH LOGIN)
-        // Tampilkan tombol "Masuk Kembali"
+    // Reset tombol ke kondisi bersih
+    btnAction.onclick = null; 
+
+    if (savedWallet && savedWallet.length > 10) {
+        // --- KASUS 1: USER LAMA (DATA ADA) ---
+        console.log("✅ User lama terdeteksi:", savedWallet);
+        
         const shortAddr = savedWallet.substring(0, 6) + "..." + savedWallet.slice(-4);
         
         gateTitle.innerText = "Selamat Datang Kembali";
-        gateDesc.innerHTML = `Akun terdeteksi: <b>${shortAddr}</b><br>Lanjutkan akses ke dashboard?`;
+        gateTitle.style.color = "#2c3e50"; // Pastikan warna text jelas
         
+        gateDesc.innerHTML = `Akun terdeteksi: <b style="color:#27ae60;">${shortAddr}</b><br>Lanjutkan akses ke dashboard?`;
+        
+        // Ubah tampilan tombol jadi "Masuk"
         btnAction.innerHTML = `<i class="fas fa-sign-in-alt"></i> Masuk Dashboard`;
-        btnAction.className = "btn-gate-connect secondary"; // Ganti warna jadi soft blue
-        btnAction.onclick = function() {
-            enterApp(); // Langsung masuk tanpa popup
-        };
-    } else {
-        // KASUS 2: USER BARU / BELUM LOGIN
-        // Tampilkan tombol "Hubungkan Wallet"
-        gateTitle.innerText = "Selamat Datang";
-        gateDesc.innerHTML = "Di Arsip Digital Galeri<br>Wayang Nusantara";
+        btnAction.className = "btn-gate-connect secondary"; 
         
-        btnAction.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan Wallet`;
-        btnAction.className = "btn-gate-connect primary"; // Warna gelap premium
+        // Aksi: Langsung buka gerbang
         btnAction.onclick = function() {
-            handleFirstLogin(); // Trigger connect metamask
+            enterApp();
+        };
+
+    } else {
+        // --- KASUS 2: USER BARU / BELUM KONEK ---
+        console.log("🔒 User belum login. Gerbang terkunci.");
+
+        gateTitle.innerText = "Akses Ruang Koleksi";
+        gateDesc.innerHTML = "Hubungkan dompet Web3 Anda untuk membuka<br>sertifikat kepemilikan dan data koleksi.";
+        
+        // Ubah tampilan tombol jadi "Hubungkan"
+        btnAction.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan Wallet`;
+        btnAction.className = "btn-gate-connect primary"; 
+        
+        // Aksi: Konek dulu, baru validasi
+        btnAction.onclick = function() {
+            handleFirstLogin();
         };
     }
 }
 
-// Fungsi 1: Masuk langsung (untuk user lama)
+// Fungsi Buka Gerbang (Hanya visual)
 function enterApp() {
     const overlay = document.getElementById('loginOverlay');
     const app = document.getElementById('appContainer');
     
-    // Animasi Transisi Halus
     overlay.classList.add('hidden');
     
     setTimeout(() => {
-        overlay.style.display = 'none'; // Hapus dari layout
-        app.classList.add('visible'); // Munculkan aplikasi utama
+        overlay.style.display = 'none';
+        app.classList.add('visible');
         
-        // Opsional: Refresh data di background agar update
+        // Trigger ulang load data profil untuk memastikan data fresh
         if(typeof window.initGatekeeper === 'function') window.initGatekeeper();
     }, 500);
 }
 
-// Fungsi 2: Login Pertama (Connect MetaMask)
+// Fungsi Login Pertama (KONEK METAMASK)
 async function handleFirstLogin() {
     const btn = document.getElementById('btnGateAction');
     const originalText = btn.innerHTML;
     
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+    // 1. Ubah tombol jadi loading
+    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memproses...`;
+    btn.disabled = true; // Matikan tombol biar gak dipencet 2x
     
-    // Panggil fungsi connectWallet() yang sudah ada di script utama Anda
+    // 2. Cek apakah fungsi connectWallet ada
     if(typeof window.connectWallet === 'function') {
         try {
+            // Panggil fungsi utama
             await window.connectWallet();
-            // Jika sukses, masuk app
-            enterApp();
+            
+            // --- SECURITY CHECK (PENJAGA TEMBOK) ---
+            // Setelah proses connect selesai (await), kita CEK LAGI.
+            // Apakah local storage SUDAH terisi?
+            
+            setTimeout(() => {
+                const checkWallet = localStorage.getItem('userWallet');
+                
+                if (checkWallet) {
+                    // SUKSES: Data ada, buka gerbang
+                    // Reload halaman agar state "Selamat Datang Kembali" aktif sempurna
+                    // Ini praktik terbaik untuk DApp agar data bersih
+                    window.location.reload(); 
+                } else {
+                    // GAGAL: User membatalkan popup MetaMask atau error
+                    console.warn("❌ Login dibatalkan atau gagal.");
+                    alert("Koneksi Gagal atau Dibatalkan. Silakan coba lagi.");
+                    
+                    // Kembalikan tombol
+                    btn.innerHTML = originalText;
+                    btn.disabled = false;
+                }
+            }, 500); // Beri waktu 0.5 detik untuk penulisan storage
+
         } catch(e) {
             console.error(e);
-            alert("Gagal koneksi. Coba lagi.");
             btn.innerHTML = originalText;
+            btn.disabled = false;
         }
     } else {
-        alert("Fungsi connectWallet() tidak ditemukan!");
+        alert("Error: Script Wallet tidak ditemukan!");
+        btn.innerHTML = originalText;
+        btn.disabled = false;
     }
 }
     </script>
