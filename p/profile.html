@@ -14,6 +14,9 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.6.0/css/all.min.css"/>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;600;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
 <style>
       body { font-family: 'Poppins', sans-serif; background-color: #f6f9ff; color: #333; margin: 0; padding: 0; }
         .navbar { background: white; padding: 15px 20px; box-shadow: 0 2px 10px rgba(0,0,0,0.05); display: flex; justify-content: space-between; align-items: center; position: sticky; top: 0; z-index: 100; }
@@ -826,6 +829,52 @@
                 </footer>
     
         <script>
+
+            // ==========================================
+// 1. KONFIGURASI FIREBASE (Punya Anda)
+// ==========================================
+const firebaseConfig = {
+  apiKey: "AIzaSyCn1j8acLWDEVjoO2VB3qeN8rh8qUVBRR8",
+  authDomain: "putramas-cc719.firebaseapp.com",
+  databaseURL: "https://putramas-cc719-default-rtdb.firebaseio.com",
+  projectId: "putramas-cc719",
+  storageBucket: "putramas-cc719.firebasestorage.app",
+  messagingSenderId: "1841157194",
+  appId: "1:1841157194:web:012d80abf7293bd43d02b3",
+  measurementId: "G-38XGWE5H38"
+};
+
+// Inisialisasi Firebase
+firebase.initializeApp(firebaseConfig);
+const auth = firebase.auth();
+const db = firebase.database();
+
+// ==========================================
+// 2. FUNGSI AUTHENTICATION (Jembatan Wallet -> Firebase)
+// ==========================================
+async function loginFirebase(address) {
+    try {
+        // A. Login Anonim ke Firebase (User tidak perlu input email/pass)
+        const userCredential = await auth.signInAnonymously();
+        const user = userCredential.user;
+        
+        console.log("🔥 Firebase Connected! UID:", user.uid);
+
+        // B. Simpan Wallet Address ke Database
+        // Ini mendaftarkan user di database "users"
+        await db.ref('users/' + user.uid).update({
+            walletAddress: address.toLowerCase(),
+            lastLogin: Date.now(),
+            device: navigator.userAgent
+        });
+
+        return true;
+    } catch (error) {
+        console.error("Firebase Auth Error:", error);
+        window.showToast("Gagal koneksi Database: " + error.message, 'error');
+        return false;
+    }
+}
   
 const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
 
@@ -859,6 +908,54 @@ let modalTipCursor = 0;
 let modalUserAddr = null;    
 let isModalFetching = false; 
 
+window.connectWallet = async function() {
+    const btn = document.getElementById("btn-connect"); 
+    const btnBig = document.getElementById("btnLogin"); 
+
+    if (btn && btn.classList.contains("connected")) {
+        toggleWalletModal();
+        return;
+    }
+
+    if (!window.ethereum) return showToast("Install MetaMask Dulu!", 'wolf');
+
+    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
+
+    try {
+        // 1. Connect MetaMask
+        provider = new ethers.providers.Web3Provider(window.ethereum);
+        await provider.send("eth_requestAccounts", []);
+        await switchNetwork();
+
+        signer = provider.getSigner();
+        const address = await signer.getAddress();
+
+        // 2. 🔥 LOGIN KE FIREBASE (AUTO) 🔥
+        const isDbReady = await loginFirebase(address);
+        
+        if (isDbReady) {
+            console.log("✅ Database Siap & Aman!");
+            window.showToast("Database Terhubung!", "success");
+        }
+
+        // 3. Update UI
+        localStorage.setItem('userWallet', address);
+        viewerAddress = address;
+        userAddress = address;
+        
+        await updateModalData(address);
+        await updateModalWalletData(address);
+        updateConnectButtonUI(address);
+        unlockGate(address);
+
+    } catch (err) {
+        console.error("Login Error:", err);
+        showToast("Gagal: " + err.message, 'error');
+        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
+        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
+    }
+};
 
 window.initGatekeeper = async function() {
     if (window.ethereum) {
@@ -925,54 +1022,6 @@ window.updateModalData = async function(addr) {
         }
     } catch (err) {
         console.error("Gagal update modal:", err);
-    }
-};
-
-window.connectWallet = async function() {
-    const btn = document.getElementById("btn-connect"); 
-    const btnBig = document.getElementById("btnLogin"); 
-
-    if (btn && btn.classList.contains("connected")) {
-        toggleWalletModal();
-        if(viewerAddress) updateModalData(viewerAddress);
-        return;
-    }
-
-    if (!window.ethereum) return showToast("Install Metamask Atau EVM Wallet Dulu!", 'wolf');
-
-    if(btn) btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
-    if(btnBig) btnBig.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
-
-    try {
-        provider = new ethers.providers.Web3Provider(window.ethereum);
-        await provider.send("eth_requestAccounts", []);
-        
-        await switchNetwork();
-
-        signer = provider.getSigner();
-        const address = await signer.getAddress();
-
-        localStorage.setItem('userWallet', address);
-        viewerAddress = address;
-        
-        await updateModalData(address);
-        await updateModalWalletData(address);
-        updateConnectButtonUI(address);
-        unlockGate(address);
-
-    } catch (err) {
-        console.error("Login Error:", err);
-        showToast("Gagal koneksi: " + err.message, 'error');
-        if(btn) btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan`;
-        if(btnBig) btnBig.innerHTML = `<i class="fas fa-wallet"></i> Buka Akses`;
-    }
-};
-
-window.updateConnectButtonUI = function(addr) {
-    const btn = document.getElementById("btn-connect");
-    if(btn) {
-        btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-        btn.classList.add("connected");
     }
 };
 
