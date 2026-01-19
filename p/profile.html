@@ -1622,17 +1622,46 @@ window.disconnectWallet = function() {
     window.location.reload();
 };
 
+// --- PERBAIKAN LOGIC MODAL WALLET ---
+
 window.toggleWalletModal = function() {
-        const modal = document.getElementById("walletModalCard");
-        if (modal && modal.classList.contains("active")) {
-            modal.classList.remove("active");
-            setTimeout(() => modal.style.display="none", 200);
-        } else if(modal) {
-            modal.style.display="block";
-            setTimeout(() => modal.classList.add("active"), 10);
-            if(viewerAddress) updateModalWalletData(viewerAddress);
+    // KITA TARGET ID "walletModal" SESUAI HTML ANDA
+    const modal = document.getElementById("walletModal");
+    
+    if (!modal) {
+        console.error("Modal ID 'walletModal' tidak ditemukan di HTML!");
+        return;
+    }
+
+    // Logic Buka/Tutup
+    if (modal.classList.contains("active")) {
+        // Tutup
+        modal.classList.remove("active");
+        setTimeout(() => { 
+            modal.style.display = "none"; 
+        }, 300); // Sesuaikan dengan durasi transisi CSS
+    } else {
+        // Buka
+        modal.style.display = "block"; // Atau "flex" tergantung CSS .modal-overlay
+        // Delay sedikit biar animasi CSS jalan
+        setTimeout(() => { 
+            modal.classList.add("active"); 
+        }, 10);
+        
+        // Update Data saat dibuka
+        if (typeof viewerAddress !== 'undefined' && viewerAddress) {
+            updateModalWalletData(viewerAddress);
         }
-    };
+    }
+};
+
+// Fungsi tutup jika klik area gelap (background)
+window.closeWalletModal = function(e) {
+    // Pastikan yang diklik adalah background overlay (id="walletModal"), bukan kartunya
+    if (e.target.id === "walletModal") {
+        window.toggleWalletModal();
+    }
+};
 
     // Main Unlock Logic (Gabungan Blockchain & Firebase Profile)
     window.unlockGate = function(profileOwnerAddr) {
@@ -1662,12 +1691,6 @@ window.toggleWalletModal = function() {
             setTimeout(() => { if(typeof window.loadGlobalProfile==='function') window.loadGlobalProfile(currentAddress, isOwner); }, 1000);
         }
     };
-
-window.closeWalletModal = function(e) {
-    if (e.target.id === "walletModal") {
-        toggleWalletModal();
-    }
-};
 
 window.copyAddressModal = function() {
     const addr = document.getElementById("modalFullAddress").innerText;
