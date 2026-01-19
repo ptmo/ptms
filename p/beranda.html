@@ -2365,9 +2365,8 @@ window.updateLocalTokens = function(cloudData) {
         // --- INIT ---
         window.onload = async () => {
     // -----------------------------------------------------------
-    // 1. SETUP READ PROVIDER (Untuk User Belum Login)
+    // 1. SETUP READ PROVIDER
     // -----------------------------------------------------------
-    // Provider ini hanya untuk baca data umum (Feed/Kontrak) tanpa login
     if(typeof initTokenManager === 'function') initTokenManager();
             
     const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
@@ -2383,15 +2382,16 @@ window.updateLocalTokens = function(cloudData) {
     if(window.ethereum) {
         try {
             const web3 = new ethers.providers.Web3Provider(window.ethereum);
-            // Cek apakah user pernah connect sebelumnya?
             const accounts = await web3.listAccounts();
             
             if(accounts.length > 0) {
                 const userAddress = accounts[0];
                 console.log("✅ Auto-Login Berhasil:", userAddress);
                 
-                // [CRITICAL] UPDATE VARIABEL GLOBAL
-                // Agar script Firebase & Scan tahu ini wallet siapa
+                // [FIX 1: WAJIB SIMPAN KE STORAGE AGAR TEMBOK TAHU]
+                localStorage.setItem('userWallet', userAddress); 
+                
+                // Update Global Var
                 modalUserAddr = userAddress; 
                 isWalletConnected = true;
 
@@ -2402,58 +2402,49 @@ window.updateLocalTokens = function(cloudData) {
                     btn.classList.add("connected");
                 }
                 
-                // B. Update Data Modal (Teks Address)
+                // B. Update Data Modal
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
                     document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
 
-                // C. Ambil Saldo Utama (ETH)
+                // C. Ambil Saldo
                 const balance = await web3.getBalance(userAddress);
                 if(document.getElementById("modalBalance")) {
                     document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
                 }
 
-                // D. Update Fungsi-Fungsi DApp Lainnya
+                // D. Update Fungsi Lain
                 if(typeof updateSidebarWallet === 'function') updateSidebarWallet(userAddress);
                 if(typeof updateModalWalletData === 'function') updateModalWalletData(userAddress);
                 
-                // -------------------------------------------------------
-                // [PENAMBAHAN PENTING] LOAD DATA DARI FIREBASE CLOUD
-                // -------------------------------------------------------
-                // Kita panggil ini AGAR TOKEN MUNCUL walau cache dihapus
                 if (window.loadTokensFromCloud) {
                     await window.loadTokensFromCloud(userAddress);
                 }
                 loadGlobalFeed();
                 loadUserHistory(userAddress);
 
-                // E. Auto Scan Token (Jalan setelah Cloud selesai)
-                // Memberi jeda sedikit agar UI tidak berat
                 setTimeout(() => {
                     if(typeof autoScanTokens === 'function') autoScanTokens();
                 }, 1000);
+            } else {
+                // Jika tidak ada akun connect, pastikan storage bersih agar tembok terkunci
+                localStorage.removeItem('userWallet');
             }
         } catch(e) { console.error("Auto-login error:", e); }
     }
 
-    // -----------------------------------------------------------
-    // 3. INISIALISASI FITUR LAIN (Feed, Indexer, Manager)
-    // -----------------------------------------------------------
+    // Init fitur lain...
     if(typeof loadFeed === 'function') loadFeed();
     if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
     
-    // -----------------------------------------------------------
-    // 4. INTERVAL UPDATE HARGA REAL-TIME (Looping)
-    // -----------------------------------------------------------
     setInterval(() => {
-        // Hanya update jika user sedang melihat tab browser (Hemat API)
         if (!document.hidden) {
             refreshAllTokenBalances();
         }
     }, 15000);
 
-setTimeout(() => {
+    setTimeout(() => {
         loadPopularSection();
     }, 2000);
 };
@@ -2472,61 +2463,67 @@ async function connectWallet() {
 
     // C. PROSES KONEKSI BARU
     const originalText = btnConnect.innerHTML;
-    btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+    if(btnConnect) btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
 
     try {
         const provider = new ethers.providers.Web3Provider(window.ethereum);
         
-        // 1. Request Akun
+        // 1. Request Akun (Tunggu User Klik Approve)
         await provider.send("eth_requestAccounts", []);
 
         // 2. Cek Network
         const network = await provider.getNetwork();
         if (network.chainId !== CHAIN_ID_DECIMAL) {
             await switchNetwork(); 
-            connectWallet(); 
-            return; 
+            // Jangan panggil connectWallet() lagi di sini, biarkan flow berlanjut atau user klik lagi
+            // connectWallet(); return; <--- HAPUS REKURSI INI BIAR GAK LOOPING
         }
 
-        // 3. Ambil Data User
+        // 3. Ambil Data User (PASTI SUKSES DISINI)
         const signer = provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        // [PERBAIKAN 1]: Update variabel Global dulu!
-        // Agar script lain (seperti autoScan atau Firebase) tahu siapa yang login
+        // [FIX 2: KUNCI UTAMA - SIMPAN KE STORAGE]
+        // Tanpa ini, tembok login tidak akan pernah terbuka!
+        localStorage.setItem('userWallet', userAddress);
+        
         modalUserAddr = userAddress; 
 
-        // 4. Update Tampilan Tombol
-        btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-        btnConnect.classList.add("connected");
+        // 4. Update UI
+        if(btnConnect) {
+            btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
+            btnConnect.classList.add("connected");
+        }
         isWalletConnected = true; 
 
         // 5. Update Data Modal
-        document.getElementById("modalFullAddress").innerText = userAddress;
-        document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        if(document.getElementById("modalFullAddress")) {
+            document.getElementById("modalFullAddress").innerText = userAddress;
+            document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        }
         
         const balance = await provider.getBalance(userAddress);
-        document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
+        if(document.getElementById("modalBalance")) {
+            document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
+        }
         
-        // 6. Tarik Data History & Cloud
+        // 6. Jalankan Fungsi Pendukung
         updateSidebarWallet(userAddress);
         await updateModalWalletData(userAddress);
         
-        // [PERBAIKAN 2]: Panggil Firebase DULUAN sebelum scan
-        // Logikanya: "Ambil catatan lama dulu, baru cari yang baru"
         if (window.loadTokensFromCloud) {
-            // Kita pakai await biar list muncul dulu sebelum auto-scan jalan (opsional)
             await window.loadTokensFromCloud(modalUserAddr);
         }
 
-        // Baru jalankan Auto Scan (untuk cari token yang belum kesimpan)
         autoScanTokens();
 
     } catch (err) { 
         console.error("Koneksi Error:", err);
-        btnConnect.innerHTML = originalText;
+        // Hapus storage jika gagal/cancel biar tembok tetap ngunci
+        localStorage.removeItem('userWallet'); 
+        if(btnConnect) btnConnect.innerHTML = originalText;
     }
-}
+        }
 
 async function switchNetwork() {
     try {
