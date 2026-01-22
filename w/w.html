@@ -1,433 +1,141 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Demo: Secure Spending Wallet</title>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/crypto-js/4.1.1/crypto-js.min.js"></script>
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Classic Multi-Chain Wallet</title>
+  <link rel="stylesheet" href="style.css">
+<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<style>
+    body {
+  font-family: 'Poppins', sans-serif;
+  background: #f4f6f8;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  margin: 0;
+}
 
-    <style>
-        :root {
-            --primary: #d4af37; /* Emas Premium */
-            --bg: #0f172a;      /* Dark Blue */
-            --card: #1e293b;    /* Lighter Dark */
-            --text: #f8fafc;
-        }
+.wallet-container {
+  background: #ffffff;
+  padding: 25px 30px;
+  border-radius: 12px;
+  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
+  width: 360px;
+  text-align: center;
+}
 
-        body {
-            font-family: 'Plus Jakarta Sans', sans-serif;
-            background: var(--bg);
-            color: var(--text);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            min-height: 100vh;
-            margin: 0;
-        }
+.wallet-container h2 {
+  margin-bottom: 20px;
+  font-weight: 600;
+  color: #333;
+}
 
-        .container {
-            width: 100%;
-            max-width: 400px;
-            padding: 20px;
-        }
+button {
+  padding: 10px 15px;
+  margin: 8px 0;
+  border: none;
+  border-radius: 8px;
+  background-color: #4a90e2;
+  color: white;
+  cursor: pointer;
+  font-weight: 500;
+  width: 100%;
+}
 
-        /* Card Style */
-        .wallet-card {
-            background: rgba(30, 41, 59, 0.7);
-            backdrop-filter: blur(12px);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 24px;
-            padding: 25px;
-            box-shadow: 0 20px 50px rgba(0,0,0,0.3);
-            overflow: hidden;
-            position: relative;
-            transition: all 0.3s ease;
-        }
+button:hover {
+  background-color: #357ab8;
+}
 
-        /* Header */
-        .header {
-            text-align: center;
-            margin-bottom: 25px;
-        }
-        .header h2 { margin: 0; font-weight: 700; color: var(--primary); }
-        .header p { margin: 5px 0 0; font-size: 12px; color: #94a3b8; }
+input, select {
+  width: 100%;
+  padding: 8px 10px;
+  margin: 6px 0;
+  border: 1px solid #ccc;
+  border-radius: 8px;
+  box-sizing: border-box;
+}
 
-        /* Input PIN */
-        .pin-display {
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            margin: 20px 0;
-        }
-        .pin-dot {
-            width: 15px; height: 15px;
-            border-radius: 50%;
-            border: 2px solid var(--primary);
-            transition: 0.2s;
-        }
-        .pin-dot.filled { background: var(--primary); }
-
-        /* Keypad */
-        .keypad {
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 15px;
-        }
-        .key-btn {
-            background: rgba(255,255,255,0.05);
-            border: none;
-            color: white;
-            font-size: 18px;
-            padding: 15px;
-            border-radius: 12px;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        .key-btn:hover { background: rgba(255,255,255,0.1); }
-        .key-btn:active { transform: scale(0.95); }
-
-        /* State Views */
-        .view-section { display: none; animation: fadeIn 0.4s ease; }
-        .view-section.active { display: block; }
-
-        /* Balance View */
-        .balance-box {
-            text-align: center;
-            padding: 20px;
-            background: linear-gradient(135deg, #d4af37, #b49321);
-            border-radius: 16px;
-            color: #0f172a;
-            margin-bottom: 20px;
-            box-shadow: 0 10px 20px rgba(212, 175, 55, 0.2);
-        }
-        .balance-val { font-size: 32px; font-weight: 800; }
-        .balance-lbl { font-size: 12px; font-weight: 600; opacity: 0.8; }
-
-        .address-pill {
-            background: rgba(0,0,0,0.2);
-            padding: 8px 12px;
-            border-radius: 50px;
-            font-family: monospace;
-            font-size: 12px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            cursor: pointer;
-            margin-bottom: 20px;
-        }
-
-        .action-grid { display: flex; gap: 10px; }
-        .action-btn {
-            flex: 1;
-            padding: 12px;
-            border: 1px solid rgba(255,255,255,0.2);
-            background: transparent;
-            color: white;
-            border-radius: 12px;
-            cursor: pointer;
-            font-size: 12px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 5px;
-        }
-        .action-btn:hover { background: rgba(255,255,255,0.05); }
-
-        /* Logs */
-        .debug-log {
-            margin-top: 20px;
-            font-size: 10px;
-            color: #64748b;
-            font-family: monospace;
-            background: #000;
-            padding: 10px;
-            border-radius: 8px;
-            word-break: break-all;
-            display: none; /* Hidden by default */
-        }
-
-        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
-    </style>
+p {
+  font-size: 14px;
+  word-break: break-all;
+  text-align: left;
+}
+</style>
 </head>
 <body>
+  <div class="wallet-container">
+    <h2>Classic Multi-Chain Wallet</h2>
 
-<div class="container">
-    
-    <div id="viewCreate" class="wallet-card view-section">
-        <div class="header">
-            <i class="fas fa-shield-alt" style="font-size: 40px; color:var(--primary); margin-bottom:10px;"></i>
-            <h2>Buat Dompet Kilat</h2>
-            <p>Buat PIN 6 Angka untuk mengamankan dompet lokal Anda.</p>
-        </div>
-        
-        <div class="pin-display" id="dotsCreate">
-            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-        </div>
+    <button id="createWalletBtn">Buat Wallet Baru</button>
+    <button id="importWalletBtn">Import Wallet (Mnemonic)</button>
 
-        <div class="keypad" id="padCreate">
-            </div>
+    <div id="walletInfo" style="display:none;">
+      <p><strong>Address:</strong> <span id="walletAddress"></span></p>
+      <p><strong>Private Key:</strong> <span id="walletPrivateKey"></span></p>
+
+      <label for="network">Pilih Network:</label>
+      <select id="network">
+        <option value="ethereum">Ethereum Mainnet</option>
+        <option value="bsc">BNB Smart Chain</option>
+        <option value="polygon">Polygon</option>
+      </select>
+
+      <input type="text" id="recipient" placeholder="Alamat tujuan">
+      <input type="text" id="amount" placeholder="Jumlah Token (native)">
+      <button id="sendBtn">Kirim</button>
     </div>
+  </div>
 
-    <div id="viewUnlock" class="wallet-card view-section">
-        <div class="header">
-            <i class="fas fa-lock" style="font-size: 40px; color:#ef4444; margin-bottom:10px;"></i>
-            <h2>Dompet Terkunci</h2>
-            <p>Masukkan PIN Anda untuk membuka.</p>
-        </div>
+  <script src="ethers.min.js"></script>
+  <script>
+      let wallet;
 
-        <div class="pin-display" id="dotsUnlock">
-            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-            <div class="pin-dot"></div><div class="pin-dot"></div><div class="pin-dot"></div>
-        </div>
-
-        <div class="keypad" id="padUnlock"></div>
-        
-        <div style="text-align:center; margin-top:20px;">
-            <button onclick="SpendingWallet.reset()" style="background:none; border:none; color:#ef4444; font-size:11px; cursor:pointer;">Lupa PIN? Hapus Dompet</button>
-        </div>
-    </div>
-
-    <div id="viewDashboard" class="wallet-card view-section">
-        <div class="header" style="text-align:left; display:flex; justify-content:space-between; align-items:center;">
-            <div>
-                <h2 style="font-size:16px;">Spending Wallet</h2>
-                <p style="color:#22c55e;">● Online & Ready</p>
-            </div>
-            <button onclick="logout()" style="background:none; border:none; color:#94a3b8; cursor:pointer;"><i class="fas fa-sign-out-alt"></i></button>
-        </div>
-
-        <div class="balance-box">
-            <div class="balance-lbl">Saldo Aktif</div>
-            <div class="balance-val" id="uiBalance">0.0000</div>
-            <div class="balance-lbl">ETH</div>
-        </div>
-
-        <div class="address-pill" onclick="copyAddr()">
-            <span id="uiAddress">0x...</span>
-            <i class="far fa-copy"></i>
-        </div>
-
-        <div class="action-grid">
-            <button class="action-btn" onclick="simulasiTopup()">
-                <i class="fas fa-arrow-down"></i> Top Up
-            </button>
-            <button class="action-btn" onclick="simulasiSawer()">
-                <i class="fas fa-paper-plane"></i> Sawer
-            </button>
-            <button class="action-btn" onclick="toggleLog()">
-                <i class="fas fa-code"></i> Debug
-            </button>
-        </div>
-
-        <div id="debugArea" class="debug-log">
-            <strong>ENCRYPTED DATA (IN STORAGE):</strong><br>
-            <span id="logEncrypted">...</span>
-        </div>
-    </div>
-
-</div>
-
-<script>
-/**
- * MODUL SPENDING WALLET (Logic Inti)
- */
-const SpendingWallet = {
-    STORAGE_KEY: "DEMO_WALLET_V1",
-    activeWallet: null, // Wallet object (Decrypted)
-
-    // Cek apakah ada data tersimpan
-    hasWallet: function() {
-        return localStorage.getItem(this.STORAGE_KEY) !== null;
-    },
-
-    // 1. Buat Wallet Baru
-    create: async function(pin) {
-        console.log("⚙️ Generating new wallet...");
-        const randomWallet = ethers.Wallet.createRandom();
-        
-        console.log("🔒 Encrypting with PIN...");
-        // Enkripsi Private Key dengan PIN
-        const encrypted = CryptoJS.AES.encrypt(randomWallet.privateKey, pin).toString();
-        
-        localStorage.setItem(this.STORAGE_KEY, encrypted);
-        this.activeWallet = randomWallet;
-        return randomWallet;
-    },
-
-    // 2. Buka Wallet (Decrypt)
-    unlock: async function(pin) {
-        const encrypted = localStorage.getItem(this.STORAGE_KEY);
-        if(!encrypted) throw new Error("No wallet found");
-
-        try {
-            const bytes = CryptoJS.AES.decrypt(encrypted, pin);
-            const privateKey = bytes.toString(CryptoJS.enc.Utf8);
-            
-            if(!privateKey || !privateKey.startsWith("0x")) throw new Error("Wrong PIN");
-            
-            this.activeWallet = new ethers.Wallet(privateKey);
-            return this.activeWallet;
-        } catch(e) {
-            throw new Error("PIN Salah!");
-        }
-    },
-
-    // 3. Hapus
-    reset: function() {
-        if(confirm("Yakin hapus dompet? Saldo akan hilang permanen!")) {
-            localStorage.removeItem(this.STORAGE_KEY);
-            location.reload();
-        }
-    }
+const networkRPC = {
+  ethereum: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY",
+  bsc: "https://bsc-dataseed.binance.org/",
+  polygon: "https://polygon-rpc.com/"
 };
 
-/**
- * LOGIC UI & INTERAKSI
- */
-let currentInput = "";
-let mode = ""; // 'CREATE' or 'UNLOCK'
+document.getElementById('createWalletBtn').onclick = () => {
+  wallet = ethers.Wallet.createRandom();
+  showWalletInfo();
+};
 
-function initApp() {
-    if(SpendingWallet.hasWallet()) {
-        switchView('viewUnlock');
-        setupKeypad('padUnlock', 'dotsUnlock', 'UNLOCK');
-    } else {
-        switchView('viewCreate');
-        setupKeypad('padCreate', 'dotsCreate', 'CREATE');
-    }
+document.getElementById('importWalletBtn').onclick = () => {
+  const mnemonic = prompt("Masukkan mnemonic (12 kata):");
+  if (ethers.utils.isValidMnemonic(mnemonic)) {
+    wallet = ethers.Wallet.fromMnemonic(mnemonic);
+    showWalletInfo();
+  } else alert("Mnemonic tidak valid!");
+};
+
+function showWalletInfo() {
+  document.getElementById('walletInfo').style.display = "block";
+  document.getElementById('walletAddress').innerText = wallet.address;
+  document.getElementById('walletPrivateKey').innerText = wallet.privateKey;
 }
 
-function switchView(id) {
-    document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-    document.getElementById(id).classList.add('active');
-    currentInput = ""; // Reset input saat pindah layar
-    updateDots('dotsCreate'); 
-    updateDots('dotsUnlock');
-}
+document.getElementById('sendBtn').onclick = async () => {
+  const recipient = document.getElementById('recipient').value;
+  const amount = document.getElementById('amount').value;
+  const network = document.getElementById('network').value;
 
-// Render Keypad Angka
-function setupKeypad(containerId, dotsId, currentMode) {
-    const container = document.getElementById(containerId);
-    container.innerHTML = "";
-    
-    [1,2,3,4,5,6,7,8,9,0].forEach(num => {
-        const btn = document.createElement('button');
-        btn.className = 'key-btn';
-        btn.innerText = num;
-        btn.onclick = () => handleInput(num, dotsId, currentMode);
-        
-        // Urutkan 0 di akhir grid
-        if(num === 0) btn.style.gridColumn = "2";
-        container.appendChild(btn);
+  const rpc = networkRPC[network];
+  const provider = new ethers.providers.JsonRpcProvider(rpc);
+  const signer = wallet.connect(provider);
+
+  try {
+    const tx = await signer.sendTransaction({
+      to: recipient,
+      value: ethers.utils.parseEther(amount)
     });
-}
-
-// Handle Ketikan PIN
-async function handleInput(num, dotsId, currentMode) {
-    if(currentInput.length < 6) {
-        currentInput += num;
-        updateDots(dotsId);
-        
-        if(currentInput.length === 6) {
-            // PIN Lengkap, Proses...
-            await processPin(currentMode);
-        }
-    }
-}
-
-function updateDots(dotsId) {
-    const container = document.getElementById(dotsId);
-    const dots = container.querySelectorAll('.pin-dot');
-    dots.forEach((dot, idx) => {
-        if(idx < currentInput.length) dot.classList.add('filled');
-        else dot.classList.remove('filled');
-    });
-}
-
-async function processPin(actionMode) {
-    const loadingHtml = `<i class="fas fa-circle-notch fa-spin"></i> Processing...`;
-    
-    // Delay sebentar biar animasi dot selesai
-    setTimeout(async () => {
-        try {
-            if(actionMode === 'CREATE') {
-                await SpendingWallet.create(currentInput);
-                alert("Dompet Dibuat! Private Key Anda telah dienkripsi.");
-                openDashboard();
-            } 
-            else if(actionMode === 'UNLOCK') {
-                await SpendingWallet.unlock(currentInput);
-                openDashboard();
-            }
-        } catch(e) {
-            alert(e.message);
-            currentInput = "";
-            updateDots(actionMode === 'CREATE' ? 'dotsCreate' : 'dotsUnlock');
-        }
-    }, 100);
-}
-
-function openDashboard() {
-    switchView('viewDashboard');
-    const wallet = SpendingWallet.activeWallet;
-    
-    // Tampilkan Data
-    document.getElementById("uiAddress").innerText = wallet.address.substring(0,10) + "..." + wallet.address.substring(38);
-    
-    // Tampilkan Encrypted String (Untuk Demo)
-    const encrypted = localStorage.getItem(SpendingWallet.STORAGE_KEY);
-    document.getElementById("logEncrypted").innerText = encrypted.substring(0, 50) + "... (Panjang)";
-}
-
-function logout() {
-    SpendingWallet.activeWallet = null;
-    location.reload();
-}
-
-function toggleLog() {
-    const el = document.getElementById("debugArea");
-    el.style.display = el.style.display === "block" ? "none" : "block";
-}
-
-// Simulasi Saldo (Karena ini demo tanpa RPC asli)
-let mockBalance = 0.0000;
-
-function simulasiTopup() {
-    const amt = prompt("Simulasi kirim ETH dari Main Wallet. Masukkan jumlah:", "0.01");
-    if(amt) {
-        mockBalance += parseFloat(amt);
-        document.getElementById("uiBalance").innerText = mockBalance.toFixed(4);
-        alert("Topup Berhasil! (Simulasi Local)");
-    }
-}
-
-function simulasiSawer() {
-    if(mockBalance <= 0) return alert("Saldo Kosong! Topup dulu.");
-    
-    const amt = 0.001;
-    if(confirm(`Kirim Saweran ${amt} ETH? (Tanpa Popup MetaMask)`)) {
-        mockBalance -= amt;
-        document.getElementById("uiBalance").innerText = mockBalance.toFixed(4);
-        
-        // Di sini harusnya: await SpendingWallet.activeWallet.sendTransaction(...)
-        alert("✅ SUKSES! Transaksi dikirim via Spending Wallet.\n(Tanpa konfirmasi MetaMask)");
-    }
-}
-
-function copyAddr() {
-    navigator.clipboard.writeText(SpendingWallet.activeWallet.address);
-    alert("Copied!");
-}
-
-// Start
-initApp();
-
-</script>
-
+    alert(`Transaction sent on ${network}!\nHash: ${tx.hash}`);
+  } catch (err) {
+    alert("Error: " + err.message);
+  }
+};
+  </script>
 </body>
 </html>
