@@ -1,141 +1,131 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Classic Multi-Chain Wallet</title>
-  <link rel="stylesheet" href="style.css">
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.umd.min.js"></script>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Multi-Chain EVM Wallet</title>
+<link rel="stylesheet" href="style.css">
 <style>
-    body {
-  font-family: 'Poppins', sans-serif;
-  background: #f4f6f8;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  margin: 0;
+  body {
+    font-family: 'Poppins', sans-serif;
+    background: #f2f4f7;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    height: 100vh;
 }
 
 .wallet-container {
-  background: #ffffff;
-  padding: 25px 30px;
-  border-radius: 12px;
-  box-shadow: 0 8px 25px rgba(0,0,0,0.15);
-  width: 360px;
-  text-align: center;
+    background: #fff;
+    padding: 30px;
+    border-radius: 15px;
+    box-shadow: 0 5px 20px rgba(0,0,0,0.1);
+    width: 350px;
+    text-align: center;
 }
 
-.wallet-container h2 {
-  margin-bottom: 20px;
-  font-weight: 600;
-  color: #333;
+.wallet-status p {
+    margin: 10px 0;
+    font-size: 14px;
+}
+
+.wallet-actions {
+    margin-top: 20px;
+}
+
+button, select {
+    padding: 10px 15px;
+    margin: 5px;
+    border-radius: 8px;
+    border: none;
+    cursor: pointer;
+    font-weight: 600;
 }
 
 button {
-  padding: 10px 15px;
-  margin: 8px 0;
-  border: none;
-  border-radius: 8px;
-  background-color: #4a90e2;
-  color: white;
-  cursor: pointer;
-  font-weight: 500;
-  width: 100%;
+    background: #4a90e2;
+    color: white;
 }
 
 button:hover {
-  background-color: #357ab8;
+    background: #357ABD;
 }
 
-input, select {
-  width: 100%;
-  padding: 8px 10px;
-  margin: 6px 0;
-  border: 1px solid #ccc;
-  border-radius: 8px;
-  box-sizing: border-box;
-}
-
-p {
-  font-size: 14px;
-  word-break: break-all;
-  text-align: left;
+select {
+    border: 1px solid #ccc;
 }
 </style>
 </head>
 <body>
-  <div class="wallet-container">
-    <h2>Classic Multi-Chain Wallet</h2>
-
-    <button id="createWalletBtn">Buat Wallet Baru</button>
-    <button id="importWalletBtn">Import Wallet (Mnemonic)</button>
-
-    <div id="walletInfo" style="display:none;">
-      <p><strong>Address:</strong> <span id="walletAddress"></span></p>
-      <p><strong>Private Key:</strong> <span id="walletPrivateKey"></span></p>
-
-      <label for="network">Pilih Network:</label>
-      <select id="network">
-        <option value="ethereum">Ethereum Mainnet</option>
-        <option value="bsc">BNB Smart Chain</option>
-        <option value="polygon">Polygon</option>
-      </select>
-
-      <input type="text" id="recipient" placeholder="Alamat tujuan">
-      <input type="text" id="amount" placeholder="Jumlah Token (native)">
-      <button id="sendBtn">Kirim</button>
+<div class="wallet-container">
+    <h1>Multi-Chain EVM Wallet</h1>
+    <div class="wallet-status">
+        <p>Status: <span id="status">Disconnected</span></p>
+        <p>Network: <span id="network">-</span></p>
+        <p>Address: <span id="address">-</span></p>
+        <p>Balance: <span id="balance">-</span></p>
     </div>
-  </div>
+    <div class="wallet-actions">
+        <button id="connectBtn">Connect Wallet</button>
+        <select id="networkSelect">
+            <option value="1">Ethereum Mainnet</option>
+            <option value="56">BSC Mainnet</option>
+            <option value="137">Polygon Mainnet</option>
+        </select>
+        <button id="switchBtn">Switch Network</button>
+    </div>
+</div>
+<script>
+  const connectBtn = document.getElementById("connectBtn");
+const switchBtn = document.getElementById("switchBtn");
+const networkSelect = document.getElementById("networkSelect");
+const statusEl = document.getElementById("status");
+const addressEl = document.getElementById("address");
+const balanceEl = document.getElementById("balance");
+const networkEl = document.getElementById("network");
 
-  <script src="ethers.min.js"></script>
-  <script>
-      let wallet;
+let provider;
+let signer;
 
-const networkRPC = {
-  ethereum: "https://mainnet.infura.io/v3/YOUR_INFURA_KEY",
-  bsc: "https://bsc-dataseed.binance.org/",
-  polygon: "https://polygon-rpc.com/"
-};
-
-document.getElementById('createWalletBtn').onclick = () => {
-  wallet = ethers.Wallet.createRandom();
-  showWalletInfo();
-};
-
-document.getElementById('importWalletBtn').onclick = () => {
-  const mnemonic = prompt("Masukkan mnemonic (12 kata):");
-  if (ethers.utils.isValidMnemonic(mnemonic)) {
-    wallet = ethers.Wallet.fromMnemonic(mnemonic);
-    showWalletInfo();
-  } else alert("Mnemonic tidak valid!");
-};
-
-function showWalletInfo() {
-  document.getElementById('walletInfo').style.display = "block";
-  document.getElementById('walletAddress').innerText = wallet.address;
-  document.getElementById('walletPrivateKey').innerText = wallet.privateKey;
+async function connectWallet() {
+    if (window.ethereum) {
+        try {
+            await window.ethereum.request({ method: 'eth_requestAccounts' });
+            provider = new ethers.providers.Web3Provider(window.ethereum);
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
+            addressEl.innerText = address;
+            statusEl.innerText = "Connected";
+            const network = await provider.getNetwork();
+            networkEl.innerText = network.name;
+            const balance = await provider.getBalance(address);
+            balanceEl.innerText = ethers.utils.formatEther(balance) + " ETH";
+        } catch (err) {
+            console.error(err);
+            alert("Gagal connect wallet");
+        }
+    } else {
+        alert("Install MetaMask atau wallet EVM lain dulu bro!");
+    }
 }
 
-document.getElementById('sendBtn').onclick = async () => {
-  const recipient = document.getElementById('recipient').value;
-  const amount = document.getElementById('amount').value;
-  const network = document.getElementById('network').value;
+async function switchNetwork() {
+    const chainId = "0x" + parseInt(networkSelect.value).toString(16);
+    try {
+        await window.ethereum.request({
+            method: 'wallet_switchEthereumChain',
+            params: [{ chainId }],
+        });
+        const network = await provider.getNetwork();
+        networkEl.innerText = network.name;
+    } catch (err) {
+        console.error(err);
+        alert("Gagal switch network");
+    }
+}
 
-  const rpc = networkRPC[network];
-  const provider = new ethers.providers.JsonRpcProvider(rpc);
-  const signer = wallet.connect(provider);
-
-  try {
-    const tx = await signer.sendTransaction({
-      to: recipient,
-      value: ethers.utils.parseEther(amount)
-    });
-    alert(`Transaction sent on ${network}!\nHash: ${tx.hash}`);
-  } catch (err) {
-    alert("Error: " + err.message);
-  }
-};
-  </script>
+connectBtn.addEventListener("click", connectWallet);
+switchBtn.addEventListener("click", switchNetwork);
+</script>
 </body>
 </html>
