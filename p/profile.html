@@ -1450,7 +1450,7 @@ let toastTimeout;
 let profileGlobalIds = [];
 let profileOffset = 0;
 let isProfileFetching = false;
-const PROFILE_BATCH_SIZE = 12;
+const PROFILE_BATCH_SIZE = 10;
 let tipCursor = 0;        
 let tipTargetAddr = null;
 let isTipLoading = false;
@@ -1821,15 +1821,16 @@ window.loadBatchTips = async function(batchSize) {
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // LOGIKA BARU: Hitung index berhenti
-    // Misal: Cursor 1, Batch 5 -> Stop di 1 - 5 + 1 = -3 -> Max(0, -3) = 0.
-    // Jadi loop: i = 1, i >= 0 (Jalan 2 kali: index 1 dan 0). Benar.
+    // LOGIKA HITUNGAN YANG BENAR (Inclusive)
+    // Jika tipCursor = 1 (Total 2 item: index 0 & 1)
+    // batchSize = 5
+    // end = 1 - 5 + 1 = -3. Math.max(0, -3) = 0.
+    // Loop: i=1, i=0. (Akan merender 2 item). BENAR.
     let end = Math.max(0, tipCursor - batchSize + 1);
 
     let htmlBuffer = "";
-    let animCount = 0; 
 
-    // Loop dari Cursor (Terbaru) sampai End (Terlama di batch ini)
+    // Loop Mundur
     for (let i = tipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(tipTargetAddr, i);
@@ -1838,41 +1839,38 @@ window.loadBatchTips = async function(batchSize) {
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const dateObj = new Date(tip.timestamp * 1000); 
             const dateStr = dateObj.toLocaleDateString("id-ID", { day: 'numeric', month: 'short', year: '2-digit' });
+            const msg = tip.message || "Tanpa pesan";
 
             htmlBuffer += `
-            <div class="tip-card" style="animation-delay: ${animCount * 0.1}s;">
+            <div class="tip-card" style="animation: fadeIn 0.5s ease;">
                 <div class="tip-header">
-                    <span style="display:flex; align-items:center; gap:6px; background:#f6f9ff; padding:4px 8px; border: 1px solid #7385a5; border-radius:10px; box-shadow:0 1px 4px rgba(115,133,165,0.15);">
-                    <i class="fas fa-user-circle" style="color:#7385a5;"></i> 
-                    <span style="font-weight:600; color:#555;">${senderShort}</span>
+                    <span style="display:flex; align-items:center; gap:6px; background:#f6f9ff; padding:4px 8px; border: 1px solid #7385a5; border-radius:10px;">
+                        <i class="fas fa-user-circle" style="color:#7385a5;"></i> 
+                        <span style="font-weight:600; color:#555;">${senderShort}</span>
                     </span>
-                    <span style="font-size:11px;">${dateStr}</span>
+                    <span style="font-size:11px; color:#888;">${dateStr}</span>
                 </div>
                 <div class="tip-amount">
-                    <i class="fas fa-gift" style="color:#7385a5;"></i> <p style="color:#555;"> Dukung:</p> <span style="color:#27ae60;">${amount} ETH</span>
+                    <i class="fas fa-gift" style="color:#7385a5;"></i> <span style="color:#555; font-size:12px;">Sawer:</span> <span style="color:#27ae60; font-weight:bold;">${amount} ETH</span>
                 </div>
-                <div class="tip-message">
-                    "${tip.message}"
+                <div class="tip-message" style="font-style:italic; color:#444;">
+                    "${msg}"
                 </div>
             </div>`;
-            
-            animCount++;
-
         } catch (e) {
-            console.error("Skip index", i);
+            console.error("Skip tip index", i);
         }
     }
 
     container.insertAdjacentHTML('beforeend', htmlBuffer);
 
-    // Update Cursor untuk next load
+    // Update kursor untuk load berikutnya
     tipCursor = end - 1; 
     
     isTipLoading = false;
     btn.innerHTML = originalBtnText;
 
-    // Cek apakah data HABIS?
-    // Jika tipCursor jadi -1, artinya semua data (sampai index 0) sudah diload.
+    // Tombol Load More hanya muncul jika masih ada sisa data (index >= 0)
     if (tipCursor >= 0) {
         loadMoreBox.style.display = 'block';
     } else {
@@ -1950,60 +1948,61 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
+    // Cek apakah data sudah habis
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Loader Bawah
-    let bottomLoader = null;
-    if (profileOffset > 0) {
+    // Tampilkan Loader Kecil di Bawah jika sedang scroll
+    let bottomLoader = document.getElementById("bottomLoader");
+    if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
+        bottomLoader.id = "bottomLoader";
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat ${PROFILE_BATCH_SIZE} data berikutnya...`;
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Batch ID
+    // AMBIL BATCH (Potong Array ID)
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
+    // Gunakan Provider yang ada atau buat baru
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Fetch Paralel
+    // EKSEKUSI PARALEL (Ambil semua metadata sekaligus)
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri);
-            // Return Object Valid
+            const meta = await fetchMetadata(uri); // Fungsi baru yang kebal error
             return { id: id.toString(), meta: meta }; 
         } catch (e) { 
-            // Return Null jika gagal fetch
-            return null; 
+            // Fallback Level Terakhir (Jika Blockchain Error)
+            return { id: id.toString(), meta: { name: `ID #${id}`, image: "img/error.jpg" } }; 
         }
     });
 
+    // Tunggu semua selesai
     const results = await Promise.all(promises);
 
+    // Hapus Loader Bawah
     if (bottomLoader) bottomLoader.remove();
 
-    // PERBAIKAN: Filter dulu yang valid, baru render
-    const validItems = results.filter(item => item !== null);
-    
-    validItems.forEach(item => {
-        // Cek duplikasi render biar gak dobel
-        // (Asumsi renderCard tidak punya ID unik di div wrapper, tapi aman karena kita clear container di awal loadDataCepat)
-        renderCard(item.id, item.meta.name, item.meta.image, container);
+    // RENDER SEMUA HASIL (Tanpa Filter Null)
+    results.forEach(item => {
+        if(item && item.meta) {
+            renderCard(item.id, item.meta.name, item.meta.image, container);
+        }
     });
 
+    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-fill (Recursive) jika data valid sedikit tapi scroll masih panjang
-    // Ini memperbaiki masalah "Cuma muncul dikit padahal data banyak"
-    if (validItems.length < 5 && profileOffset < profileGlobalIds.length) {
-         loadNextProfileBatch();
-    } else if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
+    // --- LOGIKA UNLIMITED (AUTO FILL SCREEN) ---
+    // Jika layar PC besar dan data belum memenuhi layar, otomatis load lagi
+    if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
          loadNextProfileBatch();
     }
 };
@@ -2014,43 +2013,50 @@ window.handleProfileScroll = function() {
     }
 };
 
+// --- FUNGSI METADATA KEBAL ERROR (ANTI HILANG) ---
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    
+    // Daftar Gateway Cadangan (Load Balancer Manual)
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
+        "https://ipfs.io/ipfs/",
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://cloudflare-ipfs.com/ipfs/"
+    ];
+
+    // Helper pembersih URL
+    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+
     try {
-        const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
+        const cid = cleanURI(tokenURI);
+        // Coba Gateway Utama (Timeout 5 detik)
+        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
         
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
-        
+        if (!response.ok) throw new Error("Gateway Utama Timeout");
         const json = await response.json();
-        
-        let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
+
+        // Proses Gambar (Cari yang valid)
+        let rawImg = json.image || json.image_url || "";
+        let finalImg = "img/placeholder.jpg"; // Gambar default jika kosong
+
+        if (rawImg) {
+            const imgCid = cleanURI(rawImg);
+            // Gunakan Weserv lewat Cloudflare agar super cepat & cache
+            const publicSource = `https://cloudflare-ipfs.com/ipfs/${imgCid}`;
+            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
         }
 
         return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
+            name: json.name || `Wayang #${cid.substring(0, 4)}`, 
+            image: finalImg 
         };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
 
-        try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
-        }
+    } catch (e) {
+        // JANGAN RETURN NULL! Return Placeholder agar kartu tetap muncul
+        console.warn("Metadata skip:", tokenURI);
+        return { 
+            name: "Wayang #" + tokenURI.substring(tokenURI.length - 4), 
+            image: "https://placehold.co/400x500/eee/999?text=Gagal+Muat" // Atau path ke img/error.jpg lokal Anda
+        };
     }
 };
 
