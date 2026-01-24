@@ -1662,34 +1662,49 @@ window.closeWalletModal = function(e) {
     }
 };
 
-    // Main Unlock Logic (Gabungan Blockchain & Firebase Profile)
-    window.unlockGate = function(profileOwnerAddr) {
-        currentAddress = profileOwnerAddr;
-        
-        document.getElementById("loginSection").style.display = "none";
-        document.getElementById("mainContent").style.display = "block";
-        
-        // Load data koleksi (Blockchain)
-        loadDataCepat(currentAddress);
-        loadTipData(currentAddress);
+ // Main Unlock Logic (Gabungan Blockchain & Firebase Profile)
+window.unlockGate = function(profileOwnerAddr) {
+    // 1. Set Address Target
+    currentAddress = profileOwnerAddr;
+    
+    // 2. Buka Gerbang (Hide Login / Show Main)
+    const loginSec = document.getElementById("loginSection");
+    const mainSec = document.getElementById("mainContent");
+    if(loginSec) loginSec.style.display = "none";
+    if(mainSec) mainSec.style.display = "block";
+    
+    // 3. Update UI Dasar (Supaya Header tidak kosong saat loading Firebase)
+    if (typeof updateProfileUI === 'function') {
+        updateProfileUI(currentAddress);
+    }
 
-        if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
-        window.userAddress = viewerAddress; // Set global var untuk script Firebase
+    // 4. Load Data Blockchain (Koleksi & Saweran)
+    loadDataCepat(currentAddress);
+    loadTipData(currentAddress);
 
-        let isOwner = false;
-        if (viewerAddress && currentAddress) {
-            isOwner = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
-        }
+    // 5. Cek Viewer (Siapa yang sedang melihat)
+    if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
+    window.userAddress = viewerAddress; // Set global var untuk script Firebase
 
-        // PANGGIL SCRIPT FIREBASE MODULE
-        if (typeof window.loadGlobalProfile === 'function') {
-            console.log("🚀 Loading Profile Data...");
-            window.loadGlobalProfile(currentAddress, isOwner);
-        } else {
-            console.warn("Script Profile belum siap, coba lagi...");
-            setTimeout(() => { if(typeof window.loadGlobalProfile==='function') window.loadGlobalProfile(currentAddress, isOwner); }, 1000);
-        }
-    };
+    let isOwner = false;
+    if (viewerAddress && currentAddress) {
+        isOwner = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+    }
+
+    // 6. PANGGIL SCRIPT FIREBASE MODULE (Konfigurasi Profil)
+    if (typeof window.loadGlobalProfile === 'function') {
+        console.log("🚀 [Firebase] Loading Profile Data...");
+        window.loadGlobalProfile(currentAddress, isOwner);
+    } else {
+        // Retry Logic jika script firebase belum termuat
+        console.warn("⚠️ Script Profile belum siap, mencoba lagi...");
+        setTimeout(() => { 
+            if(typeof window.loadGlobalProfile === 'function') {
+                window.loadGlobalProfile(currentAddress, isOwner); 
+            }
+        }, 1000);
+    }
+};   
 
 window.copyAddressModal = function() {
     const addr = document.getElementById("modalFullAddress").innerText;
@@ -1703,41 +1718,6 @@ window.copyAddressModal = function() {
             }
            showToast("Alamat Wallet Disalin!", 'success'); 
         });
-    }
-};
-
-window.unlockGate = function(profileOwnerAddr) {
-    currentAddress = profileOwnerAddr;
-
-    const loginSec = document.getElementById("loginSection");
-    const mainSec = document.getElementById("mainContent");
-    if(loginSec) loginSec.style.display = "none";
-    if(mainSec) mainSec.style.display = "block";
-
-    updateProfileUI(currentAddress);
-    loadDataCepat(currentAddress);
-    loadTipData(currentAddress);
-
-    if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
-    
-    window.userAddress = viewerAddress; 
-
-    let isOwner = false;
-    if (viewerAddress && currentAddress) {
-        isOwner = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
-    }
-
-    console.log("🔍 [INIT] Viewer:", viewerAddress, "| Target:", currentAddress);
-
-    if (typeof window.loadGlobalProfile === 'function') {
-        window.loadGlobalProfile(currentAddress, isOwner);
-    } else {
-        console.warn("⚠️ frpro.js belum termuat sempurna, mencoba lagi dalam 1 detik...");
-        setTimeout(() => {
-             if (typeof window.loadGlobalProfile === 'function') {
-                window.loadGlobalProfile(currentAddress, isOwner);
-             }
-        }, 1000);
     }
 };
 
