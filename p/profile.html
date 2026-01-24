@@ -1821,16 +1821,19 @@ window.loadBatchTips = async function(batchSize) {
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    let end = tipCursor - batchSize + 1;
-    if (end < 0) end = 0;
+    // LOGIKA BARU: Hitung index berhenti
+    // Misal: Cursor 1, Batch 5 -> Stop di 1 - 5 + 1 = -3 -> Max(0, -3) = 0.
+    // Jadi loop: i = 1, i >= 0 (Jalan 2 kali: index 1 dan 0). Benar.
+    let end = Math.max(0, tipCursor - batchSize + 1);
 
     let htmlBuffer = "";
-
     let animCount = 0; 
 
+    // Loop dari Cursor (Terbaru) sampai End (Terlama di batch ini)
     for (let i = tipCursor; i >= end; i--) {
         try {
             const tip = await contract.getTipByIndex(tipTargetAddr, i);
+            
             const senderShort = tip.sender.substring(0,6) + "..." + tip.sender.substring(38);
             const amount = parseFloat(ethers.utils.formatEther(tip.amount)).toFixed(4);
             const dateObj = new Date(tip.timestamp * 1000); 
@@ -1862,10 +1865,14 @@ window.loadBatchTips = async function(batchSize) {
 
     container.insertAdjacentHTML('beforeend', htmlBuffer);
 
-    tipCursor = end - 1;
+    // Update Cursor untuk next load
+    tipCursor = end - 1; 
+    
     isTipLoading = false;
     btn.innerHTML = originalBtnText;
 
+    // Cek apakah data HABIS?
+    // Jika tipCursor jadi -1, artinya semua data (sampai index 0) sudah diload.
     if (tipCursor >= 0) {
         loadMoreBox.style.display = 'block';
     } else {
@@ -1948,6 +1955,7 @@ window.loadNextProfileBatch = async function() {
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
+    // Loader Bawah
     let bottomLoader = null;
     if (profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1956,34 +1964,46 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
+    // Ambil Batch ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-const promises = batchIds.map(async (id) => {
-    try {
-        const uri = await contract.tokenURI(id);
-        const meta = await fetchMetadata(uri);
-
-        return { id: id.toString(), meta: meta }; 
-    } catch (e) { return null; }
-});
+    // Fetch Paralel
+    const promises = batchIds.map(async (id) => {
+        try {
+            const uri = await contract.tokenURI(id);
+            const meta = await fetchMetadata(uri);
+            // Return Object Valid
+            return { id: id.toString(), meta: meta }; 
+        } catch (e) { 
+            // Return Null jika gagal fetch
+            return null; 
+        }
+    });
 
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    results.forEach(item => {
-        if (item) {
-            renderCard(item.id, item.meta.name, item.meta.image, container);
-        }
+    // PERBAIKAN: Filter dulu yang valid, baru render
+    const validItems = results.filter(item => item !== null);
+    
+    validItems.forEach(item => {
+        // Cek duplikasi render biar gak dobel
+        // (Asumsi renderCard tidak punya ID unik di div wrapper, tapi aman karena kita clear container di awal loadDataCepat)
+        renderCard(item.id, item.meta.name, item.meta.image, container);
     });
 
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
+    // Auto-fill (Recursive) jika data valid sedikit tapi scroll masih panjang
+    // Ini memperbaiki masalah "Cuma muncul dikit padahal data banyak"
+    if (validItems.length < 5 && profileOffset < profileGlobalIds.length) {
+         loadNextProfileBatch();
+    } else if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
          loadNextProfileBatch();
     }
 };
