@@ -1948,90 +1948,111 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
+    // 1. Cek Gatekeeper: Jangan jalan kalau sedang fetching atau data sudah habis
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Loader Bawah
+    // 2. Tampilkan Loader Bawah (Hanya jika bukan batch pertama)
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
         bottomLoader.id = "bottomLoader";
         bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat data...`;
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
         container.appendChild(bottomLoader);
     }
 
+    // 3. Ambil Potongan Data (Slice)
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-    
-    // Gunakan Provider Default jika wallet belum connect
+
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
+    // 4. Proses Metadata secara Paralel
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
+            // Kita pakai fetchMetadata punya Abang yang sudah Robust tadi
             const meta = await fetchMetadata(uri); 
-            // Pastikan ID dikembalikan sebagai string
             return { id: id.toString(), meta: meta }; 
         } catch (e) { return null; }
     });
 
     const results = await Promise.all(promises);
 
+    // Hapus loader sebelum render
     if (bottomLoader) bottomLoader.remove();
 
+    // 5. Render Hasil (DENGAN PENGECEKAN DUPLIKAT)
     results.forEach(item => {
-        // Hanya render jika data valid
-        if (item && item.meta) {
+        // Cek: Item ada DAN Card belum ada di layar (PENTING!)
+        if (item && !document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
+    // 6. Update Offset & Unlock
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
+    // 7. LOGIKA AUTO-FILL (PENTING UNTUK LAYAR BESAR)
+    // Jika data sudah dimuat tapi layar masih belum penuh (belum ada scrollbar),
+    // Panggil fungsi ini lagi secara otomatis sampai layar penuh.
+    if ((document.documentElement.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
+         console.log("Layar belum penuh, muat batch berikutnya...");
          loadNextProfileBatch();
     }
 };
 
 window.handleProfileScroll = function() {
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+    // Trigger load jika user scroll sampai sisa 200px dari bawah
+    const scrollPosition = window.innerHeight + window.scrollY;
+    const threshold = document.documentElement.scrollHeight - 200;
+
+    if (scrollPosition >= threshold) {
         loadNextProfileBatch();
     }
 };
 
 window.fetchMetadata = async function(tokenURI) {
-    // Gunakan Dedicated Gateway Pinata Anda (Jalur VIP)
     const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
-        // Bersihkan tokenURI dari prefix ipfs://
-        const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const cid = tokenURI.replace("ipfs://", "");
+        const url = `${PINATA_GATEWAY}${cid}`;
         
-        // Ambil JSON Metadata
-        const response = await fetch(`${PINATA_GATEWAY}${cid}`);
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
+        
         const json = await response.json();
         
-        // Proses Gambar
-        let rawImg = json.image || json.image_url;
-        let finalImg = "img/placeholder.jpg";
-
-        if (rawImg) {
-            const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-            
-            // Gunakan Weserv agar gambar loading cepat (kompresi otomatis)
-            // Sumber gambar diambil dari Gateway Pinata
-            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(PINATA_GATEWAY + imgCid)}&w=400&q=80&output=webp`;
+        let img = json.image || json.image_url;
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
         }
 
-        return { name: json.name || `Wayang #${id}`, image: finalImg };
-
+        return { 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
+        };
     } catch (e) {
-        // Fallback jika gagal total
-        return { name: "Data Error", image: "img/placeholder.jpg" };
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
 
