@@ -2013,35 +2013,41 @@ window.handleProfileScroll = function() {
     }
 };
 
-// --- FUNGSI METADATA KEBAL ERROR (ANTI HILANG) ---
+// --- FUNGSI METADATA ANTI ERROR (GAMBAR PASTI MUNCUL) ---
 window.fetchMetadata = async function(tokenURI) {
-    // Daftar Gateway Cadangan (Load Balancer Manual)
+    // 1. Gambar Cadangan Online (Pasti Aktif) - Tidak perlu upload file lokal
+    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
+    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
+
+    // 2. Daftar Gateway (Gunakan dedicated gateway Anda di urutan pertama)
     const GATEWAYS = [
         "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
         "https://ipfs.io/ipfs/",
-        "https://gateway.pinata.cloud/ipfs/",
-        "https://cloudflare-ipfs.com/ipfs/"
+        "https://gateway.pinata.cloud/ipfs/"
     ];
 
-    // Helper pembersih URL
     const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
 
     try {
         const cid = cleanURI(tokenURI);
-        // Coba Gateway Utama (Timeout 5 detik)
-        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
         
-        if (!response.ok) throw new Error("Gateway Utama Timeout");
+        // Fetch JSON Metadata (Timeout 5 detik biar ngebut)
+        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
+        if (!response.ok) throw new Error("Metadata Timeout");
+        
         const json = await response.json();
 
-        // Proses Gambar (Cari yang valid)
-        let rawImg = json.image || json.image_url || "";
-        let finalImg = "img/placeholder.jpg"; // Gambar default jika kosong
+        // 3. Proses Gambar dengan Weserv
+        let rawImg = json.image || json.image_url;
+        let finalImg = FALLBACK_IMG; 
 
         if (rawImg) {
             const imgCid = cleanURI(rawImg);
-            // Gunakan Weserv lewat Cloudflare agar super cepat & cache
-            const publicSource = `https://cloudflare-ipfs.com/ipfs/${imgCid}`;
+            // Trik: Gunakan gateway publik stabil sebagai SUMBER untuk Weserv
+            // Kita pakai ipfs.io atau gateway anda sebagai source
+            const publicSource = `https://ipfs.io/ipfs/${imgCid}`; 
+            
+            // Generate URL Proxy (Weserv)
             finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
         }
 
@@ -2051,11 +2057,10 @@ window.fetchMetadata = async function(tokenURI) {
         };
 
     } catch (e) {
-        // JANGAN RETURN NULL! Return Placeholder agar kartu tetap muncul
-        console.warn("Metadata skip:", tokenURI);
+        // Return object valid dengan gambar Error, jangan return NULL
         return { 
             name: "Wayang #" + tokenURI.substring(tokenURI.length - 4), 
-            image: "https://placehold.co/400x500/eee/999?text=Gagal+Muat" // Atau path ke img/error.jpg lokal Anda
+            image: ERROR_IMG 
         };
     }
 };
