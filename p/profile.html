@@ -2015,42 +2015,53 @@ window.handleProfileScroll = function() {
 
 // --- FUNGSI METADATA ANTI ERROR (GAMBAR PASTI MUNCUL) ---
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    
+    // 1. Definisikan Gambar Cadangan (Online & Stabil)
+    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
+    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
+
+    // 2. Daftar Gateway (Prioritas: Dedicated -> Public)
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://ipfs.io/ipfs/",
+        "https://cloudflare-ipfs.com/ipfs/"
+    ];
+
+    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+
     try {
-        const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
+        const cid = cleanURI(tokenURI);
         
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
+        // Fetch JSON Metadata (Timeout 5 detik biar cepat)
+        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
+        if (!response.ok) throw new Error("Metadata Timeout");
         
         const json = await response.json();
-        
-        let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
+
+        // 3. Proses Gambar
+        let rawImg = json.image || json.image_url;
+        let finalImg = FALLBACK_IMG; 
+
+        if (rawImg) {
+            const imgCid = cleanURI(rawImg);
+            // Gunakan 'ipfs.io' sebagai source untuk Weserv agar lebih kompatibel
+            const publicSource = `https://ipfs.io/ipfs/${imgCid}`; 
+            
+            // Generate URL Proxy (Weserv) untuk optimasi & cache
+            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
         }
 
         return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
+            name: json.name || `Wayang #${cid.substring(0, 4)}`, 
+            image: finalImg 
         };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
 
-        try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
-        }
+    } catch (e) {
+        // Return object valid dengan gambar Error (Merah)
+        return { 
+            name: "Wayang #" + tokenURI.substring(tokenURI.length - 4), 
+            image: ERROR_IMG 
+        };
     }
 };
 
