@@ -1449,7 +1449,9 @@ let toastTimeout;
 let profileGlobalIds = [];
 let profileOffset = 0;
 let isProfileFetching = false;
-const PROFILE_BATCH_SIZE = 12;
+const PROFILE_BATCH_SIZE = 10;
+const CONCURRENCY_LIMIT = 3;
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 let tipCursor = 0;        
 let tipTargetAddr = null;
 let isTipLoading = false;
@@ -1883,13 +1885,13 @@ window.loadDataCepat = async function(targetAddress) {
     const empty = document.getElementById("emptyState");
     const totalEl = document.getElementById("totalItems");
     
-    // 1. Reset Total
+    // 1. Reset
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
-    // 2. Hapus Listener Lama (PENTING)
+    // 2. Hapus Listener Lama
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
@@ -1927,7 +1929,7 @@ window.loadDataCepat = async function(targetAddress) {
         // 4. Load Batch Pertama
         await loadNextProfileBatch();
 
-        // 5. PASANG EVENT LISTENER SETELAH LOAD PERTAMA SELESAI
+        // 5. Pasang Event Scroll
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
@@ -1953,62 +1955,73 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil Slice ID
+    // 3. Ambil 12 ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-
+    
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // 4. Proses Metadata Paralel (DENGAN PROTEKSI)
-    const promises = batchIds.map(async (id) => {
-        try {
-            const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri); 
-            return { id: id.toString(), meta: meta }; 
-        } catch (e) { 
-            // PERBAIKAN DISINI: Jangan return null!
-            // Return Placeholder agar grid tidak bolong
-            return { 
-                id: id.toString(), 
-                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
-            }; 
-        }
-    });
+    // ============================================================
+    // TEKNIK CHUNKING (MEMECAH REQUEST) - SOLUSI RAM 8GB
+    // ============================================================
+    // Daripada request 12 sekaligus, kita request per 3 item.
+    // Ini mencegah HP kencang melakukan "Spamming" ke server IPFS.
+    
+    for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
+        // Ambil potongan kecil (misal 3 biji)
+        const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
+        
+        const chunkPromises = chunk.map(async (id) => {
+            try {
+                // Tambahkan sedikit random delay (Jitter) biar gak serentak banget
+                await delay(Math.random() * 200); 
 
-    const results = await Promise.all(promises);
+                const uri = await contract.tokenURI(id);
+                const meta = await fetchMetadata(uri); 
+                return { id: id.toString(), meta: meta }; 
+            } catch (e) { 
+                return { 
+                    id: id.toString(), 
+                    meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+                }; 
+            }
+        });
+
+        // Tunggu 3 item ini selesai dulu
+        const results = await Promise.all(chunkPromises);
+
+        // Render langsung biar user gak nunggu lama
+        results.forEach(item => {
+            if (item && !document.getElementById(`card-${item.id}`)) {
+                renderCard(item.id, item.meta.name, item.meta.image, container);
+            }
+        });
+
+        // Istirahat sebentar sebelum lanjut ke 3 item berikutnya (Napas dulu)
+        await delay(300); 
+    }
+    // ============================================================
 
     if (bottomLoader) bottomLoader.remove();
 
-    // 5. Render Hasil
-    results.forEach(item => {
-        // Cek ID agar tidak duplikat di layar
-        if (item && !document.getElementById(`card-${item.id}`)) {
-            renderCard(item.id, item.meta.name, item.meta.image, container);
-        }
-    });
-
-    // 6. Update Offset
+    // 4. Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // 7. AUTO-FILL CHECKER (Penting untuk HP Layar Panjang/High Res)
-    // Jika data sudah dimuat tapi layar belum penuh (belum ada scrollbar),
-    // paksa muat lagi sampai penuh.
+    // 5. Auto-Fill Checker
     ensurePageIsFull();
 };
 
-// Fungsi Baru: Memaksa load terus sampai layar penuh
 window.ensurePageIsFull = function() {
     setTimeout(() => {
         const hasMoreData = profileOffset < profileGlobalIds.length;
-        // Cek apakah tinggi konten < tinggi layar + buffer
-        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 100;
+        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 200;
         
         if (hasMoreData && notFull) {
-             console.log("Layar belum penuh, auto-load batch berikutnya...");
+             console.log("Auto-load batch berikutnya...");
              loadNextProfileBatch();
         }
-    }, 500); 
+    }, 800); 
 };
     
 window.handleProfileScroll = function() {
@@ -2016,50 +2029,52 @@ window.handleProfileScroll = function() {
     const windowHeight = window.innerHeight;
     const docHeight = document.documentElement.scrollHeight;
 
-    // Trigger load jika user sudah scroll dan sisa 300px dari bawah
-    if (scrollTop + windowHeight >= docHeight - 300) {
+    if (scrollTop + windowHeight >= docHeight - 500) {
         loadNextProfileBatch();
     }
 };
 
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Kita gunakan Weserv.nl sebagai Proxy Gambar agar beban download ada di server mereka, bukan HP user
+    // Ini membuat loading gambar JAUH lebih stabil di semua device.
     
-    try {
-        const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
-        
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
-        
-        const json = await response.json();
-        
-        let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
-        }
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
+        "https://cloudflare-ipfs.com/ipfs/",
+        "https://ipfs.io/ipfs/"
+    ];
 
-        return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
-        };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+    let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
 
+    // Coba Fetch JSON
+    for (const gateway of GATEWAYS) {
         try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
-        }
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 3000); 
+            
+            const response = await fetch(`${gateway}${cid}`, { signal: controller.signal });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const json = await response.json();
+                
+                let rawImg = json.image || json.image_url;
+                let finalImg = "img/placeholder.jpg";
+
+                if (rawImg) {
+                    const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+                    
+                    // FORCE USE WESERV PROXY
+                    // Ini kunci agar gambar tidak gagal load di HP kencang
+                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=400&q=75&output=webp`;
+                }
+
+                return { name: json.name || `Wayang #${cid}`, image: finalImg };
+            }
+        } catch (e) { continue; }
     }
+
+    return { name: "Wayang NFT", image: "img/placeholder.jpg" };
 };
 
 window.renderCard = function(id, name, img, container) {
