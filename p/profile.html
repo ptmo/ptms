@@ -2015,53 +2015,42 @@ window.handleProfileScroll = function() {
 
 // --- FUNGSI METADATA ANTI ERROR (GAMBAR PASTI MUNCUL) ---
 window.fetchMetadata = async function(tokenURI) {
-    // 1. Gambar Cadangan Online (Pasti Aktif) - Tidak perlu upload file lokal
-    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
-    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
-
-    // 2. Daftar Gateway (Gunakan dedicated gateway Anda di urutan pertama)
-    const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
-        "https://ipfs.io/ipfs/",
-        "https://gateway.pinata.cloud/ipfs/"
-    ];
-
-    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    
     try {
-        const cid = cleanURI(tokenURI);
+        const cid = tokenURI.replace("ipfs://", "");
+        const url = `${PINATA_GATEWAY}${cid}`;
         
-        // Fetch JSON Metadata (Timeout 5 detik biar ngebut)
-        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
-        if (!response.ok) throw new Error("Metadata Timeout");
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
         
         const json = await response.json();
-
-        // 3. Proses Gambar dengan Weserv
-        let rawImg = json.image || json.image_url;
-        let finalImg = FALLBACK_IMG; 
-
-        if (rawImg) {
-            const imgCid = cleanURI(rawImg);
-            // Trik: Gunakan gateway publik stabil sebagai SUMBER untuk Weserv
-            // Kita pakai ipfs.io atau gateway anda sebagai source
-            const publicSource = `https://ipfs.io/ipfs/${imgCid}`; 
-            
-            // Generate URL Proxy (Weserv)
-            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
+        
+        let img = json.image || json.image_url;
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
         }
 
         return { 
-            name: json.name || `Wayang #${cid.substring(0, 4)}`, 
-            image: finalImg 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
         };
-
     } catch (e) {
-        // Return object valid dengan gambar Error, jangan return NULL
-        return { 
-            name: "Wayang #" + tokenURI.substring(tokenURI.length - 4), 
-            image: ERROR_IMG 
-        };
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
 
