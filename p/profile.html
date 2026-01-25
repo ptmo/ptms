@@ -1948,70 +1948,70 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
-    // 1. PENGAMAN GANDA: Cek status fetching & ketersediaan data
+    // 1. Cek Status
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. LOADER UI: Pastikan hanya ada satu loader di bawah
+    // 2. Tampilkan Loader
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
         bottomLoader.id = "bottomLoader";
-        // Tambahkan 'clear: both' dan 'width: 100%' agar loader tidak nyempil di grid
         bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 30px; color: #7385a5; width: 100%; clear: both; display: block;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat ${PROFILE_BATCH_SIZE} koleksi berikutnya...`;
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat ${PROFILE_BATCH_SIZE} data berikutnya...`;
         container.appendChild(bottomLoader);
     }
 
-    // 3. AMBIL DATA
+    // 3. Ambil Batch ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // 4. PROSES PARALEL (KEBAL ERROR)
+    // 4. PROSES DATA (DENGAN JARING PENGAMAN)
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Panggil fungsi fetchMetadata Anda yang sudah robust
+            // Panggil fetchMetadata (Pastikan fungsi ini sudah pakai versi perbaikan sebelumnya)
             const meta = await fetchMetadata(uri); 
             return { id: id.toString(), meta: meta }; 
         } catch (e) { 
-            // [FIX STABILITAS] JANGAN RETURN NULL!
-            // Jika blockchain error/timeout, kembalikan objek darurat.
-            // Ini menjamin urutan tetap pas 10 item, tidak ada yang hilang.
+            // 🔥🔥 INI PERBAIKANNYA 🔥🔥
+            // Jangan pakai "img/placeholder.jpg" karena file itu tidak ada.
+            // Pakai link online ini:
             return { 
                 id: id.toString(), 
-                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+                meta: { 
+                    name: `Wayang #${id} (N/A)`, 
+                    // Gambar abu-abu bertuliskan "Data Error"
+                    image: "https://placehold.co/400x500/e0e0e0/555555?text=Data+Error" 
+                } 
             }; 
         }
     });
 
-    // Tunggu semua 10 data siap
+    // 5. Tunggu Hasil
     const results = await Promise.all(promises);
 
-    // 5. BERSIHKAN LOADER SEBELUM RENDER
+    // 6. Hapus Loader
     if (bottomLoader) bottomLoader.remove();
 
-    // 6. RENDER (Semua data pasti ada, tidak perlu filter null)
+    // 7. Render (Semua pasti muncul sekarang)
     results.forEach(item => {
-        // Double check visual ID untuk mencegah duplikasi render
+        // Cek ID visual biar gak dobel
         if (!document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // 7. UPDATE STATUS
+    // 8. Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // 8. LOGIKA AUTO-FILL (PINTAR)
-    // Jika layar masih kosong (misal di PC layar besar 10 item belum cukup bikin scrollbar),
-    // otomatis panggil batch berikutnya.
+    // 9. Auto-Fill Layar Besar
     if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
-         console.log("Layar masih longgar, memuat batch tambahan...");
          loadNextProfileBatch();
     }
 };
