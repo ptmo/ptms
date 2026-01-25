@@ -949,6 +949,9 @@ body {
     padding: 20px; border-radius: 12px; color: #333;
 }
 
+#profileSentinel {
+    height: 1px;
+}
 </style>
 </head>
 <body>
@@ -1109,6 +1112,7 @@ body {
         </div>
 
         <div id="collectionContainer" class="collection-grid"></div>
+        <div id="profileSentinel"></div>
         
     </div>
 
@@ -1456,7 +1460,8 @@ let tipTargetAddr = null;
 let isTipLoading = false;
 let modalTipCursor = 0;      
 let modalUserAddr = null;    
-let isModalFetching = false; 
+let isModalFetching = false;
+let observer = null;
 
 window.initGatekeeper = async function() {
         if (window.ethereum) {
@@ -1942,70 +1947,66 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
-window.loadNextProfileBatch = async function() {
-    if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
-
-    isProfileFetching = true;
-    const container = document.getElementById("collectionContainer");
-
-    let bottomLoader = null;
-    if (profileOffset > 0) {
-        bottomLoader = document.createElement("div");
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
-        container.appendChild(bottomLoader);
+window.loadNextProfileBatch = async function () {
+    if (isProfileFetching) return;
+    if (profileOffset >= profileGlobalIds.length) {
+        observer?.disconnect();
+        return;
     }
 
-    const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
+    isProfileFetching = true;
 
-    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+    const container = document.getElementById("collectionContainer");
+
+    const batchIds = profileGlobalIds.slice(
+        profileOffset,
+        profileOffset + PROFILE_BATCH_SIZE
+    );
+
+    let tempProvider =
+        provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    const promises = batchIds.map(async (id) => {
+    const results = [];
+
+    for (const id of batchIds) {
         try {
             const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri);
-            return { id: id.toString(), meta: meta }; 
+            const meta = await fetchMetadata(uri, id);
+            results.push({ id: id.toString(), meta });
         } catch (e) {
-            console.error(`Error fetching metadata for ID ${id}:`, e);
-            return null;
+            console.warn("Skip token", id);
+        }
+    }
+
+    results.forEach(item => {
+        if (!document.getElementById(`card-${item.id}`)) {
+            renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    const results = await Promise.all(promises);
-
-    if (bottomLoader) bottomLoader.remove();
-
-    // Filter out null results and render only successful ones
-    const successfulResults = results.filter(item => item !== null);
-    successfulResults.forEach(item => {
-        renderCard(item.id, item.meta.name, item.meta.image, container);
-    });
-
-    // Adjust offset by the number of IDs attempted, even if some failed, to avoid infinite loops on errors
-    profileOffset += batchIds.length;
-
+    profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
-    
-    // Automatically trigger next load if still at bottom after rendering
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200 && profileOffset < profileGlobalIds.length) {
-        loadNextProfileBatch();
-    }
 };
 
-window.handleProfileScroll = function() {
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200 && !isProfileFetching) {
-        loadNextProfileBatch();
-    }
+window.initProfileObserver = function () {
+    const sentinel = document.getElementById("profileSentinel");
+
+    observer = new IntersectionObserver(
+        (entries) => {
+            if (entries[0].isIntersecting) {
+                loadNextProfileBatch();
+            }
+        },
+        {
+            root: null,
+            rootMargin: "300px", // preload sebelum mentok
+            threshold: 0
+        }
+    );
+
+    observer.observe(sentinel);
 };
-
-// Initialize the first batch on load
-document.addEventListener('DOMContentLoaded', () => {
-    loadNextProfileBatch();
-});
-
-// Add scroll event listener
-window.addEventListener('scroll', handleProfileScroll);
 
 window.fetchMetadata = async function(tokenURI) {
     const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
@@ -2390,6 +2391,8 @@ window.showToast = function(msg, type = 'info') {
 
 window.addEventListener('DOMContentLoaded', () => {
     initGatekeeper();
+    initProfileObserver()
+    loadNextProfileBatch()
     if(document.getElementById("year")) document.getElementById("year").innerText = new Date().getFullYear();
 });
 
