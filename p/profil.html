@@ -1615,95 +1615,98 @@ window.handleProfileScroll = function() {
 // 4. IMAGE & METADATA HANDLING (OPTIMIZED)
 // ============================================================
 
-window.fetchMetadata = async function(tokenURI) {
-    const GATEWAY = "https://ipfs.io/ipfs/";
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
     try {
-        const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const cid = tokenURI.replace("ipfs://", "");
+        const url = `${PINATA_GATEWAY}${cid}`;
         
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // Naikkan dikit timeout-nya
-        
-        const response = await fetch(`${GATEWAY}${cid}`, { signal: controller.signal });
-        clearTimeout(timeoutId);
-
-        if (!response.ok) throw new Error("Fetch Fail");
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
         
         const json = await response.json();
         
-        // Ambil raw image
-        let imgRaw = json.image || json.image_url;
-
-        // --- PERBAIKAN: Format URL Gambar di sini, jangan di renderCard ---
-        if (imgRaw) {
-             const imgCid = imgRaw.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-             // Kembalikan URL lengkap yang valid
-             imgRaw = `${GATEWAY}${imgCid}`;
+        let img = json.image || json.image_url;
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
         }
 
         return { 
-            name: json.name || `Wayang #${cid.substring(0,4)}`, 
-            imageRaw: imgRaw 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
         };
-
     } catch (e) {
-        return { name: `Wayang #${tokenURI.substring(0, 5)}...`, imageRaw: null };
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
-    
-window.renderCard = function(id, name, imgRaw, container) {
-    if (document.getElementById(`card-${id}`)) return;
 
-    // --- LOGIKA URL GAMBAR (SEDERHANA) ---
-    // Cukup gunakan imgRaw apa adanya, karena sudah diformat di fetchMetadata
-    let srcGambar = imgRaw; 
-    let displayStyle = srcGambar ? 'block' : 'none';
-    let fallbackStyle = srcGambar ? 'none' : 'flex';
+window.renderCard = function(id, name, img, container) {
+    let isMyProfile = false;
+    if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
 
-    // Badge Logic (Tetap sama)
-    let isMyProfile = (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined' && viewerAddress && currentAddress && viewerAddress.toLowerCase() === currentAddress.toLowerCase());
+        if(viewerAddress && currentAddress) {
+            isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
+        }
+    }
+
     let badgeHtml = isMyProfile 
         ? `<span class="owned-badge" style="background:#f1c40f; color:#fff;"><i class="fas fa-check-circle"></i> Milik Anda</span>`
         : `<span class="owned-badge" style="background:#2ecc71; color:#fff;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
-    let editBtn = isMyProfile ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight:bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer; margin-left:5px;"><i class="fas fa-edit"></i> Revisi</button>` : ``;
+    
+    let editBtn = isMyProfile 
+        ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer; margin-left:5px;"><i class="fas fa-edit"></i> Revisi</button>`
+        : ``;
 
     const html = `
-    <div class="wayang-card" id="card-${id}" style="animation: fadeIn 0.5s ease;">
+    <div class="wayang-card" style="animation: fadeIn 0.5s ease;">
         <div style="position:relative;">
             ${badgeHtml} 
-            
-            <div class="card-img-container" style="background: #f0f2f5; display: flex; align-items: center; justify-content: center; min-height: 200px; overflow: hidden; position: relative;">
-                
-                <img src="${srcGambar}" 
-                     loading="lazy" 
-                     alt="${name}" 
-                     style="width:100%; height:100%; object-fit:contain; display: ${displayStyle};"
-                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
-                >
-
-                <div style="display: ${fallbackStyle}; flex-direction:column; align-items:center; justify-content:center; color:#adb5bd; width:100%; height:100%;">
-                    <i class="fas fa-image" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;"></i>
-                    <span style="font-size: 10px; font-weight: 500;">No Image</span>
+            <div class="card-img-container">
+                <img src="${img}" loading="lazy" alt="${name}" 
+                     onerror="this.src='img/placeholder.jpg'">
+            </div>
+        </div>
+            <div class="card-body">
+                <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
+                    <span class="card-id">ID #${id}</span>
+                    ${editBtn}
                 </div>
+                <h4 class="card-title">${name}</h4>
+                
+                <div style="margin-top:10px; display:flex; gap:8px;">
+                    <a href="detail?id=${id}" class="btn-detail" 
+                       title="Lihat Detail"
+                       style="flex: 1; display:flex; align-items:center; justify-content:center; text-decoration: none;">
+                       <i class="fas fa-arrow-left"></i>
+                    </a>
 
+                    <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
+                            id="btnSawer" class="btn-detail" title="Sawer"
+                            style="flex: 1; display:flex; align-items:center; justify-content:center; border: none; text-decoration: none;">
+                         <i class="fas fa-gift"></i>
+                    </button>
+                </div>
             </div>
         </div>
-        <div class="card-body">
-            <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
-                <span class="card-id">ID #${id}</span>
-                ${editBtn}
-            </div>
-            <h4 class="card-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</h4>
-            <div style="margin-top:10px; display:flex; gap:8px;">
-                <a href="detail?id=${id}" class="btn-detail" style="flex:1; display:flex; justify-content:center; align-items:center; text-decoration:none;"><i class="fas fa-arrow-left"></i></a>
-                <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" class="btn-detail" style="flex:1; border:none;"><i class="fas fa-gift"></i></button>
-            </div>
-        </div>
-    </div>`;
+    `;
 
     container.insertAdjacentHTML('beforeend', html);
 };
-
+    
 // ============================================================
 // 5. HELPER FUNCTIONS & UI LOGIC
 // ============================================================
