@@ -1439,24 +1439,27 @@ const BASE_SEPOLIA_CONFIG = {
     blockExplorerUrls: ['https://basescan.org/']
 };
 
+const MIN_TIP = 0.0001;
+const MAX_TIP = 0.005;
+const PROFILE_BATCH_SIZE = 12;
+const CONCURRENCY_LIMIT = 3; // Proses 3 gambar per detik (Rem untuk HP kencang)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
 let provider, signer;
 let userAddress;
 let currentAddress = null;
 let viewerAddress = null;
-const MIN_TIP = 0.0001;
-const MAX_TIP = 0.005;
 let sawerTargetAddress = null;
 let toastTimeout;
 let profileGlobalIds = [];
 let profileOffset = 0;
 let isProfileFetching = false;
-const PROFILE_BATCH_SIZE = 12;
 let tipCursor = 0;        
 let tipTargetAddr = null;
 let isTipLoading = false;
 let modalTipCursor = 0;      
 let modalUserAddr = null;    
-let isModalFetching = false; 
+let isModalFetching = false;
 
 window.initGatekeeper = async function() {
         if (window.ethereum) {
@@ -1942,54 +1945,106 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
+// --- FUNGSI BATCH LOADER (DIPERBAIKI) ---
 window.loadNextProfileBatch = async function() {
+    // 1. Cek Batas & Gatekeeper
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    let bottomLoader = null;
-    if (profileOffset > 0) {
+    // 2. Tampilkan Loader Bawah
+    let bottomLoader = document.getElementById("bottomLoader");
+    if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
+        bottomLoader.id = "bottomLoader";
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
         bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
         container.appendChild(bottomLoader);
     }
 
+    // 3. Ambil Potongan ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-const promises = batchIds.map(async (id) => {
-    try {
-        const uri = await contract.tokenURI(id);
-        const meta = await fetchMetadata(uri);
+    // ============================================================
+    // PERBAIKAN UTAMA: LOOPING & CHUNKING
+    // Daripada request 12 sekaligus, kita request per 3 item.
+    // ============================================================
+    for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
+        // Ambil irisan kecil (3 item)
+        const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
+        
+        const chunkPromises = chunk.map(async (id) => {
+            try {
+                // Jeda random sedikit (Jitter) biar tidak serentak milidetik
+                await delay(Math.random() * 100);
 
-        return { id: id.toString(), meta: meta }; 
-    } catch (e) { return null; }
-});
+                const uri = await contract.tokenURI(id);
+                // Pastikan fungsi fetchMetadata Anda sudah benar
+                const meta = await fetchMetadata(uri); 
 
-    const results = await Promise.all(promises);
+                return { id: id.toString(), meta: meta }; 
+            } catch (e) { 
+                // PERBAIKAN PENTING: JANGAN return null!
+                // Return Placeholder agar grid tetap rapi 12 kotak & tidak bolong
+                return { 
+                    id: id.toString(), 
+                    meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+                }; 
+            }
+        });
 
+        // Tunggu 3 item selesai dulu
+        const results = await Promise.all(chunkPromises);
+
+        // Render langsung (User melihat gambar muncul bertahap)
+        results.forEach(item => {
+            // Cek biar gak double render
+            if (item && !document.getElementById(`card-${item.id}`)) {
+                renderCard(item.id, item.meta.name, item.meta.image, container);
+            }
+        });
+
+        // ISTIRAHAT SEBENTAR (200ms) sebelum lanjut ke 3 berikutnya
+        // Ini memberi napas ke server IPFS/RPC agar tidak memblokir IP kita
+        await delay(200);
+    }
+
+    // Hapus loader
     if (bottomLoader) bottomLoader.remove();
 
-    results.forEach(item => {
-        if (item) {
-            renderCard(item.id, item.meta.name, item.meta.image, container);
-        }
-    });
-
+    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
-         loadNextProfileBatch();
-    }
+    // Auto-Fill jika layar belum penuh (Biar scrollbar muncul di layar besar)
+    ensurePageIsFull();
 };
 
+// --- FUNGSI PEMATIK OTOMATIS ---
+window.ensurePageIsFull = function() {
+    setTimeout(() => {
+        const hasMoreData = profileOffset < profileGlobalIds.length;
+        // Cek tinggi konten vs tinggi layar + buffer
+        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 100;
+        
+        if (hasMoreData && notFull) {
+             loadNextProfileBatch();
+        }
+    }, 500);
+};
+
+// --- FUNGSI SCROLL HANDLER (FIXED) ---
 window.handleProfileScroll = function() {
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    const docHeight = document.documentElement.scrollHeight;
+
+    // Load lagi jika sisa 300px dari bawah
+    if (scrollTop + windowHeight >= docHeight - 300) {
         loadNextProfileBatch();
     }
 };
