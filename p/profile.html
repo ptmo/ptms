@@ -1963,40 +1963,28 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Batch
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-
+    
+    // Gunakan Provider Default jika wallet belum connect
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Proses Metadata
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Panggil fungsi fetchMetadata baru kita
             const meta = await fetchMetadata(uri); 
+            // Pastikan ID dikembalikan sebagai string
             return { id: id.toString(), meta: meta }; 
-        } catch (e) { 
-            // Fallback Darurat (Jika Blockchain Gagal Total)
-            // Tetap return objek valid agar grid tidak bolong
-            return { 
-                id: id.toString(), 
-                meta: { 
-                    name: `Wayang #${id}`, 
-                    image: "https://placehold.co/400x600/f5f5f5/dddddd?text=..." 
-                } 
-            }; 
-        }
+        } catch (e) { return null; }
     });
 
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    // Render Semua
     results.forEach(item => {
-        // Cek ID visual untuk mencegah duplikasi
-        if (item && !document.getElementById(`card-${item.id}`)) {
+        // Hanya render jika data valid
+        if (item && item.meta) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
@@ -2004,7 +1992,6 @@ window.loadNextProfileBatch = async function() {
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-Fill jika layar masih kosong
     if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
          loadNextProfileBatch();
     }
@@ -2017,76 +2004,35 @@ window.handleProfileScroll = function() {
 };
 
 window.fetchMetadata = async function(tokenURI) {
-    // 1. Bersihkan URL dari sampah prefix
-    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-    const cid = cleanURI(tokenURI);
-
-    // 2. DAFTAR JALUR KONEKSI (Urutan Prioritas)
-    // Jalur 1: Gateway Pribadi (Paling Cepat)
-    const PRIMARY_URL = `https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cid}`;
+    // Gunakan Dedicated Gateway Pinata Anda (Jalur VIP)
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
     
-    // Jalur 2: Cloudflare (Cadangan Stabil)
-    const BACKUP_URL = `https://cloudflare-ipfs.com/ipfs/${cid}`;
-    
-    // Jalur 3: IPFS.io (Cadangan Terakhir)
-    const PUBLIC_URL = `https://ipfs.io/ipfs/${cid}`;
-
-    // Helper: Fungsi untuk mencoba download JSON Metadata
-    const tryFetch = async (url) => {
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 4000); // Batas waktu 4 detik per jalur
-        const res = await fetch(url, { signal: controller.signal });
-        clearTimeout(timeoutId);
-        if (!res.ok) throw new Error("Gagal");
-        return await res.json();
-    };
-
     try {
-        let json;
-        // A. COBA JALUR 1 (Dedicated)
-        try {
-            json = await tryFetch(PRIMARY_URL);
-        } catch (e) {
-            // B. Jika Gagal, COBA JALUR 2 (Cloudflare)
-            console.warn(`Jalur 1 gagal untuk ID ${cid.substring(0,4)}, coba jalur 2...`);
-            try {
-                json = await tryFetch(BACKUP_URL);
-            } catch (e2) {
-                // C. Jika Gagal, COBA JALUR 3 (Public)
-                console.warn(`Jalur 2 gagal, coba jalur 3...`);
-                json = await tryFetch(PUBLIC_URL);
-            }
-        }
-
-        // --- SAMPAI SINI ARTINYA JSON METADATA SUDAH DAPAT ---
-
-        // 3. Ekstrak Gambar Asli
-        let rawImg = json.image || json.image_url;
+        // Bersihkan tokenURI dari prefix ipfs://
+        const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
         
-        // PENTING: Langsung kembalikan URL gambar asli (Tanpa Placeholder)
+        // Ambil JSON Metadata
+        const response = await fetch(`${PINATA_GATEWAY}${cid}`);
+        const json = await response.json();
+        
+        // Proses Gambar
+        let rawImg = json.image || json.image_url;
+        let finalImg = "img/placeholder.jpg";
+
         if (rawImg) {
-            const imgCid = cleanURI(rawImg);
-            // Gunakan Weserv agar gambar IPFS yang berat jadi ringan & cepat
-            // Kita pakai Cloudflare sebagai sumber gambar karena paling kompatibel dengan Weserv
-            const finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=500&q=80&output=webp`;
+            const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
             
-            return { 
-                name: json.name || `Wayang #${cid.substring(0, 4)}`, 
-                image: finalImg 
-            };
+            // Gunakan Weserv agar gambar loading cepat (kompresi otomatis)
+            // Sumber gambar diambil dari Gateway Pinata
+            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(PINATA_GATEWAY + imgCid)}&w=400&q=80&output=webp`;
         }
+
+        return { name: json.name || `Wayang #${id}`, image: finalImg };
 
     } catch (e) {
-        console.error("Gagal total mengambil metadata:", tokenURI);
+        // Fallback jika gagal total
+        return { name: "Data Error", image: "img/placeholder.jpg" };
     }
-
-    // --- FALLBACK DARURAT (Hanya jika SEMUA jalur mati) ---
-    // Kita kasih gambar Loading Spinner transparan, jadi user mikirnya "lagi loading" bukan "rusak"
-    return { 
-        name: `Wayang #${cid.substring(0, 4)}`, 
-        // Gambar Loading Putar-putar (Lebih enak dilihat daripada 'Data Error')
-        image: "https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" 
-    };
 };
 
 window.renderCard = function(id, name, img, container) {
