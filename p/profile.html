@@ -1875,28 +1875,35 @@ window.loadNextTipBatch = function() {
     loadBatchTips(10);
 };
 
+// ==========================================
+// 1. KONFIGURASI (Tweak Disini)
+// ==========================================
 const PROFILE_BATCH_SIZE = 10;
-const CONCURRENCY_LIMIT = 1;
+const CONCURRENCY_LIMIT = 3; // Ubah ke 3 agar tidak terlalu lambat, tapi tetap aman
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
+// ==========================================
+// 2. FUNGSI INISIALISASI
+// ==========================================
 window.loadDataCepat = async function(targetAddress) {
     const container = document.getElementById("collectionContainer");
     const loading = document.getElementById("loading");
     const empty = document.getElementById("emptyState");
     const totalEl = document.getElementById("totalItems");
     
-    // 1. Reset
+    // Reset
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
-    // 2. Hapus Listener Lama
+    // Hapus Listener Lama
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
     if(empty) empty.style.display = 'none';
 
+    // Gunakan RPC Publik yang Stabil
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
 
     try {
@@ -1921,15 +1928,15 @@ window.loadDataCepat = async function(targetAddress) {
             return;
         }
 
-        // 3. Simpan ID Global
+        // Simpan ID Global
         profileGlobalIds = tokenIds.slice().reverse();
 
         if(loading) loading.style.display = 'none';
 
-        // 4. Load Batch Pertama
+        // Load Batch Pertama
         await loadNextProfileBatch();
 
-        // 5. Pasang Event Scroll
+        // Pasang Event Scroll
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
@@ -1938,14 +1945,17 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
+// ==========================================
+// 3. BATCH LOADER (Dengan Chunking)
+// ==========================================
 window.loadNextProfileBatch = async function() {
-    // 1. Gatekeeper
+    // Gatekeeper
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. Loader Bawah
+    // Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1955,26 +1965,20 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil 12 ID
+    // Ambil Slice ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
     
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // ============================================================
-    // TEKNIK CHUNKING (MEMECAH REQUEST) - SOLUSI RAM 8GB
-    // ============================================================
-    // Daripada request 12 sekaligus, kita request per 3 item.
-    // Ini mencegah HP kencang melakukan "Spamming" ke server IPFS.
-    
+    // --- LOGIKA CHUNKING (Anti-Rate Limit) ---
     for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
-        // Ambil potongan kecil (misal 3 biji)
         const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
         
         const chunkPromises = chunk.map(async (id) => {
             try {
-                // Tambahkan sedikit random delay (Jitter) biar gak serentak banget
-                await delay(Math.random() * 200); 
+                // Delay Jitter (Acak)
+                await delay(Math.random() * 150); 
 
                 const uri = await contract.tokenURI(id);
                 const meta = await fetchMetadata(uri); 
@@ -1987,28 +1991,25 @@ window.loadNextProfileBatch = async function() {
             }
         });
 
-        // Tunggu 3 item ini selesai dulu
         const results = await Promise.all(chunkPromises);
 
-        // Render langsung biar user gak nunggu lama
         results.forEach(item => {
             if (item && !document.getElementById(`card-${item.id}`)) {
                 renderCard(item.id, item.meta.name, item.meta.image, container);
             }
         });
 
-        // Istirahat sebentar sebelum lanjut ke 3 item berikutnya (Napas dulu)
-        await delay(300); 
+        // Istirahat sebentar
+        await delay(200); 
     }
-    // ============================================================
 
     if (bottomLoader) bottomLoader.remove();
 
-    // 4. Update Offset
+    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // 5. Auto-Fill Checker
+    // Auto-Fill
     ensurePageIsFull();
 };
 
@@ -2034,22 +2035,24 @@ window.handleProfileScroll = function() {
     }
 };
 
+// ==========================================
+// 4. FETCH METADATA (Perbaikan Gambar)
+// ==========================================
 window.fetchMetadata = async function(tokenURI) {
-    // Kita gunakan Weserv.nl sebagai Proxy Gambar agar beban download ada di server mereka, bukan HP user
-    // Ini membuat loading gambar JAUH lebih stabil di semua device.
-    
+    // 1. Daftar Gateway untuk Fetch JSON (Metadata)
     const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
-        "https://ipfs.io/ipfs/"
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Prioritas 1
+        "https://cloudflare-ipfs.com/ipfs/",                       // Prioritas 2
+        "https://ipfs.io/ipfs/"                                      // Terakhir
     ];
 
     let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
 
-    // Coba Fetch JSON
+    // Loop Gateway untuk ambil JSON
     for (const gateway of GATEWAYS) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); 
+            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 detik timeout
             
             const response = await fetch(`${gateway}${cid}`, { signal: controller.signal });
             clearTimeout(timeoutId);
@@ -2061,18 +2064,27 @@ window.fetchMetadata = async function(tokenURI) {
                 let finalImg = "img/placeholder.jpg";
 
                 if (rawImg) {
-                    const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+                    // Bersihkan CID Gambar
+                    const imgCid = rawImg.replace("ipfs://", "")
+                                         .replace("https://ipfs.io/ipfs/", "")
+                                         .replace("https://gateway.pinata.cloud/ipfs/", "");
                     
-                    // FORCE USE WESERV PROXY
-                    // Ini kunci agar gambar tidak gagal load di HP kencang
-                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://ipfs.io/ipfs/' + imgCid)}&w=400&q=75&output=webp`;
+                    // --- PERBAIKAN DISINI ---
+                    // Jangan pakai ipfs.io sebagai sumber Weserv karena lambat.
+                    // Gunakan Cloudflare atau Pinata sebagai sumber Proxy.
+                    
+                    const sourceUrl = `https://cloudflare-ipfs.com/ipfs/${imgCid}`;
+                    
+                    // Bungkus dengan Weserv agar cepat & ringan
+                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&w=400&q=75&output=webp`;
                 }
 
-                return { name: json.name || `Wayang #${cid}`, image: finalImg };
+                return { name: json.name || `Wayang #${cid.substring(0,4)}`, image: finalImg };
             }
         } catch (e) { continue; }
     }
 
+    // Fallback jika JSON gagal diambil
     return { name: "Wayang NFT", image: "img/placeholder.jpg" };
 };
 
