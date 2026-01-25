@@ -1679,8 +1679,8 @@ window.unlockGate = function(profileOwnerAddr) {
     }
 
     // 4. Load Data Blockchain (Koleksi & Saweran)
-    loadDataCepat(currentAddress);
     loadTipData(currentAddress);
+    loadDataCepat(currentAddress);
 
     // 5. Cek Viewer (Siapa yang sedang melihat)
     if (!viewerAddress) viewerAddress = localStorage.getItem('userWallet');
@@ -1961,38 +1961,51 @@ window.loadNextProfileBatch = async function() {
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-const promises = batchIds.map(async (id) => {
-    try {
-        const uri = await contract.tokenURI(id);
-        const meta = await fetchMetadata(uri);
-
-        return { id: id.toString(), meta: meta }; 
-    } catch (e) { return null; }
-});
+    const promises = batchIds.map(async (id) => {
+        try {
+            const uri = await contract.tokenURI(id);
+            const meta = await fetchMetadata(uri);
+            return { id: id.toString(), meta: meta }; 
+        } catch (e) {
+            console.error(`Error fetching metadata for ID ${id}:`, e);
+            return null;
+        }
+    });
 
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    results.forEach(item => {
-        if (item) {
-            renderCard(item.id, item.meta.name, item.meta.image, container);
-        }
+    // Filter out null results and render only successful ones
+    const successfulResults = results.filter(item => item !== null);
+    successfulResults.forEach(item => {
+        renderCard(item.id, item.meta.name, item.meta.image, container);
     });
 
-    profileOffset += PROFILE_BATCH_SIZE;
+    // Adjust offset by the number of IDs attempted, even if some failed, to avoid infinite loops on errors
+    profileOffset += batchIds.length;
+
     isProfileFetching = false;
     
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
-         loadNextProfileBatch();
+    // Automatically trigger next load if still at bottom after rendering
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200 && profileOffset < profileGlobalIds.length) {
+        loadNextProfileBatch();
     }
 };
 
 window.handleProfileScroll = function() {
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200 && !isProfileFetching) {
         loadNextProfileBatch();
     }
 };
+
+// Initialize the first batch on load
+document.addEventListener('DOMContentLoaded', () => {
+    loadNextProfileBatch();
+});
+
+// Add scroll event listener
+window.addEventListener('scroll', handleProfileScroll);
 
 window.fetchMetadata = async function(tokenURI) {
     const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
