@@ -1876,14 +1876,14 @@ window.loadNextTipBatch = function() {
 };
 
 // ==========================================
-// 1. KONFIGURASI (Tweak Disini)
+// 1. KONFIGURASI GLOBAL (Taruh Paling Atas)
 // ==========================================
 const PROFILE_BATCH_SIZE = 10;
-const CONCURRENCY_LIMIT = 3; // Ubah ke 3 agar tidak terlalu lambat, tapi tetap aman
+const CONCURRENCY_LIMIT = 3; // Rem untuk HP RAM 8GB (biar gak ngebut/blokir)
 const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 // ==========================================
-// 2. FUNGSI INISIALISASI
+// 2. FUNGSI LOAD AWAL (Reset)
 // ==========================================
 window.loadDataCepat = async function(targetAddress) {
     const container = document.getElementById("collectionContainer");
@@ -1891,20 +1891,19 @@ window.loadDataCepat = async function(targetAddress) {
     const empty = document.getElementById("emptyState");
     const totalEl = document.getElementById("totalItems");
     
-    // Reset
+    // Reset Variable
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
-    // Hapus Listener Lama
+    // Hapus Event Listener Lama
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
     if(empty) empty.style.display = 'none';
 
-    // Gunakan RPC Publik yang Stabil
-    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
 
     try {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
@@ -1921,14 +1920,12 @@ window.loadDataCepat = async function(targetAddress) {
              }
         }
 
-        // Jika Kosong
         if (tokenIds.length === 0) {
             if(loading) loading.style.display = 'none';
             if(empty) empty.style.display = 'block';
             return;
         }
 
-        // Simpan ID Global
         profileGlobalIds = tokenIds.slice().reverse();
 
         if(loading) loading.style.display = 'none';
@@ -1936,7 +1933,7 @@ window.loadDataCepat = async function(targetAddress) {
         // Load Batch Pertama
         await loadNextProfileBatch();
 
-        // Pasang Event Scroll
+        // Aktifkan Scroll Listener
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
@@ -1946,16 +1943,15 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 // ==========================================
-// 3. BATCH LOADER (Dengan Chunking)
+// 3. BATCH LOADER (Chunking & Anti-Skip)
 // ==========================================
 window.loadNextProfileBatch = async function() {
-    // 1. Cek Batas
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. Loader Bawah
+    // Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1965,58 +1961,64 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil Batch ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-
+    
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // ============================================================
-    // MODIFIKASI: PROSES DICICIL (CHUNKING)
-    // Agar HP RAM 8GB tidak memblokir request karena terlalu cepat
-    // ============================================================
+    // --- LOGIKA CHUNKING (PER 3 ITEM) ---
     for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
         const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
+        
+        const chunkPromises = chunk.map(async (id) => {
+            try {
+                // Jeda Jitter (Penting untuk HP RAM Tinggi)
+                await delay(Math.random() * 150); 
 
-const chunkPromises = chunk.map(async (id) => {
-    try {
-        await delay(Math.random() * 100); 
-        const uri = await contract.tokenURI(id);
-        const meta = await fetchMetadata(uri); 
+                const uri = await contract.tokenURI(id);
+                const meta = await fetchMetadata(uri); 
+                return { id: id.toString(), meta: meta }; 
+            } catch (e) { 
+                // Jika Error, kembalikan null pada imageRaw
+                // Biar renderCard yang menanganinya nanti (tampil kotak abu)
+                return { 
+                    id: id.toString(), 
+                    meta: { name: `Wayang #${id}`, imageRaw: null } 
+                }; 
+            }
+        });
 
-        // Return meta sesuai format baru (imageRaw)
-        return { id: id.toString(), meta: meta }; 
-    } catch (e) { 
-        return { 
-            id: id.toString(), 
-            meta: { name: `Wayang #${id}`, imageRaw: null } 
-        }; 
+        const results = await Promise.all(chunkPromises);
+
+        results.forEach(item => {
+            if (item && !document.getElementById(`card-${item.id}`)) {
+                // Render dengan CSS Fallback
+                renderCard(item.id, item.meta.name, item.meta.imageRaw, container);
+            }
+        });
+
+        // Istirahat sebentar
+        await delay(200); 
     }
-});
-
-const results = await Promise.all(chunkPromises);
-
-results.forEach(item => {
-    if (item && !document.getElementById(`card-${item.id}`)) {
-        // Perhatikan parameter ke-3 sekarang 'item.meta.imageRaw'
-        renderCard(item.id, item.meta.name, item.meta.imageRaw, container);
-    }
-});
-
-        // Istirahat sebentar (Napas) sebelum lanjut
-        await delay(200);
-    }
-    // ============================================================
 
     if (bottomLoader) bottomLoader.remove();
 
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-Fill jika layar belum penuh (Biar scrollbar muncul)
-    if ((document.documentElement.scrollHeight <= window.innerHeight + 100) && (profileOffset < profileGlobalIds.length)) {
-         loadNextProfileBatch();
-    }
+    // Auto-Fill jika layar belum penuh
+    ensurePageIsFull();
+};
+
+window.ensurePageIsFull = function() {
+    setTimeout(() => {
+        const hasMoreData = profileOffset < profileGlobalIds.length;
+        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 200;
+        
+        if (hasMoreData && notFull) {
+             loadNextProfileBatch();
+        }
+    }, 800); 
 };
     
 window.handleProfileScroll = function() {
@@ -2024,103 +2026,82 @@ window.handleProfileScroll = function() {
     const windowHeight = window.innerHeight;
     const docHeight = document.documentElement.scrollHeight;
 
-    // Load jika sisa 300px dari bawah
-    if (scrollTop + windowHeight >= docHeight - 300) {
+    if (scrollTop + windowHeight >= docHeight - 500) {
         loadNextProfileBatch();
     }
 };
 
 // ==========================================
-// 4. FETCH METADATA (Perbaikan Gambar dengan Loop Gateway)
+// 4. FETCH METADATA (Direct Cloudflare)
 // ==========================================
 window.fetchMetadata = async function(tokenURI) {
-    // Kita pakai Cloudflare karena ini gateway publik paling stabil & cepat saat ini
-    const GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    const GATEWAY = "https://cloudflare-ipfs.com/ipfs/";
     
     try {
-        // Bersihkan URI
         const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        const url = `${GATEWAY}${cid}`;
         
-        // Timeout 3 detik. Kalau kelamaan, anggap gagal biar gak bikin macet.
+        // Timeout Cepat (3 detik)
         const controller = new AbortController();
         const timeoutId = setTimeout(() => controller.abort(), 3000);
         
-        const response = await fetch(url, { signal: controller.signal });
+        const response = await fetch(`${GATEWAY}${cid}`, { signal: controller.signal });
         clearTimeout(timeoutId);
 
-        if (!response.ok) throw new Error("Gagal Fetch");
+        if (!response.ok) throw new Error("Gagal");
         
         const json = await response.json();
-        
-        // Ambil Raw URL Gambar
-        let img = json.image || json.image_url || "";
-        
-        // Kita return URL mentahnya saja (CID), nanti dirakit di renderCard
-        // Ini biar proses fetch JS cepat selesai
+        let imgRaw = json.image || json.image_url;
+
+        // Return Raw CID saja (Biarkan renderCard yang merakit URL-nya)
         return { 
             name: json.name || `Wayang #${cid.substring(0,4)}`, 
-            imageRaw: img // Kita simpan raw-nya
+            imageRaw: imgRaw 
         };
 
     } catch (e) {
-        // Kalau JSON metadata gagal diambil, tetap return objek
-        // Biar kartu tetap muncul walau tanpa nama (bisa direvisi nanti)
-        return { 
-            name: `Wayang #${tokenURI.substring(0, 5)}...`, 
-            imageRaw: null 
-        };
+        // Return null image
+        return { name: `Wayang #${tokenURI.substring(0, 5)}...`, imageRaw: null };
     }
 };
-    
+
+// ==========================================
+// 5. RENDER CARD (NO PLACEHOLDER FILE!)
+// ==========================================
 window.renderCard = function(id, name, imgRaw, container) {
-    // Cek duplikasi
     if (document.getElementById(`card-${id}`)) return;
 
-    let isMyProfile = false;
-    if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
-        if(viewerAddress && currentAddress) {
-            isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
-        }
+    // --- RAKIT URL GAMBAR ---
+    let srcGambar = "";
+    if (imgRaw) {
+        const cid = imgRaw.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        srcGambar = `https://cloudflare-ipfs.com/ipfs/${cid}`;
     }
 
+    let isMyProfile = (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined' && viewerAddress && currentAddress && viewerAddress.toLowerCase() === currentAddress.toLowerCase());
     let badgeHtml = isMyProfile 
         ? `<span class="owned-badge" style="background:#f1c40f; color:#fff;"><i class="fas fa-check-circle"></i> Milik Anda</span>`
         : `<span class="owned-badge" style="background:#2ecc71; color:#fff;"><i class="fas fa-shield-alt"></i> Terverifikasi</span>`;
-    
-    let editBtn = isMyProfile 
-        ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer; margin-left:5px;"><i class="fas fa-edit"></i> Revisi</button>`
-        : ``;
-
-    // --- LOGIKA URL GAMBAR ---
-    let srcUtama = "img/placeholder.jpg";
-    let srcBackup1 = "img/placeholder.jpg";
-    let srcBackup2 = "img/placeholder.jpg";
-
-    if (imgRaw) {
-        // Bersihkan CID
-        const cid = imgRaw.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        
-        // Prioritas 1: Cloudflare (Cepat)
-        srcUtama = `https://cloudflare-ipfs.com/ipfs/${cid}`;
-        
-        // Prioritas 2: Pinata (Cadangan)
-        srcBackup1 = `https://gateway.pinata.cloud/ipfs/${cid}`;
-        
-        // Prioritas 3: IPFS.io (Lambat tapi pasti)
-        srcBackup2 = `https://ipfs.io/ipfs/${cid}`;
-    }
+    let editBtn = isMyProfile ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight:bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer; margin-left:5px;"><i class="fas fa-edit"></i> Revisi</button>` : ``;
 
     const html = `
     <div class="wayang-card" id="card-${id}" style="animation: fadeIn 0.5s ease;">
         <div style="position:relative;">
             ${badgeHtml} 
-            <div class="card-img-container">
-                <img src="${srcUtama}" 
+            
+            <div class="card-img-container" style="background: #f0f2f5; display: flex; align-items: center; justify-content: center; min-height: 200px; overflow: hidden; position: relative;">
+                
+                <img src="${srcGambar}" 
                      loading="lazy" 
                      alt="${name}" 
-                     style="width:100%; height:100%; object-fit:contain;"
-                     onerror="this.onerror=null; this.src='${srcBackup1}'; this.onerror=function(){this.src='${srcBackup2}'; this.onerror=function(){this.src='img/placeholder.jpg';}};">
+                     style="width:100%; height:100%; object-fit:contain; display: ${srcGambar ? 'block' : 'none'};"
+                     onerror="this.style.display='none'; this.nextElementSibling.style.display='flex';"
+                >
+
+                <div style="display: ${srcGambar ? 'none' : 'flex'}; flex-direction:column; align-items:center; justify-content:center; color:#adb5bd; width:100%; height:100%;">
+                    <i class="fas fa-image" style="font-size: 32px; margin-bottom: 8px; opacity: 0.5;"></i>
+                    <span style="font-size: 10px; font-weight: 500;">No Image</span>
+                </div>
+
             </div>
         </div>
         <div class="card-body">
@@ -2129,15 +2110,9 @@ window.renderCard = function(id, name, imgRaw, container) {
                 ${editBtn}
             </div>
             <h4 class="card-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</h4>
-            
             <div style="margin-top:10px; display:flex; gap:8px;">
-                <a href="detail?id=${id}" class="btn-detail" title="Detail" style="flex:1; display:flex; justify-content:center; align-items:center; text-decoration:none;">
-                   <i class="fas fa-arrow-left"></i>
-                </a>
-                <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
-                        class="btn-detail" title="Sawer" style="flex:1; border:none;">
-                     <i class="fas fa-gift"></i>
-                </button>
+                <a href="detail?id=${id}" class="btn-detail" style="flex:1; display:flex; justify-content:center; align-items:center; text-decoration:none;"><i class="fas fa-arrow-left"></i></a>
+                <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" class="btn-detail" style="flex:1; border:none;"><i class="fas fa-gift"></i></button>
             </div>
         </div>
     </div>`;
