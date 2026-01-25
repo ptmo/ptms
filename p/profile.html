@@ -1942,13 +1942,13 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
-    // Gatekeeper: Cegah double fetch atau jika data habis
+    // 1. Gatekeeper
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Loader Bawah
+    // 2. Loader Bawah (Hanya muncul jika bukan batch pertama)
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1958,58 +1958,73 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Slice 10 ID
+    // 3. Ambil Slice ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Proses Metadata Paralel
+    // 4. Proses Metadata (DENGAN JAMINAN ANTI-NULL)
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Pakai fetchMetadata robust Anda
             const meta = await fetchMetadata(uri); 
             return { id: id.toString(), meta: meta }; 
-        } catch (e) { return null; }
+        } catch (e) { 
+            // FIX: Jangan return null! Return placeholder biar grid tetap rapi (10 item)
+            // Nanti gambar akan loading sendiri atau tampil placeholder
+            return { 
+                id: id.toString(), 
+                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+            }; 
+        }
     });
 
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    // Render ke Layar
+    // 5. Render Hasil
     results.forEach(item => {
+        // Cek duplikasi ID di DOM
         if (item && !document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // Update Offset
+    // 6. Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // --- PERBAIKAN LOGIKA AUTO-FILL ---
-    // Gunakan setTimeout agar DOM sempat update tingginya sebelum dicek ulang
+    // 7. PEMATIK OTOMATIS (RECURSIVE CHECK)
+    // Cek apakah halaman sudah penuh? Kalau belum, load lagi otomatis sampai scrollbar muncul.
+    ensurePageIsFull();
+};
+
+// Fungsi Baru: Memaksa load terus sampai layar penuh (muncul scrollbar)
+window.ensurePageIsFull = function() {
     setTimeout(() => {
         const hasMoreData = profileOffset < profileGlobalIds.length;
-        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 100; // Tambah buffer 100px
+        // Cek apakah tinggi konten lebih kecil dari tinggi layar (belum ada scrollbar)
+        const contentHeight = document.documentElement.scrollHeight;
+        const windowHeight = window.innerHeight;
         
-        if (hasMoreData && notFull) {
-             console.log("Layar belum penuh, auto-load batch berikutnya...");
+        // Jika masih ada data DAN belum ada scrollbar (+buffer 50px), load lagi!
+        if (hasMoreData && (contentHeight <= windowHeight + 50)) {
+             console.log("Layar belum penuh, paksa load batch berikutnya...");
              loadNextProfileBatch();
         }
-    }, 500); // Jeda 0.5 detik agar stabil
+    }, 800); // Delay 0.8 detik biar gambar sempat render dulu
 };
     
 window.handleProfileScroll = function() {
-    // Ambil posisi scroll saat ini
+    // Ambil parameter scroll yang cross-browser
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     const windowHeight = window.innerHeight;
     const docHeight = document.documentElement.scrollHeight;
 
-    // Trigger jika user sudah scroll mencapai 300px dari paling bawah
-    if (scrollTop + windowHeight >= docHeight - 300) {
+    // Trigger load jika user sudah scroll dan sisa konten di bawah tinggal 500px
+    if (scrollTop + windowHeight >= docHeight - 500) {
         loadNextProfileBatch();
     }
 };
