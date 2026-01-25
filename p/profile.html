@@ -1984,7 +1984,7 @@ window.loadNextProfileBatch = async function() {
             // Ini menjamin urutan tetap pas 10 item, tidak ada yang hilang.
             return { 
                 id: id.toString(), 
-                meta: { name: `Wayang #${id}` } 
+                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
             }; 
         }
     });
@@ -2022,43 +2022,62 @@ window.handleProfileScroll = function() {
     }
 };
 
+// --- FUNGSI METADATA ANTI-GAGAL (SMART URL RESOLVER) ---
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    
-    try {
-        const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
+    // 1. Definisikan Gambar Cadangan (Online & Stabil)
+    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
+    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
+
+    // 2. Fungsi Cerdas: Deteksi & Bersihkan URL
+    const resolveUrl = (url) => {
+        if (!url) return "";
         
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
+        // A. Jika sudah format HTTPS normal, biarkan (jangan ditambah gateway lagi)
+        if (url.startsWith("http") && !url.includes("ipfs://")) return url;
+
+        // B. Jika format IPFS Native (ipfs://CID)
+        // Bersihkan prefix, sisakan CID saja
+        const cid = url.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://gateway.pinata.cloud/ipfs/", "");
+        
+        // Gunakan Gateway Pilihan (Dedicated Pinata Anda)
+        return `https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cid}`;
+    };
+
+    try {
+        const metadataUrl = resolveUrl(tokenURI);
+        
+        // Fetch JSON Metadata (Timeout 5 detik)
+        const response = await fetch(metadataUrl, { timeout: 5000 });
+        if (!response.ok) throw new Error("Metadata Timeout / 404");
         
         const json = await response.json();
-        
-        let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
+
+        // 3. Proses Gambar (Raw Image -> Optimized)
+        let rawImg = json.image || json.image_url;
+        let finalImg = FALLBACK_IMG; 
+
+        if (rawImg) {
+            // Kita ambil URL aslinya yang bersih (HTTPS)
+            const publicSource = resolveUrl(rawImg);
+            
+            // Generate URL Proxy (Weserv) untuk optimasi & cache & konversi ke WebP
+            // encodeURIComponent wajib agar URL tidak rusak saat dikirim ke Weserv
+            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
         }
 
+        // Return Data Valid
         return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
+            name: json.name || `Wayang #${tokenURI.slice(-4)}`, 
+            image: finalImg 
         };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
 
-        try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
-        }
+    } catch (e) {
+        // Fallback jika JSON tidak bisa dibaca
+        console.warn("Gagal load metadata:", tokenURI);
+        return { 
+            name: "Data Tidak Tersedia", 
+            image: ERROR_IMG 
+        };
     }
 };
 
