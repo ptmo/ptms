@@ -1882,19 +1882,23 @@ window.loadNextTipBatch = function() {
     loadBatchTips(10);
 };
 
+// ============================================================
+// 1. GATEKEEPER & INISIALISASI (Reset Bersih)
+// ============================================================
+
 window.loadDataCepat = async function(targetAddress) {
     const container = document.getElementById("collectionContainer");
     const loading = document.getElementById("loading");
     const empty = document.getElementById("emptyState");
     const totalEl = document.getElementById("totalItems");
     
-    // 1. Reset Total
+    // Reset Variable Global
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
-    // 2. Hapus Listener Lama (PENTING: Biar gak bentrok/double load)
+    // Hapus Event Listener Lama (PENTING!)
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
@@ -1908,7 +1912,7 @@ window.loadDataCepat = async function(targetAddress) {
         
         if(totalEl) totalEl.innerText = tokenIds.length;
 
-        // Cek Verifikasi Official (Opsional, sesuai kode lama)
+        // Tampilkan Badge Verified jika user punya aset & bukan official
         const OFFICIAL_ADDR_LOWER = "0xbacc1f6e717bf03db0c40e3044da47318c369b70";
         if (targetAddress.toLowerCase() !== OFFICIAL_ADDR_LOWER) {
              const nameEl = document.getElementById("displayAddress");
@@ -1917,62 +1921,65 @@ window.loadDataCepat = async function(targetAddress) {
              }
         }
 
-        // Jika Kosong
+        // Handle Jika Kosong
         if (tokenIds.length === 0) {
             if(loading) loading.style.display = 'none';
             if(empty) empty.style.display = 'block';
             return;
         }
 
-        // 3. Simpan ID Global (Dibalik agar terbaru di atas)
+        // Simpan ID (Reverse agar terbaru di atas)
         profileGlobalIds = tokenIds.slice().reverse();
 
         if(loading) loading.style.display = 'none';
 
-        // 4. Load Batch Pertama
+        // Load Batch Pertama
         await loadNextProfileBatch();
 
-        // 5. PASANG EVENT LISTENER SCROLL (KUNCI AGAR UNLIMITED SCROLL JALAN)
+        // Aktifkan Scroll Listener
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
         console.error("Gagal load data:", err);
-        if(loading) loading.innerHTML = `<p style="color:red">Gagal memuat data Blockchain.</p>`;
+        if(loading) loading.innerHTML = `<p style="color:red">Gagal koneksi Blockchain. Coba refresh.</p>`;
     }
 };
 
+// ============================================================
+// 2. BATCH LOADER (Logika Anti-Macet & Anti-Bolong)
+// ============================================================
 window.loadNextProfileBatch = async function() {
-    // 1. Gatekeeper
+    // Gatekeeper
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. Loader Bawah
+    // Tampilkan Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
         bottomLoader.id = "bottomLoader";
         bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat data...`;
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil Slice ID
+    // Ambil 10 ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // 4. Proses Metadata Paralel
+    // Fetch Metadata Paralel
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Fungsi fetchMetadata baru kita sudah menangani retry
-            const meta = await fetchMetadata(uri); 
+            const meta = await fetchMetadata(uri); // Pakai fungsi fetchMetadata V7
             return { id: id.toString(), meta: meta }; 
         } catch (e) { 
-            // Fallback terakhir jika Blockchain error (bukan IPFS error)
+            // FALLBACK PAKSA: Jika Blockchain error, tetap return placeholder
+            // Supaya urutan grid tetap 10 dan tidak bolong
             return { 
                 id: id.toString(), 
                 meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
@@ -1980,34 +1987,31 @@ window.loadNextProfileBatch = async function() {
         }
     });
 
-    // Tunggu semua selesai
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    // 5. Render Hasil
+    // Render Hasil
     results.forEach(item => {
-        // Render paksa! (item pasti ada isinya karena catch di atas return object, bukan null)
+        // Render jika item ada & belum ada di layar
         if (item && !document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // 6. Update Offset
+    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // 7. AUTO-FILL CHECKER (Recursive)
-    // Pastikan layar penuh agar scrollbar muncul
+    // PEMATIK OTOMATIS:
+    // Jika layar PC besar dan belum ada scrollbar, load lagi otomatis
     ensurePageIsFull();
 };
 
-// Fungsi Pematik Otomatis
 window.ensurePageIsFull = function() {
     setTimeout(() => {
         const hasMoreData = profileOffset < profileGlobalIds.length;
-        // Tambah buffer deteksi (200px) biar lebih agresif ngisi layar kosong
-        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 200; 
+        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 200;
         
         if (hasMoreData && notFull) {
              console.log("Layar belum penuh, paksa muat lagi...");
@@ -2015,79 +2019,75 @@ window.ensurePageIsFull = function() {
         }
     }, 800); 
 };
-    
+
 window.handleProfileScroll = function() {
-    // Ambil parameter scroll yang cross-browser
     const scrollTop = window.scrollY || document.documentElement.scrollTop;
     const windowHeight = window.innerHeight;
     const docHeight = document.documentElement.scrollHeight;
 
-    // Trigger load jika user sudah scroll dan sisa konten di bawah tinggal 500px
+    // Load lagi jika sisa 500px dari bawah
     if (scrollTop + windowHeight >= docHeight - 500) {
         loadNextProfileBatch();
     }
 };
 
+// ============================================================
+// 3. FETCH METADATA (Gateway Rotation V7 - Brutal Mode)
+// ============================================================
 window.fetchMetadata = async function(tokenURI) {
-    // 1. DAFTAR JALUR KONEKSI (Urutan Prioritas)
+    // 4 Jalur berbeda. Jika satu mati, coba yang lain.
     const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // VIP (Cepat)
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // VIP
         "https://cloudflare-ipfs.com/ipfs/",                       // Stabil
-        "https://ipfs.io/ipfs/",                                     // Public Utama
-        "https://dweb.link/ipfs/"                                    // Cadangan Terakhir
+        "https://ipfs.io/ipfs/",                                     // Public
+        "https://dweb.link/ipfs/"                                    // Cadangan
     ];
 
-    // Bersihkan URI
     let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
     
-    // Jika URI ternyata link HTTP biasa (bukan IPFS), langsung fetch
+    // Cek jika URI bukan IPFS (HTTP biasa)
     if (tokenURI.startsWith("http") && !tokenURI.includes("ipfs")) {
         try {
             const res = await fetch(tokenURI);
             const json = await res.json();
             return parseMetadata(json);
-        } catch(e) { /* Lanjut ke logika IPFS */ }
+        } catch(e) {}
     }
 
-    // 2. LOGIKA "PAKSA SAMPAI DAPAT" (Looping Gateway)
+    // Loop Gateway (Paksa sampai dapat)
     for (const gateway of GATEWAYS) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // 3 Detik per gateway
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // Max 3 detik per gateway
             
             const response = await fetch(`${gateway}${cid}`, { signal: controller.signal });
             clearTimeout(timeoutId);
 
             if (response.ok) {
                 const json = await response.json();
-                return parseMetadata(json); // Berhasil! Keluar dari loop & return data
+                return parseMetadata(json); // Berhasil!
             }
         } catch (e) {
-            // Gagal di gateway ini? Abaikan, lanjut ke gateway berikutnya di loop
-            // console.warn(`Gagal di ${gateway}, mencoba jalur lain...`);
+            // Lanjut ke gateway berikutnya...
         }
     }
 
-    // 3. Fallback Terakhir (Jika 4 Gateway mati semua)
+    // Jika 4 Gateway Mati Semua -> Return Placeholder (Jangan null)
     return { 
         name: `Wayang #${cid.substring(0, 5)}`, 
         image: "img/placeholder.jpg" 
     };
 };
 
-// Helper untuk memproses JSON & Gambar agar konsisten
+// Helper Parsing
 function parseMetadata(json) {
     let rawImg = json.image || json.image_url;
     let finalImg = "img/placeholder.jpg";
 
     if (rawImg) {
-        // Bersihkan CID Gambar
         const imgCid = rawImg.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-        
-        // PENTING: Kita "Bungkus" gambar IPFS pakai Weserv.nl
-        // Ini trik supaya gambar loading-nya CEPAT & STABIL (karena dicache oleh server Weserv)
-        // Kita pakai Cloudflare sebagai sumber source gambar karena paling kompatibel
-        finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=500&q=80&output=webp`;
+        // Gunakan Weserv untuk kompresi & caching otomatis
+        finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=400&q=75&output=webp`;
     }
 
     return { 
@@ -2096,10 +2096,13 @@ function parseMetadata(json) {
     };
 }
 
+// ============================================================
+// 4. RENDER CARD (Dengan Error Handling Gambar)
+// ============================================================
+// Pastikan fungsi ini ada agar HTML Card terbentuk
 window.renderCard = function(id, name, img, container) {
     let isMyProfile = false;
     if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
-
         if(viewerAddress && currentAddress) {
             isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
         }
@@ -2114,37 +2117,36 @@ window.renderCard = function(id, name, img, container) {
         : ``;
 
     const html = `
-    <div class="wayang-card" style="animation: fadeIn 0.5s ease;">
+    <div class="wayang-card" id="card-${id}" style="animation: fadeIn 0.5s ease;">
         <div style="position:relative;">
             ${badgeHtml} 
             <div class="card-img-container">
                 <img src="${img}" loading="lazy" alt="${name}" 
-                     onerror="this.src='img/placeholder.jpg'">
+                     onerror="this.onerror=null; this.src='img/placeholder.jpg';"
+                     style="width:100%; height:100%; object-fit:contain;">
             </div>
         </div>
-            <div class="card-body">
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
-                    <span class="card-id">ID #${id}</span>
-                    ${editBtn}
-                </div>
-                <h4 class="card-title">${name}</h4>
-                
-                <div style="margin-top:10px; display:flex; gap:8px;">
-                    <a href="detail?id=${id}" class="btn-detail" 
-                       title="Lihat Detail"
-                       style="flex: 1; display:flex; align-items:center; justify-content:center; text-decoration: none;">
-                       <i class="fas fa-arrow-left"></i>
-                    </a>
+        <div class="card-body">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
+                <span class="card-id">ID #${id}</span>
+                ${editBtn}
+            </div>
+            <h4 class="card-title">${name}</h4>
+            
+            <div style="margin-top:10px; display:flex; gap:8px;">
+                <a href="detail?id=${id}" class="btn-detail" title="Lihat Detail"
+                   style="flex: 1; display:flex; align-items:center; justify-content:center; text-decoration: none;">
+                   <i class="fas fa-arrow-left"></i>
+                </a>
 
-                    <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
-                            id="btnSawer" class="btn-detail" title="Sawer"
-                            style="flex: 1; display:flex; align-items:center; justify-content:center; border: none; text-decoration: none;">
-                         <i class="fas fa-gift"></i>
-                    </button>
-                </div>
+                <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
+                        class="btn-detail" title="Sawer"
+                        style="flex: 1; display:flex; align-items:center; justify-content:center; border: none; text-decoration: none;">
+                     <i class="fas fa-gift"></i>
+                </button>
             </div>
         </div>
-    `;
+    </div>`;
 
     container.insertAdjacentHTML('beforeend', html);
 };
