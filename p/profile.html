@@ -1984,6 +1984,7 @@ window.loadNextProfileBatch = async function() {
                 const meta = await fetchMetadata(uri); 
                 return { id: id.toString(), meta: meta }; 
             } catch (e) { 
+                console.error(`Error fetching for ID ${id}:`, e);
                 return { 
                     id: id.toString(), 
                     meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
@@ -2036,56 +2037,81 @@ window.handleProfileScroll = function() {
 };
 
 // ==========================================
-// 4. FETCH METADATA (Perbaikan Gambar)
+// 4. FETCH METADATA (Perbaikan Gambar dengan Loop Gateway)
 // ==========================================
 window.fetchMetadata = async function(tokenURI) {
-    // 1. Daftar Gateway untuk Fetch JSON (Metadata)
+    // Daftar Gateway untuk JSON dan Gambar (Prioritaskan Pinata)
     const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Prioritas 1
-        "https://cloudflare-ipfs.com/ipfs/",                       // Prioritas 2
-        "https://ipfs.io/ipfs/"                                      // Terakhir
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Prioritas 1: Pinata Dedicated
+        "https://cloudflare-ipfs.com/ipfs/",                       // Prioritas 2: Cloudflare
+        "https://ipfs.io/ipfs/"                                    // Terakhir: IPFS.io (lambat)
     ];
 
-    let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+    let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://gateway.pinata.cloud/ipfs/", "");
 
-    // Loop Gateway untuk ambil JSON
+    let json = null;
+
+    // 1. Loop Fetch JSON Metadata
     for (const gateway of GATEWAYS) {
         try {
             const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 4000); // 4 detik timeout
+            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout 3 detik per gateway
             
-            const response = await fetch(`${gateway}${cid}`, { signal: controller.signal });
+            const response = await fetch(`\( {gateway} \){cid}`, { signal: controller.signal });
             clearTimeout(timeoutId);
 
             if (response.ok) {
-                const json = await response.json();
-                
-                let rawImg = json.image || json.image_url;
-                let finalImg = "img/placeholder.jpg";
-
-                if (rawImg) {
-                    // Bersihkan CID Gambar
-                    const imgCid = rawImg.replace("ipfs://", "")
-                                         .replace("https://ipfs.io/ipfs/", "")
-                                         .replace("https://gateway.pinata.cloud/ipfs/", "");
-                    
-                    // --- PERBAIKAN DISINI ---
-                    // Jangan pakai ipfs.io sebagai sumber Weserv karena lambat.
-                    // Gunakan Cloudflare atau Pinata sebagai sumber Proxy.
-                    
-                    const sourceUrl = `https://cloudflare-ipfs.com/ipfs/${imgCid}`;
-                    
-                    // Bungkus dengan Weserv agar cepat & ringan
-                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&w=400&q=75&output=webp`;
-                }
-
-                return { name: json.name || `Wayang #${cid.substring(0,4)}`, image: finalImg };
+                json = await response.json();
+                console.log(`Success fetch JSON from ${gateway}`);
+                break; // Berhenti jika sukses
             }
-        } catch (e) { continue; }
+        } catch (e) {
+            console.error(`Error fetch JSON from ${gateway}:`, e);
+            continue;
+        }
     }
 
-    // Fallback jika JSON gagal diambil
-    return { name: "Wayang NFT", image: "img/placeholder.jpg" };
+    if (!json) {
+        console.error("Gagal fetch JSON dari semua gateway");
+        return { name: "Wayang NFT", image: "img/placeholder.jpg" };
+    }
+
+    let rawImg = json.image || json.image_url;
+    let name = json.name || `Wayang #${cid.substring(0,4)}`;
+    let finalImg = "img/placeholder.jpg";
+
+    if (rawImg) {
+        const imgCid = rawImg.replace("ipfs://", "")
+                             .replace("https://ipfs.io/ipfs/", "")
+                             .replace("https://gateway.pinata.cloud/ipfs/", "")
+                             .replace("https://cloudflare-ipfs.com/ipfs/", "");
+
+        // 2. Loop Fetch/Proxy Gambar (Coba dapatkan URL yang valid)
+        for (const gateway of GATEWAYS) {
+            try {
+                const sourceUrl = `\( {gateway} \){imgCid}`;
+                
+                // Test head request untuk cek jika gambar ada (optional, tapi hemat bandwidth)
+                const headResponse = await fetch(sourceUrl, { method: 'HEAD', signal: new AbortController().signal });
+                if (headResponse.ok && headResponse.headers.get('content-type').startsWith('image/')) {
+                    // Bungkus dengan Weserv.nl untuk optimasi (resize, webp, cache)
+                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&w=400&q=75&output=webp&il`; // Tambah &il untuk lazy load
+                    
+                    console.log(`Success gambar dari ${gateway}, final URL: ${finalImg}`);
+                    break; // Berhenti jika sukses
+                }
+            } catch (e) {
+                console.error(`Error fetch gambar dari ${gateway}:`, e);
+                continue;
+            }
+        }
+
+        if (finalImg === "img/placeholder.jpg") {
+            console.error("Gagal fetch gambar dari semua gateway");
+        }
+    }
+
+    return { name, image: finalImg };
 };
 
 window.renderCard = function(id, name, img, container) {
