@@ -1977,35 +1977,31 @@ window.loadNextProfileBatch = async function() {
     // ============================================================
     for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
         const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
-        
-        const chunkPromises = chunk.map(async (id) => {
-            try {
-                // Jeda random sedikit biar natural
-                await delay(Math.random() * 100);
 
-                const uri = await contract.tokenURI(id);
-                const meta = await fetchMetadata(uri); // Pakai fetchMetadata yang Abang suka
+const chunkPromises = chunk.map(async (id) => {
+    try {
+        await delay(Math.random() * 100); 
+        const uri = await contract.tokenURI(id);
+        const meta = await fetchMetadata(uri); 
 
-                return { id: id.toString(), meta: meta }; 
-            } catch (e) { 
-                // PENTING: Jangan return null! Return placeholder biar grid gak bolong
-                return { 
-                    id: id.toString(), 
-                    meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
-                }; 
-            }
-        });
+        // Return meta sesuai format baru (imageRaw)
+        return { id: id.toString(), meta: meta }; 
+    } catch (e) { 
+        return { 
+            id: id.toString(), 
+            meta: { name: `Wayang #${id}`, imageRaw: null } 
+        }; 
+    }
+});
 
-        // Tunggu 3 item selesai dulu
-        const results = await Promise.all(chunkPromises);
+const results = await Promise.all(chunkPromises);
 
-        // Render langsung
-        results.forEach(item => {
-            // Cek biar gak double render
-            if (item && !document.getElementById(`card-${item.id}`)) {
-                renderCard(item.id, item.meta.name, item.meta.image, container);
-            }
-        });
+results.forEach(item => {
+    if (item && !document.getElementById(`card-${item.id}`)) {
+        // Perhatikan parameter ke-3 sekarang 'item.meta.imageRaw'
+        renderCard(item.id, item.meta.name, item.meta.imageRaw, container);
+    }
+});
 
         // Istirahat sebentar (Napas) sebelum lanjut
         await delay(200);
@@ -2038,42 +2034,51 @@ window.handleProfileScroll = function() {
 // 4. FETCH METADATA (Perbaikan Gambar dengan Loop Gateway)
 // ==========================================
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Kita pakai Cloudflare karena ini gateway publik paling stabil & cepat saat ini
+    const GATEWAY = "https://cloudflare-ipfs.com/ipfs/";
     
     try {
+        // Bersihkan URI
         const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        const url = `${GATEWAY}${cid}`;
         
-        // 1. Coba Pinata Langsung (Biasanya paling cepat & sukses)
-        const url = `${PINATA_GATEWAY}${cid}`;
-        const response = await fetch(url, { timeout: 4000 });
-        if (!response.ok) throw new Error("Gateway Error");
+        // Timeout 3 detik. Kalau kelamaan, anggap gagal biar gak bikin macet.
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 3000);
+        
+        const response = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+
+        if (!response.ok) throw new Error("Gagal Fetch");
         
         const json = await response.json();
         
-        // 2. Proses Gambar
-        let img = json.image || json.image_url;
-        if (img) {
-            // Bersihkan CID gambar
-            const imgCid = img.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-            
-            // TRICK: Pakai Weserv + Cloudflare Source biar muncul di semua HP
-            img = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=400&q=75&output=webp`;
-        } else {
-            img = "img/placeholder.jpg";
-        }
-
-        return { name: json.name || `Wayang #${cid}`, image: img };
+        // Ambil Raw URL Gambar
+        let img = json.image || json.image_url || "";
+        
+        // Kita return URL mentahnya saja (CID), nanti dirakit di renderCard
+        // Ini biar proses fetch JS cepat selesai
+        return { 
+            name: json.name || `Wayang #${cid.substring(0,4)}`, 
+            imageRaw: img // Kita simpan raw-nya
+        };
 
     } catch (e) {
-        // Fallback Darurat
-        return { name: "Wayang NFT", image: "img/placeholder.jpg" };
+        // Kalau JSON metadata gagal diambil, tetap return objek
+        // Biar kartu tetap muncul walau tanpa nama (bisa direvisi nanti)
+        return { 
+            name: `Wayang #${tokenURI.substring(0, 5)}...`, 
+            imageRaw: null 
+        };
     }
 };
     
-window.renderCard = function(id, name, img, container) {
+window.renderCard = function(id, name, imgRaw, container) {
+    // Cek duplikasi
+    if (document.getElementById(`card-${id}`)) return;
+
     let isMyProfile = false;
     if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
-
         if(viewerAddress && currentAddress) {
             isMyProfile = viewerAddress.toLowerCase() === currentAddress.toLowerCase();
         }
@@ -2087,38 +2092,55 @@ window.renderCard = function(id, name, img, container) {
         ? `<button onclick="window.location.href='revisi?id=${id}'" style="border:none; background:#d35400; color:white; font-weight: bold; border-radius:5px; font-size:9px; padding:2px 7px; cursor:pointer; margin-left:5px;"><i class="fas fa-edit"></i> Revisi</button>`
         : ``;
 
+    // --- LOGIKA URL GAMBAR ---
+    let srcUtama = "img/placeholder.jpg";
+    let srcBackup1 = "img/placeholder.jpg";
+    let srcBackup2 = "img/placeholder.jpg";
+
+    if (imgRaw) {
+        // Bersihkan CID
+        const cid = imgRaw.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        
+        // Prioritas 1: Cloudflare (Cepat)
+        srcUtama = `https://cloudflare-ipfs.com/ipfs/${cid}`;
+        
+        // Prioritas 2: Pinata (Cadangan)
+        srcBackup1 = `https://gateway.pinata.cloud/ipfs/${cid}`;
+        
+        // Prioritas 3: IPFS.io (Lambat tapi pasti)
+        srcBackup2 = `https://ipfs.io/ipfs/${cid}`;
+    }
+
     const html = `
-    <div class="wayang-card" style="animation: fadeIn 0.5s ease;">
+    <div class="wayang-card" id="card-${id}" style="animation: fadeIn 0.5s ease;">
         <div style="position:relative;">
             ${badgeHtml} 
             <div class="card-img-container">
-                <img src="${img}" loading="lazy" alt="${name}" 
-                     onerror="this.src='img/placeholder.jpg'">
+                <img src="${srcUtama}" 
+                     loading="lazy" 
+                     alt="${name}" 
+                     style="width:100%; height:100%; object-fit:contain;"
+                     onerror="this.onerror=null; this.src='${srcBackup1}'; this.onerror=function(){this.src='${srcBackup2}'; this.onerror=function(){this.src='img/placeholder.jpg';}};">
             </div>
         </div>
-            <div class="card-body">
-                <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
-                    <span class="card-id">ID #${id}</span>
-                    ${editBtn}
-                </div>
-                <h4 class="card-title">${name}</h4>
-                
-                <div style="margin-top:10px; display:flex; gap:8px;">
-                    <a href="detail?id=${id}" class="btn-detail" 
-                       title="Lihat Detail"
-                       style="flex: 1; display:flex; align-items:center; justify-content:center; text-decoration: none;">
-                       <i class="fas fa-arrow-left"></i>
-                    </a>
-
-                    <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
-                            id="btnSawer" class="btn-detail" title="Sawer"
-                            style="flex: 1; display:flex; align-items:center; justify-content:center; border: none; text-decoration: none;">
-                         <i class="fas fa-gift"></i>
-                    </button>
-                </div>
+        <div class="card-body">
+            <div style="display:flex; justify-content:space-between; margin-bottom:5px; align-items:center;">
+                <span class="card-id">ID #${id}</span>
+                ${editBtn}
+            </div>
+            <h4 class="card-title" style="white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${name}</h4>
+            
+            <div style="margin-top:10px; display:flex; gap:8px;">
+                <a href="detail?id=${id}" class="btn-detail" title="Detail" style="flex:1; display:flex; justify-content:center; align-items:center; text-decoration:none;">
+                   <i class="fas fa-arrow-left"></i>
+                </a>
+                <button onclick="event.stopPropagation(); window.panggilSawerDetail('${currentAddress}', '${name}')" 
+                        class="btn-detail" title="Sawer" style="flex:1; border:none;">
+                     <i class="fas fa-gift"></i>
+                </button>
             </div>
         </div>
-    `;
+    </div>`;
 
     container.insertAdjacentHTML('beforeend', html);
 };
