@@ -1441,9 +1441,6 @@ const BASE_SEPOLIA_CONFIG = {
 
 const MIN_TIP = 0.0001;
 const MAX_TIP = 0.005;
-const PROFILE_BATCH_SIZE = 10;
-const CONCURRENCY_LIMIT = 2; // Proses 3 gambar per detik (Rem untuk HP kencang)
-const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
 
 let provider, signer;
 let userAddress;
@@ -1945,15 +1942,24 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
-// --- FUNGSI BATCH LOADER (DIPERBAIKI) ---
+// ==========================================
+// 1. KONFIGURASI GLOBAL
+// ==========================================
+const PROFILE_BATCH_SIZE = 12;
+const CONCURRENCY_LIMIT = 3; // Rem untuk HP kencang (3 gambar per detik)
+const delay = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+
+// ==========================================
+// 2. FUNGSI SCROLL UNLIMITED (STABIL)
+// ==========================================
 window.loadNextProfileBatch = async function() {
-    // 1. Cek Batas & Gatekeeper
+    // Cek Batas
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. Tampilkan Loader Bawah
+    // Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1963,33 +1969,27 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil Potongan ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-
+    
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // ============================================================
-    // PERBAIKAN UTAMA: LOOPING & CHUNKING
-    // Daripada request 12 sekaligus, kita request per 3 item.
-    // ============================================================
+    // --- BAGIAN INI DIMODIFIKASI SEDIKIT AGAR TIDAK ERROR DI RAM 8GB ---
+    // Kita pakai loop kecil (per 3 item) biar browser tidak kaget
+    
     for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
-        // Ambil irisan kecil (3 item)
         const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
         
         const chunkPromises = chunk.map(async (id) => {
             try {
-                // Jeda random sedikit (Jitter) biar tidak serentak milidetik
-                await delay(Math.random() * 500);
+                // Jeda mikro biar napas
+                await delay(Math.random() * 100); 
 
                 const uri = await contract.tokenURI(id);
-                // Pastikan fungsi fetchMetadata Anda sudah benar
                 const meta = await fetchMetadata(uri); 
-
                 return { id: id.toString(), meta: meta }; 
             } catch (e) { 
-                // PERBAIKAN PENTING: JANGAN return null!
-                // Return Placeholder agar grid tetap rapi 12 kotak & tidak bolong
+                // [FIX PENTING] Jangan return null! Return placeholder biar grid gak bolong
                 return { 
                     id: id.toString(), 
                     meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
@@ -1997,54 +1997,37 @@ window.loadNextProfileBatch = async function() {
             }
         });
 
-        // Tunggu 3 item selesai dulu
+        // Tunggu 3 item selesai
         const results = await Promise.all(chunkPromises);
 
-        // Render langsung (User melihat gambar muncul bertahap)
+        // Render langsung
         results.forEach(item => {
-            // Cek biar gak double render
             if (item && !document.getElementById(`card-${item.id}`)) {
                 renderCard(item.id, item.meta.name, item.meta.image, container);
             }
         });
-
-        // ISTIRAHAT SEBENTAR (200ms) sebelum lanjut ke 3 berikutnya
-        // Ini memberi napas ke server IPFS/RPC agar tidak memblokir IP kita
-        await delay(500);
+        
+        // Istirahat 0.2 detik sebelum lanjut (Kunci stabilitas)
+        await delay(200);
     }
 
-    // Hapus loader
+    // Bersihkan Loader
     if (bottomLoader) bottomLoader.remove();
 
-    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-Fill jika layar belum penuh (Biar scrollbar muncul di layar besar)
-    ensurePageIsFull();
+    // Auto-Fill jika layar belum penuh (Biar scrollbar muncul)
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
+         loadNextProfileBatch();
+    }
 };
 
-// --- FUNGSI PEMATIK OTOMATIS ---
-window.ensurePageIsFull = function() {
-    setTimeout(() => {
-        const hasMoreData = profileOffset < profileGlobalIds.length;
-        // Cek tinggi konten vs tinggi layar + buffer
-        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 100;
-        
-        if (hasMoreData && notFull) {
-             loadNextProfileBatch();
-        }
-    }, 500);
-};
-
-// --- FUNGSI SCROLL HANDLER (FIXED) ---
+// ==========================================
+// 3. SCROLL HANDLER (SUDAH DIPERBAIKI DARI BUG GANDA)
+// ==========================================
 window.handleProfileScroll = function() {
-    const scrollTop = window.scrollY || document.documentElement.scrollTop;
-    const windowHeight = window.innerHeight;
-    const docHeight = document.documentElement.scrollHeight;
-
-    // Load lagi jika sisa 300px dari bawah
-    if (scrollTop + windowHeight >= docHeight - 300) {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight - 200) {
         loadNextProfileBatch();
     }
 };
