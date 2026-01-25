@@ -1948,47 +1948,70 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
+    // 1. PENGAMAN GANDA: Cek status fetching & ketersediaan data
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    let bottomLoader = null;
-    if (profileOffset > 0) {
+    // 2. LOADER UI: Pastikan hanya ada satu loader di bawah
+    let bottomLoader = document.getElementById("bottomLoader");
+    if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
+        bottomLoader.id = "bottomLoader";
+        // Tambahkan 'clear: both' dan 'width: 100%' agar loader tidak nyempil di grid
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 30px; color: #7385a5; width: 100%; clear: both; display: block;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat ${PROFILE_BATCH_SIZE} koleksi berikutnya...`;
         container.appendChild(bottomLoader);
     }
 
+    // 3. AMBIL DATA
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-const promises = batchIds.map(async (id) => {
-    try {
-        const uri = await contract.tokenURI(id);
-        const meta = await fetchMetadata(uri);
+    // 4. PROSES PARALEL (KEBAL ERROR)
+    const promises = batchIds.map(async (id) => {
+        try {
+            const uri = await contract.tokenURI(id);
+            // Panggil fungsi fetchMetadata Anda yang sudah robust
+            const meta = await fetchMetadata(uri); 
+            return { id: id.toString(), meta: meta }; 
+        } catch (e) { 
+            // [FIX STABILITAS] JANGAN RETURN NULL!
+            // Jika blockchain error/timeout, kembalikan objek darurat.
+            // Ini menjamin urutan tetap pas 10 item, tidak ada yang hilang.
+            return { 
+                id: id.toString(), 
+                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+            }; 
+        }
+    });
 
-        return { id: id.toString(), meta: meta }; 
-    } catch (e) { return null; }
-});
-
+    // Tunggu semua 10 data siap
     const results = await Promise.all(promises);
 
+    // 5. BERSIHKAN LOADER SEBELUM RENDER
     if (bottomLoader) bottomLoader.remove();
 
+    // 6. RENDER (Semua data pasti ada, tidak perlu filter null)
     results.forEach(item => {
-        if (item) {
+        // Double check visual ID untuk mencegah duplikasi render
+        if (!document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
+    // 7. UPDATE STATUS
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
+    // 8. LOGIKA AUTO-FILL (PINTAR)
+    // Jika layar masih kosong (misal di PC layar besar 10 item belum cukup bikin scrollbar),
+    // otomatis panggil batch berikutnya.
+    if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
+         console.log("Layar masih longgar, memuat batch tambahan...");
          loadNextProfileBatch();
     }
 };
