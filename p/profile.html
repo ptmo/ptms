@@ -1949,13 +1949,13 @@ window.loadDataCepat = async function(targetAddress) {
 // 3. BATCH LOADER (Dengan Chunking)
 // ==========================================
 window.loadNextProfileBatch = async function() {
-    // Gatekeeper
+    // 1. Cek Batas
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Loader Bawah
+    // 2. Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
@@ -1965,26 +1965,30 @@ window.loadNextProfileBatch = async function() {
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Slice ID
+    // 3. Ambil Batch ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
-    
-    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // --- LOGIKA CHUNKING (Anti-Rate Limit) ---
+    // ============================================================
+    // MODIFIKASI: PROSES DICICIL (CHUNKING)
+    // Agar HP RAM 8GB tidak memblokir request karena terlalu cepat
+    // ============================================================
     for (let i = 0; i < batchIds.length; i += CONCURRENCY_LIMIT) {
         const chunk = batchIds.slice(i, i + CONCURRENCY_LIMIT);
         
         const chunkPromises = chunk.map(async (id) => {
             try {
-                // Delay Jitter (Acak)
-                await delay(Math.random() * 150); 
+                // Jeda random sedikit biar natural
+                await delay(Math.random() * 100);
 
                 const uri = await contract.tokenURI(id);
-                const meta = await fetchMetadata(uri); 
+                const meta = await fetchMetadata(uri); // Pakai fetchMetadata yang Abang suka
+
                 return { id: id.toString(), meta: meta }; 
             } catch (e) { 
-                console.error(`Error fetching for ID ${id}:`, e);
+                // PENTING: Jangan return null! Return placeholder biar grid gak bolong
                 return { 
                     id: id.toString(), 
                     meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
@@ -1992,38 +1996,31 @@ window.loadNextProfileBatch = async function() {
             }
         });
 
+        // Tunggu 3 item selesai dulu
         const results = await Promise.all(chunkPromises);
 
+        // Render langsung
         results.forEach(item => {
+            // Cek biar gak double render
             if (item && !document.getElementById(`card-${item.id}`)) {
                 renderCard(item.id, item.meta.name, item.meta.image, container);
             }
         });
 
-        // Istirahat sebentar
-        await delay(200); 
+        // Istirahat sebentar (Napas) sebelum lanjut
+        await delay(200);
     }
+    // ============================================================
 
     if (bottomLoader) bottomLoader.remove();
 
-    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto-Fill
-    ensurePageIsFull();
-};
-
-window.ensurePageIsFull = function() {
-    setTimeout(() => {
-        const hasMoreData = profileOffset < profileGlobalIds.length;
-        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 200;
-        
-        if (hasMoreData && notFull) {
-             console.log("Auto-load batch berikutnya...");
-             loadNextProfileBatch();
-        }
-    }, 800); 
+    // Auto-Fill jika layar belum penuh (Biar scrollbar muncul)
+    if ((document.documentElement.scrollHeight <= window.innerHeight + 100) && (profileOffset < profileGlobalIds.length)) {
+         loadNextProfileBatch();
+    }
 };
     
 window.handleProfileScroll = function() {
@@ -2031,7 +2028,8 @@ window.handleProfileScroll = function() {
     const windowHeight = window.innerHeight;
     const docHeight = document.documentElement.scrollHeight;
 
-    if (scrollTop + windowHeight >= docHeight - 500) {
+    // Load jika sisa 300px dari bawah
+    if (scrollTop + windowHeight >= docHeight - 300) {
         loadNextProfileBatch();
     }
 };
@@ -2040,80 +2038,38 @@ window.handleProfileScroll = function() {
 // 4. FETCH METADATA (Perbaikan Gambar dengan Loop Gateway)
 // ==========================================
 window.fetchMetadata = async function(tokenURI) {
-    // Daftar Gateway untuk JSON dan Gambar (Prioritaskan Pinata)
-    const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Prioritas 1: Pinata Dedicated
-        "https://gateway.pinata.cloud/ipfs/",                       // Prioritas 2: Cloudflare
-        "https://ipfs.io/ipfs/"                                    // Terakhir: IPFS.io (lambat)
-    ];
-
-    let cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", "");
-
-    let json = null;
-
-    // 1. Loop Fetch JSON Metadata
-    for (const gateway of GATEWAYS) {
-        try {
-            const controller = new AbortController();
-            const timeoutId = setTimeout(() => controller.abort(), 3000); // Timeout 3 detik per gateway
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    
+    try {
+        const cid = tokenURI.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+        
+        // 1. Coba Pinata Langsung (Biasanya paling cepat & sukses)
+        const url = `${PINATA_GATEWAY}${cid}`;
+        const response = await fetch(url, { timeout: 4000 });
+        if (!response.ok) throw new Error("Gateway Error");
+        
+        const json = await response.json();
+        
+        // 2. Proses Gambar
+        let img = json.image || json.image_url;
+        if (img) {
+            // Bersihkan CID gambar
+            const imgCid = img.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
             
-            const response = await fetch(`\( {gateway} \){cid}`, { signal: controller.signal });
-            clearTimeout(timeoutId);
-
-            if (response.ok) {
-                json = await response.json();
-                console.log(`Success fetch JSON from ${gateway}`);
-                break; // Berhenti jika sukses
-            }
-        } catch (e) {
-            console.error(`Error fetch JSON from ${gateway}:`, e);
-            continue;
+            // TRICK: Pakai Weserv + Cloudflare Source biar muncul di semua HP
+            img = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=400&q=75&output=webp`;
+        } else {
+            img = "img/placeholder.jpg";
         }
-    }
 
-    if (!json) {
-        console.error("Gagal fetch JSON dari semua gateway");
+        return { name: json.name || `Wayang #${cid}`, image: img };
+
+    } catch (e) {
+        // Fallback Darurat
         return { name: "Wayang NFT", image: "img/placeholder.jpg" };
     }
-
-    let rawImg = json.image || json.image_url;
-    let name = json.name || `Wayang #${cid.substring(0,4)}`;
-    let finalImg = "img/placeholder.jpg";
-
-    if (rawImg) {
-        const imgCid = rawImg.replace("ipfs://", "")
-                             .replace("https://ipfs.io/ipfs/", "")
-                             .replace("https://gateway.pinata.cloud/ipfs/", "")
-                             .replace("https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", "");
-
-        // 2. Loop Fetch/Proxy Gambar (Coba dapatkan URL yang valid)
-        for (const gateway of GATEWAYS) {
-            try {
-                const sourceUrl = `\( {gateway} \){imgCid}`;
-                
-                // Test head request untuk cek jika gambar ada (optional, tapi hemat bandwidth)
-                const headResponse = await fetch(sourceUrl, { method: 'HEAD', signal: new AbortController().signal });
-                if (headResponse.ok && headResponse.headers.get('content-type').startsWith('image/')) {
-                    // Bungkus dengan Weserv.nl untuk optimasi (resize, webp, cache)
-                    finalImg = `https://wsrv.nl/?url=${encodeURIComponent(sourceUrl)}&w=400&q=75&output=webp&il`; // Tambah &il untuk lazy load
-                    
-                    console.log(`Success gambar dari ${gateway}, final URL: ${finalImg}`);
-                    break; // Berhenti jika sukses
-                }
-            } catch (e) {
-                console.error(`Error fetch gambar dari ${gateway}:`, e);
-                continue;
-            }
-        }
-
-        if (finalImg === "img/placeholder.jpg") {
-            console.error("Gagal fetch gambar dari semua gateway");
-        }
-    }
-
-    return { name, image: finalImg };
 };
-
+    
 window.renderCard = function(id, name, img, container) {
     let isMyProfile = false;
     if (typeof viewerAddress !== 'undefined' && typeof currentAddress !== 'undefined') {
