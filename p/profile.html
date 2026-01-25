@@ -1881,59 +1881,53 @@ window.loadDataCepat = async function(targetAddress) {
     const container = document.getElementById("collectionContainer");
     const loading = document.getElementById("loading");
     const empty = document.getElementById("emptyState");
+    const totalEl = document.getElementById("totalItems");
     
+    // 1. Reset Total
     container.innerHTML = "";
     profileGlobalIds = [];
     profileOffset = 0;
     isProfileFetching = false;
     
+    // 2. Hapus Listener Lama (PENTING)
     window.removeEventListener('scroll', handleProfileScroll);
 
     if(loading) loading.style.display = 'block';
     if(empty) empty.style.display = 'none';
 
-    let tempProvider = provider;
-    if (!tempProvider) {
-        tempProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
-    }
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
 
     try {
         const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
-
         const tokenIds = await contract.walletOfOwner(targetAddress);
         
-        if(document.getElementById("totalItems")) {
-            document.getElementById("totalItems").innerText = tokenIds.length;
+        if(totalEl) totalEl.innerText = tokenIds.length;
+
+        // Cek Badge Official
+        const OFFICIAL_ADDR_LOWER = "0xbacc1f6e717bf03db0c40e3044da47318c369b70";
+        if (targetAddress.toLowerCase() !== OFFICIAL_ADDR_LOWER) {
+             const nameEl = document.getElementById("displayAddress");
+             if (nameEl && !nameEl.innerHTML.includes("fa-check-circle") && tokenIds.length > 0) {
+                 nameEl.innerHTML += ` <span style="color:#2ecc71; font-size:1em;"><i class="fa fa-check-circle"></i></span>`;
+             }
         }
 
-        if (tokenIds.length > 0) {
-            const OFFICIAL_ADDR_LOWER = "0xbacc1f6e717bf03db0c40e3044da47318c369b70";
-            
-            if (targetAddress.toLowerCase() !== OFFICIAL_ADDR_LOWER) {
-                const nameEl = document.getElementById("displayAddress");
-
-                if (nameEl && !nameEl.innerHTML.includes("fa-check-circle")) {
-                    nameEl.innerHTML += `
-    <span style="display: inline-flex; align-items: center; margin-left: 10px; vertical-align: middle;">
-        <i class="fa fa-check-circle" style="color: #2ecc71; font-size: 1.2em; margin-right: 4px;"></i>
-        <span style="color: #2ecc71; font-size: 1em; font-weight: bold; text-transform: capitalize;">Terverifikasi</span>
-    </span>`;
-                }
-            }
-        }
-
+        // Jika Kosong
         if (tokenIds.length === 0) {
             if(loading) loading.style.display = 'none';
             if(empty) empty.style.display = 'block';
             return;
         }
 
+        // 3. Simpan ID Global
         profileGlobalIds = tokenIds.slice().reverse();
 
         if(loading) loading.style.display = 'none';
 
+        // 4. Load Batch Pertama
         await loadNextProfileBatch();
 
+        // 5. PASANG EVENT LISTENER SETELAH LOAD PERTAMA SELESAI
         window.addEventListener('scroll', handleProfileScroll);
 
     } catch (err) {
@@ -1942,98 +1936,129 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
-window.loadNextProfileBatch = async function () {
-    if (isProfileFetching) return;
-
-    if (!profileGlobalIds.length) return;
-
-    if (profileOffset >= profileGlobalIds.length) {
-        observer?.disconnect();
-        return;
-    }
+window.loadNextProfileBatch = async function() {
+    // 1. Gatekeeper
+    if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
-    observer?.unobserve(document.getElementById("profileSentinel"));
-
     const container = document.getElementById("collectionContainer");
 
-    const batchIds = profileGlobalIds.slice(
-        profileOffset,
-        profileOffset + PROFILE_BATCH_SIZE
-    );
-
-    let tempProvider =
-        provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
-
-    const contract = new ethers.Contract(
-        CONTRACT_ADDRESS,
-        CONTRACT_ABI,
-        tempProvider
-    );
-
-    for (const id of batchIds) {
-        try {
-            const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri, id);
-
-            if (!document.getElementById(`card-${id}`)) {
-                renderCard(id, meta.name, meta.image, container);
-            }
-        } catch (e) {
-            console.warn("Skip token", id);
-        }
+    // 2. Loader Bawah
+    let bottomLoader = document.getElementById("bottomLoader");
+    if (!bottomLoader && profileOffset > 0) {
+        bottomLoader = document.createElement("div");
+        bottomLoader.id = "bottomLoader";
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
+        container.appendChild(bottomLoader);
     }
 
+    // 3. Ambil Slice ID
+    const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
+
+    let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
+
+    // 4. Proses Metadata Paralel (DENGAN PROTEKSI)
+    const promises = batchIds.map(async (id) => {
+        try {
+            const uri = await contract.tokenURI(id);
+            const meta = await fetchMetadata(uri); 
+            return { id: id.toString(), meta: meta }; 
+        } catch (e) { 
+            // PERBAIKAN DISINI: Jangan return null!
+            // Return Placeholder agar grid tidak bolong
+            return { 
+                id: id.toString(), 
+                meta: { name: `Wayang #${id}`, image: "img/placeholder.jpg" } 
+            }; 
+        }
+    });
+
+    const results = await Promise.all(promises);
+
+    if (bottomLoader) bottomLoader.remove();
+
+    // 5. Render Hasil
+    results.forEach(item => {
+        // Cek ID agar tidak duplikat di layar
+        if (item && !document.getElementById(`card-${item.id}`)) {
+            renderCard(item.id, item.meta.name, item.meta.image, container);
+        }
+    });
+
+    // 6. Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
+    
+    // 7. AUTO-FILL CHECKER (Penting untuk HP Layar Panjang/High Res)
+    // Jika data sudah dimuat tapi layar belum penuh (belum ada scrollbar),
+    // paksa muat lagi sampai penuh.
+    ensurePageIsFull();
+};
 
-    observer?.observe(document.getElementById("profileSentinel"));
+// Fungsi Baru: Memaksa load terus sampai layar penuh
+window.ensurePageIsFull = function() {
+    setTimeout(() => {
+        const hasMoreData = profileOffset < profileGlobalIds.length;
+        // Cek apakah tinggi konten < tinggi layar + buffer
+        const notFull = document.documentElement.scrollHeight <= window.innerHeight + 100;
+        
+        if (hasMoreData && notFull) {
+             console.log("Layar belum penuh, auto-load batch berikutnya...");
+             loadNextProfileBatch();
+        }
+    }, 500); 
 };
     
-window.initProfileObserver = function () {
-    const sentinel = document.getElementById("profileSentinel");
+window.handleProfileScroll = function() {
+    const scrollTop = window.scrollY || document.documentElement.scrollTop;
+    const windowHeight = window.innerHeight;
+    const docHeight = document.documentElement.scrollHeight;
 
-    observer = new IntersectionObserver(
-        entries => {
-            if (entries[0].isIntersecting && !isProfileFetching) {
-                loadNextProfileBatch();
-            }
-        },
-        {
-            root: null,
-            rootMargin: "300px",
-            threshold: 0
-        }
-    );
-
-    observer.observe(sentinel);
+    // Trigger load jika user sudah scroll dan sisa 300px dari bawah
+    if (scrollTop + windowHeight >= docHeight - 300) {
+        loadNextProfileBatch();
+    }
 };
 
-window.fetchMetadata = async function (tokenURI, id) {
-    const PINATA = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    const controller = new AbortController();
-
-    setTimeout(() => controller.abort(), 7000);
-
+window.fetchMetadata = async function(tokenURI) {
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    
     try {
         const cid = tokenURI.replace("ipfs://", "");
-        const res = await fetch(PINATA + cid, { signal: controller.signal });
-        const json = await res.json();
-
+        const url = `${PINATA_GATEWAY}${cid}`;
+        
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
+        
+        const json = await response.json();
+        
         let img = json.image || json.image_url;
-        if (img?.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA);
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
         }
 
-        return {
-            name: json.name || `Wayang #${id}`,
-            image: img || "img/placeholder.jpg"
+        return { 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
         };
-    } catch {
-        return {
-            name: `Wayang #${id}`,
-            image: "img/placeholder.jpg"
-        };
+    } catch (e) {
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
 
