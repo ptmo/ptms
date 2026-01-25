@@ -1974,19 +1974,18 @@ window.loadNextProfileBatch = async function() {
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Panggil fetchMetadata (Pastikan fungsi ini sudah pakai versi perbaikan sebelumnya)
+            // Panggil fetchMetadata
             const meta = await fetchMetadata(uri); 
             return { id: id.toString(), meta: meta }; 
         } catch (e) { 
-            // 🔥🔥 INI PERBAIKANNYA 🔥🔥
-            // Jangan pakai "img/placeholder.jpg" karena file itu tidak ada.
-            // Pakai link online ini:
+            // Fallback jika fetch URI gagal (jarang terjadi jika RPC aman)
+            console.warn("Gagal load URI untuk ID:", id, e);
             return { 
                 id: id.toString(), 
                 meta: { 
-                    name: `Wayang #${id} (N/A)`, 
-                    // Gambar abu-abu bertuliskan "Data Error"
-                    image: "https://placehold.co/400x500/e0e0e0/555555?text=Data+Error" 
+                    name: `Wayang #${id}`, 
+                    // Gunakan gambar placeholder transparan atau loading jika error
+                    image: "img/placeholder.jpg" // Pastikan file ini ada, atau gunakan URL eksternal yang stabil
                 } 
             }; 
         }
