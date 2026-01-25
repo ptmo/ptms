@@ -1948,62 +1948,47 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
-    // Cek batas data
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // Loader Bawah
-    let bottomLoader = document.getElementById("bottomLoader");
-    if (!bottomLoader && profileOffset > 0) {
+    let bottomLoader = null;
+    if (profileOffset > 0) {
         bottomLoader = document.createElement("div");
-        bottomLoader.id = "bottomLoader";
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi...`;
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat koleksi lainnya...`;
         container.appendChild(bottomLoader);
     }
 
-    // Ambil Batch ID
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // Fetch Paralel (Semua Metadata)
-    const promises = batchIds.map(async (id) => {
-        try {
-            const uri = await contract.tokenURI(id);
-            const meta = await fetchMetadata(uri); 
-            return { id: id.toString(), meta: meta }; 
-        } catch (e) { 
-            // Fallback Level Terakhir (Jika Blockchain Gagal Total)
-            // Gunakan Placeholder Online yang Valid
-            return { 
-                id: id.toString(), 
-                meta: { name: `ID #${id}`, image: "https://placehold.co/400x500/ffedc2/d35400?text=Blockchain+Error" } 
-            }; 
-        }
-    });
+const promises = batchIds.map(async (id) => {
+    try {
+        const uri = await contract.tokenURI(id);
+        const meta = await fetchMetadata(uri);
 
-    // Tunggu Hasil
+        return { id: id.toString(), meta: meta }; 
+    } catch (e) { return null; }
+});
+
     const results = await Promise.all(promises);
 
     if (bottomLoader) bottomLoader.remove();
 
-    // RENDER (Paksa render semua)
     results.forEach(item => {
-        if (item && item.meta) {
+        if (item) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // Auto Fill Screen (Jika layar besar masih kosong, load lagi)
-    if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
+    if ((window.innerHeight + window.scrollY) >= document.body.offsetHeight && profileOffset < profileGlobalIds.length) {
          loadNextProfileBatch();
     }
 };
@@ -2014,55 +1999,43 @@ window.handleProfileScroll = function() {
     }
 };
 
-// --- FUNGSI METADATA ANTI ERROR (GAMBAR PASTI MUNCUL) ---
 window.fetchMetadata = async function(tokenURI) {
-    // 1. Definisikan Gambar Cadangan (Online & Stabil)
-    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
-    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
-
-    // 2. Daftar Gateway (Prioritas: Dedicated -> Public)
-    const GATEWAYS = [
-        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/",
-        "https://gateway.pinata.cloud/ipfs/",
-        "https://ipfs.io/ipfs/",
-        "https://cloudflare-ipfs.com/ipfs/"
-    ];
-
-    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
-
+    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    
     try {
-        const cid = cleanURI(tokenURI);
+        const cid = tokenURI.replace("ipfs://", "");
+        const url = `${PINATA_GATEWAY}${cid}`;
         
-        // Fetch JSON Metadata (Timeout 5 detik biar cepat)
-        const response = await fetch(`${GATEWAYS[0]}${cid}`, { timeout: 5000 });
-        if (!response.ok) throw new Error("Metadata Timeout");
+        const response = await fetch(url, { timeout: 5000 });
+        if (!response.ok) throw new Error("Gateway Error");
         
         const json = await response.json();
-
-        // 3. Proses Gambar
-        let rawImg = json.image || json.image_url;
-        let finalImg = FALLBACK_IMG; 
-
-        if (rawImg) {
-            const imgCid = cleanURI(rawImg);
-            // Gunakan 'ipfs.io' sebagai source untuk Weserv agar lebih kompatibel
-            const publicSource = `https://ipfs.io/ipfs/${imgCid}`; 
-            
-            // Generate URL Proxy (Weserv) untuk optimasi & cache
-            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
+        
+        let img = json.image || json.image_url;
+        if (img && img.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA_GATEWAY);
+        } else if (!img) {
+            img = "img/placeholder.jpg";
         }
 
         return { 
-            name: json.name || `Wayang #${cid.substring(0, 4)}`, 
-            image: finalImg 
+            name: json.name || `Wayang #${id}`, 
+            image: img 
         };
-
     } catch (e) {
-        // Return object valid dengan gambar Error (Merah)
-        return { 
-            name: "Wayang #" + tokenURI.substring(tokenURI.length - 4), 
-            image: ERROR_IMG 
-        };
+        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
+
+        try {
+            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
+            const res = await fetch(fallbackUrl);
+            const data = await res.json();
+            return { 
+                name: data.name, 
+                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
+            };
+        } catch (err) {
+            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+        }
     }
 };
 
