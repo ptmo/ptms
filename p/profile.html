@@ -2008,43 +2008,35 @@ window.initProfileObserver = function () {
     observer.observe(sentinel);
 };
 
-window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
-    
+window.fetchMetadata = async function (tokenURI, id) {
+    const PINATA = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    const controller = new AbortController();
+
+    setTimeout(() => controller.abort(), 7000);
+
     try {
         const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
-        
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
-        
-        const json = await response.json();
-        
+        const res = await fetch(PINATA + cid, {
+            signal: controller.signal
+        });
+
+        const json = await res.json();
+
         let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
+        if (img?.startsWith("ipfs://")) {
+            img = img.replace("ipfs://", PINATA);
         }
 
-        return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
+        return {
+            name: json.name || `Wayang #${id}`,
+            image: img || "img/placeholder.jpg"
         };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
 
-        try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
-        }
+    } catch (e) {
+        return {
+            name: `Wayang #${id}`,
+            image: "img/placeholder.jpg"
+        };
     }
 };
 
