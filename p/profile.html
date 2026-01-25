@@ -1948,68 +1948,63 @@ window.loadDataCepat = async function(targetAddress) {
 };
 
 window.loadNextProfileBatch = async function() {
-    // 1. Cek Status
     if (isProfileFetching || profileOffset >= profileGlobalIds.length) return;
 
     isProfileFetching = true;
     const container = document.getElementById("collectionContainer");
 
-    // 2. Tampilkan Loader
+    // Loader Bawah
     let bottomLoader = document.getElementById("bottomLoader");
     if (!bottomLoader && profileOffset > 0) {
         bottomLoader = document.createElement("div");
         bottomLoader.id = "bottomLoader";
-        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 30px; color: #7385a5; width: 100%; clear: both; display: block;";
-        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat ${PROFILE_BATCH_SIZE} data berikutnya...`;
+        bottomLoader.style.cssText = "grid-column: 1/-1; text-align: center; padding: 20px; color: #7385a5; width: 100%; clear:both;";
+        bottomLoader.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Memuat data...`;
         container.appendChild(bottomLoader);
     }
 
-    // 3. Ambil Batch ID
+    // Ambil Batch
     const batchIds = profileGlobalIds.slice(profileOffset, profileOffset + PROFILE_BATCH_SIZE);
 
     let tempProvider = provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
     const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    // 4. PROSES DATA (DENGAN JARING PENGAMAN)
+    // Proses Metadata
     const promises = batchIds.map(async (id) => {
         try {
             const uri = await contract.tokenURI(id);
-            // Panggil fetchMetadata
+            // Panggil fungsi fetchMetadata baru kita
             const meta = await fetchMetadata(uri); 
             return { id: id.toString(), meta: meta }; 
         } catch (e) { 
-            // Fallback jika fetch URI gagal (jarang terjadi jika RPC aman)
-            console.warn("Gagal load URI untuk ID:", id, e);
+            // Fallback Darurat (Jika Blockchain Gagal Total)
+            // Tetap return objek valid agar grid tidak bolong
             return { 
                 id: id.toString(), 
                 meta: { 
                     name: `Wayang #${id}`, 
-                    // Gunakan gambar placeholder transparan atau loading jika error
-                    image: "img/placeholder.jpg" // Pastikan file ini ada, atau gunakan URL eksternal yang stabil
+                    image: "https://placehold.co/400x600/f5f5f5/dddddd?text=..." 
                 } 
             }; 
         }
     });
 
-    // 5. Tunggu Hasil
     const results = await Promise.all(promises);
 
-    // 6. Hapus Loader
     if (bottomLoader) bottomLoader.remove();
 
-    // 7. Render (Semua pasti muncul sekarang)
+    // Render Semua
     results.forEach(item => {
-        // Cek ID visual biar gak dobel
-        if (!document.getElementById(`card-${item.id}`)) {
+        // Cek ID visual untuk mencegah duplikasi
+        if (item && !document.getElementById(`card-${item.id}`)) {
             renderCard(item.id, item.meta.name, item.meta.image, container);
         }
     });
 
-    // 8. Update Offset
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
     
-    // 9. Auto-Fill Layar Besar
+    // Auto-Fill jika layar masih kosong
     if ((document.body.scrollHeight <= window.innerHeight) && (profileOffset < profileGlobalIds.length)) {
          loadNextProfileBatch();
     }
@@ -2021,63 +2016,77 @@ window.handleProfileScroll = function() {
     }
 };
 
-// --- FUNGSI METADATA ANTI-GAGAL (SMART URL RESOLVER) ---
 window.fetchMetadata = async function(tokenURI) {
-    // 1. Definisikan Gambar Cadangan (Online & Stabil)
-    const FALLBACK_IMG = "https://placehold.co/400x500/e0e0e0/888888?text=Loading...";
-    const ERROR_IMG = "https://placehold.co/400x500/ffcccc/ff0000?text=Gagal+Muat";
+    // 1. Bersihkan URL dari sampah prefix
+    const cleanURI = (uri) => uri.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "");
+    const cid = cleanURI(tokenURI);
 
-    // 2. Fungsi Cerdas: Deteksi & Bersihkan URL
-    const resolveUrl = (url) => {
-        if (!url) return "";
-        
-        // A. Jika sudah format HTTPS normal, biarkan (jangan ditambah gateway lagi)
-        if (url.startsWith("http") && !url.includes("ipfs://")) return url;
+    // 2. DAFTAR JALUR KONEKSI (Urutan Prioritas)
+    // Jalur 1: Gateway Pribadi (Paling Cepat)
+    const PRIMARY_URL = `https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cid}`;
+    
+    // Jalur 2: Cloudflare (Cadangan Stabil)
+    const BACKUP_URL = `https://cloudflare-ipfs.com/ipfs/${cid}`;
+    
+    // Jalur 3: IPFS.io (Cadangan Terakhir)
+    const PUBLIC_URL = `https://ipfs.io/ipfs/${cid}`;
 
-        // B. Jika format IPFS Native (ipfs://CID)
-        // Bersihkan prefix, sisakan CID saja
-        const cid = url.replace("ipfs://", "").replace("https://ipfs.io/ipfs/", "").replace("https://gateway.pinata.cloud/ipfs/", "");
-        
-        // Gunakan Gateway Pilihan (Dedicated Pinata Anda)
-        return `https://magenta-secondary-guan-686.mypinata.cloud/ipfs/${cid}`;
+    // Helper: Fungsi untuk mencoba download JSON Metadata
+    const tryFetch = async (url) => {
+        const controller = new AbortController();
+        const timeoutId = setTimeout(() => controller.abort(), 4000); // Batas waktu 4 detik per jalur
+        const res = await fetch(url, { signal: controller.signal });
+        clearTimeout(timeoutId);
+        if (!res.ok) throw new Error("Gagal");
+        return await res.json();
     };
 
     try {
-        const metadataUrl = resolveUrl(tokenURI);
-        
-        // Fetch JSON Metadata (Timeout 5 detik)
-        const response = await fetch(metadataUrl, { timeout: 5000 });
-        if (!response.ok) throw new Error("Metadata Timeout / 404");
-        
-        const json = await response.json();
-
-        // 3. Proses Gambar (Raw Image -> Optimized)
-        let rawImg = json.image || json.image_url;
-        let finalImg = FALLBACK_IMG; 
-
-        if (rawImg) {
-            // Kita ambil URL aslinya yang bersih (HTTPS)
-            const publicSource = resolveUrl(rawImg);
-            
-            // Generate URL Proxy (Weserv) untuk optimasi & cache & konversi ke WebP
-            // encodeURIComponent wajib agar URL tidak rusak saat dikirim ke Weserv
-            finalImg = `https://wsrv.nl/?url=${encodeURIComponent(publicSource)}&w=400&q=75&output=webp`;
+        let json;
+        // A. COBA JALUR 1 (Dedicated)
+        try {
+            json = await tryFetch(PRIMARY_URL);
+        } catch (e) {
+            // B. Jika Gagal, COBA JALUR 2 (Cloudflare)
+            console.warn(`Jalur 1 gagal untuk ID ${cid.substring(0,4)}, coba jalur 2...`);
+            try {
+                json = await tryFetch(BACKUP_URL);
+            } catch (e2) {
+                // C. Jika Gagal, COBA JALUR 3 (Public)
+                console.warn(`Jalur 2 gagal, coba jalur 3...`);
+                json = await tryFetch(PUBLIC_URL);
+            }
         }
 
-        // Return Data Valid
-        return { 
-            name: json.name || `Wayang #${tokenURI.slice(-4)}`, 
-            image: finalImg 
-        };
+        // --- SAMPAI SINI ARTINYA JSON METADATA SUDAH DAPAT ---
+
+        // 3. Ekstrak Gambar Asli
+        let rawImg = json.image || json.image_url;
+        
+        // PENTING: Langsung kembalikan URL gambar asli (Tanpa Placeholder)
+        if (rawImg) {
+            const imgCid = cleanURI(rawImg);
+            // Gunakan Weserv agar gambar IPFS yang berat jadi ringan & cepat
+            // Kita pakai Cloudflare sebagai sumber gambar karena paling kompatibel dengan Weserv
+            const finalImg = `https://wsrv.nl/?url=${encodeURIComponent('https://cloudflare-ipfs.com/ipfs/' + imgCid)}&w=500&q=80&output=webp`;
+            
+            return { 
+                name: json.name || `Wayang #${cid.substring(0, 4)}`, 
+                image: finalImg 
+            };
+        }
 
     } catch (e) {
-        // Fallback jika JSON tidak bisa dibaca
-        console.warn("Gagal load metadata:", tokenURI);
-        return { 
-            name: "Data Tidak Tersedia", 
-            image: ERROR_IMG 
-        };
+        console.error("Gagal total mengambil metadata:", tokenURI);
     }
+
+    // --- FALLBACK DARURAT (Hanya jika SEMUA jalur mati) ---
+    // Kita kasih gambar Loading Spinner transparan, jadi user mikirnya "lagi loading" bukan "rusak"
+    return { 
+        name: `Wayang #${cid.substring(0, 4)}`, 
+        // Gambar Loading Putar-putar (Lebih enak dilihat daripada 'Data Error')
+        image: "https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif" 
+    };
 };
 
 window.renderCard = function(id, name, img, container) {
