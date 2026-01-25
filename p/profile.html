@@ -1947,14 +1947,39 @@ window.loadDataCepat = async function(targetAddress) {
     }
 };
 
+window.loadAllProfileIds = async function () {
+    let tempProvider =
+        provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+
+    const contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        tempProvider
+    );
+
+    const totalSupply = await contract.totalSupply();
+
+    profileGlobalIds = [];
+
+    for (let i = 1; i <= totalSupply; i++) {
+        profileGlobalIds.push(i);
+    }
+
+    console.log("Total NFT:", profileGlobalIds.length);
+};
+
 window.loadNextProfileBatch = async function () {
     if (isProfileFetching) return;
+
+    if (!profileGlobalIds.length) return;
+
     if (profileOffset >= profileGlobalIds.length) {
         observer?.disconnect();
         return;
     }
 
     isProfileFetching = true;
+    observer?.unobserve(document.getElementById("profileSentinel"));
 
     const container = document.getElementById("collectionContainer");
 
@@ -1965,42 +1990,44 @@ window.loadNextProfileBatch = async function () {
 
     let tempProvider =
         provider || new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
-    const contract = new ethers.Contract(CONTRACT_ADDRESS, CONTRACT_ABI, tempProvider);
 
-    const results = [];
+    const contract = new ethers.Contract(
+        CONTRACT_ADDRESS,
+        CONTRACT_ABI,
+        tempProvider
+    );
 
     for (const id of batchIds) {
         try {
             const uri = await contract.tokenURI(id);
             const meta = await fetchMetadata(uri, id);
-            results.push({ id: id.toString(), meta });
+
+            if (!document.getElementById(`card-${id}`)) {
+                renderCard(id, meta.name, meta.image, container);
+            }
         } catch (e) {
             console.warn("Skip token", id);
         }
     }
 
-    results.forEach(item => {
-        if (!document.getElementById(`card-${item.id}`)) {
-            renderCard(item.id, item.meta.name, item.meta.image, container);
-        }
-    });
-
     profileOffset += PROFILE_BATCH_SIZE;
     isProfileFetching = false;
-};
 
+    observer?.observe(document.getElementById("profileSentinel"));
+};
+    
 window.initProfileObserver = function () {
     const sentinel = document.getElementById("profileSentinel");
 
     observer = new IntersectionObserver(
-        (entries) => {
-            if (entries[0].isIntersecting) {
+        entries => {
+            if (entries[0].isIntersecting && !isProfileFetching) {
                 loadNextProfileBatch();
             }
         },
         {
             root: null,
-            rootMargin: "300px", // preload sebelum mentok
+            rootMargin: "300px",
             threshold: 0
         }
     );
@@ -2016,10 +2043,7 @@ window.fetchMetadata = async function (tokenURI, id) {
 
     try {
         const cid = tokenURI.replace("ipfs://", "");
-        const res = await fetch(PINATA + cid, {
-            signal: controller.signal
-        });
-
+        const res = await fetch(PINATA + cid, { signal: controller.signal });
         const json = await res.json();
 
         let img = json.image || json.image_url;
@@ -2031,8 +2055,7 @@ window.fetchMetadata = async function (tokenURI, id) {
             name: json.name || `Wayang #${id}`,
             image: img || "img/placeholder.jpg"
         };
-
-    } catch (e) {
+    } catch {
         return {
             name: `Wayang #${id}`,
             image: "img/placeholder.jpg"
@@ -2383,6 +2406,7 @@ window.showToast = function(msg, type = 'info') {
 
 window.addEventListener('DOMContentLoaded', () => {
     initGatekeeper();
+    await loadAllProfileIds();
     initProfileObserver()
     loadNextProfileBatch()
     if(document.getElementById("year")) document.getElementById("year").innerText = new Date().getFullYear();
