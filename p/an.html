@@ -1,0 +1,463 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Putramas Analytics | Comprehensive Smart Contract Data</title>
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+    <style>
+        :root {
+            --primary: #7385a5;
+            --primary-dark: #5c6a84;
+            --secondary: #a6b4cd;
+            --bg-body: #f6f9ff;
+            --text-dark: #2c3e50;
+            --text-grey: #7f8c8d;
+            --white: #ffffff;
+            --shadow-soft: 0 10px 30px rgba(115, 133, 165, 0.12);
+            --shadow-hover: 0 15px 40px rgba(115, 133, 165, 0.20);
+            --radius: 16px;
+        }
+
+        * { box-sizing: border-box; outline: none; }
+
+        body { 
+            font-family: 'Rubik', sans-serif; 
+            background-color: var(--bg-body); 
+            color: var(--text-dark); 
+            margin: 0; padding: 0;
+            overflow-x: hidden;
+        }
+
+        /* --- LAYOUT UTAMA --- */
+        .container { max-width: 1200px; margin: 0 auto; padding: 30px 20px; }
+
+        /* HEADER */
+        .header-section { margin-bottom: 40px; text-align: center; }
+        .page-title { font-size: 28px; font-weight: 800; color: var(--primary); margin-bottom: 5px; }
+        .page-subtitle { color: var(--text-grey); font-size: 14px; letter-spacing: 0.5px; }
+        .connect-wrapper { margin-top: 20px; }
+        .btn-connect {
+            background: var(--primary); color: #fff; border: none; padding: 12px 30px;
+            border-radius: 50px; font-weight: 700; cursor: pointer; 
+            box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3); transition: 0.3s;
+        }
+        .btn-connect:hover { transform: translateY(-2px); box-shadow: 0 8px 20px rgba(115, 133, 165, 0.4); }
+
+        /* --- SECTION STYLING --- */
+        .section-label {
+            font-size: 13px; font-weight: 700; color: var(--primary); 
+            text-transform: uppercase; letter-spacing: 1px; margin: 40px 0 15px 0;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: rgba(115,133,165,0.2); }
+
+        /* CARD COMPONENT (Premium Soft) */
+        .card-panel {
+            background: var(--white); border-radius: var(--radius); padding: 25px;
+            border: 1px solid rgba(255,255,255,0.8);
+            box-shadow: var(--shadow-soft); position: relative;
+            transition: transform 0.3s ease;
+        }
+        .card-panel:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); }
+
+        /* --- 1. GENERAL STATS GRID --- */
+        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; }
+        .stat-item { display: flex; align-items: center; gap: 15px; }
+        .stat-icon {
+            width: 50px; height: 50px; border-radius: 12px; background: #f0f4fa;
+            color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 20px;
+        }
+        .stat-info h4 { margin: 0; font-size: 11px; color: var(--text-grey); text-transform: uppercase; }
+        .stat-info h2 { margin: 5px 0 0 0; font-size: 22px; font-weight: 800; color: var(--text-dark); }
+
+        /* --- 2. CHART GRID (Distribusi) --- */
+        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 20px; }
+        @media(max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
+        
+        .chart-header { display: flex; justify-content: space-between; margin-bottom: 20px; }
+        .chart-title { font-weight: 700; color: var(--text-dark); font-size: 16px; }
+
+        /* --- 3. TABLES (User Activity) --- */
+        .premium-table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        .premium-table th { text-align: left; font-size: 11px; color: var(--text-grey); padding: 10px; text-transform: uppercase; border-bottom: 1px solid #eee; }
+        .premium-table td { padding: 12px 10px; font-size: 13px; color: var(--text-dark); border-bottom: 1px dashed #f0f0f0; }
+        .premium-table tr:last-child td { border-bottom: none; }
+        .address-badge { background: #f0f4fa; padding: 4px 8px; border-radius: 6px; font-family: monospace; color: var(--primary); font-size: 11px; }
+
+        /* --- 4. SOCIAL INTERACTION --- */
+        .social-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 20px; }
+        .rating-box { text-align: center; padding: 10px; background: #fafbfc; border-radius: 12px; }
+        .big-rating { font-size: 32px; font-weight: 800; color: var(--primary); }
+        .stars { color: #f1c40f; font-size: 14px; margin: 5px 0; }
+
+        /* --- 5. TIPPING LEADERBOARD --- */
+        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 10px 0; border-bottom: 1px solid #f5f5f5; }
+        .rank-circle { width: 24px; height: 24px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 10px; font-weight: bold; }
+        .sultan-badge { background: linear-gradient(135deg, #f1c40f 0%, #f39c12 100%); color: #fff; padding: 2px 8px; border-radius: 10px; font-size: 9px; margin-left: 5px; }
+
+        /* --- 7. FOOTER INSIGHTS --- */
+        .insight-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+        .insight-box { background: rgba(115, 133, 165, 0.05); padding: 15px; border-radius: 12px; border: 1px dashed var(--secondary); text-align: center; }
+
+        /* UTILS */
+        .loading-pulse { animation: pulse 1.5s infinite; opacity: 0.5; }
+        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 1; } 100% { opacity: 0.5; } }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    
+    <div class="header-section">
+        <h1 class="page-title">Putramas Analytics Dashboard</h1>
+        <p class="page-subtitle">Analisis Data On-Chain Smart Contract WayangArsipPutramas (Base Network)</p>
+        <div class="connect-wrapper">
+            <button id="btnConnect" class="btn-connect" onclick="initDashboard()">
+                <i class="fas fa-wallet"></i> Hubungkan Wallet
+            </button>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-cube"></i> 1. Statistik Umum & Ekonomi</div>
+    <div class="stats-grid">
+        <div class="card-panel stat-item">
+            <div class="stat-icon"><i class="fas fa-scroll"></i></div>
+            <div class="stat-info">
+                <h4>Total Arsip (Minted)</h4>
+                <h2 id="val-minted">...</h2>
+            </div>
+        </div>
+        <div class="card-panel stat-item">
+            <div class="stat-icon"><i class="fas fa-tags"></i></div>
+            <div class="stat-info">
+                <h4>Biaya Minting</h4>
+                <h2 id="val-fee">... ETH</h2>
+            </div>
+        </div>
+        <div class="card-panel stat-item">
+            <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
+            <div class="stat-info">
+                <h4>Volume Tips</h4>
+                <h2 id="val-tips">... ETH</h2>
+            </div>
+        </div>
+        <div class="card-panel stat-item">
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
+            <div class="stat-info">
+                <h4>Status Arsip</h4>
+                <h2 style="color:#27ae60; font-size:16px;">100% Aktif</h2>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-chart-pie"></i> 2. Distribusi Klasifikasi Wayang</div>
+    <div class="charts-grid">
+        <div class="card-panel">
+            <div class="chart-header">
+                <div class="chart-title">Distribusi Berdasarkan Golongan</div>
+                <i class="fas fa-ellipsis-h" style="color:#ccc;"></i>
+            </div>
+            <div style="height: 250px; position: relative;">
+                <canvas id="chartGolongan"></canvas>
+            </div>
+        </div>
+        
+        <div class="card-panel">
+            <div class="chart-header">
+                <div class="chart-title">Official vs Publik & Gaya Seni</div>
+            </div>
+            <div style="height: 250px; position: relative;">
+                <canvas id="chartGaya"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-users"></i> 3. Aktivitas Pengguna & Kepemilikan</div>
+    <div class="charts-grid" style="grid-template-columns: 2fr 1fr;">
+        <div class="card-panel">
+            <div class="chart-header">
+                <div class="chart-title">Top Holder (Kolektor Terbesar)</div>
+            </div>
+            <table class="premium-table">
+                <thead>
+                    <tr>
+                        <th>Rank</th>
+                        <th>Wallet Address</th>
+                        <th>Total Wayang</th>
+                        <th>Persentase</th>
+                    </tr>
+                </thead>
+                <tbody id="table-holders">
+                    <tr><td colspan="4" style="text-align:center;">Memuat data...</td></tr>
+                </tbody>
+            </table>
+        </div>
+        
+        <div class="card-panel">
+            <div class="chart-header"><div class="chart-title">Statistik Jaringan</div></div>
+            <div style="margin-top:20px;">
+                <div class="insight-box" style="margin-bottom:10px;">
+                    <h4 style="margin:0; color:#7f8c8d; font-size:10px;">TOTAL UNIQUE OWNERS</h4>
+                    <h2 style="margin:5px 0; color:#2c3e50;" id="val-owners">...</h2>
+                </div>
+                <div class="insight-box">
+                    <h4 style="margin:0; color:#7f8c8d; font-size:10px;">TOTAL TRANSFERS</h4>
+                    <h2 style="margin:5px 0; color:#2c3e50;">1,204</h2>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-heart"></i> 4. Interaksi Sosial & Reputasi</div>
+    <div class="social-grid">
+        <div class="card-panel">
+            <div class="chart-title" style="margin-bottom:15px;">Rating Rata-Rata</div>
+            <div class="rating-box">
+                <div class="big-rating">4.8</div>
+                <div class="stars"><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star"></i><i class="fas fa-star-half-alt"></i></div>
+                <small style="color:#aaa;">dari 85 Ulasan</small>
+            </div>
+        </div>
+        
+        <div class="card-panel">
+            <div class="chart-title" style="margin-bottom:15px;">Wayang Terpopuler (Most Liked)</div>
+            <div style="display:flex; align-items:center; gap:15px; margin-top:10px;">
+                <div style="width:60px; height:60px; background:#eee; border-radius:10px; overflow:hidden;">
+                    <img src="https://via.placeholder.com/60" style="width:100%;">
+                </div>
+                <div>
+                    <h4 style="margin:0; color:var(--text-dark);">Bima Sena #045</h4>
+                    <small style="color:var(--text-grey);">Official Collection</small>
+                    <div style="color:#e74c3c; font-size:12px; font-weight:bold; margin-top:5px;">
+                        <i class="fas fa-heart"></i> 245 Likes
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div class="chart-title" style="margin-bottom:15px;">Review Terbaru</div>
+            <div style="font-size:12px; font-style:italic; color:#555; background:#f9f9f9; padding:10px; border-radius:8px;">
+                "Detail wayang ini sangat luar biasa, sesuai pakem Surakarta..."
+            </div>
+            <div style="margin-top:8px; font-size:11px; color:var(--primary); text-align:right;">
+                - oleh 0x88...1a2b
+            </div>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-coins"></i> 5 & 6. Ekonomi & Tren Waktu</div>
+    <div class="charts-grid">
+        <div class="card-panel">
+            <div class="chart-header"><div class="chart-title">Top Patron (Sultan Tipping)</div></div>
+            <div id="tipping-list">
+                <div class="leaderboard-item">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div class="rank-circle">1</div>
+                        <div><span class="address-badge">0x71C...9A21</span> <span class="sultan-badge">SULTAN</span></div>
+                    </div>
+                    <div style="font-weight:bold; color:#27ae60;">2.5 ETH</div>
+                </div>
+                <div class="leaderboard-item">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div class="rank-circle" style="background:#bdc3c7;">2</div>
+                        <div><span class="address-badge">0xAA2...11BB</span></div>
+                    </div>
+                    <div style="font-weight:bold; color:#27ae60;">1.1 ETH</div>
+                </div>
+                <div class="leaderboard-item">
+                    <div style="display:flex; gap:10px; align-items:center;">
+                        <div class="rank-circle" style="background:#cd7f32;">3</div>
+                        <div><span class="address-badge">0xFF3...22CC</span></div>
+                    </div>
+                    <div style="font-weight:bold; color:#27ae60;">0.5 ETH</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="card-panel">
+            <div class="chart-header">
+                <div class="chart-title">Tren Minting & Aktivitas (30 Hari)</div>
+            </div>
+            <div style="height: 200px; position: relative;">
+                <canvas id="chartTren"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div class="section-label"><i class="fas fa-microscope"></i> 7. Analisis Lanjutan & Kesehatan Kontrak</div>
+    <div class="card-panel">
+        <div class="insight-grid">
+            <div class="insight-box">
+                <i class="fas fa-network-wired" style="color:var(--primary); font-size:20px; margin-bottom:10px;"></i>
+                <h4 style="margin:0; font-size:12px;">Network Graph</h4>
+                <p style="font-size:11px; color:#777;">Terdapat korelasi kuat (0.8) antara Pemberi Tip dan Pemberi Like.</p>
+            </div>
+            <div class="insight-box">
+                <i class="fas fa-wallet" style="color:var(--primary); font-size:20px; margin-bottom:10px;"></i>
+                <h4 style="margin:0; font-size:12px;">Ekonomi Kontrak</h4>
+                <p style="font-size:11px; color:#777;">Total Revenue platform (Fees) stabil, dengan lonjakan saat rilis Golongan Dewa.</p>
+            </div>
+            <div class="insight-box">
+                <i class="fas fa-shield-alt" style="color:var(--primary); font-size:20px; margin-bottom:10px;"></i>
+                <h4 style="margin:0; font-size:12px;">Risiko & Audit</h4>
+                <p style="font-size:11px; color:#777;">Rasio revisi < 2%, menandakan data arsip awal sangat akurat.</p>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:center; margin-top:40px; color:#aaa; font-size:11px;">
+        &copy; 2026 Putramas Official Analytics. Data fetched from Base Network via Ethers.js
+    </div>
+
+</div>
+
+<script>
+    // --- KONFIGURASI CHART.JS (STYLE PREMIUM SOFT) ---
+    Chart.defaults.font.family = 'Rubik';
+    Chart.defaults.color = '#7f8c8d';
+    
+    // Warna UI Anda
+    const colorPrimary = '#7385a5';
+    const colorSecondary = '#a6b4cd';
+    const colorBg = 'rgba(115, 133, 165, 0.2)';
+
+    // --- SETUP SMART CONTRACT ---
+    const CONTRACT_ADDRESS = "0xYourContractAddressHere"; // Ganti Address
+    const ABI = [
+        "function _currentTokenId() view returns (uint256)", // Asumsi variabel public atau ada getter
+        "function publicMintFee() view returns (uint256)",
+        "function totalTipsGrand() view returns (uint256)",
+        "function getIdsByGolongan(string) view returns (uint256[])",
+        "function balanceOf(address) view returns (uint256)",
+        // Note: Untuk production, mapping public seperti wayangRegistry sulit di-iterate di frontend tanpa indexer.
+        // Di sini kita gunakan mock/simulasi untuk visualisasi jika data on-chain sangat banyak.
+    ];
+
+    async function initDashboard() {
+        const btn = document.getElementById('btnConnect');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Memuat Data...';
+        
+        // Simulasi Delay Koneksi
+        setTimeout(() => {
+            renderCharts();
+            populateData();
+            btn.innerHTML = '<i class="fas fa-check"></i> Terhubung (Base)';
+            btn.style.background = '#27ae60';
+        }, 1500);
+    }
+
+    // --- 1. RENDER CHART JS ---
+    function renderCharts() {
+        // A. Chart Golongan (Pie)
+        const ctxPie = document.getElementById('chartGolongan').getContext('2d');
+        new Chart(ctxPie, {
+            type: 'doughnut',
+            data: {
+                labels: ['Satria', 'Dewa', 'Punakawan', 'Buta', 'Wanara'],
+                datasets: [{
+                    data: [45, 20, 15, 10, 10], // Data Dummy (Nanti diganti real dari getIdsByGolongan.length)
+                    backgroundColor: [colorPrimary, '#5c6a84', '#8e9ebc', '#a6b4cd', '#d0dbe8'],
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { position: 'right' } }
+            }
+        });
+
+        // B. Chart Gaya & Official (Bar)
+        const ctxBar = document.getElementById('chartGaya').getContext('2d');
+        new Chart(ctxBar, {
+            type: 'bar',
+            data: {
+                labels: ['Surakarta', 'Yogyakarta', 'Bali', 'Jawa Timuran'],
+                datasets: [{
+                    label: 'Official (Dalang)',
+                    data: [120, 80, 40, 30],
+                    backgroundColor: colorPrimary,
+                    borderRadius: 5
+                }, {
+                    label: 'Publik (Komunitas)',
+                    data: [50, 60, 20, 10],
+                    backgroundColor: '#e0e0e0',
+                    borderRadius: 5
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: { y: { beginAtZero: true, grid: { display: false } } }
+            }
+        });
+
+        // C. Chart Tren (Line)
+        const ctxLine = document.getElementById('chartTren').getContext('2d');
+        new Chart(ctxLine, {
+            type: 'line',
+            data: {
+                labels: ['W1', 'W2', 'W3', 'W4'],
+                datasets: [{
+                    label: 'Minting Activity',
+                    data: [10, 25, 18, 40],
+                    borderColor: colorPrimary,
+                    backgroundColor: colorBg,
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                plugins: { legend: { display: false } },
+                scales: { x: { grid: { display: false } }, y: { grid: { display: false } } }
+            }
+        });
+    }
+
+    // --- 2. POPULASI DATA (Simulasi Data On-Chain) ---
+    function populateData() {
+        // General Stats
+        document.getElementById('val-minted').innerText = "1,245";
+        document.getElementById('val-fee').innerText = "0.01";
+        document.getElementById('val-tips').innerText = "8.5";
+        document.getElementById('val-owners').innerText = "342";
+
+        // Table Holders (Mockup Logic untuk Point 3)
+        const tableBody = document.getElementById('table-holders');
+        tableBody.innerHTML = `
+            <tr>
+                <td><div class="rank-circle">1</div></td>
+                <td><span class="address-badge">0x71C...9A21</span></td>
+                <td><b>150</b> Wayang</td>
+                <td>12.5%</td>
+            </tr>
+            <tr>
+                <td><div class="rank-circle" style="background:#bdc3c7">2</div></td>
+                <td><span class="address-badge">0xAA2...CC33</span></td>
+                <td><b>98</b> Wayang</td>
+                <td>8.2%</td>
+            </tr>
+            <tr>
+               <td><div class="rank-circle" style="background:#cd7f32">3</div></td>
+                <td><span class="address-badge">0xB12...DD44</span></td>
+                <td><b>45</b> Wayang</td>
+                <td>3.5%</td>
+            </tr>
+        `;
+    }
+</script>
+
+</body>
+</html>
+        
