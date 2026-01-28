@@ -11,7 +11,7 @@
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <style>
         /* --- STYLE PREMIUM SOFT (Putramas DNA) --- */
         :root {
@@ -242,377 +242,281 @@
 </div>
 
 <script>
-    // --- 1. KONFIGURASI ---
-    // PENTING: PASTIKAN INI ADALAH ALAMAT KONTRAK YANG SUDAH DEPLOY DI BASE
-    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
+    AOS.init({ once: true, offset: 100, duration: 800 });
+    
+    // Navbar Effect
+    window.addEventListener('scroll', function() {
+        const nav = document.getElementById('navbar');
+        if (window.scrollY > 50) nav.classList.add('scrolled');
+        else nav.classList.remove('scrolled');
+    });
 
-    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
-        
+    // --- KONFIGURASI SMART CONTRACT ---
+    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; // Address Kontrak Anda
+
+    // ABI Minimalis (Hanya yang dibutuhkan agar ringan)
+    const ABI = [
+        "function publicMintFee() view returns (uint256)",
+        "function totalTipsGrand() view returns (uint256)",
+        "function getIdsByGolongan(string) view returns (uint256[])",
+        "function wayangRegistry(uint256) view returns (string, string, string, uint256, bool, bool, address)",
+        "event TipSent(address indexed from, address indexed to, uint256 amount, string message, uint256 timestamp)"
+    ];
+
     const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
+    
+    // List Gaya harus sama persis tulisannya dengan di Smart Contract (Case Sensitive)
     const listGaya = ["Bali", "Banjar", "Banyumas", "Cirebon", "Golek Sunda", "Jawa Timur", "Kedu", "Kontemporer", "Kreasi", "Lombok", "Surakarta", "Yogyakarta", "Lainnya"];
+    
+    let provider, contract;
+    
+    // Variabel Global untuk menyimpan ID yang ditemukan agar bisa dipakai lintas fungsi
+    let foundTokenIds = []; 
 
-    let provider, contract, signer;
-
-    // --- 2. FUNGSI KONEKSI ---
+    // --- 1. CONNECT & LOAD ---
     async function connectAndLoad() {
         if (!window.ethereum) return alert("Install Wallet!");
         
-        const btn = document.getElementById("btnConnect");
+        const btn = document.getElementById("btn-connect");
         const originalText = btn.innerHTML;
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
         try {
             await window.ethereum.request({ method: 'eth_requestAccounts' });
             provider = new ethers.providers.Web3Provider(window.ethereum);
-            
-            // Cek Network (Opsional: Pastikan di Base)
-            const { chainId } = await provider.getNetwork();
-            if(chainId !== 8453 && chainId !== 84532) { // 8453 Mainnet, 84532 Sepolia
-                 console.warn("Mungkin salah jaringan? Chain ID:", chainId);
-            }
-
-            signer = provider.getSigner();
+            const signer = provider.getSigner();
             const address = await signer.getAddress();
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
             btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
             btn.classList.add('connected');
+            btn.classList.remove('btn-outline');
+            btn.classList.add('btn-primary');
 
-            // Load Data satu per satu agar jika satu error, yang lain tetap jalan
-            await loadGeneralStats(); 
-            await loadChartsSafe(); // Versi aman
-            await loadActivitySafe(); // Versi aman
+            // URUTAN EKSEKUSI PENTING:
+            // 1. Load Golongan dulu (sekalian kumpulin ID wayang)
+            await loadStatsAndGolongan(); 
+            
+            // 2. Baru Load Gaya (menggunakan ID dari langkah 1) -> INI KUNCI PERBAIKANNYA
+            await loadGayaDistribution(); 
+            
+            // 3. Load Aktivitas (Tips)
+            await loadActivitySafe();
 
         } catch (err) {
-            console.error("Koneksi Error:", err);
-            btn.innerHTML = originalText; // Reset tombol
-            alert("Terjadi kesalahan. Cek Console (F12) untuk detail.");
+            console.error(err);
+            btn.innerHTML = originalText;
+            alert("Gagal koneksi. Cek Console.");
         }
     }
 
-    // --- 3. LOAD STATS (View Functions - Ringan) ---
-    async function loadGeneralStats() {
+    // --- 2. LOAD STATS & GOLONGAN (SUMBER DATA UTAMA) ---
+    async function loadStatsAndGolongan() {
         try {
-            // A. Total Supply
             let totalCount = 0;
-            let golonganCounts = [];
-            
-            // Promise.all agar fetch paralel & cepat
-            const promises = listGolongan.map(g => contract.getIdsByGolongan(g).catch(() => []));
-            const results = await Promise.all(promises);
+            let golCounts = [];
+            foundTokenIds = []; // Reset penampung ID
 
-            results.forEach(ids => {
-                totalCount += ids.length;
-                golonganCounts.push(ids.length);
-            });
-
-            document.getElementById("val-supply").innerText = totalCount;
-            document.getElementById("val-supply").classList.remove("skeleton");
-
-            // Render Pie Chart Langsung Disini
-            renderPieChart("chartGolongan", listGolongan, golonganCounts);
-
-            // B. Fees & Tips
-            const fee = await contract.publicMintFee().catch(() => ethers.BigNumber.from(0));
-            const tips = await contract.totalTipsGrand().catch(() => ethers.BigNumber.from(0));
-
+            // Ambil Fee & Tips
+            const fee = await contract.publicMintFee().catch(() => 0);
+            const tips = await contract.totalTipsGrand().catch(() => 0);
             document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
             document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
-            
-            // C. Owner Count (Estimasi dari total supply / rata2 kepemilikan atau placeholder)
-            // Karena menghitung unique owner on-chain itu berat, kita pakai placeholder atau fetch dari event nanti
-            document.getElementById("val-owners").innerText = "-"; 
 
-            // Hapus skeleton
-            ["val-fee", "val-totalTips", "val-owners"].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.classList.remove("skeleton");
+            // Loop setiap Golongan untuk cari Wayang
+            // Kita pakai Promise.all agar request jalan paralel (cepat)
+            const promises = listGolongan.map(async (gol) => {
+                const ids = await contract.getIdsByGolongan(gol).catch(() => []);
+                return { count: ids.length, ids: ids };
             });
 
-        } catch (error) {
-            console.error("Gagal load General Stats:", error);
-        }
+            const results = await Promise.all(promises);
+
+            // Proses Hasil
+            results.forEach(res => {
+                totalCount += res.count;
+                golCounts.push(res.count);
+                // Simpan ID yang ketemu ke variabel global 'foundTokenIds'
+                // Supaya nanti fungsi grafik Gaya tidak perlu cari manual lagi
+                if(res.ids.length > 0) {
+                    foundTokenIds.push(...res.ids); 
+                }
+            });
+
+            // Update UI Total Supply
+            document.getElementById("val-supply").innerText = totalCount;
+            
+            // Render Chart Golongan
+            renderPieChart("chartGolongan", listGolongan, golCounts);
+            
+            // Hapus Skeleton Loader
+            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+
+        } catch (e) { console.error("Stats Error", e); }
     }
 
-        // --- 4. LOAD CHARTS & DISTRIBUSI (FIXED VERSION) ---
-    async function loadChartsSafe() {
+    // --- 3. LOAD GAYA (METODE BARU: DIRECT FETCH) ---
+    // Fungsi ini sekarang 100% Akurat karena membaca langsung dari ID yang sudah ditemukan
+    async function loadGayaDistribution() {
         try {
-            const currentBlock = await provider.getBlockNumber();
-            // Ambil 5000-10000 blok terakhir saja agar tidak timeout
-            const fromBlock = Math.max(0, currentBlock - 10000); 
-
-            // --- PERBAIKAN UTAMA DISINI ---
-            // Kita panggil event dengan "Signature Lengkap" agar tidak error "not a function"
-            // Ethers.js butuh spesifik jika ada riwayat duplikat nama
-            const eventSignature = "WayangLahir(uint256,string,string,bool,address)";
-            
-            // Cek apakah filter tersedia, jika tidak coba fallback manual
-            let filter;
-            if (contract.filters[eventSignature]) {
-                filter = contract.filters[eventSignature]();
-            } else {
-                // Fallback manual topic jika syntax di atas gagal di beberapa browser
-                const topic = ethers.utils.id(eventSignature);
-                filter = {
-                    address: CONTRACT_ADDRESS,
-                    topics: [topic]
-                };
-            }
-            
-            console.log("Mengambil Event Log..."); // Debugging
-            const events = await contract.queryFilter(filter, fromBlock, "latest");
-            console.log("Jumlah Event Ditemukan:", events.length); // Debugging
-
-            // Siapkan wadah data
             let gayaStats = {};
-            // Inisialisasi semua gaya dengan 0
             listGaya.forEach(g => gayaStats[g] = 0);
-            
             let officialCount = 0;
             let publicCount = 0;
 
-            // --- PROSES EVENT ---
-            // Kita ambil 50 event terakhir saja untuk sampling "Gaya"
-            const sampleEvents = events.slice(-50); 
+            console.log("Menganalisis Gaya untuk ID:", foundTokenIds);
 
-            for (let event of sampleEvents) {
-                try {
-                    const id = event.args.id;
-                    
-                    // Panggil data on-chain untuk mendapatkan detail 'Gaya'
-                    const data = await contract.wayangRegistry(id);
-                    // Index di Struct: 2 = gaya, 5 = isOfficial
-                    
-                    const gaya = data[2]; 
-                    const isOff = data[5];
+            // Loop semua ID yang ditemukan di langkah sebelumnya
+            for (let i = 0; i < foundTokenIds.length; i++) {
+                const id = foundTokenIds[i];
+                
+                // Panggil Detail Data per Wayang
+                const data = await contract.wayangRegistry(id);
+                // Index: 2 = gaya, 5 = isOfficial
+                const gaya = data[2]; 
+                const isOff = data[5];
 
-                    // Masukkan ke statistik
-                    if (gayaStats[gaya] !== undefined) {
-                        gayaStats[gaya]++;
-                    } else {
-                        gayaStats["Lainnya"]++;
-                    }
-
-                    if (isOff) officialCount++; else publicCount++;
-                    
-                } catch (e) { 
-                    // console.warn("Skip ID", event.args.id); 
+                // Hitung Statistik
+                if (gayaStats[gaya] !== undefined) {
+                    gayaStats[gaya]++;
+                } else {
+                    // Jika ada gaya baru/typo, masukkan ke Lainnya
+                    if(!gayaStats["Lainnya"]) gayaStats["Lainnya"] = 0;
+                    gayaStats["Lainnya"]++;
                 }
+
+                if (isOff) officialCount++; else publicCount++;
             }
 
-            // --- RENDER GRAFIK DENGAN DATA ASLI ---
-            renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
-            
+            // Render Chart Polar Area
+            renderPolarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
+
             // Hitung Rasio Official
             const total = officialCount + publicCount;
             const ratio = total > 0 ? ((officialCount / total) * 100).toFixed(1) : "0";
             document.getElementById("val-official-ratio").innerText = ratio + "%";
 
-        } catch (error) {
-            console.error("CRITICAL ERROR loadChartsSafe:", error);
-            
-            // JIKA ERROR, TAMPILKAN GRAFIK KOSONG AGAR UI TIDAK RUSAK
-            renderBarChart("chartGaya", listGaya, new Array(listGaya.length).fill(0));
+        } catch (e) {
+            console.error("Gaya Error", e);
         }
     }
 
-
-    // --- 5. LOAD ACTIVITY & TIPPING ---
+    // --- 4. LOAD ACTIVITY ---
     async function loadActivitySafe() {
         try {
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // Batasi range block
-
+            const fromBlock = Math.max(0, currentBlock - 5000); 
             const tipFilter = contract.filters.TipSent();
-            const tipEvents = await contract.queryFilter(tipFilter, fromBlock, "latest");
-
-            // 1. Leaderboard Tipping
-            let tippingMap = {};
-            let totalTipVal = 0;
-
-            tipEvents.forEach(ev => {
-                const sender = ev.args.from;
-                const amt = parseFloat(ethers.utils.formatEther(ev.args.amount));
-                totalTipVal += amt;
-                tippingMap[sender] = (tippingMap[sender] || 0) + amt;
+            const events = await contract.queryFilter(tipFilter, fromBlock, "latest");
+            
+            // Leaderboard
+            let map = {};
+            events.forEach(e => {
+                const s = e.args.from;
+                const v = parseFloat(ethers.utils.formatEther(e.args.amount));
+                map[s] = (map[s] || 0) + v;
             });
-
-            // Sort & Render Top 3
-            const sorted = Object.entries(tippingMap).sort(([,a],[,b]) => b - a).slice(0, 5);
-            const tipContainer = document.getElementById("tipping-list");
             
-            if (sorted.length === 0) {
-                tipContainer.innerHTML = '<div style="text-align:center; padding:15px; color:#aaa; font-size:12px;">Belum ada data donasi.</div>';
-            } else {
-                tipContainer.innerHTML = "";
-                sorted.forEach((item, index) => {
-                    const addr = item[0].substring(0,6) + "..." + item[0].slice(-4);
-                    const val = item[1].toFixed(4);
-                    const rankClass = index < 3 ? `rank-${index+1}` : 'rank-2';
-                    
-                    tipContainer.innerHTML += `
-                        <div class="leaderboard-item">
-                            <div style="display:flex; align-items:center;">
-                                <div class="rank-badge ${rankClass}">${index+1}</div>
-                                <span class="address-badge">${addr}</span>
-                            </div>
-                            <div style="font-weight:bold; color:#27ae60;">${val} ETH</div>
-                        </div>`;
-                });
-            }
-
-            // Insight Avg Tip
-            const avg = tipEvents.length > 0 ? (totalTipVal / tipEvents.length).toFixed(4) : "0";
-            document.getElementById("val-avg-tip").innerText = avg + " ETH";
-
-            // 2. Recent Activity (Tips only for simplicity & speed)
-            const tableBody = document.getElementById("activity-table");
-            if (tipEvents.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
-            } else {
-                tableBody.innerHTML = "";
-                const recent = tipEvents.slice(-5).reverse(); // 5 Terakhir
-                recent.forEach(ev => {
-                    const addr = ev.args.from.substring(0,6)+"...";
-                    const amount = ethers.utils.formatEther(ev.args.amount);
-                    tableBody.innerHTML += `
-                        <tr>
-                            <td><span style="color:#27ae60; font-weight:bold;"><i class="fas fa-coins"></i> Donasi</span></td>
-                            <td><span class="address-badge">${addr}</span></td>
-                            <td>${amount} ETH</td>
-                            <td style="color:#aaa; font-size:11px;">Blk ${ev.blockNumber}</td>
-                        </tr>`;
+            const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0,3);
+            const list = document.getElementById("tipping-list");
+            
+            if(sorted.length === 0) list.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Belum ada data donasi.</div>';
+            else {
+                list.innerHTML = "";
+                sorted.forEach((item, i) => {
+                     list.innerHTML += `
+                     <div class="leaderboard-item">
+                        <div style="display:flex;align-items:center;">
+                            <div class="rank-badge">${i+1}</div>
+                            <span class="address-badge">${item[0].substring(0,6)}...</span>
+                        </div>
+                        <div style="font-weight:bold;color:#27ae60;">${item[1].toFixed(4)} ETH</div>
+                     </div>`;
                 });
             }
             
-            // Dummy Chart Tren (Agar tidak kosong putih)
-            renderLineChart("chartTren", ["W1", "W2", "W3", "W4"], [0, 5, 3, 8]); 
+            // Table Log
+            const table = document.getElementById("activity-table");
+            if(events.length > 0) {
+                table.innerHTML = "";
+                events.slice(-5).reverse().forEach(e => {
+                    table.innerHTML += `
+                    <tr>
+                        <td><span style="color:#27ae60;font-weight:bold;">Donasi</span></td>
+                        <td><span class="address-badge">${e.args.from.substring(0,6)}...</span></td>
+                        <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
+                        <td style="color:#aaa;font-size:11px;">${e.blockNumber}</td>
+                    </tr>`;
+                });
+            } else {
+                 table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:15px;color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
+            }
+            
+            // Dummy Chart Tren (Visual Saja)
+            renderLineChart("chartTren", ["W1", "W2", "W3", "W4"], [2, 5, 3, 8]); 
 
-        } catch (error) {
-            console.error("Gagal load Activity:", error);
-            document.getElementById("tipping-list").innerHTML = "Gagal memuat data.";
-        }
+        } catch (e) { console.error("Activity Error", e); }
     }
 
-    // --- HELPER CHARTS ---
+    // --- CHART RENDERERS ---
     function renderPieChart(id, labels, data) {
         const ctx = document.getElementById(id);
         if(!ctx) return;
-        
-        // Hancurkan chart lama jika ada (untuk mencegah glitch saat reload)
-        let chartStatus = Chart.getChart(id); 
-        if (chartStatus != undefined) { chartStatus.destroy(); }
+        let chart = Chart.getChart(id);
+        if (chart) chart.destroy();
 
         new Chart(ctx, {
             type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'],
-                    borderWidth: 0
-                }]
-            },
+            data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#7385a5', '#c5a059', '#5c6a84', '#e3e9f4', '#1e293b'], borderWidth: 0 }] },
             options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-            function renderBarChart(id, labels, data) {
+    function renderPolarChart(id, labels, data) {
         const ctx = document.getElementById(id);
         if(!ctx) return;
-
-        // Hapus chart lama agar tidak bertumpuk
-        let chartStatus = Chart.getChart(id);
-        if (chartStatus != undefined) { chartStatus.destroy(); }
-
-        // Palette Warna Premium (Variasi Biru & Emas Putramas)
-        const premiumColors = [
-            'rgba(115, 133, 165, 0.8)', // Primary Blue
-            'rgba(197, 160, 89, 0.8)',  // Gold
-            'rgba(92, 106, 132, 0.8)',  // Dark Blue
-            'rgba(227, 233, 244, 0.9)', // Soft Blue
-            'rgba(166, 180, 205, 0.8)', // Secondary Blue
-            'rgba(143, 113, 58, 0.8)',  // Dark Gold
-        ];
+        let chart = Chart.getChart(id);
+        if (chart) chart.destroy();
 
         new Chart(ctx, {
-            type: 'polarArea', // <--- GANTI MODEL DISINI
+            type: 'polarArea',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Jumlah Arsip',
+                    label: 'Jumlah',
                     data: data,
-                    backgroundColor: premiumColors,
-                    borderWidth: 3,
-                    borderColor: '#ffffff', // Garis pemisah putih agar bersih
-                    hoverBorderColor: '#c5a059',
-                    hoverBorderWidth: 4
+                    backgroundColor: [
+                        'rgba(115, 133, 165, 0.8)', 'rgba(197, 160, 89, 0.8)', 
+                        'rgba(92, 106, 132, 0.8)', 'rgba(227, 233, 244, 0.9)'
+                    ],
+                    borderWidth: 2,
+                    borderColor: '#ffffff'
                 }]
             },
             options: {
-                responsive: true, 
-                maintainAspectRatio: false,
-                layout: {
-                    padding: 10
-                },
-                plugins: { 
-                    legend: { 
-                        display: true, 
-                        position: 'right', // Legenda di kanan agar rapi
-                        labels: {
-                            font: { family: 'Plus Jakarta Sans', size: 10 },
-                            color: '#64748b',
-                            boxWidth: 10,
-                            usePointStyle: true // Ikon bulat bukan kotak
-                        }
-                    },
-                    tooltip: {
-                        backgroundColor: 'rgba(30, 41, 59, 0.9)',
-                        padding: 12,
-                        cornerRadius: 8,
-                        titleFont: { family: 'Plus Jakarta Sans' },
-                        bodyFont: { family: 'Plus Jakarta Sans' }
-                    }
-                },
-                scales: { 
-                    r: { 
-                        ticks: { 
-                            display: false, // Sembunyikan angka di tengah agar bersih
-                            stepSize: 1 
-                        },
-                        grid: {
-                            color: 'rgba(0, 0, 0, 0.05)', // Garis jaring tipis
-                            borderDash: [5, 5]
-                        },
-                        pointLabels: {
-                            display: false // Sembunyikan label di pinggir lingkaran (biar pake legend aja)
-                        }
-                    } 
-                }
+                responsive: true, maintainAspectRatio: false,
+                scales: { r: { ticks: { display: false }, grid: { display: false } } },
+                plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: { size: 10 } } } }
             }
         });
     }
 
-
     function renderLineChart(id, labels, data) {
         const ctx = document.getElementById(id);
         if(!ctx) return;
-        
-        let chartStatus = Chart.getChart(id);
-        if (chartStatus != undefined) { chartStatus.destroy(); }
+        let chart = Chart.getChart(id);
+        if (chart) chart.destroy();
 
         new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Aktivitas',
+                    label: 'Trend',
                     data: data,
                     borderColor: '#27ae60',
                     backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
+                    fill: true, tension: 0.4, pointRadius: 0
                 }]
             },
             options: {
@@ -623,5 +527,6 @@
         });
     }
 </script>
+                                                              
 </body>
 </html>
