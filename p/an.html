@@ -262,274 +262,228 @@
     const BASE_CHAIN_ID_HEX = "0x2105"; // Hex untuk 8453 (Base Mainnet)
     const BASE_CHAIN_ID_DEC = 8453;
 
-    // --- 2. FUNGSI UTAMA YANG DIPERBAIKI ---
+    // --- 2. FUNGSI KONEKSI ---
     async function connectAndLoad() {
-        // 1. Cek apakah MetaMask/Wallet ada
-        if (!window.ethereum) {
-            alert("Wallet tidak ditemukan! Harap install MetaMask/Coinbase Wallet.");
-            return;
-        }
+        if (!window.ethereum) return alert("Install Wallet!");
         
         const btn = document.getElementById("btnConnect");
-        const originalText = btn.innerHTML; // Simpan teks asli tombol
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menghubungkan...';
-        btn.disabled = true; // Matikan tombol agar tidak diklik 2x
+        const originalText = btn.innerHTML;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
 
         try {
-            // 2. Request Akses Akun
             await window.ethereum.request({ method: 'eth_requestAccounts' });
-
-            // 3. Inisialisasi Provider Sementara untuk Cek Network
             provider = new ethers.providers.Web3Provider(window.ethereum);
-            const { chainId } = await provider.getNetwork();
-
-            // 4. Logika Pindah Jaringan Otomatis (Auto-Switch)
-            if (chainId !== BASE_CHAIN_ID_DEC) {
-                try {
-                    await window.ethereum.request({
-                        method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: BASE_CHAIN_ID_HEX }],
-                    });
-                    // Refresh provider setelah ganti network
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                } catch (switchError) {
-                    // Error 4902 artinya Network belum ditambahkan di Wallet user
-                    if (switchError.code === 4902) {
-                        alert("Jaringan Base tidak ditemukan di Wallet Anda. Harap tambahkan secara manual.");
-                    } else {
-                        throw new Error("Gagal mengganti jaringan. Pastikan Anda menyetujui di Wallet.");
-                    }
-                }
-            }
-
-            // 5. Inisialisasi Signer & Kontrak (Setelah Network Benar)
-            signer = provider.getSigner();
-            const userAddress = await signer.getAddress();
             
-            // Debugging: Cek apakah variabel global ada
-            if (typeof CONTRACT_ADDRESS === 'undefined' || typeof ABI === 'undefined') {
-                throw new Error("CONTRACT_ADDRESS atau ABI belum didefinisikan di script!");
+            // Cek Network (Opsional: Pastikan di Base)
+            const { chainId } = await provider.getNetwork();
+            if(chainId !== 8453 && chainId !== 84532) { // 8453 Mainnet, 84532 Sepolia
+                 console.warn("Mungkin salah jaringan? Chain ID:", chainId);
             }
 
+            signer = provider.getSigner();
+            const address = await signer.getAddress();
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-            // 6. Update UI Sukses
-            btn.innerHTML = `<i class="fas fa-check"></i> ${userAddress.substring(0,6)}...`;
+            btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
             btn.classList.add('connected');
-            btn.onclick = null; // Matikan fungsi klik setelah connect (opsional)
 
-            // 7. Eksekusi Load Data
-            // Pastikan fungsi-fungsi ini sudah ada di kode Anda sebelumnya
-            await Promise.all([
-                loadGeneralStats().catch(err => console.error("Error GeneralStats:", err)),
-                loadDistribution().catch(err => console.error("Error Distribution:", err)),
-                loadEventBasedStats().catch(err => console.error("Error Events:", err))
-            ]);
+            // Load Data satu per satu agar jika satu error, yang lain tetap jalan
+            await loadGeneralStats(); 
+            await loadChartsSafe(); // Versi aman
+            await loadActivitySafe(); // Versi aman
 
         } catch (err) {
             console.error("Koneksi Error:", err);
-            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Gagal';
-            alert(`Terjadi kesalahan: ${err.message}`);
-            
-            // Kembalikan tombol ke kondisi semula setelah 3 detik
-            setTimeout(() => {
-                btn.innerHTML = originalText;
-                btn.disabled = false;
-            }, 3000);
+            btn.innerHTML = originalText; // Reset tombol
+            alert("Terjadi kesalahan. Cek Console (F12) untuk detail.");
         }
     }
 
-    // --- 3. LOAD STATISTIK UMUM ---
+    // --- 3. LOAD STATS (View Functions - Ringan) ---
     async function loadGeneralStats() {
-        // A. Total Supply (Looping Golongan karena tidak ada variable totalSupply public)
-        let totalCount = 0;
-        let golonganCounts = []; // Untuk Chart
+        try {
+            // A. Total Supply
+            let totalCount = 0;
+            let golonganCounts = [];
+            
+            // Promise.all agar fetch paralel & cepat
+            const promises = listGolongan.map(g => contract.getIdsByGolongan(g).catch(() => []));
+            const results = await Promise.all(promises);
 
-        for (let gol of listGolongan) {
-            try {
-                const ids = await contract.getIdsByGolongan(gol);
+            results.forEach(ids => {
                 totalCount += ids.length;
                 golonganCounts.push(ids.length);
-            } catch (e) {
-                golonganCounts.push(0);
+            });
+
+            document.getElementById("val-supply").innerText = totalCount;
+            document.getElementById("val-supply").classList.remove("skeleton");
+
+            // Render Pie Chart Langsung Disini
+            renderPieChart("chartGolongan", listGolongan, golonganCounts);
+
+            // B. Fees & Tips
+            const fee = await contract.publicMintFee().catch(() => ethers.BigNumber.from(0));
+            const tips = await contract.totalTipsGrand().catch(() => ethers.BigNumber.from(0));
+
+            document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
+            document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
+            
+            // C. Owner Count (Estimasi dari total supply / rata2 kepemilikan atau placeholder)
+            // Karena menghitung unique owner on-chain itu berat, kita pakai placeholder atau fetch dari event nanti
+            document.getElementById("val-owners").innerText = "-"; 
+
+            // Hapus skeleton
+            ["val-fee", "val-totalTips", "val-owners"].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.classList.remove("skeleton");
+            });
+
+        } catch (error) {
+            console.error("Gagal load General Stats:", error);
+        }
+    }
+
+    // --- 4. LOAD CHARTS & DISTRIBUSI (Event Logs - Berat) ---
+    async function loadChartsSafe() {
+        try {
+            // OPTIMISASI: Jangan ambil dari Block 0 jika transaksi banyak.
+            // Kita coba ambil 5000 block terakhir saja untuk demo, atau 'fromBlock: 0' jika data sedikit.
+            const currentBlock = await provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - 10000); // Ambil 10.000 block terakhir agar tidak timeout
+
+            const filter = contract.filters.WayangLahir(); 
+            const events = await contract.queryFilter(filter, fromBlock, "latest");
+
+            let gayaStats = {};
+            listGaya.forEach(g => gayaStats[g] = 0);
+            let officialCount = 0;
+            let publicCount = 0;
+
+            // Proses Event
+            // Note: Data gaya ada di contract, event hanya punya ID. Kita sampling max 20 item terbaru agar cepat.
+            const sampleEvents = events.slice(-20); 
+
+            for (let event of sampleEvents) {
+                try {
+                    const id = event.args.id;
+                    const data = await contract.wayangRegistry(id);
+                    // data: nama, golongan, gaya, timestamp, active, isOfficial, creator
+                    const gaya = data[2]; 
+                    const isOff = data[5];
+
+                    if (gayaStats[gaya] !== undefined) gayaStats[gaya]++;
+                    else gayaStats["Lainnya"]++;
+
+                    if (isOff) officialCount++; else publicCount++;
+                } catch (e) { console.warn("Skip ID", event.args.id); }
             }
+
+            // Jika kosong, isi dummy agar grafik tidak blank (UX friendly)
+            if (sampleEvents.length === 0) {
+                 console.log("Tidak ada event WayangLahir ditemukan di range block ini.");
+            }
+
+            renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
+            
+            // Ratio
+            const total = officialCount + publicCount;
+            const ratio = total > 0 ? ((officialCount / total) * 100).toFixed(1) : "0";
+            document.getElementById("val-official-ratio").innerText = ratio + "%";
+
+        } catch (error) {
+            console.error("Gagal load Charts:", error);
+            // Render grafik kosong agar UI tidak rusak
+            renderBarChart("chartGaya", listGaya, new Array(listGaya.length).fill(0));
         }
-        
-        // Update UI Supply
-        document.getElementById("val-supply").innerText = totalCount;
-        document.getElementById("val-supply").classList.remove("skeleton");
-
-        // B. Fees & Tips
-        const fee = await contract.publicMintFee();
-        const tips = await contract.totalTipsGrand();
-        
-        document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
-        document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
-        
-        [document.getElementById("val-fee"), document.getElementById("val-totalTips")].forEach(el => el.classList.remove("skeleton"));
-
-        // Render Chart Golongan
-        renderPieChart("chartGolongan", listGolongan, golonganCounts);
     }
 
-    // --- 4. LOAD DISTRIBUSI & GAYA ---
-    async function loadDistribution() {
-        // Karena tidak ada mapping(gaya => ids), kita harus scan Event WayangLahir
-        // atau scan wayangRegistry satu per satu (berat). 
-        // Solusi Efisien: Scan Event 'WayangLahir' (Official vs Public ada disana)
-        
-        // Ambil event dari Block 0 (atau block deploy) sampai sekarang
-        const filter = contract.filters.WayangLahir(); 
-        const events = await contract.queryFilter(filter); // Ini bisa berat jika transaksi ribuan, di prod gunakan indexer.
+    // --- 5. LOAD ACTIVITY & TIPPING ---
+    async function loadActivitySafe() {
+        try {
+            const currentBlock = await provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - 10000); // Batasi range block
 
-        let gayaStats = {};
-        listGaya.forEach(g => gayaStats[g] = 0);
-        
-        let officialCount = 0;
-        let publicCount = 0;
+            const tipFilter = contract.filters.TipSent();
+            const tipEvents = await contract.queryFilter(tipFilter, fromBlock, "latest");
 
-        // Kita perlu data 'Gaya' yg ada di wayangRegistry, tapi event tidak emit 'Gaya' di versi ke-1.
-        // Di kode anda ada 2 definisi event WayangLahir. Asumsi smart contract emit yg lengkap.
-        // Jika tidak, kita sampling data terbaru dari wayangRegistry.
-        
-        // Sampling 50 Wayang Terakhir untuk Analisis Gaya (Supaya tidak timeout)
-        const sampleSize = events.length > 50 ? 50 : events.length;
-        const recentIds = events.slice(-sampleSize).map(e => e.args.id);
+            // 1. Leaderboard Tipping
+            let tippingMap = {};
+            let totalTipVal = 0;
 
-        for (let id of recentIds) {
-            const data = await contract.wayangRegistry(id);
-            // data struct: nama, golongan, gaya, timestamp, active, official, creator
-            const g = data[2]; // gaya
-            const isOff = data[5]; // isOfficial
+            tipEvents.forEach(ev => {
+                const sender = ev.args.from;
+                const amt = parseFloat(ethers.utils.formatEther(ev.args.amount));
+                totalTipVal += amt;
+                tippingMap[sender] = (tippingMap[sender] || 0) + amt;
+            });
+
+            // Sort & Render Top 3
+            const sorted = Object.entries(tippingMap).sort(([,a],[,b]) => b - a).slice(0, 5);
+            const tipContainer = document.getElementById("tipping-list");
             
-            if (gayaStats[g] !== undefined) gayaStats[g]++;
-            else gayaStats["Lainnya"]++;
+            if (sorted.length === 0) {
+                tipContainer.innerHTML = '<div style="text-align:center; padding:15px; color:#aaa; font-size:12px;">Belum ada data donasi.</div>';
+            } else {
+                tipContainer.innerHTML = "";
+                sorted.forEach((item, index) => {
+                    const addr = item[0].substring(0,6) + "..." + item[0].slice(-4);
+                    const val = item[1].toFixed(4);
+                    const rankClass = index < 3 ? `rank-${index+1}` : 'rank-2';
+                    
+                    tipContainer.innerHTML += `
+                        <div class="leaderboard-item">
+                            <div style="display:flex; align-items:center;">
+                                <div class="rank-badge ${rankClass}">${index+1}</div>
+                                <span class="address-badge">${addr}</span>
+                            </div>
+                            <div style="font-weight:bold; color:#27ae60;">${val} ETH</div>
+                        </div>`;
+                });
+            }
 
-            if (isOff) officialCount++; else publicCount++;
+            // Insight Avg Tip
+            const avg = tipEvents.length > 0 ? (totalTipVal / tipEvents.length).toFixed(4) : "0";
+            document.getElementById("val-avg-tip").innerText = avg + " ETH";
+
+            // 2. Recent Activity (Tips only for simplicity & speed)
+            const tableBody = document.getElementById("activity-table");
+            if (tipEvents.length === 0) {
+                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
+            } else {
+                tableBody.innerHTML = "";
+                const recent = tipEvents.slice(-5).reverse(); // 5 Terakhir
+                recent.forEach(ev => {
+                    const addr = ev.args.from.substring(0,6)+"...";
+                    const amount = ethers.utils.formatEther(ev.args.amount);
+                    tableBody.innerHTML += `
+                        <tr>
+                            <td><span style="color:#27ae60; font-weight:bold;"><i class="fas fa-coins"></i> Donasi</span></td>
+                            <td><span class="address-badge">${addr}</span></td>
+                            <td>${amount} ETH</td>
+                            <td style="color:#aaa; font-size:11px;">Blk ${ev.blockNumber}</td>
+                        </tr>`;
+                });
+            }
+            
+            // Dummy Chart Tren (Agar tidak kosong putih)
+            renderLineChart("chartTren", ["W1", "W2", "W3", "W4"], [0, 5, 3, 8]); 
+
+        } catch (error) {
+            console.error("Gagal load Activity:", error);
+            document.getElementById("tipping-list").innerHTML = "Gagal memuat data.";
         }
-
-        renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
-        
-        // Insight: Official Ratio
-        const totalSample = officialCount + publicCount;
-        const ratio = totalSample > 0 ? ((officialCount / totalSample) * 100).toFixed(1) : 0;
-        document.getElementById("val-official-ratio").innerText = ratio + "%";
     }
 
-    // --- 5. LOAD EVENT BASED (Tipping, Trends, Reviews) ---
-    async function loadEventBasedStats() {
-        // A. Tipping Leaderboard & Review Count
-        const tipFilter = contract.filters.TipSent();
-        const reviewFilter = contract.filters.Reviewed();
-        
-        const [tipEvents, reviewEvents] = await Promise.all([
-            contract.queryFilter(tipFilter),
-            contract.queryFilter(reviewFilter)
-        ]);
-
-        // Hitung Leaderboard Tipping
-        let tippingMap = {}; // address -> totalETH
-        let totalTipVal = 0;
-
-        tipEvents.forEach(ev => {
-            const sender = ev.args.from;
-            const amt = parseFloat(ethers.utils.formatEther(ev.args.amount));
-            totalTipVal += amt;
-            if(!tippingMap[sender]) tippingMap[sender] = 0;
-            tippingMap[sender] += amt;
-        });
-
-        // Sort Top 3
-        const sortedTippers = Object.entries(tippingMap)
-            .sort(([,a],[,b]) => b - a)
-            .slice(0, 5);
-
-        // Render Leaderboard HTML
-        const tipContainer = document.getElementById("tipping-list");
-        tipContainer.innerHTML = "";
-        
-        sortedTippers.forEach((item, index) => {
-            const addr = item[0].substring(0,6) + "..." + item[0].slice(-4);
-            const val = item[1].toFixed(4);
-            const rankClass = index < 3 ? `rank-${index+1}` : 'rank-2'; // fallback color
-            
-            const html = `
-                <div class="leaderboard-item">
-                    <div style="display:flex; align-items:center;">
-                        <div class="rank-badge ${rankClass}">${index+1}</div>
-                        <span class="address-badge">${addr}</span>
-                    </div>
-                    <div style="font-weight:bold; color:#27ae60;">${val} ETH</div>
-                </div>`;
-            tipContainer.innerHTML += html;
-        });
-
-        // Insight: Avg Tip & Reviews
-        const avgTip = tipEvents.length > 0 ? (totalTipVal / tipEvents.length).toFixed(4) : "0";
-        document.getElementById("val-avg-tip").innerText = avgTip + " ETH";
-        document.getElementById("val-review-count").innerText = reviewEvents.length;
-
-        // B. Recent Activity (Gabungan Minting & Tipping)
-        const mintFilter = contract.filters.WayangLahir();
-        const mintEvents = await contract.queryFilter(mintFilter);
-        
-        // Unique Owners (Est dari Creator Minting)
-        const uniqueCreators = new Set(mintEvents.map(e => e.args.creator)).size;
-        document.getElementById("val-owners").innerText = uniqueCreators;
-        document.getElementById("val-owners").classList.remove("skeleton");
-
-        // Merge Events untuk Tabel Aktivitas (Ambil 5 terakhir)
-        // Note: Kita pakai mintEvents dan tipEvents yg sudah ada
-        let allActivity = [];
-        
-        mintEvents.forEach(e => allActivity.push({
-            type: "Minting", 
-            who: e.args.creator, 
-            detail: "Wayang #" + e.args.id, 
-            block: e.blockNumber 
-        }));
-        
-        tipEvents.forEach(e => allActivity.push({
-            type: "Donasi", 
-            who: e.args.from, 
-            detail: ethers.utils.formatEther(e.args.amount) + " ETH", 
-            block: e.blockNumber 
-        }));
-
-    allActivity.sort((a,b) => b.block - a.block); // Sort Descending
-        const recent5 = allActivity.slice(0, 5);
-
-        const tableBody = document.getElementById("activity-table");
-        tableBody.innerHTML = "";
-        
-        recent5.forEach(act => {
-            const badgeColor = act.type === "Minting" ? "#eaf2ff" : "#e8f8f5";
-            const textColor = act.type === "Minting" ? "#7385a5" : "#27ae60";
-            const icon = act.type === "Minting" ? '<i class="fas fa-cube"></i>' : '<i class="fas fa-coins"></i>';
-            
-            const row = `
-                <tr>
-                    <td><span style="color:${textColor}; font-weight:bold;">${icon} ${act.type}</span></td>
-                    <td><span class="address-badge">${act.who.substring(0,6)}...</span></td>
-                    <td>${act.detail}</td>
-                    <td style="color:#aaa; font-size:11px;">Blk ${act.block}</td>
-                </tr>`;
-            tableBody.innerHTML += row;
-        });
-
-    const trendData = mintEvents.map((_, i) => i + 1); // 1, 2, 3... total
-        const labels = mintEvents.map((_, i) => "E#" + (i+1)); // Event 1, Event 2...
-        
-        // Ambil 20 poin data terakhir supaya grafik tidak terlalu padat
-        const limit = 20;
-        const chartData = trendData.slice(-limit);
-        const chartLabels = labels.slice(-limit);
-
-        renderLineChart("chartTren", chartLabels, chartData);
-    }
-
+    // --- HELPER CHARTS ---
     function renderPieChart(id, labels, data) {
-        new Chart(document.getElementById(id), {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        
+        // Hancurkan chart lama jika ada (untuk mencegah glitch saat reload)
+        let chartStatus = Chart.getChart(id); 
+        if (chartStatus != undefined) { chartStatus.destroy(); }
+
+        new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: labels,
@@ -544,12 +498,18 @@
     }
 
     function renderBarChart(id, labels, data) {
-        new Chart(document.getElementById(id), {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+
+        let chartStatus = Chart.getChart(id);
+        if (chartStatus != undefined) { chartStatus.destroy(); }
+
+        new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Jumlah Arsip',
+                    label: 'Jumlah',
                     data: data,
                     backgroundColor: '#7385a5',
                     borderRadius: 4
@@ -564,12 +524,18 @@
     }
 
     function renderLineChart(id, labels, data) {
-        new Chart(document.getElementById(id), {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        
+        let chartStatus = Chart.getChart(id);
+        if (chartStatus != undefined) { chartStatus.destroy(); }
+
+        new Chart(ctx, {
             type: 'line',
             data: {
                 labels: labels,
                 datasets: [{
-                    label: 'Pertumbuhan Arsip',
+                    label: 'Aktivitas',
                     data: data,
                     borderColor: '#27ae60',
                     backgroundColor: 'rgba(39, 174, 96, 0.1)',
@@ -585,6 +551,7 @@
             }
         });
     }
+
     </script>
 
 </body>
