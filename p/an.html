@@ -268,72 +268,88 @@
     // Variabel Global untuk menyimpan ID yang ditemukan agar bisa dipakai lintas fungsi
     let foundTokenIds = []; 
 
-        // --- 2. FUNGSI UTAMA KONEKSI & LOAD DATA ---
+        // --- KONFIGURASI NETWORK (BASE MAINNET) ---
+    // Gunakan 0x14a33 untuk Base Sepolia (Testnet) jika belum live
+    const BASE_CHAIN_ID_HEX = "0x2105"; // Hex untuk 8453 (Base Mainnet)
+    const BASE_CHAIN_ID_DEC = 8453;
+
+    // --- 2. FUNGSI UTAMA YANG DIPERBAIKI ---
     async function connectAndLoad() {
-        // 1. Cek apakah Wallet terinstall
-        if (!window.ethereum) return alert("Wallet tidak ditemukan! Harap install MetaMask.");
+        // 1. Cek apakah MetaMask/Wallet ada
+        if (!window.ethereum) {
+            alert("Wallet tidak ditemukan! Harap install MetaMask/Coinbase Wallet.");
+            return;
+        }
         
-        const btn = document.getElementById("btn-connect");
+        const btn = document.getElementById("btnConnect");
         const originalText = btn.innerHTML; // Simpan teks asli tombol
-        
-        // Ubah tombol jadi loading & matikan klik
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
-        btn.disabled = true;
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menghubungkan...';
+        btn.disabled = true; // Matikan tombol agar tidak diklik 2x
 
         try {
             // 2. Request Akses Akun
             await window.ethereum.request({ method: 'eth_requestAccounts' });
-            provider = new ethers.providers.Web3Provider(window.ethereum);
 
-            // 3. CEK JARINGAN (WAJIB BASE MAINNET: 8453)
+            // 3. Inisialisasi Provider Sementara untuk Cek Network
+            provider = new ethers.providers.Web3Provider(window.ethereum);
             const { chainId } = await provider.getNetwork();
-            if (chainId !== 8453) {
+
+            // 4. Logika Pindah Jaringan Otomatis (Auto-Switch)
+            if (chainId !== BASE_CHAIN_ID_DEC) {
                 try {
-                    // Minta user pindah ke Base
                     await window.ethereum.request({
                         method: 'wallet_switchEthereumChain',
-                        params: [{ chainId: '0x2105' }], // Hex dari 8453
+                        params: [{ chainId: BASE_CHAIN_ID_HEX }],
                     });
-                    // Refresh provider setelah pindah network
+                    // Refresh provider setelah ganti network
                     provider = new ethers.providers.Web3Provider(window.ethereum);
                 } catch (switchError) {
-                    // Jika user menolak ganti network
-                    throw new Error("Wajib menggunakan jaringan Base Mainnet untuk melihat data.");
+                    // Error 4902 artinya Network belum ditambahkan di Wallet user
+                    if (switchError.code === 4902) {
+                        alert("Jaringan Base tidak ditemukan di Wallet Anda. Harap tambahkan secara manual.");
+                    } else {
+                        throw new Error("Gagal mengganti jaringan. Pastikan Anda menyetujui di Wallet.");
+                    }
                 }
             }
 
-            // 4. Inisialisasi Kontrak
+            // 5. Inisialisasi Signer & Kontrak (Setelah Network Benar)
             signer = provider.getSigner();
-            const address = await signer.getAddress();
+            const userAddress = await signer.getAddress();
+            
+            // Debugging: Cek apakah variabel global ada
+            if (typeof CONTRACT_ADDRESS === 'undefined' || typeof ABI === 'undefined') {
+                throw new Error("CONTRACT_ADDRESS atau ABI belum didefinisikan di script!");
+            }
+
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-            // 5. Update Tampilan Tombol (Sukses)
-            btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
-            btn.classList.add('connected'); // Style hijau
-            btn.classList.remove('btn-outline'); // Hapus garis pinggir
-            // Opsional: Matikan onclick agar tidak reload
-            // btn.onclick = null; 
+            // 6. Update UI Sukses
+            btn.innerHTML = `<i class="fas fa-check"></i> ${userAddress.substring(0,6)}...`;
+            btn.classList.add('connected');
+            btn.onclick = null; // Matikan fungsi klik setelah connect (opsional)
 
-            // 6. EKSEKUSI DATA BERURUTAN (PENTING!)
-            console.log("Memulai pengambilan data...");
-            
-            // A. Ambil Statistik Global & Cari Semua ID Wayang
-            await loadStatsAndGolongan(); 
-            
-            // B. Ambil Detail Gaya (Menggunakan ID yang ditemukan di langkah A)
-            await loadGayaDistribution(); 
-            
-            // C. Ambil Aktivitas Tipping (Independen)
-            await loadActivitySafe();
+            // 7. Eksekusi Load Data
+            // Pastikan fungsi-fungsi ini sudah ada di kode Anda sebelumnya
+            await Promise.all([
+                loadGeneralStats().catch(err => console.error("Error GeneralStats:", err)),
+                loadDistribution().catch(err => console.error("Error Distribution:", err)),
+                loadEventBasedStats().catch(err => console.error("Error Events:", err))
+            ]);
 
         } catch (err) {
             console.error("Koneksi Error:", err);
-            // Kembalikan tombol ke kondisi semula jika gagal
-            btn.innerHTML = originalText;
-            btn.disabled = false;
-            alert(`Gagal memuat data: ${err.message}`);
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Gagal';
+            alert(`Terjadi kesalahan: ${err.message}`);
+            
+            // Kembalikan tombol ke kondisi semula setelah 3 detik
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 3000);
         }
     }
+
 
     // --- 2. LOAD STATS & GOLONGAN (SUMBER DATA UTAMA) ---
     async function loadStatsAndGolongan() {
@@ -506,47 +522,76 @@
         });
     }
 
-        function renderBarChart(id, labels, data) {
+            function renderBarChart(id, labels, data) {
         const ctx = document.getElementById(id);
         if(!ctx) return;
 
-        // Hancurkan chart lama (PENTING: Mencegah glitch saat reload)
+        // Hapus chart lama agar tidak bertumpuk
         let chartStatus = Chart.getChart(id);
         if (chartStatus != undefined) { chartStatus.destroy(); }
 
+        // Palette Warna Premium (Variasi Biru & Emas Putramas)
+        const premiumColors = [
+            'rgba(115, 133, 165, 0.8)', // Primary Blue
+            'rgba(197, 160, 89, 0.8)',  // Gold
+            'rgba(92, 106, 132, 0.8)',  // Dark Blue
+            'rgba(227, 233, 244, 0.9)', // Soft Blue
+            'rgba(166, 180, 205, 0.8)', // Secondary Blue
+            'rgba(143, 113, 58, 0.8)',  // Dark Gold
+        ];
+
         new Chart(ctx, {
-            type: 'bar',
+            type: 'polarArea', // <--- GANTI MODEL DISINI
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Jumlah Arsip',
                     data: data,
-                    backgroundColor: '#7385a5', // Warna Putramas Blue
-                    hoverBackgroundColor: '#c5a059', // Warna Gold saat hover
-                    borderRadius: 6, // Sudut tumpul batang
-                    borderSkipped: false
+                    backgroundColor: premiumColors,
+                    borderWidth: 3,
+                    borderColor: '#ffffff', // Garis pemisah putih agar bersih
+                    hoverBorderColor: '#c5a059',
+                    hoverBorderWidth: 4
                 }]
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false,
+                layout: {
+                    padding: 10
+                },
                 plugins: { 
-                    legend: { display: false }, // Sembunyikan legenda "Jumlah" biar bersih
+                    legend: { 
+                        display: true, 
+                        position: 'right', // Legenda di kanan agar rapi
+                        labels: {
+                            font: { family: 'Plus Jakarta Sans', size: 10 },
+                            color: '#64748b',
+                            boxWidth: 10,
+                            usePointStyle: true // Ikon bulat bukan kotak
+                        }
+                    },
                     tooltip: {
                         backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                        padding: 12,
+                        cornerRadius: 8,
                         titleFont: { family: 'Plus Jakarta Sans' },
                         bodyFont: { family: 'Plus Jakarta Sans' }
                     }
                 },
                 scales: { 
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { display: true, borderDash: [5, 5], color: '#f0f0f0' },
-                        ticks: { stepSize: 1 } // Pastikan angka bulat (1, 2, 3) bukan (0.5, 1.5)
-                    }, 
-                    x: { 
-                        grid: { display: false },
-                        ticks: { font: { size: 10 } } // Ukuran font label bawah
+                    r: { 
+                        ticks: { 
+                            display: false, // Sembunyikan angka di tengah agar bersih
+                            stepSize: 1 
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)', // Garis jaring tipis
+                            borderDash: [5, 5]
+                        },
+                        pointLabels: {
+                            display: false // Sembunyikan label di pinggir lingkaran (biar pake legend aja)
+                        }
                     } 
                 }
             }
