@@ -913,53 +913,57 @@
     }
 
             // --- SNIPPET JS: Load Activity & Likes ---
-    // --- SNIPPET JS: Load Activity & Likes (FIXED) ---
+        // --- SNIPPET JS: Load Activity (FIXED & AMAN DARI LIMIT) ---
 
     async function loadActivity() {
         console.log("Loading activity feed...");
         const feedContainer = document.getElementById('activity-feed');
         
         try {
-            // --- PERBAIKAN UTAMA DI SINI ---
-            // Kita gunakan Provider PUBLIC khusus untuk ambil Logs.
-            // Alasannya: Alchemy Free Tier membatasi rentang block sangat kecil (10-100 blok),
-            // sedangkan Public RPC Base mengizinkan rentang lebih luas (2000-5000 blok).
+            // 1. GUNAKAN PUBLIC RPC (PENTING!)
+            // Alchemy Free Tier sangat pelit soal range block (kadang cuma 10 block).
+            // Public RPC Base Mainnet lebih baik hati (bisa sampai 5.000 block).
             const logsProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
             const logsContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, logsProvider);
 
-            // Ambil block number saat ini dari Public RPC
+            // 2. TENTUKAN RENTANG WAKTU (PENTING!)
+            // Ambil nomor blok saat ini
             const currentBlock = await logsProvider.getBlockNumber();
             
-            // Kita ambil 3000 blok terakhir saja (sekitar 1-2 jam aktivitas)
-            // Jangan 10.000, terlalu berat dan rawan timeout.
+            // Kita mundur 3.000 blok ke belakang (Sekitar 1.5 Jam terakhir)
+            // Ini aman dan tidak akan kena limit "Response too large".
             const fromBlock = currentBlock - 3000; 
 
-            // Filter Event: TipSent & WayangLahir
+            // 3. TARIK DATA
             const filterTips = logsContract.filters.TipSent();
             const filterMint = logsContract.filters.WayangLahir();
 
-            // Fetch logs secara paralel menggunakan logsContract (Public)
+            // Jalankan paralel
             const [logsTips, logsMint] = await Promise.all([
                 logsContract.queryFilter(filterTips, fromBlock),
                 logsContract.queryFilter(filterMint, fromBlock)
             ]);
 
-            // Gabungkan dan urutkan berdasarkan blockNumber (terbaru diatas)
+            // 4. GABUNG & URUTKAN
             const allActivity = [
                 ...logsTips.map(l => ({type: 'TIP', ...l})),
                 ...logsMint.map(l => ({type: 'MINT', ...l}))
-            ].sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 10); // Ambil 10 terakhir
+            ].sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 10); // Ambil 10 teratas
 
-            // Render HTML (Sama seperti sebelumnya)
+            // 5. RENDER KE HTML
             if (allActivity.length === 0) {
-                feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada aktivitas dalam 3000 blok terakhir.</div>';
+                feedContainer.innerHTML = `
+                    <div style="text-align:center; padding:30px; color:#aaa;">
+                        <i class="fas fa-clock" style="font-size: 2rem; margin-bottom:10px; opacity:0.5;"></i><br>
+                        Belum ada aktivitas baru<br>dalam 1 jam terakhir.
+                    </div>`;
                 return;
             }
 
             let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
             
             for (let item of allActivity) {
-                // Formatting Hash & Value
+                // Format Hash Transaksi (Biar pendek)
                 const txHash = item.transactionHash ? (item.transactionHash.substring(0, 6) + '...') : 'Tx';
                 
                 if (item.type === 'TIP') {
@@ -995,8 +999,12 @@
 
         } catch (e) {
             console.error("Activity Error:", e);
-            // Tampilkan pesan error yang lebih ramah
-            feedContainer.innerHTML = '<div style="color:#aaa; font-size:0.8rem; text-align:center; padding:20px;">Jaringan sibuk, gagal memuat aktivitas live.<br><small>(RPC Rate Limit)</small></div>';
+            // Error Handling Visual
+            feedContainer.innerHTML = `
+                <div style="color:#e74c3c; font-size:0.8rem; text-align:center; padding:20px; background:#fff5f5; border-radius:8px;">
+                    <i class="fas fa-exclamation-circle"></i> Gagal memuat aktivitas.<br>
+                    <small>Jaringan sedang sibuk.</small>
+                </div>`;
         }
     }
 
