@@ -913,26 +913,35 @@
     }
 
             // --- SNIPPET JS: Load Activity & Likes ---
+    // --- SNIPPET JS: Load Activity & Likes (FIXED) ---
 
-    // 1. Fungsi untuk mengambil Event Logs (Aktivitas)
     async function loadActivity() {
         console.log("Loading activity feed...");
         const feedContainer = document.getElementById('activity-feed');
         
         try {
-            // Ambil block number saat ini
-            const currentBlock = await provider.getBlockNumber();
-            // Ambil event dari 5000 block terakhir (cukup ringan untuk public RPC)
-            const fromBlock = currentBlock - 10000; 
+            // --- PERBAIKAN UTAMA DI SINI ---
+            // Kita gunakan Provider PUBLIC khusus untuk ambil Logs.
+            // Alasannya: Alchemy Free Tier membatasi rentang block sangat kecil (10-100 blok),
+            // sedangkan Public RPC Base mengizinkan rentang lebih luas (2000-5000 blok).
+            const logsProvider = new ethers.providers.JsonRpcProvider("https://mainnet.base.org");
+            const logsContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, logsProvider);
+
+            // Ambil block number saat ini dari Public RPC
+            const currentBlock = await logsProvider.getBlockNumber();
+            
+            // Kita ambil 3000 blok terakhir saja (sekitar 1-2 jam aktivitas)
+            // Jangan 10.000, terlalu berat dan rawan timeout.
+            const fromBlock = currentBlock - 3000; 
 
             // Filter Event: TipSent & WayangLahir
-            const filterTips = contract.filters.TipSent();
-            const filterMint = contract.filters.WayangLahir();
+            const filterTips = logsContract.filters.TipSent();
+            const filterMint = logsContract.filters.WayangLahir();
 
-            // Fetch logs secara paralel
+            // Fetch logs secara paralel menggunakan logsContract (Public)
             const [logsTips, logsMint] = await Promise.all([
-                contract.queryFilter(filterTips, fromBlock),
-                contract.queryFilter(filterMint, fromBlock)
+                logsContract.queryFilter(filterTips, fromBlock),
+                logsContract.queryFilter(filterMint, fromBlock)
             ]);
 
             // Gabungkan dan urutkan berdasarkan blockNumber (terbaru diatas)
@@ -941,16 +950,17 @@
                 ...logsMint.map(l => ({type: 'MINT', ...l}))
             ].sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 10); // Ambil 10 terakhir
 
-            // Render HTML
+            // Render HTML (Sama seperti sebelumnya)
             if (allActivity.length === 0) {
-                feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada aktivitas baru.</div>';
+                feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada aktivitas dalam 3000 blok terakhir.</div>';
                 return;
             }
 
             let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
             
             for (let item of allActivity) {
-                const txHash = item.transactionHash.substring(0, 6) + '...' + item.transactionHash.substring(62);
+                // Formatting Hash & Value
+                const txHash = item.transactionHash ? (item.transactionHash.substring(0, 6) + '...') : 'Tx';
                 
                 if (item.type === 'TIP') {
                     const amount = ethers.utils.formatEther(item.args.amount);
@@ -985,7 +995,8 @@
 
         } catch (e) {
             console.error("Activity Error:", e);
-            feedContainer.innerHTML = '<div style="color:red; font-size:0.8rem; text-align:center;">Gagal memuat aktivitas.</div>';
+            // Tampilkan pesan error yang lebih ramah
+            feedContainer.innerHTML = '<div style="color:#aaa; font-size:0.8rem; text-align:center; padding:20px;">Jaringan sibuk, gagal memuat aktivitas live.<br><small>(RPC Rate Limit)</small></div>';
         }
     }
 
