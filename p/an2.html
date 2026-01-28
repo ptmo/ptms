@@ -171,38 +171,10 @@
         </div>
     </div>
 
-    <div class="section-label"><i class="fas fa-crown"></i> 3. Leaderboard Patron & Aktivitas</div>
-    <div class="charts-grid" style="grid-template-columns: 1fr 1.5fr;">
-        
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Top Patron (Pemberi Tips)</div>
-                <small style="color:var(--text-grey);">Live Data</small>
-            </div>
-            <div id="tipping-list" class="leaderboard-list">
-                <div style="text-align:center; padding:20px; color:#aaa;">Menunggu Data...</div>
-            </div>
-        </div>
-
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Aktivitas Jaringan Terkini</div>
-            </div>
-            <div class="table-responsive">
-                <table class="premium-table">
-                    <thead>
-                        <tr>
-                            <th>Event</th>
-                            <th>Dari / Kreator</th>
-                            <th>Detail</th>
-                            <th>Blk</th>
-                        </tr>
-                    </thead>
-                    <tbody id="activity-table">
-                        <tr><td colspan="4" style="text-align:center;">Memuat Event Blockchain...</td></tr>
-                    </tbody>
-                </table>
-            </div>
+    <div class="section-label"><i class="fas fa-chart-line"></i> 6. Tren Waktu (Minting)</div>
+    <div class="card-panel">
+        <div style="height: 250px; position: relative;">
+            <canvas id="chartTren"></canvas>
         </div>
     </div>
 
@@ -366,61 +338,6 @@
         } catch (e) { console.error("Gaya Error", e); }
     }
 
-    // --- 4. LOAD ACTIVITY (TIPS) ---
-    async function loadActivitySafe() {
-        try {
-            const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 50000); 
-            const tipFilter = contract.filters.TipSent();
-            const events = await contract.queryFilter(tipFilter, fromBlock, "latest");
-            
-            // Leaderboard Logic
-            let map = {};
-            events.forEach(e => {
-                const s = e.args.from;
-                const v = parseFloat(ethers.utils.formatEther(e.args.amount));
-                map[s] = (map[s] || 0) + v;
-            });
-            
-            const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0,3);
-            const list = document.getElementById("tipping-list");
-            
-            if(sorted.length === 0) list.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Belum ada data donasi.</div>';
-            else {
-                list.innerHTML = "";
-                sorted.forEach((item, i) => {
-                     list.innerHTML += `
-                     <div class="leaderboard-item">
-                        <div style="display:flex;align-items:center;">
-                            <div class="rank-badge">${i+1}</div>
-                            <span class="address-badge">${item[0].substring(0,6)}...</span>
-                        </div>
-                        <div style="font-weight:bold;color:#27ae60;">${item[1].toFixed(4)} ETH</div>
-                     </div>`;
-                });
-            }
-            
-            // Table Activity
-            const table = document.getElementById("activity-table");
-            if(events.length > 0) {
-                table.innerHTML = "";
-                events.slice(-5).reverse().forEach(e => {
-                    table.innerHTML += `
-                    <tr>
-                        <td><span style="color:#27ae60;font-weight:bold;">Donasi</span></td>
-                        <td><span class="address-badge">${e.args.from.substring(0,6)}...</span></td>
-                        <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
-                        <td style="color:#aaa;font-size:11px;">${e.blockNumber}</td>
-                    </tr>`;
-                });
-            } else {
-                 table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:15px;color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
-            }
-
-        } catch (e) { console.error("Activity Error", e); }
-    }
-
-    // --- CHART RENDERERS ---
     
     // 1. Pie Chart untuk Golongan
     function renderPieChart(id, labels, data) {
@@ -466,6 +383,32 @@
                 responsive: true, maintainAspectRatio: false,
                 scales: { r: { ticks: { display: false }, grid: { display: false } } },
                 plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: { size: 10 } } } }
+            }
+        });
+    }
+
+    function renderLineChart(id, labels, data) {
+        const ctx = document.getElementById(id);
+        if(!ctx) return;
+        let chart = Chart.getChart(id);
+        if (chart) chart.destroy();
+
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: labels,
+                datasets: [{
+                    label: 'Trend',
+                    data: data,
+                    borderColor: '#27ae60',
+                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
+                    fill: true, tension: 0.4, pointRadius: 0
+                }]
+            },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { y: { display: false }, x: { display: false } },
+                plugins: { legend: { display: false } }
             }
         });
     }
