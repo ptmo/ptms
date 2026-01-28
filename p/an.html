@@ -350,6 +350,48 @@
         }
     }
 
+    async function loadGeneralStats() {
+        try {
+            // A. Total Supply
+            let totalCount = 0;
+            let golonganCounts = [];
+            
+            // Promise.all agar fetch paralel & cepat
+            const promises = listGolongan.map(g => contract.getIdsByGolongan(g).catch(() => []));
+            const results = await Promise.all(promises);
+
+            results.forEach(ids => {
+                totalCount += ids.length;
+                golonganCounts.push(ids.length);
+            });
+
+            document.getElementById("val-supply").innerText = totalCount;
+            document.getElementById("val-supply").classList.remove("skeleton");
+
+            // Render Pie Chart Langsung Disini
+            renderPieChart("chartGolongan", listGolongan, golonganCounts);
+
+            // B. Fees & Tips
+            const fee = await contract.publicMintFee().catch(() => ethers.BigNumber.from(0));
+            const tips = await contract.totalTipsGrand().catch(() => ethers.BigNumber.from(0));
+
+            document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
+            document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
+            
+            // C. Owner Count (Estimasi dari total supply / rata2 kepemilikan atau placeholder)
+            // Karena menghitung unique owner on-chain itu berat, kita pakai placeholder atau fetch dari event nanti
+            document.getElementById("val-owners").innerText = "-"; 
+
+            // Hapus skeleton
+            ["val-fee", "val-totalTips", "val-owners"].forEach(id => {
+                const el = document.getElementById(id);
+                if(el) el.classList.remove("skeleton");
+            });
+
+        } catch (error) {
+            console.error("Gagal load General Stats:", error);
+        }
+    }
 
     // --- 2. LOAD STATS & GOLONGAN (SUMBER DATA UTAMA) ---
     async function loadStatsAndGolongan() {
