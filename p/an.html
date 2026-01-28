@@ -257,32 +257,85 @@
 
     // --- 2. FUNGSI UTAMA ---
 
+    // --- KONFIGURASI NETWORK (BASE MAINNET) ---
+    // Gunakan 0x14a33 untuk Base Sepolia (Testnet) jika belum live
+    const BASE_CHAIN_ID_HEX = "0x2105"; // Hex untuk 8453 (Base Mainnet)
+    const BASE_CHAIN_ID_DEC = 8453;
+
+    // --- 2. FUNGSI UTAMA YANG DIPERBAIKI ---
     async function connectAndLoad() {
-        if (!window.ethereum) return alert("Install Wallet!");
+        // 1. Cek apakah MetaMask/Wallet ada
+        if (!window.ethereum) {
+            alert("Wallet tidak ditemukan! Harap install MetaMask/Coinbase Wallet.");
+            return;
+        }
         
         const btn = document.getElementById("btnConnect");
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Fetching Data...';
+        const originalText = btn.innerHTML; // Simpan teks asli tombol
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Menghubungkan...';
+        btn.disabled = true; // Matikan tombol agar tidak diklik 2x
 
         try {
+            // 2. Request Akses Akun
             await window.ethereum.request({ method: 'eth_requestAccounts' });
+
+            // 3. Inisialisasi Provider Sementara untuk Cek Network
             provider = new ethers.providers.Web3Provider(window.ethereum);
+            const { chainId } = await provider.getNetwork();
+
+            // 4. Logika Pindah Jaringan Otomatis (Auto-Switch)
+            if (chainId !== BASE_CHAIN_ID_DEC) {
+                try {
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: BASE_CHAIN_ID_HEX }],
+                    });
+                    // Refresh provider setelah ganti network
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                } catch (switchError) {
+                    // Error 4902 artinya Network belum ditambahkan di Wallet user
+                    if (switchError.code === 4902) {
+                        alert("Jaringan Base tidak ditemukan di Wallet Anda. Harap tambahkan secara manual.");
+                    } else {
+                        throw new Error("Gagal mengganti jaringan. Pastikan Anda menyetujui di Wallet.");
+                    }
+                }
+            }
+
+            // 5. Inisialisasi Signer & Kontrak (Setelah Network Benar)
             signer = provider.getSigner();
+            const userAddress = await signer.getAddress();
+            
+            // Debugging: Cek apakah variabel global ada
+            if (typeof CONTRACT_ADDRESS === 'undefined' || typeof ABI === 'undefined') {
+                throw new Error("CONTRACT_ADDRESS atau ABI belum didefinisikan di script!");
+            }
+
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
-            btn.innerHTML = '<i class="fas fa-check"></i> Connected';
+            // 6. Update UI Sukses
+            btn.innerHTML = `<i class="fas fa-check"></i> ${userAddress.substring(0,6)}...`;
             btn.classList.add('connected');
+            btn.onclick = null; // Matikan fungsi klik setelah connect (opsional)
 
-            // Eksekusi Paralel supaya cepat
+            // 7. Eksekusi Load Data
+            // Pastikan fungsi-fungsi ini sudah ada di kode Anda sebelumnya
             await Promise.all([
-                loadGeneralStats(),
-                loadDistribution(),
-                loadEventBasedStats() // Menangani Tipping, Activity, Trends, Insights
+                loadGeneralStats().catch(err => console.error("Error GeneralStats:", err)),
+                loadDistribution().catch(err => console.error("Error Distribution:", err)),
+                loadEventBasedStats().catch(err => console.error("Error Events:", err))
             ]);
 
         } catch (err) {
-            console.error(err);
-            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Error';
-            alert("Gagal mengambil data. Cek Console.");
+            console.error("Koneksi Error:", err);
+            btn.innerHTML = '<i class="fas fa-exclamation-triangle"></i> Gagal';
+            alert(`Terjadi kesalahan: ${err.message}`);
+            
+            // Kembalikan tombol ke kondisi semula setelah 3 detik
+            setTimeout(() => {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }, 3000);
         }
     }
 
