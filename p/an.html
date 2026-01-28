@@ -334,7 +334,7 @@
         }
     }
 
-            // --- 4. LOAD CHARTS & DISTRIBUSI (FIXED VERSION) ---
+        // --- 4. LOAD CHARTS & DISTRIBUSI (FIXED VERSION) ---
     async function loadChartsSafe() {
         try {
             const currentBlock = await provider.getBlockNumber();
@@ -342,14 +342,26 @@
             const fromBlock = Math.max(0, currentBlock - 10000); 
 
             // --- PERBAIKAN UTAMA DISINI ---
-            // Gunakan string signature lengkap agar tidak error "not a function"
+            // Kita panggil event dengan "Signature Lengkap" agar tidak error "not a function"
             // Ethers.js butuh spesifik jika ada riwayat duplikat nama
             const eventSignature = "WayangLahir(uint256,string,string,bool,address)";
-            const filter = contract.filters[eventSignature] ? 
-                           contract.filters[eventSignature]() : 
-                           contract.filters.WayangLahir(); // Fallback
             
+            // Cek apakah filter tersedia, jika tidak coba fallback manual
+            let filter;
+            if (contract.filters[eventSignature]) {
+                filter = contract.filters[eventSignature]();
+            } else {
+                // Fallback manual topic jika syntax di atas gagal di beberapa browser
+                const topic = ethers.utils.id(eventSignature);
+                filter = {
+                    address: CONTRACT_ADDRESS,
+                    topics: [topic]
+                };
+            }
+            
+            console.log("Mengambil Event Log..."); // Debugging
             const events = await contract.queryFilter(filter, fromBlock, "latest");
+            console.log("Jumlah Event Ditemukan:", events.length); // Debugging
 
             // Siapkan wadah data
             let gayaStats = {};
@@ -360,28 +372,21 @@
             let publicCount = 0;
 
             // --- PROSES EVENT ---
-            // Kita ambil 20 event terakhir saja untuk sampling "Gaya"
-            // (Karena data Gaya ada di dalam contract, bukan di Event Log, jadi harus di-fetch satu2)
-            const sampleEvents = events.slice(-20); 
-
-            if (sampleEvents.length === 0) {
-                console.log("Belum ada data WayangLahir di rentang blok ini.");
-            }
+            // Kita ambil 50 event terakhir saja untuk sampling "Gaya"
+            const sampleEvents = events.slice(-50); 
 
             for (let event of sampleEvents) {
                 try {
                     const id = event.args.id;
                     
-                    // Panggil data on-chain
+                    // Panggil data on-chain untuk mendapatkan detail 'Gaya'
                     const data = await contract.wayangRegistry(id);
-                    // Struct: nama, golongan, gaya, timestamp, active, isOfficial, creator
-                    // Index: 0     1         2     3          4       5           6
+                    // Index di Struct: 2 = gaya, 5 = isOfficial
                     
-                    const gaya = data[2]; // Ambil string Gaya
-                    const isOff = data[5]; // Ambil bool isOfficial
+                    const gaya = data[2]; 
+                    const isOff = data[5];
 
                     // Masukkan ke statistik
-                    // Jika gaya ada di list, tambahkan. Jika tidak (typo/baru), masuk Lainnya.
                     if (gayaStats[gaya] !== undefined) {
                         gayaStats[gaya]++;
                     } else {
@@ -391,12 +396,11 @@
                     if (isOff) officialCount++; else publicCount++;
                     
                 } catch (e) { 
-                    console.warn("Gagal ambil detail ID:", event.args.id); 
+                    // console.warn("Skip ID", event.args.id); 
                 }
             }
 
             // --- RENDER GRAFIK DENGAN DATA ASLI ---
-            console.log("Data Gaya ditemukan:", gayaStats); // Cek di console
             renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
             
             // Hitung Rasio Official
