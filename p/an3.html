@@ -100,7 +100,7 @@
             <div class="stat-icon"><i class="fas fa-tag"></i></div>
         </div>
         <div class="card">
-            <div class="stat-label">Total Donasi</div>
+            <div class="stat-label">Total Dukungan</div>
             <div class="stat-value skeleton" id="val-tips">0</div>
             <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
         </div>
@@ -125,24 +125,6 @@
     <div class="card" style="margin-bottom: 30px;" data-aos="fade-up" data-aos-delay="200">
         <div class="card-title">Tren Aktivitas Minting (Bulanan)</div>
         <div class="chart-box"><canvas id="chartTrend"></canvas></div>
-    </div>
-
-    <div class="grid-1-2" data-aos="fade-up" data-aos-delay="300">
-        <div class="card">
-            <div class="card-title">Top Patron (Donatur)</div>
-            <div id="leaderboard-container">
-                <div style="text-align:center; padding:20px; color:#aaa;">Memuat Data...</div>
-            </div>
-        </div>
-        <div class="card">
-            <div class="card-title">Log Aktivitas Terkini</div>
-            <div style="overflow-x:auto;">
-                <table id="activity-table">
-                    <thead><tr><th>Event</th><th>Address</th><th>Detail</th><th>Block</th></tr></thead>
-                    <tbody><tr><td colspan="4" style="text-align:center;">Memuat...</td></tr></tbody>
-                </table>
-            </div>
-        </div>
     </div>
 
     <div style="text-align:center; color:#94a3b8; font-size:0.85rem;">
@@ -249,7 +231,6 @@
 
         const [stats, activity] = await Promise.all([
             loadGlobalStats(),  // Kembalikan data stats
-            loadActivity()      // Kembalikan data activity
         ]);
         updateProgress(50);
 
@@ -342,57 +323,6 @@
         const trendVals = Object.values(timeData);
 
         return { ratio, gayaLabels, gayaVals, trendLabels, trendVals };
-    }
-
-    async function loadActivity() {
-        try {
-            const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 2000); // Kurangi untuk cepat
-            const filter = contract.filters.TipSent();
-            const events = await contract.queryFilter(filter, fromBlock, "latest");
-
-            // Leaderboard
-            let map = {};
-            events.forEach(e => {
-                const s = e.args.from;
-                const v = parseFloat(ethers.utils.formatEther(e.args.amount));
-                map[s] = (map[s] || 0) + v;
-            });
-
-            const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0, 3);
-            let leaderboardHTML = "";
-            if(sorted.length === 0) leaderboardHTML = '<div style="text-align:center; padding:15px; color:#aaa;">Belum ada data.</div>';
-            else {
-                sorted.forEach((item, i) => {
-                    leaderboardHTML += `
-                    <div class="list-item">
-                        <div style="display:flex;align-items:center;">
-                            <div class="rank">${i+1}</div>
-                            <div class="addr">\( {item[0].substring(0,6)}... \){item[0].slice(-4)}</div>
-                        </div>
-                        <div class="amt">${item[1].toFixed(4)} ETH</div>
-                    </div>`;
-                });
-            }
-
-            // Activity Table
-            let activityHTML = "";
-            const logs = events.slice(-5).reverse();
-            if(logs.length === 0) activityHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada aktivitas.</td></tr>';
-            else {
-                logs.forEach(e => {
-                    activityHTML += `
-                    <tr>
-                        <td><span style="color:#27ae60;font-weight:700;">Donasi</span></td>
-                        <td><span class="addr">${e.args.from.substring(0,6)}...</span></td>
-                        <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
-                        <td style="color:#aaa;">${e.blockNumber}</td>
-                    </tr>`;
-                });
-            }
-
-            return { leaderboardHTML, activityHTML };
-        } catch(e) { console.warn("Activity fetch error:", e); return { leaderboardHTML: '<div style="text-align:center; padding:15px; color:#aaa;">Error memuat.</div>', activityHTML: '<tr><td colspan="4" style="text-align:center;">Error memuat.</td></tr>' }; }
     }
 
     // --- CHARTS CONFIG --- (sama)
