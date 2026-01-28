@@ -1007,47 +1007,46 @@
         });
     }
 
-        // --- 1. METODE KULKAS (Updated: Lazy Load Gambar) ---
+        // --- 1. METODE KULKAS (Hybrid: Cache First -> Lazy Load IPFS) ---
     async function loadRecentMintsFromStorage() {
         console.log("Membuka Kulkas: Mengambil data minting terbaru...");
         const feedContainer = document.getElementById('activity-feed');
         
+        // Cek apakah data ID tersedia
         if (!foundIds || foundIds.length === 0) {
             feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada data wayang.</div>';
             return;
         }
 
-        // Ambil 5 ID terbaru
+        // Ambil 5 ID terbaru (Urutan ID terbesar ke terkecil)
         const sortedIds = foundIds.sort((a, b) => b - a).slice(0, 5);
 
         let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
 
         for (let id of sortedIds) {
             try {
-                // Ambil data dasar (Nama & Golongan) dari Smart Contract (Cepat)
+                // Ambil data on-chain (Nama & Golongan) - Ini cepat karena text
                 const data = await contract.wayangRegistry(id);
                 const nama = data[0];
                 const gol = data[1];
 
-                // 1. CEK CACHE (RAM & LocalStorage)
-                // Kita gunakan variabel global GLOBAL_IMG_CACHE jika ada, atau localStorage
-                let imgSrc = (typeof GLOBAL_IMG_CACHE !== 'undefined' ? GLOBAL_IMG_CACHE[id] : null) 
-                             || localStorage.getItem(`img_v6_${id}`);
-                
-                let imgId = `mint-thumb-${id}`;
+                // --- LOGIKA HYBRID IMAGE ---
+                // 1. Cek Cache Dulu
+                let imgSrc = localStorage.getItem(`img_v6_${id}`);
+                let imgId = `mint-img-${id}`; // ID unik untuk elemen gambar ini
                 let needsFetch = false;
 
-                // 2. JIKA CACHE KOSONG -> Pasang Placeholder Dulu & Tandai untuk Fetch
+                // 2. Jika Cache Kosong, pakai Placeholder & tandai untuk fetch
                 if (!imgSrc) {
-                    imgSrc = "https://via.placeholder.com/100x100?text=Load...";
-                    needsFetch = true; 
+                    imgSrc = "https://via.placeholder.com/100x100/e0e0e0/888888?text=Loading"; 
+                    needsFetch = true;
                 }
 
                 // Render HTML
                 html += `
                 <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 12px;">
                     
-                    <div style="width: 45px; height: 45px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid #eee; background: #f9f9f9;">
+                    <div style="width: 45px; height: 45px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid #eee; background: #f9f9f9; position: relative;">
                         <img id="${imgId}" src="${imgSrc}" alt="${nama}" 
                              style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s;" 
                              onerror="this.src='https://via.placeholder.com/45?text=?'">
@@ -1056,6 +1055,7 @@
                     <div style="flex: 1;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px;">
                             <div style="font-size: 0.9rem; font-weight: 600; color: #2c3e50;">Wayang Baru Lahir!</div>
+                            
                             <div style="background: #e3f2fd; color: #1565c0; width: 24px; height: 24px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.7rem;">
                                 <i class="fas fa-magic"></i>
                             </div>
@@ -1072,57 +1072,57 @@
                     </div>
                 </li>`;
 
-                // 3. TRIGGER BACKGROUND FETCH (Jika gambar belum ada)
-                // Kita panggil setelah HTML dirender nanti, atau masukkan antrian
+                // 3. JIKA PERLU FETCH (Lazy Load)
+                // Jalankan di background setelah 100ms agar UI tidak macet
                 if (needsFetch) {
-                    // Gunakan setTimeout agar tidak memblokir render UI
-                    setTimeout(() => fetchMintImage(id, imgId), 100); 
+                    setTimeout(() => fetchMintImage(id, imgId), 100 + (id % 5) * 200); 
                 }
 
-            } catch (err) { console.warn("Gagal ambil ID", id); }
+            } catch (err) { console.warn("Skip ID", id); }
         }
 
         html += '</ul>';
         
+        // Render ke Layar
         if(!document.getElementById('mint-feed')) {
             feedContainer.innerHTML = '<div id="live-feed"></div><div id="mint-feed"></div>';
         }
         document.getElementById('mint-feed').innerHTML = html;
     }
 
-    // --- FUNGSI BANTU BARU: Ambil Gambar dari IPFS (Background) ---
+    // --- FUNGSI PENGAMBIL GAMBAR (BACKGROUND WORKER) ---
     async function fetchMintImage(id, elementId) {
         try {
-            // 1. Ambil URI dari Contract
+            // 1. Tanya Blockchain: "Mana link metadatanya?"
             const uri = await contract.tokenURI(id);
             
-            // 2. Resolve IPFS ke HTTP Gateway
-            // (Gunakan gateway umum agar hemat)
+            // 2. Convert IPFS ke Gateway HTTP (Biar browser bisa baca)
             const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
             
-            // 3. Ambil JSON Metadata
+            // 3. Ambil Metadata JSON
             const res = await fetch(metadataUrl);
             const data = await res.json();
             
-            // 4. Ambil URL Gambar Asli
+            // 4. Ambil Link Gambar Asli
             let rawImg = data.image || data.image_url;
             if(!rawImg) return;
 
-            // 5. Optimasi Gambar (Pakai WSRV agar ringan & cepat)
+            // 5. Optimasi Gambar (Pakai WSRV supaya ringan & format WebP)
             const publicUrl = rawImg.replace("ipfs://", "https://ipfs.io/ipfs/");
             const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicUrl)}&w=100&q=75&output=webp`;
 
-            // 6. UPDATE GAMBAR DI LAYAR
+            // 6. UPDATE TAMPILAN (Ganti Placeholder dengan Gambar Asli)
             const imgEl = document.getElementById(elementId);
             if(imgEl) {
                 imgEl.src = optimizedUrl;
                 
-                // 7. SIMPAN KE CACHE (Supaya besok-besok instant)
+                // 7. SIMPAN KE KULKAS (CACHE)
+                // Supaya besok tidak perlu download lagi
                 if (typeof GLOBAL_IMG_CACHE !== 'undefined') GLOBAL_IMG_CACHE[id] = optimizedUrl;
                 localStorage.setItem(`img_v6_${id}`, optimizedUrl);
             }
         } catch (e) {
-            console.warn(`Gagal fetch gambar ID ${id}`, e);
+            console.warn(`Gagal fetch gambar ID ${id}`);
         }
     }
            
