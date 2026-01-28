@@ -517,52 +517,82 @@
         });
     }
 
-        function renderBarChart(id, labels, data) {
+            function renderBarChart(id, labels, data) {
         const ctx = document.getElementById(id);
         if(!ctx) return;
 
-        // Hancurkan chart lama (PENTING: Mencegah glitch saat reload)
+        // Hapus chart lama agar tidak bertumpuk
         let chartStatus = Chart.getChart(id);
         if (chartStatus != undefined) { chartStatus.destroy(); }
 
+        // Palette Warna Premium (Variasi Biru & Emas Putramas)
+        const premiumColors = [
+            'rgba(115, 133, 165, 0.8)', // Primary Blue
+            'rgba(197, 160, 89, 0.8)',  // Gold
+            'rgba(92, 106, 132, 0.8)',  // Dark Blue
+            'rgba(227, 233, 244, 0.9)', // Soft Blue
+            'rgba(166, 180, 205, 0.8)', // Secondary Blue
+            'rgba(143, 113, 58, 0.8)',  // Dark Gold
+        ];
+
         new Chart(ctx, {
-            type: 'bar',
+            type: 'polarArea', // <--- GANTI MODEL DISINI
             data: {
                 labels: labels,
                 datasets: [{
                     label: 'Jumlah Arsip',
                     data: data,
-                    backgroundColor: '#7385a5', // Warna Putramas Blue
-                    hoverBackgroundColor: '#c5a059', // Warna Gold saat hover
-                    borderRadius: 6, // Sudut tumpul batang
-                    borderSkipped: false
+                    backgroundColor: premiumColors,
+                    borderWidth: 3,
+                    borderColor: '#ffffff', // Garis pemisah putih agar bersih
+                    hoverBorderColor: '#c5a059',
+                    hoverBorderWidth: 4
                 }]
             },
             options: {
                 responsive: true, 
                 maintainAspectRatio: false,
+                layout: {
+                    padding: 10
+                },
                 plugins: { 
-                    legend: { display: false }, // Sembunyikan legenda "Jumlah" biar bersih
+                    legend: { 
+                        display: true, 
+                        position: 'right', // Legenda di kanan agar rapi
+                        labels: {
+                            font: { family: 'Plus Jakarta Sans', size: 10 },
+                            color: '#64748b',
+                            boxWidth: 10,
+                            usePointStyle: true // Ikon bulat bukan kotak
+                        }
+                    },
                     tooltip: {
                         backgroundColor: 'rgba(30, 41, 59, 0.9)',
+                        padding: 12,
+                        cornerRadius: 8,
                         titleFont: { family: 'Plus Jakarta Sans' },
                         bodyFont: { family: 'Plus Jakarta Sans' }
                     }
                 },
                 scales: { 
-                    y: { 
-                        beginAtZero: true, 
-                        grid: { display: true, borderDash: [5, 5], color: '#f0f0f0' },
-                        ticks: { stepSize: 1 } // Pastikan angka bulat (1, 2, 3) bukan (0.5, 1.5)
-                    }, 
-                    x: { 
-                        grid: { display: false },
-                        ticks: { font: { size: 10 } } // Ukuran font label bawah
+                    r: { 
+                        ticks: { 
+                            display: false, // Sembunyikan angka di tengah agar bersih
+                            stepSize: 1 
+                        },
+                        grid: {
+                            color: 'rgba(0, 0, 0, 0.05)', // Garis jaring tipis
+                            borderDash: [5, 5]
+                        },
+                        pointLabels: {
+                            display: false // Sembunyikan label di pinggir lingkaran (biar pake legend aja)
+                        }
                     } 
                 }
             }
         });
     }
+
 
     function renderLineChart(id, labels, data) {
         const ctx = document.getElementById(id);
