@@ -334,15 +334,18 @@
         }
     }
 
-    // --- 4. LOAD CHARTS & DISTRIBUSI (Event Logs - Berat) ---
+        // --- 4. LOAD CHARTS & DISTRIBUSI (FIXED) ---
     async function loadChartsSafe() {
         try {
-            // OPTIMISASI: Jangan ambil dari Block 0 jika transaksi banyak.
-            // Kita coba ambil 5000 block terakhir saja untuk demo, atau 'fromBlock: 0' jika data sedikit.
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // Ambil 10.000 block terakhir agar tidak timeout
+            // Ambil 5000 blok terakhir agar tidak timeout/berat
+            const fromBlock = Math.max(0, currentBlock - 5000); 
 
-            const filter = contract.filters.WayangLahir(); 
+            // --- PERBAIKAN DISINI ---
+            // Kita panggil event dengan "Signature Lengkap" agar tidak error "not a function"
+            // karena ada duplikat nama event di contract.
+            const filter = contract.filters["WayangLahir(uint256,string,string,bool,address)"]();
+            
             const events = await contract.queryFilter(filter, fromBlock, "latest");
 
             let gayaStats = {};
@@ -351,14 +354,29 @@
             let publicCount = 0;
 
             // Proses Event
-            // Note: Data gaya ada di contract, event hanya punya ID. Kita sampling max 20 item terbaru agar cepat.
+            // Note: Event log di atas sudah mengandung data (nama, golongan, official, creator)
+            // Jadi kita TIDAK PERLU panggil 'contract.wayangRegistry' lagi satu-satu (ini yang bikin berat/loading lama).
+            
+            for (let event of events) {
+                try {
+                    // Dalam Ethers v5, data event ada di event.args
+                    const isOff = event.args.isOfficial;
+                    
+                    // Masalahnya: Event WayangLahir TIDAK MENYIMPAN 'Gaya'. 
+                    // 'Gaya' cuma ada di struct wayangRegistry.
+                    // Jadi kita tetap harus fetch, tapi kita batasi 10 terakhir saja supaya cepat.
+                } catch (e) { console.warn("Error parsing event", e); }
+            }
+
+            // OPTIMISASI LOOPING:
+            // Ambil 20 ID terakhir saja untuk sampling gaya (supaya grafik muncul cepat)
             const sampleEvents = events.slice(-20); 
 
             for (let event of sampleEvents) {
                 try {
                     const id = event.args.id;
                     const data = await contract.wayangRegistry(id);
-                    // data: nama, golongan, gaya, timestamp, active, isOfficial, creator
+                    // Struct: nama, golongan, gaya, timestamp, active, isOfficial, creator
                     const gaya = data[2]; 
                     const isOff = data[5];
 
@@ -366,24 +384,22 @@
                     else gayaStats["Lainnya"]++;
 
                     if (isOff) officialCount++; else publicCount++;
-                } catch (e) { console.warn("Skip ID", event.args.id); }
+                } catch (e) { 
+                    console.warn("Skip ID", event.args.id); 
+                }
             }
 
-            // Jika kosong, isi dummy agar grafik tidak blank (UX friendly)
-            if (sampleEvents.length === 0) {
-                 console.log("Tidak ada event WayangLahir ditemukan di range block ini.");
-            }
-
+            // Render Chart
             renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
             
-            // Ratio
+            // Ratio Calculation
             const total = officialCount + publicCount;
             const ratio = total > 0 ? ((officialCount / total) * 100).toFixed(1) : "0";
             document.getElementById("val-official-ratio").innerText = ratio + "%";
 
         } catch (error) {
             console.error("Gagal load Charts:", error);
-            // Render grafik kosong agar UI tidak rusak
+            // Render grafik kosong agar UI tidak rusak jika error
             renderBarChart("chartGaya", listGaya, new Array(listGaya.length).fill(0));
         }
     }
