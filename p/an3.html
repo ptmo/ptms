@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Putramas Analytics | Turbo Mode</title>
+    <title>Putramas Analytics | Public Dashboard</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -15,322 +15,350 @@
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 
     <style>
-        /* --- STYLE CLEAN & FAST --- */
-        :root { --primary: #7385a5; --gold: #c5a059; --bg: #f8faff; --text: #1e293b; --radius: 24px; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); color: var(--text); margin: 0; padding: 40px 20px; }
-        .container { max-width: 1100px; margin: 0 auto; }
-        
-        /* Header & Status */
-        .header { text-align: center; margin-bottom: 40px; }
-        .live-indicator { 
-            display: inline-flex; align-items: center; gap: 8px; background: #e0f2f1; color: #00695c; 
-            padding: 6px 16px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; 
+        /* --- STYLE PREMIUM CLEAN (Tanpa Tombol) --- */
+        :root {
+            --primary: #7385a5;
+            --primary-dark: #5c6a84;
+            --gold: #c5a059;
+            --bg-body: #f8faff;
+            --white: #ffffff;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --radius: 24px;
+            --shadow: 0 10px 30px -10px rgba(115, 133, 165, 0.15);
         }
-        .dot { width: 8px; height: 8px; background: #00b894; border-radius: 50%; animation: pulse 1s infinite; }
-        
-        /* Grid Layout */
-        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 20px; margin-bottom: 30px; }
+
+        * { box-sizing: border-box; outline: none; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; padding: 40px 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
+
+        /* Header */
+        .header { text-align: center; margin-bottom: 50px; }
+        .header h1 { font-size: 2.5rem; font-weight: 800; color: var(--primary); margin: 0 0 10px 0; letter-spacing: -1px; }
+        .header p { color: var(--text-muted); font-size: 1.1rem; }
+        .status-badge { display: inline-block; background: #e0f2f1; color: #00695c; padding: 5px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; margin-top: 15px; }
+
+        /* Grid System */
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
-        @media(max-width: 800px) { .grid-2 { grid-template-columns: 1fr; } }
+        .grid-1-2 { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-bottom: 30px; }
+
+        @media(max-width: 800px) { .grid-2, .grid-1-2 { grid-template-columns: 1fr; } }
 
         /* Cards */
-        .card { background: #fff; padding: 25px; border-radius: var(--radius); box-shadow: 0 10px 30px -10px rgba(115, 133, 165, 0.1); }
-        .stat-val { font-size: 2rem; font-weight: 800; color: var(--text); margin: 5px 0; }
-        .stat-lbl { font-size: 0.8rem; font-weight: 700; color: #94a3b8; text-transform: uppercase; }
+        .card { background: var(--white); border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow); border: 1px solid rgba(0,0,0,0.03); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(115, 133, 165, 0.2); }
         
-        /* Loading Bar */
-        .progress-container { width: 100%; background: #f1f5f9; height: 4px; border-radius: 10px; margin-top: 10px; overflow: hidden; display: none; }
-        .progress-bar { height: 100%; background: var(--gold); width: 0%; transition: width 0.3s; }
+        /* Stats */
+        .stat-label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-main); }
+        .stat-icon { float: right; font-size: 2rem; opacity: 0.1; color: var(--primary); margin-top: -30px; }
+
+        /* Charts */
+        .chart-box { height: 250px; position: relative; width: 100%; }
+        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: var(--primary-dark); }
+
+        /* Table & List */
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed #eee; }
+        .rank { background: var(--primary); color: #fff; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; margin-right: 10px; }
+        .addr { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; color: var(--primary-dark); font-size: 0.9rem; }
+        .amt { font-weight: 700; color: #27ae60; }
         
-        /* Chart Box */
-        .chart-box { position: relative; height: 250px; width: 100%; }
-        
-        /* Table */
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th { text-align: left; font-size: 0.75rem; color: #94a3b8; padding: 10px 0; }
-        td { padding: 10px 0; font-size: 0.9rem; border-bottom: 1px dashed #eee; }
-        
-        @keyframes pulse { 0% { opacity: 0.5; } 100% { opacity: 1; } }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 0.8rem; color: var(--text-muted); padding: 10px; border-bottom: 2px solid #f1f5f9; }
+        td { padding: 12px 10px; font-size: 0.9rem; border-bottom: 1px solid #f8fafc; }
+
+        /* Loading Animation */
+        .skeleton { background: #e2e8f0; color: transparent !important; border-radius: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header">
+    
+    <div class="header" data-aos="fade-down">
         <h1>Putramas Analytics</h1>
-        <div class="live-indicator"><div class="dot"></div> WSS LIVE STREAM</div>
-        <div id="loading-bar" class="progress-container"><div id="progress" class="progress-bar"></div></div>
+        <p>Dashboard Data Publik Smart Contract (Base Mainnet)</p>
+        <div class="status-badge"><i class="fas fa-circle" style="font-size:8px; margin-right:5px;"></i> LIVE DATA</div>
     </div>
 
     <div class="grid-4" data-aos="fade-up">
         <div class="card">
-            <div class="stat-lbl">Total Wayang</div>
-            <div class="stat-val" id="val-supply">0</div>
+            <div class="stat-label">Total Wayang</div>
+            <div class="stat-value skeleton" id="val-supply">0</div>
+            <div class="stat-icon"><i class="fas fa-scroll"></i></div>
         </div>
         <div class="card">
-            <div class="stat-lbl">Official Ratio</div>
-            <div class="stat-val" id="val-ratio">0%</div>
+            <div class="stat-label">Biaya Minting</div>
+            <div class="stat-value skeleton" id="val-fee">0</div>
+            <div class="stat-icon"><i class="fas fa-tag"></i></div>
         </div>
         <div class="card">
-            <div class="stat-lbl">Total Donasi</div>
-            <div class="stat-val" id="val-tips">0 ETH</div>
+            <div class="stat-label">Total Donasi</div>
+            <div class="stat-value skeleton" id="val-tips">0</div>
+            <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
         </div>
         <div class="card">
-            <div class="stat-lbl">Biaya Mint</div>
-            <div class="stat-val" id="val-fee">0 ETH</div>
+            <div class="stat-label">Rasio Official</div>
+            <div class="stat-value skeleton" id="val-ratio">0%</div>
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
         </div>
     </div>
 
-    <div class="grid-2" data-aos="fade-up">
+    <div class="grid-2" data-aos="fade-up" data-aos-delay="100">
         <div class="card">
-            <h3>Distribusi Golongan</h3>
+            <div class="card-title">Distribusi Golongan</div>
             <div class="chart-box"><canvas id="chartGolongan"></canvas></div>
         </div>
         <div class="card">
-            <h3>Gaya Seni <small style="font-size:10px; color:#aaa;">(Background Loading)</small></h3>
+            <div class="card-title">Distribusi Gaya Seni</div>
             <div class="chart-box"><canvas id="chartGaya"></canvas></div>
         </div>
     </div>
 
-    <div class="card" data-aos="fade-up">
-        <h3>Live Activity Feed</h3>
-        <table>
-            <thead><tr><th>EVENT</th><th>ADDRESS</th><th>DETAIL</th><th>WAKTU</th></tr></thead>
-            <tbody id="live-table">
-                <tr><td colspan="4" style="text-align:center; color:#aaa;">Menunggu event baru...</td></tr>
-            </tbody>
-        </table>
+    <div class="card" style="margin-bottom: 30px;" data-aos="fade-up" data-aos-delay="200">
+        <div class="card-title">Tren Aktivitas Minting (Bulanan)</div>
+        <div class="chart-box"><canvas id="chartTrend"></canvas></div>
     </div>
-    
-    <div style="text-align:center; margin-top:30px; font-size:0.8rem; color:#ccc;">
-        Powered by Base Mainnet WebSocket
+
+    <div class="grid-1-2" data-aos="fade-up" data-aos-delay="300">
+        <div class="card">
+            <div class="card-title">Top Patron (Donatur)</div>
+            <div id="leaderboard-container">
+                <div style="text-align:center; padding:20px; color:#aaa;">Memuat Data...</div>
+            </div>
+        </div>
+        <div class="card">
+            <div class="card-title">Log Aktivitas Terkini</div>
+            <div style="overflow-x:auto;">
+                <table id="activity-table">
+                    <thead><tr><th>Event</th><th>Address</th><th>Detail</th><th>Block</th></tr></thead>
+                    <tbody><tr><td colspan="4" style="text-align:center;">Memuat...</td></tr></tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+
+    <div style="text-align:center; color:#94a3b8; font-size:0.85rem;">
+        &copy; 2024 Putramas Official • Blockchain Data Viewer
     </div>
 </div>
 
 <script>
-    AOS.init();
+    AOS.init({ duration: 800, once: true });
 
-    // --- KONFIGURASI TURBO ---
+    // --- CONFIG ---
     const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
-    // Menggunakan RPC Public yang mendukung Event Log batching
-    const HTTP_RPC = "https://mainnet.base.org"; 
-    // WebSocket untuk Live Updates (Opsional, fallback ke HTTP jika gagal)
-    const WSS_RPC = "wss://base-rpc.publicnode.com"; 
+    const PUBLIC_RPC = "https://mainnet.base.org"; // Jalur Khusus Baca Data (Tanpa Wallet)
 
-    // ABI: Hanya Event yang kita butuhkan (Sangat Ringan)
-    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+    // ABI (Hanya Fungsi Read & Event Penting)
+    const ABI = [
+        "function publicMintFee() view returns (uint256)",
+        "function totalTipsGrand() view returns (uint256)",
+        "function getIdsByGolongan(string) view returns (uint256[])",
+        "function wayangRegistry(uint256) view returns (string, string, string, uint256, bool, bool, address)",
+        "event TipSent(address indexed from, address indexed to, uint256 amount, string message, uint256 timestamp)"
+    ];
+
+    const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
     
-    let provider, contract, wssProvider, wssContract;
-    let chartGolonganInst, chartGayaInst;
+    // Variabel Global
+    let provider, contract;
+    let foundIds = []; 
 
-    // Data Store
-    let stats = { golongan: {}, official: 0, total: 0, gaya: {} };
-
+    // --- INIT (Jalan Otomatis) ---
     window.onload = async () => {
-        await initApp();
+        try {
+            // 1. Setup Provider Publik
+            provider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            
+            console.log("Connected to Base via Public RPC");
+
+            // 2. Load Data Paralel (Cepat)
+            await Promise.all([
+                loadGlobalStats(),  // Supply, Fee, Tips, Golongan
+                loadActivity()      // Tabel Log & Leaderboard
+            ]);
+
+            // 3. Load Detail (Gaya & Tren Waktu) setelah ID ditemukan
+            await loadDeepDetails();
+
+        } catch (e) {
+            console.error("Init Error:", e);
+            alert("Gagal memuat data dari Blockchain. Silakan refresh.");
+        }
     };
 
-    async function initApp() {
-        try {
-            // 1. Setup Provider HTTP (Stabil untuk history)
-            provider = new ethers.providers.JsonRpcProvider(HTTP_RPC);
-            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-
-            // 2. Setup Provider WSS (Cepat untuk event baru)
-            try {
-                wssProvider = new ethers.providers.WebSocketProvider(WSS_RPC);
-                wssContract = new ethers.Contract(CONTRACT_ADDRESS, ABI, wssProvider);
-                setupListeners(); // Pasang "Telinga"
-                console.log("WSS Connected");
-            } catch(e) { console.log("WSS Failed, using HTTP only"); }
-
-            // 3. LOAD DATA (Parallel)
-            // Kita ambil Event Logs dulu karena mengandung 90% data (Nama, Golongan, Creator)
-            // Ini jauh lebih cepat daripada loop satu-satu.
-            loadFastData();
-
-        } catch (e) { console.error("Init Error", e); }
-    }
-
-    async function loadFastData() {
-        // A. Ambil Info Ekonomi (Fee & Tips) - Cuma 2 request
-        const [fee, tips] = await Promise.all([
-            contract.publicMintFee().catch(()=>0),
-            contract.totalTipsGrand().catch(()=>0)
-        ]);
+    // --- LOADERS ---
+    
+    async function loadGlobalStats() {
+        let total = 0;
+        let golData = [];
         
+        // Fetch Basic
+        const fee = await contract.publicMintFee().catch(() => 0);
+        const tips = await contract.totalTipsGrand().catch(() => 0);
+        
+        // Update UI
         document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
         document.getElementById("val-tips").innerText = ethers.utils.formatEther(tips) + " ETH";
 
-        // B. Ambil SEMUA Event WayangLahir (History)
-        // Ini adalah kunci kecepatan: 1 Request dapat ribuan data wayang
-        const currentBlock = await provider.getBlockNumber();
-        const fromBlock = Math.max(0, currentBlock - 20000); // Ambil history 20k blok terakhir (aman)
-        
-        const filter = contract.filters.WayangLahir();
-        const events = await contract.queryFilter(filter, fromBlock, "latest");
-
-        console.log(`Ditemukan ${events.length} wayang dari event log.`);
-        document.getElementById("val-supply").innerText = events.length;
-        stats.total = events.length;
-
-        // C. Proses Data Event (Golongan & Official Ratio) - INSTANT
-        // Data ini ada di dalam event log, jadi tidak perlu fetch lagi
-        events.forEach(ev => {
-            const gol = ev.args.golongan;
-            const isOff = ev.args.isOfficial;
-            
-            // Hitung Golongan
-            stats.golongan[gol] = (stats.golongan[gol] || 0) + 1;
-            
-            // Hitung Official
-            if(isOff) stats.official++;
+        // Fetch Golongan Loop
+        const promises = listGolongan.map(async (g) => {
+            const ids = await contract.getIdsByGolongan(g).catch(() => []);
+            return { label: g, count: ids.length, ids: ids };
         });
 
-        // Update UI Langsung
-        updateRatioUI();
-        renderGolonganChart();
+        const results = await Promise.all(promises);
+        
+        results.forEach(res => {
+            total += res.count;
+            golData.push(res.count);
+            if(res.ids.length > 0) foundIds.push(...res.ids);
+        });
 
-        // D. LAZY LOAD "GAYA" (Background Process)
-        // Karena "Gaya" tidak ada di Event Log, kita harus fetch manual.
-        // Tapi kita lakukan di background agar UI tidak macet.
-        lazyLoadGaya(events);
+        document.getElementById("val-supply").innerText = total;
+        renderDoughnut("chartGolongan", listGolongan, golData);
+        
+        // Hapus Skeleton
+        document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
     }
 
-    // Fungsi untuk mengambil detail Gaya satu per satu tapi "Sopan" (Batching)
-    async function lazyLoadGaya(events) {
-        document.getElementById("loading-bar").style.display = 'block';
-        const progressBar = document.getElementById("progress");
+    async function loadDeepDetails() {
+        // Variabel Statistik
+        let gayaCounts = {}; 
+        let officialCount = 0;
+        let timeData = {}; // Format: "Jan 24": 5
+
+        // Optimasi: Fetch detail ID secara paralel (max 50 concurrent request agar RPC tidak reject)
+        // Jika data > 100, sebaiknya dipaginasi. Untuk sekarang loop biasa cukup cepat.
         
-        // Ambil ID dari event
-        const ids = events.map(e => e.args.id);
-        let completed = 0;
-        
-        // Kita proses per 5 item sekaligus (Batching)
-        const batchSize = 5; 
-        
-        for (let i = 0; i < ids.length; i += batchSize) {
-            const batch = ids.slice(i, i + batchSize);
-            
-            // Fetch paralel untuk batch kecil ini
-            const promises = batch.map(id => contract.wayangRegistry(id).catch(()=>null));
-            const results = await Promise.all(promises);
-            
-            results.forEach(data => {
-                if(data) {
-                    const gaya = data[2]; // Index 2 adalah Gaya
-                    stats.gaya[gaya] = (stats.gaya[gaya] || 0) + 1;
-                }
+        const fetchPromises = foundIds.map(async (id) => {
+            try {
+                const data = await contract.wayangRegistry(id);
+                return {
+                    gaya: data[2], 
+                    ts: data[3].toNumber(), 
+                    isOff: data[5]
+                };
+            } catch { return null; }
+        });
+
+        const details = await Promise.all(fetchPromises);
+
+        // Olah Data
+        details.forEach(d => {
+            if(!d) return;
+
+            // 1. Gaya
+            gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
+
+            // 2. Official Ratio
+            if(d.isOff) officialCount++;
+
+            // 3. Time Trend (Grouping Bulanan)
+            const date = new Date(d.ts * 1000);
+            const key = date.toLocaleString('id-ID', { month: 'short', year: '2-digit' });
+            timeData[key] = (timeData[key] || 0) + 1;
+        });
+
+        // Update UI Ratio
+        const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
+        document.getElementById("val-ratio").innerText = ratio + "%";
+
+        // Render Chart Gaya (Polar)
+        const gayaLabels = Object.keys(gayaCounts);
+        const gayaVals = Object.values(gayaCounts);
+        renderPolar("chartGaya", gayaLabels, gayaVals);
+
+        // Render Chart Tren (Line)
+        // Sort Bulan secara manual/kronologis (simple sort key string)
+        const trendLabels = Object.keys(timeData); // ["Dec 23", "Jan 24"]
+        const trendVals = Object.values(timeData); // [5, 2]
+        renderLine("chartTrend", trendLabels, trendVals);
+    }
+
+    async function loadActivity() {
+        try {
+            const currentBlock = await provider.getBlockNumber();
+            const fromBlock = Math.max(0, currentBlock - 10000); // 10k Blok terakhir
+            const filter = contract.filters.TipSent();
+            const events = await contract.queryFilter(filter, fromBlock, "latest");
+
+            // Leaderboard Map
+            let map = {};
+            events.forEach(e => {
+                const s = e.args.from;
+                const v = parseFloat(ethers.utils.formatEther(e.args.amount));
+                map[s] = (map[s] || 0) + v;
             });
 
-            // Update Progress Bar
-            completed += batch.length;
-            const pct = Math.min(100, (completed / ids.length) * 100);
-            progressBar.style.width = pct + "%";
-
-            // Update Chart setiap 20% progress (biar terlihat animasi)
-            if (completed % 10 === 0 || completed === ids.length) {
-                renderGayaChart();
+            // Render Leaderboard
+            const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0, 3);
+            const board = document.getElementById("leaderboard-container");
+            board.innerHTML = "";
+            
+            if(sorted.length === 0) board.innerHTML = '<div style="text-align:center; padding:15px; color:#aaa;">Belum ada data.</div>';
+            else {
+                sorted.forEach((item, i) => {
+                    board.innerHTML += `
+                    <div class="list-item">
+                        <div style="display:flex;align-items:center;">
+                            <div class="rank">${i+1}</div>
+                            <div class="addr">${item[0].substring(0,6)}...${item[0].slice(-4)}</div>
+                        </div>
+                        <div class="amt">${item[1].toFixed(4)} ETH</div>
+                    </div>`;
+                });
             }
-        }
-        
-        // Selesai
-        setTimeout(() => { document.getElementById("loading-bar").style.display = 'none'; }, 500);
+
+            // Render Table Logs
+            const table = document.getElementById("activity-table").getElementsByTagName('tbody')[0];
+            table.innerHTML = "";
+            const logs = events.slice(-5).reverse();
+            
+            if(logs.length === 0) table.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada aktivitas.</td></tr>';
+            else {
+                logs.forEach(e => {
+                    const row = table.insertRow();
+                    row.innerHTML = `
+                        <td><span style="color:#27ae60;font-weight:700;">Donasi</span></td>
+                        <td><span class="addr">${e.args.from.substring(0,6)}...</span></td>
+                        <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
+                        <td style="color:#aaa;">${e.blockNumber}</td>
+                    `;
+                });
+            }
+        } catch(e) { console.warn("Activity fetch limit", e); }
     }
 
-    // --- SETUP EVENT LISTENER (WSS) ---
-    function setupListeners() {
-        if(!wssContract) return;
+    // --- CHARTS CONFIG ---
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+    Chart.defaults.color = '#64748b';
 
-        // 1. Dengar jika ada Wayang Baru
-        wssContract.on("WayangLahir", (id, nama, golongan, isOfficial, creator, event) => {
-            console.log("New Mint Detected!", nama);
-            
-            // Update Stats Realtime
-            stats.total++;
-            stats.golongan[golongan] = (stats.golongan[golongan] || 0) + 1;
-            if(isOfficial) stats.official++;
-            
-            // Update UI
-            document.getElementById("val-supply").innerText = stats.total;
-            document.getElementById("val-supply").style.color = "#27ae60"; // Flash Green
-            setTimeout(() => document.getElementById("val-supply").style.color = "", 1000);
-            
-            updateRatioUI();
-            renderGolonganChart(); // Refresh chart
-            
-            // Tambah ke Tabel Log
-            addLogToTable("MINT", creator, `Minting ${nama} (${golongan})`);
-        });
-
-        // 2. Dengar Tips/Donasi
-        wssContract.on("TipSent", (from, to, amount, msg, ts, event) => {
-            const val = ethers.utils.formatEther(amount);
-            addLogToTable("DONASI", from, `Sent ${val} ETH: "${msg}"`);
-        });
-    }
-
-    // --- UI HELPERS ---
-    function updateRatioUI() {
-        const ratio = stats.total > 0 ? ((stats.official / stats.total) * 100).toFixed(1) : "0";
-        document.getElementById("val-ratio").innerText = ratio + "%";
-    }
-
-    function addLogToTable(type, address, detail) {
-        const table = document.getElementById("live-table");
-        const row = table.insertRow(0);
-        const shortAddr = address.substring(0,6) + "...";
-        const time = new Date().toLocaleTimeString();
-        
-        // Hapus pesan "menunggu..." jika ada
-        if(table.rows[1] && table.rows[1].innerText.includes("Menunggu")) table.deleteRow(1);
-
-        row.innerHTML = `
-            <td><span style="font-weight:bold; color:${type==='MINT'?'#2980b9':'#27ae60'}">${type}</span></td>
-            <td style="font-family:monospace;">${shortAddr}</td>
-            <td>${detail}</td>
-            <td style="color:#aaa; font-size:0.8rem;">${time}</td>
-        `;
-        
-        // Batasi tabel cuma 5 baris
-        if(table.rows.length > 6) table.deleteRow(5);
-    }
-
-    // --- CHARTS ---
-    function renderGolonganChart() {
-        const ctx = document.getElementById("chartGolongan");
-        if(chartGolonganInst) chartGolonganInst.destroy();
-        
-        chartGolonganInst = new Chart(ctx, {
+    function renderDoughnut(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
             type: 'doughnut',
-            data: {
-                labels: Object.keys(stats.golongan),
-                datasets: [{ 
-                    data: Object.values(stats.golongan),
-                    backgroundColor: ['#7385a5', '#c5a059', '#a6b4cd', '#1e293b', '#e2e8f0'],
-                    borderWidth: 0
-                }]
-            },
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['#7385a5', '#c5a059', '#a6b4cd', '#e2e8f0', '#1e293b', '#64748b'], borderWidth:0 }] },
             options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    function renderGayaChart() {
-        const ctx = document.getElementById("chartGaya");
-        if(chartGayaInst) chartGayaInst.destroy();
-
-        chartGayaInst = new Chart(ctx, {
+    function renderPolar(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
             type: 'polarArea',
-            data: {
-                labels: Object.keys(stats.gaya),
-                datasets: [{
-                    label: 'Jml',
-                    data: Object.values(stats.gaya),
-                    backgroundColor: ['rgba(115,133,165,0.8)', 'rgba(197,160,89,0.8)', 'rgba(30,41,59,0.7)'],
-                    borderWidth: 1, borderColor: '#fff'
-                }]
-            },
-            options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { display: false } } }
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['rgba(115,133,165,0.8)', 'rgba(197,160,89,0.8)', 'rgba(30,41,59,0.7)', 'rgba(226,232,240,0.9)'], borderWidth:2, borderColor:'#fff' }] },
+            options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { position:'right', labels: { boxWidth:10, usePointStyle:true } } } }
+        });
+    }
+
+    function renderLine(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
+            type: 'line',
+            data: { labels: lbl, datasets: [{ label: 'Minting', data: dat, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.1)', fill:true, tension:0.4 }] },
+            options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize:1 }, grid: { borderDash:[5,5] } }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
         });
     }
 
