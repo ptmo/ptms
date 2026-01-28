@@ -564,7 +564,208 @@
         </div>
     </footer>
 
-    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+    AOS.init({ duration: 800, once: true });
+
+    // --- CONFIG ---
+    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
+    const ALCHEMY_KEY = '9WNWGMuDgG3vg8xYOM7xs'; // Key dari screenshot Anda
+    const ALCHEMY_RPC = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`;
+    const PUBLIC_RPC = "https://mainnet.base.org"; // Fallback
+
+    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+
+    const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
+    
+    // Variabel Global
+    let provider, contract;
+    let foundIds = []; 
+    const CACHE_KEY = 'putramas_data_cache';
+    const CACHE_EXPIRY = 5 * 60 * 1000; // 5 menit
+
+    // --- INIT (Jalan Otomatis) ---
+    window.onload = async () => {
+        try {
+            console.log("Starting dashboard init...");
+            // 1. Setup Provider dengan Try-Catch per Provider
+            let alchemyProvider;
+            try {
+                alchemyProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC);
+                await alchemyProvider.getNetwork(); // Test koneksi
+                console.log("Alchemy connected successfully");
+            } catch (alchemyError) {
+                console.error("Alchemy connection failed:", alchemyError);
+                alchemyProvider = null;
+            }
+
+            const publicProvider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
+            provider = alchemyProvider || publicProvider; // Prioritas Alchemy
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            
+            console.log("Connected to Base via", alchemyProvider ? "Alchemy" : "Public RPC");
+
+            // 2. Cek Cache
+            const cachedData = getCache();
+            if (cachedData) {
+                console.log("Loading from cache...");
+                renderFromCache(cachedData);
+                // Update background jika expired
+                setTimeout(async () => {
+                    await fetchAndUpdate();
+                }, 1000);
+                return;
+            }
+
+            // 3. Fetch data jika no cache
+            console.log("Fetching fresh data...");
+            await fetchAndUpdate();
+
+        } catch (e) {
+            console.error("Init Error:", e);
+            alert("Gagal memuat data dari Blockchain. Coba cek console browser (F12) untuk detail error, atau refresh.");
+        } finally {
+            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+        }
+    };
+
+    // Fungsi Cache
+    function getCache() {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > CACHE_EXPIRY) return null;
+        return data;
+    }
+
+    function setCache(data) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    }
+
+    function renderFromCache(cached) {
+        console.log("Rendering from cache data...");
+        // Render UI dari cache
+        document.getElementById("val-supply").innerText = cached.total;
+        document.getElementById("val-fee").innerText = cached.fee + " ETH";
+        document.getElementById("val-tips").innerText = cached.tips + " ETH";
+        document.getElementById("val-ratio").innerText = cached.ratio + "%";
+
+        renderDoughnut("chartGolongan", listGolongan, cached.golData);
+        renderPolar("chartGaya", cached.gayaLabels, cached.gayaVals);
+    }
+
+    async function fetchAndUpdate() {
+        updateProgress(0);
+
+        const stats = await loadGlobalStats();  // Kembalikan data stats
+        updateProgress(50);
+
+        const deep = await loadDeepDetails(); // Kembalikan deep data
+        updateProgress(100);
+
+        // Gabung data untuk cache
+        const cacheData = {
+            total: stats.total,
+            fee: stats.fee,
+            tips: stats.tips,
+            golData: stats.golData,
+            ratio: deep.ratio,
+            gayaLabels: deep.gayaLabels,
+            gayaVals: deep.gayaVals
+        };
+
+        console.log("Saving new data to cache...");
+        setCache(cacheData);
+        renderFromCache(cacheData); // Update UI jika perlu
+    }
+
+    function updateProgress(percent) {
+        document.getElementById('progress-bar').style.width = `${percent}%`;
+    }
+
+    // --- LOADERS TANPA MULTICALL ---
+    
+    async function loadGlobalStats() {
+        console.log("Loading global stats...");
+        let total = 0;
+        let golData = [];
+        
+        // Fetch Basic
+        const fee = ethers.utils.formatEther(await contract.publicMintFee().catch(() => 0));
+        const tips = ethers.utils.formatEther(await contract.totalTipsGrand().catch(() => 0));
+
+        // Fetch Golongan Loop
+        const promises = listGolongan.map(async (g) => {
+            const ids = await contract.getIdsByGolongan(g).catch(() => []);
+            return { label: g, count: ids.length, ids: ids };
+        });
+
+        const results = await Promise.all(promises);
+        
+        results.forEach(res => {
+            total += res.count;
+            golData.push(res.count);
+            if(res.ids.length > 0) foundIds.push(...res.ids);
+        });
+
+        console.log("Global stats loaded: total =", total);
+        return { total, fee, tips, golData };
+    }
+
+    async function loadDeepDetails() {
+        console.log("Loading deep details for", foundIds.length, "IDs...");
+        // Variabel Statistik
+        let gayaCounts = {}; 
+        let officialCount = 0;
+
+        // Promise.all untuk wayangRegistry (non-multicall)
+        const fetchPromises = foundIds.map(async (id) => {
+            try {
+                const data = await contract.wayangRegistry(id);
+                return {
+                    gaya: data[2], 
+                    isOff: data[5]
+                };
+            } catch { return null; }
+        });
+
+        const details = await Promise.all(fetchPromises);
+
+        details.forEach(d => {
+            if(!d) return;
+            gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
+            if(d.isOff) officialCount++;
+        });
+
+        const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
+        const gayaLabels = Object.keys(gayaCounts);
+        const gayaVals = Object.values(gayaCounts);
+
+        console.log("Deep details loaded: ratio =", ratio);
+        return { ratio, gayaLabels, gayaVals };
+    }
+
+    // --- CHARTS CONFIG --- (sama)
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    function renderDoughnut(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
+            type: 'doughnut',
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'], borderWidth:0 }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
+        });
+    }
+
+    function renderPolar(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
+            type: 'polarArea',
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['rgba(115,133,165,0.8)', 'rgba(197,160,89,0.8)', 'rgba(30,41,59,0.7)', 'rgba(226,232,240,0.9)'], borderWidth:2, borderColor:'#fff' }] },
+            options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { position:'right', labels: { boxWidth:10, usePointStyle:true } } } }
+        });
+    }
+
+        </script>
+
     <script>
         AOS.init({ once: true, offset: 100, duration: 800 });
 
