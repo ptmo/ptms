@@ -939,40 +939,50 @@
         });
     }
 
-         // --- 1. METODE KULKAS (Ambil Data Minting Langsung dari Storage) ---
-    // Tidak pakai event log, tidak kena limit block, super cepat.
+        // --- 1. METODE KULKAS (Updated: Lazy Load Gambar) ---
     async function loadRecentMintsFromStorage() {
         console.log("Membuka Kulkas: Mengambil data minting terbaru...");
         const feedContainer = document.getElementById('activity-feed');
         
-        // Pastikan kita punya daftar ID (dari fungsi loadGlobalStats sebelumnya)
         if (!foundIds || foundIds.length === 0) {
             feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada data wayang.</div>';
             return;
         }
 
-        // 1. Urutkan ID dari terbesar (Terbaru) ke terkecil
-        const sortedIds = foundIds.sort((a, b) => b - a).slice(0, 5); // Ambil 5 ID terbaru
+        // Ambil 5 ID terbaru
+        const sortedIds = foundIds.sort((a, b) => b - a).slice(0, 5);
 
         let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
 
-        // 2. Loop dan ambil detail langsung dari "wayangRegistry" (Mapping)
         for (let id of sortedIds) {
             try {
+                // Ambil data dasar (Nama & Golongan) dari Smart Contract (Cepat)
                 const data = await contract.wayangRegistry(id);
                 const nama = data[0];
                 const gol = data[1];
 
-                // Ambil Gambar dari Cache (agar cepat & ada gambarnya)
-                let imgSrc = localStorage.getItem(`img_v6_${id}`);
-                if (!imgSrc) imgSrc = "https://via.placeholder.com/100x100?text=IMG";
+                // 1. CEK CACHE (RAM & LocalStorage)
+                // Kita gunakan variabel global GLOBAL_IMG_CACHE jika ada, atau localStorage
+                let imgSrc = (typeof GLOBAL_IMG_CACHE !== 'undefined' ? GLOBAL_IMG_CACHE[id] : null) 
+                             || localStorage.getItem(`img_v6_${id}`);
+                
+                let imgId = `mint-thumb-${id}`;
+                let needsFetch = false;
 
-                // Render HTML Item (PERHATIKAN TANDA BACKTICK ` DI BAWAH INI)
+                // 2. JIKA CACHE KOSONG -> Pasang Placeholder Dulu & Tandai untuk Fetch
+                if (!imgSrc) {
+                    imgSrc = "https://via.placeholder.com/100x100?text=Load...";
+                    needsFetch = true; 
+                }
+
+                // Render HTML
                 html += `
                 <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; gap: 12px;">
                     
                     <div style="width: 45px; height: 45px; border-radius: 8px; overflow: hidden; flex-shrink: 0; border: 1px solid #eee; background: #f9f9f9;">
-                        <img src="${imgSrc}" alt="${nama}" style="width: 100%; height: 100%; object-fit: cover;" onerror="this.src='https://via.placeholder.com/45?text=?'">
+                        <img id="${imgId}" src="${imgSrc}" alt="${nama}" 
+                             style="width: 100%; height: 100%; object-fit: cover; transition: opacity 0.5s;" 
+                             onerror="this.src='https://via.placeholder.com/45?text=?'">
                     </div>
 
                     <div style="flex: 1;">
@@ -992,72 +1002,60 @@
                             </a>
                         </div>
                     </div>
-                </li>`; // JANGAN LUPA BACKTICK PENUTUP DI SINI
+                </li>`;
+
+                // 3. TRIGGER BACKGROUND FETCH (Jika gambar belum ada)
+                // Kita panggil setelah HTML dirender nanti, atau masukkan antrian
+                if (needsFetch) {
+                    // Gunakan setTimeout agar tidak memblokir render UI
+                    setTimeout(() => fetchMintImage(id, imgId), 100); 
+                }
+
             } catch (err) { console.warn("Gagal ambil ID", id); }
         }
 
         html += '</ul>';
         
-        // Render ke Container
         if(!document.getElementById('mint-feed')) {
             feedContainer.innerHTML = '<div id="live-feed"></div><div id="mint-feed"></div>';
         }
         document.getElementById('mint-feed').innerHTML = html;
     }
 
-    // --- 2. METODE SATPAM (WebSocket / Event Listener) ---
-    function setupLiveListeners() {
-        console.log("Mengaktifkan Satpam (Live Listener)...");
-        const liveFeedDiv = document.getElementById('live-feed'); 
-
-        // Listener Donasi
-        contract.on("TipSent", (from, to, amount, message, timestamp, event) => {
-            console.log("Tip Terdeteksi!");
-            const ethAmount = ethers.utils.formatEther(amount);
-            const sender = from.substring(0, 6);
-
-            const newHtml = `
-            <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-start; background-color: #f0fff4; animation: highlight 2s;">
-                <div style="background: #e8f5e9; color: #2e7d32; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <i class="fas fa-coins" style="font-size: 0.8rem;"></i>
-                </div>
-                <div>
-                    <div style="font-size: 0.9rem; font-weight: 600;">Donasi Masuk <span style="color: #27ae60;">+${parseFloat(ethAmount).toFixed(4)} ETH</span></div>
-                    <div style="font-size: 0.8rem; color: #666;">Dari: ${sender}... • "${message}"</div>
-                    <div style="font-size: 0.7rem; color: #27ae60; font-weight:bold;">● LIVE BARU SAJA</div>
-                </div>
-            </li>`;
+    // --- FUNGSI BANTU BARU: Ambil Gambar dari IPFS (Background) ---
+    async function fetchMintImage(id, elementId) {
+        try {
+            // 1. Ambil URI dari Contract
+            const uri = await contract.tokenURI(id);
             
-            if(liveFeedDiv) liveFeedDiv.insertAdjacentHTML('afterbegin', newHtml);
-        });
-    }
+            // 2. Resolve IPFS ke HTTP Gateway
+            // (Gunakan gateway umum agar hemat)
+            const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+            
+            // 3. Ambil JSON Metadata
+            const res = await fetch(metadataUrl);
+            const data = await res.json();
+            
+            // 4. Ambil URL Gambar Asli
+            let rawImg = data.image || data.image_url;
+            if(!rawImg) return;
 
-    // --- UPDATE FUNGSI FETCH UTAMA ---
-    async function fetchAndUpdate() {
-        updateProgress(0);
-        
-        const stats = await loadGlobalStats();  
-        updateProgress(40);
+            // 5. Optimasi Gambar (Pakai WSRV agar ringan & cepat)
+            const publicUrl = rawImg.replace("ipfs://", "https://ipfs.io/ipfs/");
+            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(publicUrl)}&w=100&q=75&output=webp`;
 
-        // Panggil fungsi perbaikan di atas
-        await loadRecentMintsFromStorage(); 
-        
-        setupLiveListeners();
-
-        const deep = await loadDeepDetails(); 
-        updateProgress(100);
-
-        const cacheData = {
-            total: stats.total,
-            fee: stats.fee,
-            tips: stats.tips,
-            golData: stats.golData,
-            ratio: deep.ratio,
-            gayaLabels: deep.gayaLabels,
-            gayaVals: deep.gayaVals
-        };
-        setCache(cacheData);
-        renderFromCache(cacheData); 
+            // 6. UPDATE GAMBAR DI LAYAR
+            const imgEl = document.getElementById(elementId);
+            if(imgEl) {
+                imgEl.src = optimizedUrl;
+                
+                // 7. SIMPAN KE CACHE (Supaya besok-besok instant)
+                if (typeof GLOBAL_IMG_CACHE !== 'undefined') GLOBAL_IMG_CACHE[id] = optimizedUrl;
+                localStorage.setItem(`img_v6_${id}`, optimizedUrl);
+            }
+        } catch (e) {
+            console.warn(`Gagal fetch gambar ID ${id}`, e);
+        }
     }
            
         </script>
