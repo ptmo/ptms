@@ -364,7 +364,53 @@
    
     /* Progress Bar Tambahan */
         #progress-bar { position: fixed; top: 0; left: 0; width: 0; height: 2px; 
-                       
+
+            /* Style untuk List Populer */
+    .popular-item {
+        display: flex; 
+        align-items: center; 
+        padding: 12px; 
+        background: #fff; 
+        border: 1px solid #f0f0f0; 
+        border-radius: 12px; 
+        transition: 0.2s;
+        gap: 12px;
+    }
+
+    .popular-item:hover {
+        transform: translateX(5px);
+        box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+        border-color: var(--primary);
+    }
+
+    .thumb-wrapper {
+        width: 45px; 
+        height: 45px; 
+        border-radius: 8px; 
+        overflow: hidden; 
+        border: 1px solid #eee;
+        background: #f9f9f9;
+        flex-shrink: 0;
+    }
+
+    .wayang-thumb {
+        width: 100%; 
+        height: 100%; 
+        object-fit: cover; /* Agar gambar tidak gepeng */
+    }
+
+    /* Kustom Scrollbar Tipis */
+    #top-wayang-list::-webkit-scrollbar {
+        width: 5px;
+    }
+    #top-wayang-list::-webkit-scrollbar-track {
+        background: #f1f5f9; 
+    }
+    #top-wayang-list::-webkit-scrollbar-thumb {
+        background: #cbd5e1; 
+        border-radius: 10px;
+    }
+
     </style>
 </head>
 <body>
@@ -528,10 +574,21 @@
 <section id="vision" style="padding-top: 5px;">
         <div class="grid-2" data-aos="fade-up" data-aos-delay="200">
         <div class="card" style="height: 400px; overflow: hidden; display: flex; flex-direction: column;">
-            <div class="card-title">
-                <i class="fas fa-satellite-dish" style="color: var(--gold); margin-right: 8px;"></i>
-                Aktivitas Jaringan (Live)
-            </div>
+            <div class="card-title" style="display: flex; align-items: center;">
+    <span style="
+        width: 10px;
+        height: 10px;
+        background-color: #27ae60; /* Hijau Base */
+        border-radius: 50%;
+        display: inline-block;
+        margin-right: 12px;
+        box-shadow: 0 0 8px rgba(39, 174, 96, 0.8); /* Efek Glowing */
+        animation: pulse 2s infinite; /* Detak Sedang (2 detik) */
+    "></span>
+    
+    Live Aktivitas Global
+</div>
+
             <div style="flex: 1; overflow-y: auto; padding-right: 5px;" id="activity-feed">
                 <div style="text-align:center; padding: 20px; color: #ccc;">
                     <i class="fas fa-circle-notch fa-spin"></i> Memuat data...
@@ -539,27 +596,24 @@
             </div>
         </div>
 
-        <div class="card">
-            <div class="card-title">Statistik Komunitas</div>
-            
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #eee;">
-                <div>
-                    <div class="stat-label">Total Likes</div>
-                    <div class="stat-value" id="val-total-likes">0</div>
-                </div>
-                <div class="stat-icon" style="opacity: 0.2; color: #e74c3c;"><i class="fas fa-heart"></i></div>
-            </div>
+        <div class="card" style="height: 450px; display: flex; flex-direction: column;">
+    <div class="card-title">
+        <i class="fas fa-crown" style="color: var(--gold); margin-right: 8px;"></i>
+        Panggung Populer (Top Likes)
+    </div>
+    
+    <div style="background: #fff8e1; padding: 10px 15px; border-radius: 12px; margin-bottom: 15px; display: flex; justify-content: space-between; align-items: center; border: 1px solid #ffe0b2;">
+        <span style="font-size: 0.85rem; color: #f57c00; font-weight: 600;">Total Love Komunitas</span>
+        <span id="val-total-likes" style="font-size: 1rem; font-weight: 800; color: #e65100;">0</span>
+    </div>
 
-            <div style="display: flex; align-items: center; justify-content: space-between;">
-                <div>
-                    <div class="stat-label">Wayang Paling Populer</div>
-                    <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);" id="val-top-wayang">-</div>
-                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="val-top-wayang-score">0 Likes</div>
-                </div>
-                <div class="stat-icon" style="opacity: 0.2; color: var(--gold);"><i class="fas fa-crown"></i></div>
-            </div>
+    <div id="top-wayang-list" style="flex: 1; overflow-y: auto; padding-right: 5px;">
+        <div style="text-align:center; padding: 40px 0; color: #ccc;">
+            <i class="fas fa-circle-notch fa-spin"></i> Memuat chart...
         </div>
     </div>
+</div>
+
 </section>
 
     <section style="padding-top: 5px;">
@@ -802,25 +856,24 @@
     }
 
         async function loadDeepDetails() {
-        console.log("Loading deep details + Engagement...");
+        console.log("Loading Top Popular List...");
         let gayaCounts = {}; 
         let officialCount = 0;
-        
-        // Variabel baru untuk engagement
         let totalLikesGlobal = 0;
-        let highestLikes = -1;
-        let topWayangName = "-";
 
+        // 1. Fetch Data Lengkap dari Blockchain
         const fetchPromises = foundIds.map(async (id) => {
             try {
-                // Kita panggil wayangRegistry DAN totalLikes secara paralel per ID
+                // Ambil Data Registry & Total Likes secara paralel
                 const [data, likesBn] = await Promise.all([
                     contract.wayangRegistry(id),
                     contract.totalLikes(id).catch(() => ethers.BigNumber.from(0))
                 ]);
                 
                 return {
+                    id: id,
                     nama: data[0],
+                    golongan: data[1],
                     gaya: data[2], 
                     isOff: data[5],
                     likes: likesBn.toNumber()
@@ -829,33 +882,116 @@
         });
 
         const details = await Promise.all(fetchPromises);
+        
+        // 2. Filter Data Valid (Buang yang null)
+        const validDetails = details.filter(d => d !== null);
 
-        details.forEach(d => {
-            if(!d) return;
+        // 3. Hitung Statistik Global (Untuk Chart & Header)
+        validDetails.forEach(d => {
             gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
             if(d.isOff) officialCount++;
-            
-            // Hitung Likes
             totalLikesGlobal += d.likes;
-            if (d.likes > highestLikes) {
-                highestLikes = d.likes;
-                topWayangName = d.nama;
-            }
         });
 
-        // Update UI Engagement (Langsung update elemen HTML baru)
-        if(document.getElementById("val-total-likes")) {
-            document.getElementById("val-total-likes").innerText = totalLikesGlobal;
-            document.getElementById("val-top-wayang").innerText = topWayangName;
-            document.getElementById("val-top-wayang-score").innerText = highestLikes + " Likes";
+        // 4. SORTING: Urutkan dari Likes Terbanyak (Top 20)
+        const sortedByLikes = [...validDetails].sort((a, b) => b.likes - a.likes).slice(0, 20);
+
+        // 5. RENDER LIST KE HTML
+        const listContainer = document.getElementById("top-wayang-list");
+        
+        if (validDetails.length === 0) {
+            listContainer.innerHTML = '<div style="text-align:center; color:#aaa; margin-top:20px;">Belum ada data wayang.</div>';
+        } else {
+            let listHtml = '<ul style="list-style: none; padding: 0; margin: 0;">';
+            
+            sortedByLikes.forEach((item, index) => {
+                // Tentukan warna ranking
+                let rankColor = "#64748b"; // Default abu
+                let iconRank = "";
+                
+                if(index === 0) { rankColor = "#fbc02d"; iconRank = '<i class="fas fa-trophy"></i>'; } // Emas
+                else if(index === 1) { rankColor = "#9e9e9e"; } // Perak
+                else if(index === 2) { rankColor = "#ef6c00"; } // Perunggu
+
+                listHtml += `
+                <li style="margin-bottom: 10px;">
+                    <a href="detail?id=${item.id}" target="_blank" style="text-decoration: none; color: inherit;">
+                        <div class="popular-item">
+                            
+                            <div style="font-weight: 800; font-size: 1rem; color: ${rankColor}; width: 30px; text-align:center;">
+                                ${index + 1}
+                            </div>
+                            
+                            <div class="thumb-wrapper">
+                                <img id="thumb-${item.id}" src="https://via.placeholder.com/50?text=..." alt="${item.nama}" class="wayang-thumb">
+                            </div>
+                            
+                            <div style="flex: 1;">
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">
+                                    ${item.nama} ${iconRank}
+                                </div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">
+                                    ${item.golongan} • ID #${item.id}
+                                </div>
+                            </div>
+                            
+                            <div style="text-align: right; background: #fff5f5; padding: 4px 8px; border-radius: 8px;">
+                                <div style="font-size: 0.85rem; font-weight: 800; color: #e74c3c;">
+                                    <i class="fas fa-heart"></i> ${item.likes}
+                                </div>
+                            </div>
+                        </div>
+                    </a>
+                </li>
+                `;
+                
+                // Panggil fungsi lazy load gambar (agar tidak berat)
+                fetchThumbnail(item.id); 
+            });
+            listHtml += '</ul>';
+            listContainer.innerHTML = listHtml;
         }
 
+        // Update Total Global di Header Card
+        if(document.getElementById("val-total-likes")) {
+            document.getElementById("val-total-likes").innerText = totalLikesGlobal;
+        }
+
+        // Return Data untuk Chart
         const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
         const gayaLabels = Object.keys(gayaCounts);
         const gayaVals = Object.values(gayaCounts);
 
         return { ratio, gayaLabels, gayaVals };
     }
+
+    // --- FUNGSI TAMBAHAN: Fetch Gambar Kecil ---
+    async function fetchThumbnail(id) {
+        try {
+            // Ambil Token URI
+            const uri = await contract.tokenURI(id);
+            // Convert IPFS ke HTTP Gateway (Pilih gateway umum/dedicated)
+            const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+            
+            // Fetch Metadata JSON
+            const response = await fetch(metadataUrl);
+            const metadata = await response.json();
+            
+            // Ambil URL Gambar
+            let imgUrl = metadata.image || metadata.image_url;
+            imgUrl = imgUrl.replace("ipfs://", "https://ipfs.io/ipfs/"); // Convert lagi gambar
+
+            // Update src gambar di HTML
+            const imgEl = document.getElementById(`thumb-${id}`);
+            if(imgEl) {
+                imgEl.src = imgUrl;
+            }
+        } catch (e) {
+            // Jika gagal, biarkan placeholder atau ganti gambar default
+            console.warn(`Gagal load gambar ID ${id}`);
+        }
+    }
+
 
     // --- CHARTS CONFIG --- (sama)
     Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
@@ -908,17 +1044,25 @@
                 const gol = data[1];
                 
                 // Render HTML Item
-                html += `
+                html += 
                 <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-start;">
                     <div style="background: #e3f2fd; color: #1565c0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                         <i class="fas fa-magic" style="font-size: 0.8rem;"></i>
                     </div>
                     <div>
                         <div style="font-size: 0.9rem; font-weight: 600;">Wayang Baru Lahir!</div>
-                        <div style="font-size: 0.8rem; color: #666;">
-                            <strong>${nama}</strong> (${gol})<br>
-                            <span style="font-size:0.75rem; color:#999;">ID #${id} • Verified from Storage</span>
-                        </div>
+<div style="font-size: 0.8rem; color: #666;">
+    <strong>${nama}</strong> (${gol})<br>
+    
+    <a href="detail?id=${item.id}" target="_blank" style="text-decoration: none;">
+        <span style="font-size:0.75rem; color: var(--primary); cursor: pointer; transition: 0.2s;">
+            ID #${id} • Verified di Wayang Nusantara <i class="fas fa-external-link-alt" style="font-size: 0.65rem;"></i>
+        </span>
+    </a>
+    
+</div>
+
+
                     </div>
                 </li>`;
             } catch (err) { console.warn("Gagal ambil ID", id); }
