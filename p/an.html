@@ -267,40 +267,70 @@
     // Variabel Global untuk menyimpan ID yang ditemukan agar bisa dipakai lintas fungsi
     let foundTokenIds = []; 
 
-    // --- 1. CONNECT & LOAD ---
+        // --- 2. FUNGSI UTAMA KONEKSI & LOAD DATA ---
     async function connectAndLoad() {
-        if (!window.ethereum) return alert("Install Wallet!");
+        // 1. Cek apakah Wallet terinstall
+        if (!window.ethereum) return alert("Wallet tidak ditemukan! Harap install MetaMask.");
         
         const btn = document.getElementById("btn-connect");
-        const originalText = btn.innerHTML;
+        const originalText = btn.innerHTML; // Simpan teks asli tombol
+        
+        // Ubah tombol jadi loading & matikan klik
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        btn.disabled = true;
 
         try {
+            // 2. Request Akses Akun
             await window.ethereum.request({ method: 'eth_requestAccounts' });
             provider = new ethers.providers.Web3Provider(window.ethereum);
-            const signer = provider.getSigner();
+
+            // 3. CEK JARINGAN (WAJIB BASE MAINNET: 8453)
+            const { chainId } = await provider.getNetwork();
+            if (chainId !== 8453) {
+                try {
+                    // Minta user pindah ke Base
+                    await window.ethereum.request({
+                        method: 'wallet_switchEthereumChain',
+                        params: [{ chainId: '0x2105' }], // Hex dari 8453
+                    });
+                    // Refresh provider setelah pindah network
+                    provider = new ethers.providers.Web3Provider(window.ethereum);
+                } catch (switchError) {
+                    // Jika user menolak ganti network
+                    throw new Error("Wajib menggunakan jaringan Base Mainnet untuk melihat data.");
+                }
+            }
+
+            // 4. Inisialisasi Kontrak
+            signer = provider.getSigner();
             const address = await signer.getAddress();
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
 
+            // 5. Update Tampilan Tombol (Sukses)
             btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
-            btn.classList.add('connected');
-            btn.classList.remove('btn-outline');
-            btn.classList.add('btn-primary');
+            btn.classList.add('connected'); // Style hijau
+            btn.classList.remove('btn-outline'); // Hapus garis pinggir
+            // Opsional: Matikan onclick agar tidak reload
+            // btn.onclick = null; 
 
-            // URUTAN EKSEKUSI PENTING:
-            // 1. Load Golongan dulu (sekalian kumpulin ID wayang)
+            // 6. EKSEKUSI DATA BERURUTAN (PENTING!)
+            console.log("Memulai pengambilan data...");
+            
+            // A. Ambil Statistik Global & Cari Semua ID Wayang
             await loadStatsAndGolongan(); 
             
-            // 2. Baru Load Gaya (menggunakan ID dari langkah 1) -> INI KUNCI PERBAIKANNYA
+            // B. Ambil Detail Gaya (Menggunakan ID yang ditemukan di langkah A)
             await loadGayaDistribution(); 
             
-            // 3. Load Aktivitas (Tips)
+            // C. Ambil Aktivitas Tipping (Independen)
             await loadActivitySafe();
 
         } catch (err) {
-            console.error(err);
+            console.error("Koneksi Error:", err);
+            // Kembalikan tombol ke kondisi semula jika gagal
             btn.innerHTML = originalText;
-            alert("Gagal koneksi. Cek Console.");
+            btn.disabled = false;
+            alert(`Gagal memuat data: ${err.message}`);
         }
     }
 
