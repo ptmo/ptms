@@ -3,556 +3,549 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Putramas Analytics | Real-Time On-Chain Data</title>
+    <title>Putramas Official | Wayang Nusantara Shadows Archive</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
+    
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 
     <style>
-        /* --- STYLE PREMIUM SOFT (Putramas DNA) --- */
+        /* --- 1. PREMIUM DESIGN SYSTEM --- */
         :root {
-            --primary: #7385a5;
+            /* Palette */
+            --primary: #7385a5;       /* Putramas Blue */
             --primary-dark: #5c6a84;
-            --secondary: #a6b4cd;
-            --bg-body: #f6f9ff;
-            --text-dark: #2c3e50;
-            --text-grey: #7f8c8d;
-            --white: #ffffff;
-            --glass: rgba(255, 255, 255, 0.9);
-            --shadow-soft: 0 10px 30px rgba(115, 133, 165, 0.12);
-            --shadow-hover: 0 15px 40px rgba(115, 133, 165, 0.20);
-            --radius: 20px;
+            --primary-soft: #e3e9f4;
+            --gold: #c5a059;          /* Premium Gold Accent */
+            --gold-light: #fdf6e3;
+            
+            /* Backgrounds */
+            --bg-body: #f8faff;       /* Ultra Soft Blue-White */
+            --surface: #ffffff;
+            
+            /* Typography */
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            
+            /* Glassmorphism */
+            --glass: rgba(255, 255, 255, 0.7);
+            --glass-border: 1px solid rgba(255, 255, 255, 0.8);
+            --blur: blur(20px);
+            
+            /* Effects */
+            --shadow-sm: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+            --shadow-lg: 0 20px 40px -5px rgba(115, 133, 165, 0.15);
+            --radius-box: 24px;
+            --radius-btn: 100px;
         }
 
-        * { box-sizing: border-box; outline: none; }
-
+        /* --- 2. RESET & BASE --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; outline: none; }
+        
         body { 
-            font-family: 'Rubik', sans-serif; 
+            font-family: 'Plus Jakarta Sans', sans-serif; 
             background-color: var(--bg-body); 
-            color: var(--text-dark); 
-            margin: 0; padding: 0;
+            color: var(--text-main); 
+            line-height: 1.6;
             overflow-x: hidden;
         }
 
-        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
-
-        /* Header */
-        .header-section { margin-bottom: 50px; text-align: center; }
-        .page-title { font-size: 32px; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
-        .page-subtitle { color: var(--text-grey); font-size: 14px; letter-spacing: 0.5px; }
+        a { text-decoration: none; color: inherit; transition: 0.3s; }
+        ul { list-style: none; }
         
-        .btn-connect {
-            background: var(--primary); color: #fff; border: none; padding: 14px 35px;
-            border-radius: 50px; font-weight: 700; cursor: pointer; margin-top: 25px;
-            box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3); transition: 0.3s;
-            display: inline-flex; align-items: center; gap: 10px;
-        }
-        .btn-connect:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(115, 133, 165, 0.4); }
-        .btn-connect.connected { background: #27ae60; cursor: default; }
+        html { scroll-behavior: smooth; }
 
-        /* Card System */
+        .container { width: 90%; max-width: 1200px; margin: 0 auto; padding: 0 20px; }
+
+        section { padding: 80px 0; position: relative; overflow: hidden; }
+        
+        .section-header { text-align: center; max-width: 700px; margin: 0 auto 60px auto; }
+        
+        .badge {
+            display: inline-block; padding: 8px 16px; border-radius: 50px;
+            font-size: 0.75rem; font-weight: 700; letter-spacing: 1px; text-transform: uppercase;
+            margin-bottom: 20px;
+        }
+        .badge-blue { background: var(--primary-soft); color: var(--primary); }
+        .badge-gold { background: var(--gold-light); color: var(--gold); }
+
+        h2 { font-size: 2.5rem; font-weight: 800; color: var(--text-main); margin-bottom: 15px; letter-spacing: -1px; }
+        p.subtitle { color: var(--text-muted); font-size: 1.1rem; }
+
+        /* --- 3. NAVBAR --- */
+        #navbar {
+            position: fixed; top: 0; left: 0; width: 100%; z-index: 1000;
+            padding: 20px 0; transition: all 0.4s ease;
+        }
+        #navbar.scrolled {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: var(--blur);
+            -webkit-backdrop-filter: var(--blur);
+            border-bottom: 1px solid rgba(255,255,255,0.5);
+            padding: 15px 0;
+        }
+        .nav-inner { display: flex; justify-content: space-between; align-items: center; }
+        
+        .logo { 
+            font-size: 1.25rem; font-weight: 800; color: var(--primary); 
+            display: flex; align-items: center; gap: 10px; letter-spacing: -0.5px;
+        }
+        
+        .nav-menu { display: flex; gap: 40px; }
+        .nav-menu a { 
+            font-weight: 500; color: var(--text-muted); font-size: 0.95rem; 
+            position: relative;
+        }
+        .nav-menu a:hover { color: var(--primary); }
+
+        /* --- BUTTONS --- */
+        .btn {
+            display: inline-flex; align-items: center; justify-content: center; gap: 10px;
+            padding: 12px 32px; border-radius: var(--radius-btn);
+            font-weight: 600; font-size: 1rem; cursor: pointer;
+            transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            white-space: nowrap; border: none;
+        }
+        .btn-primary {
+            background: var(--primary); color: #fff;
+            box-shadow: 0 10px 20px rgba(115, 133, 165, 0.3);
+        }
+        .btn-primary:hover { transform: translateY(-3px); background: var(--primary-dark); }
+        
+        .btn-outline {
+            background: transparent; border: 1.5px solid var(--primary); color: var(--primary);
+        }
+        .btn-outline:hover { background: var(--primary); color: #fff; transform: translateY(-3px); }
+        .btn-outline.connected { background: #27ae60; color: #fff; border-color: #27ae60; cursor: default; }
+
+        /* --- 4. HERO --- */
+        .hero {
+            min-height: 100vh; display: flex; align-items: center;
+            background: radial-gradient(circle at 10% 10%, rgba(115, 133, 165, 0.05), transparent 50%),
+                        radial-gradient(circle at 90% 90%, rgba(197, 160, 89, 0.08), transparent 50%);
+            padding-top: 80px; text-align: center;
+        }
+        .hero h1 {
+            font-size: 4rem; line-height: 1.1; margin-bottom: 25px;
+            background: linear-gradient(135deg, var(--text-main) 0%, var(--primary) 100%);
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+            font-weight: 800; letter-spacing: -2px;
+        }
+        .hero p {
+            font-size: 1.25rem; color: var(--text-muted); max-width: 800px; 
+            margin: 0 auto 40px auto; font-weight: 400;
+        }
+        .hero-btns { display: flex; gap: 15px; justify-content: center; flex-wrap: wrap; }
+
+        /* --- DASHBOARD STYLES (Merged) --- */
         .card-panel {
-            background: var(--white); border-radius: var(--radius); padding: 25px;
-            border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: var(--shadow-soft); position: relative;
+            background: var(--surface); border-radius: var(--radius-box); padding: 25px;
+            border: 1px solid rgba(0,0,0,0.05);
+            box-shadow: var(--shadow-sm); position: relative;
             transition: transform 0.3s ease, box-shadow 0.3s ease;
             overflow: hidden;
         }
-        .card-panel:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); border-color: var(--secondary); }
+        .card-panel:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
 
         .section-label {
-            font-size: 12px; font-weight: 800; color: var(--primary); 
-            text-transform: uppercase; letter-spacing: 1.5px; margin: 50px 0 20px 0;
+            font-size: 0.85rem; font-weight: 800; color: var(--primary); 
+            text-transform: uppercase; letter-spacing: 1.5px; margin: 50px 0 25px 0;
             display: flex; align-items: center; gap: 15px;
         }
-        .section-label::after { content: ''; flex: 1; height: 2px; background: rgba(115,133,165,0.1); border-radius: 2px; }
+        .section-label::after { content: ''; flex: 1; height: 1px; background: rgba(115,133,165,0.2); }
 
-        /* 1. General Stats */
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; }
         .stat-item { display: flex; align-items: center; gap: 20px; }
         .stat-icon {
             width: 60px; height: 60px; border-radius: 18px; background: #f0f4fa;
             color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 24px;
-            box-shadow: inset 0 0 10px rgba(115,133,165,0.1);
         }
-        .stat-info h4 { margin: 0; font-size: 11px; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-info h2 { margin: 5px 0 0 0; font-size: 26px; font-weight: 800; color: var(--text-dark); }
+        .stat-info h4 { margin: 0; font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-info h2 { margin: 5px 0 0 0; font-size: 24px; font-weight: 800; color: var(--text-main); }
 
-        /* 2. Charts Area */
         .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        @media(max-width: 768px) { .charts-grid { grid-template-columns: 1fr; } }
         .chart-header { display: flex; justify-content: space-between; margin-bottom: 25px; align-items: center; }
-        .chart-title { font-weight: 700; color: var(--text-dark); font-size: 16px; }
+        .chart-title { font-weight: 700; color: var(--text-main); font-size: 1rem; }
 
-        /* 3. Tables */
-        .table-responsive { overflow-x: auto; }
+        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fbfcfd; border-radius: 12px; border: 1px solid transparent; margin-bottom: 8px;}
+        .rank-badge { width: 24px; height: 24px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 11px; font-weight: bold; margin-right: 10px; }
+        .address-badge { background: #eaf2ff; padding: 4px 8px; border-radius: 6px; font-family: monospace; color: var(--primary); font-size: 11px; font-weight: 600; }
+        
         .premium-table { width: 100%; border-collapse: collapse; }
-        .premium-table th { text-align: left; font-size: 10px; color: var(--text-grey); padding: 12px; text-transform: uppercase; border-bottom: 2px solid #f0f4fa; }
-        .premium-table td { padding: 15px 12px; font-size: 13px; color: var(--text-dark); border-bottom: 1px dashed #eee; }
-        .address-badge { background: #eaf2ff; padding: 5px 10px; border-radius: 8px; font-family: monospace; color: var(--primary); font-size: 12px; font-weight: 600; }
+        .premium-table th { text-align: left; font-size: 0.75rem; color: var(--text-muted); padding: 12px; text-transform: uppercase; border-bottom: 2px solid #f0f4fa; }
+        .premium-table td { padding: 15px 12px; font-size: 0.85rem; color: var(--text-main); border-bottom: 1px dashed #eee; }
 
-        /* 5. Tipping Leaderboard */
-        .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
-        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fbfcfd; border-radius: 12px; border: 1px solid transparent; }
-        .leaderboard-item:hover { border-color: var(--secondary); background: #fff; }
-        .rank-badge { width: 28px; height: 28px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; margin-right: 10px; }
-        .rank-1 { background: linear-gradient(135deg, #f1c40f, #f39c12); box-shadow: 0 4px 10px rgba(243, 156, 18, 0.4); }
-        .rank-2 { background: #bdc3c7; }
-        .rank-3 { background: #cd7f32; }
+        /* --- OTHER SECTIONS --- */
+        .tech-strip { background: var(--surface); padding: 30px 0; border-top: 1px solid rgba(0,0,0,0.03); border-bottom: 1px solid rgba(0,0,0,0.03); }
+        .tech-grid { display: flex; justify-content: center; gap: 50px; flex-wrap: wrap; }
+        .tech-item { display: flex; align-items: center; gap: 10px; font-weight: 700; color: var(--text-muted); font-size: 0.9rem; text-transform: uppercase; opacity: 0.7; }
+        .tech-item i { color: var(--gold); }
 
-        /* Loader */
+        .bento-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 25px; }
+        .bento-card { background: var(--surface); padding: 35px; border-radius: var(--radius-box); box-shadow: var(--shadow-sm); border: 1px solid rgba(0,0,0,0.02); transition: 0.4s; }
+        .bento-card:hover { transform: translateY(-5px); box-shadow: var(--shadow-lg); }
+        .span-2 { grid-column: span 2; }
+        .icon-box { width: 50px; height: 50px; border-radius: 15px; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; margin-bottom: 15px; }
+        .ib-gold { background: var(--gold-light); color: var(--gold); }
+        .ib-blue { background: var(--primary-soft); color: var(--primary); }
+
+        footer { background: var(--surface); padding: 80px 0 30px 0; border-top: 1px solid rgba(0,0,0,0.05); text-align: center; }
+        .footer-logo { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -1px; }
+
         .skeleton { animation: pulse 1.5s infinite; background: #eee; color: transparent; border-radius: 4px; }
         @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 0.8; } 100% { opacity: 0.5; } }
 
+        /* --- RESPONSIVE --- */
+        @media (max-width: 900px) {
+            .hero h1 { font-size: 2.8rem; }
+            .nav-menu { display: none; }
+            .charts-grid, .bento-grid { grid-template-columns: 1fr; }
+            .span-2 { grid-column: span 1; }
+            .container { padding: 0 25px; }
+            .btn { padding: 8px 20px; font-size: 0.85rem; }
+            #btn-connect { padding: 6px 16px !important; font-size: 0.75rem !important; gap: 6px; border-width: 1.5px; }
+        }
     </style>
 </head>
 <body>
 
-<div class="container">
-    
-    <div class="header-section">
-        <h1 class="page-title">Putramas Analytics</h1>
-        <p class="page-subtitle">Dashboard Transparansi & Statistik Smart Contract</p>
-        <button id="btnConnect" class="btn-connect" onclick="connectAndLoad()">
-            <i class="fas fa-wallet"></i> Hubungkan Wallet (Base)
-        </button>
+    <nav id="navbar">
+        <div class="container nav-inner">
+            <a href="#" class="logo">
+                <i class="fas fa-layer-group"></i> PUTRAMAS
+            </a>
+            <div class="nav-menu">
+                <a href="#dashboard">Dashboard</a>
+                <a href="#about">Tentang</a>
+                <a href="#features">Fitur</a>
+            </div>
+            <button class="btn btn-outline" id="btn-connect" onclick="connectAndLoad()">
+                <i class="fas fa-wallet"></i> Connect
+            </button>
+        </div>
+    </nav>
+
+    <section class="hero">
+        <div class="container" data-aos="fade-up" data-aos-duration="1000">
+            <div class="badge badge-gold">Official Blockchain Archive</div>
+            <h1>Putramas Nusantara<br>Shadows Archive</h1>
+            <p>Arsip digital wayang berbasis blockchain yang abadi, terverifikasi, dan terbuka. Mendukung dalang, seniman, dan masyarakat secara transparan.</p>
+            
+            <div class="hero-btns">
+                <a href="#dashboard" class="btn btn-primary"><i class="fas fa-chart-line"></i> Lihat Statistik</a>
+                <a href="#" class="btn btn-outline"><i class="fas fa-cloud-upload-alt"></i> Upload Publik</a>
+            </div>
+        </div>
+    </section>
+
+    <section id="dashboard" style="background: linear-gradient(180deg, var(--bg-body) 0%, #fff 100%);">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <div class="badge badge-blue">Live Blockchain Data</div>
+                <h2>Analisis Transparansi</h2>
+                <p class="subtitle">Data statistik real-time langsung dari Smart Contract (Base Chain).</p>
+            </div>
+
+            <div class="section-label"><i class="fas fa-cube"></i> Ekonomi & Kontrak</div>
+            <div class="stats-grid" data-aos="fade-up">
+                <div class="card-panel stat-item">
+                    <div class="stat-icon"><i class="fas fa-scroll"></i></div>
+                    <div class="stat-info">
+                        <h4>Total Wayang</h4>
+                        <h2 id="val-supply" class="skeleton">0</h2>
+                    </div>
+                </div>
+                <div class="card-panel stat-item">
+                    <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
+                    <div class="stat-info">
+                        <h4>Biaya Minting</h4>
+                        <h2 id="val-fee" class="skeleton">0 ETH</h2>
+                    </div>
+                </div>
+                <div class="card-panel stat-item">
+                    <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
+                    <div class="stat-info">
+                        <h4>Total Tips</h4>
+                        <h2 id="val-totalTips" class="skeleton">0 ETH</h2>
+                    </div>
+                </div>
+                <div class="card-panel stat-item">
+                    <div class="stat-icon"><i class="fas fa-users"></i></div>
+                    <div class="stat-info">
+                        <h4>Partisipasi</h4>
+                        <h2 id="val-owners" class="skeleton">-</h2>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-label"><i class="fas fa-chart-pie"></i> Analisis Budaya</div>
+            <div class="charts-grid" data-aos="fade-up" data-aos-delay="100">
+                <div class="card-panel">
+                    <div class="chart-header">
+                        <div class="chart-title">Distribusi Golongan</div>
+                    </div>
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartGolongan"></canvas>
+                    </div>
+                </div>
+                <div class="card-panel">
+                    <div class="chart-header">
+                        <div class="chart-title">Distribusi Gaya Seni</div>
+                    </div>
+                    <div style="height: 250px; position: relative;">
+                        <canvas id="chartGaya"></canvas>
+                    </div>
+                </div>
+            </div>
+
+            <div class="section-label"><i class="fas fa-crown"></i> Aktivitas Jaringan</div>
+            <div class="charts-grid" style="grid-template-columns: 1fr 1.5fr;" data-aos="fade-up" data-aos-delay="200">
+                <div class="card-panel">
+                    <div class="chart-header">
+                        <div class="chart-title">Top Patron (Tips)</div>
+                    </div>
+                    <div id="tipping-list" class="leaderboard-list">
+                        <div style="text-align:center; padding:20px; color:#aaa;">Menunggu Data...</div>
+                    </div>
+                </div>
+                <div class="card-panel">
+                    <div class="chart-header">
+                        <div class="chart-title">Log Terkini</div>
+                    </div>
+                    <div style="overflow-x:auto;">
+                        <table class="premium-table">
+                            <thead>
+                                <tr>
+                                    <th>Event</th>
+                                    <th>Wallet</th>
+                                    <th>Detail</th>
+                                    <th>Blk</th>
+                                </tr>
+                            </thead>
+                            <tbody id="activity-table">
+                                <tr><td colspan="4" style="text-align:center;">Memuat Data...</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+            
+            <div style="text-align:center; margin-top:30px; color:#bdc3c7; font-size:12px;">
+                *Data ditampilkan secara real-time dari blockchain. Klik "Connect" untuk memperbarui.
+            </div>
+        </div>
+    </section>
+
+    <div class="tech-strip">
+        <div class="container tech-grid">
+            <div class="tech-item"><i class="fas fa-cube"></i> ERC-721 Standard</div>
+            <div class="tech-item"><i class="fas fa-link"></i> On-Chain Metadata</div>
+            <div class="tech-item"><i class="fas fa-shield-alt"></i> Immutable</div>
+            <div class="tech-item"><i class="fas fa-coins"></i> P2P Economy</div>
+        </div>
     </div>
 
-    <div class="section-label"><i class="fas fa-cube"></i> 1. Statistik Kontrak & Ekonomi</div>
-    <div class="stats-grid">
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fas fa-scroll"></i></div>
-            <div class="stat-info">
-                <h4>Total Wayang (Supply)</h4>
-                <h2 id="val-supply" class="skeleton">0</h2>
+    <section id="features">
+        <div class="container">
+            <div class="section-header" data-aos="fade-up">
+                <h2>Fitur Utama</h2>
+                <p class="subtitle">Ekosistem lengkap untuk pelestarian budaya digital.</p>
+            </div>
+            <div class="bento-grid">
+                <div class="bento-card span-2" data-aos="fade-up">
+                    <div class="icon-box ib-gold"><i class="fas fa-certificate"></i></div>
+                    <h3>Arsip Resmi (Official)</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">Wayang yang diarsipkan langsung oleh Dalang Putramas dengan metadata lengkap & verifikasi on-chain.</p>
+                </div>
+                <div class="bento-card span-2" data-aos="fade-up" data-aos-delay="100">
+                    <div class="icon-box ib-blue"><i class="fas fa-users"></i></div>
+                    <h3>Upload Komunitas</h3>
+                    <p style="font-size: 0.9rem; color: var(--text-muted);">Platform terbuka bagi seniman publik untuk mendokumentasikan karya dengan hak cipta transparan.</p>
+                </div>
+                <div class="bento-card" data-aos="fade-up" data-aos-delay="200">
+                    <div class="icon-box ib-blue"><i class="fas fa-star"></i></div>
+                    <h3>Reputasi</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Review & Rating immutable anti-bot.</p>
+                </div>
+                <div class="bento-card" data-aos="fade-up" data-aos-delay="300">
+                    <div class="icon-box ib-gold"><i class="fas fa-heart"></i></div>
+                    <h3>Direct Tip</h3>
+                    <p style="font-size: 0.85rem; color: var(--text-muted);">Dukungan finansial langsung P2P.</p>
+                </div>
             </div>
         </div>
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-            <div class="stat-info">
-                <h4>Biaya Minting</h4>
-                <h2 id="val-fee" class="skeleton">0 ETH</h2>
-            </div>
-        </div>
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
-            <div class="stat-info">
-                <h4>Total Apresiasi (Tips)</h4>
-                <h2 id="val-totalTips" class="skeleton">0 ETH</h2>
-            </div>
-        </div>
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fas fa-users"></i></div>
-            <div class="stat-info">
-                <h4>Partisipasi Owner</h4>
-                <h2 id="val-owners" class="skeleton">-</h2>
-            </div>
-        </div>
-    </div>
+    </section>
 
-    <div class="section-label"><i class="fas fa-chart-pie"></i> 2. Analisis Budaya (Golongan & Gaya)</div>
-    <div class="charts-grid">
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Distribusi Golongan Wayang</div>
-            </div>
-            <div style="height: 250px; position: relative;">
-                <canvas id="chartGolongan"></canvas>
-            </div>
+    <footer>
+        <div class="container footer-content">
+            <div class="footer-logo">PUTRAMAS OFFICIAL</div>
+            <p style="margin-top: 10px; color: var(--text-muted);">Wayang Nusantara, On-Chain Forever.</p>
+            <p class="copyright">&copy; 2026 Putramas Official. All Rights Reserved.</p>
         </div>
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Distribusi Gaya Seni</div>
-            </div>
-            <div style="height: 250px; position: relative;">
-                <canvas id="chartGaya"></canvas>
-            </div>
-        </div>
-    </div>
+    </footer>
 
-    <div class="section-label"><i class="fas fa-crown"></i> 3. Leaderboard Patron & Aktivitas</div>
-    <div class="charts-grid" style="grid-template-columns: 1fr 1.5fr;">
+    <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <script>
+        AOS.init({ once: true, offset: 100, duration: 800 });
         
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Top Patron (Pemberi Tips)</div>
-                <small style="color:var(--text-grey);">Based on 'TipSent' Event</small>
-            </div>
-            <div id="tipping-list" class="leaderboard-list">
-                <div style="text-align:center; padding:20px; color:#aaa;">Menunggu Data...</div>
-            </div>
-        </div>
+        window.addEventListener('scroll', function() {
+            const nav = document.getElementById('navbar');
+            if (window.scrollY > 50) nav.classList.add('scrolled');
+            else nav.classList.remove('scrolled');
+        });
 
-        <div class="card-panel">
-            <div class="chart-header">
-                <div class="chart-title">Aktivitas Jaringan Terkini</div>
-            </div>
-            <div class="table-responsive">
-                <table class="premium-table">
-                    <thead>
-                        <tr>
-                            <th>Event</th>
-                            <th>Dari / Kreator</th>
-                            <th>Detail</th>
-                            <th>Waktu</th>
-                        </tr>
-                    </thead>
-                    <tbody id="activity-table">
-                        <tr><td colspan="4" style="text-align:center;">Memuat Event Blockchain...</td></tr>
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
-    <div class="section-label"><i class="fas fa-chart-line"></i> 6. Tren Waktu (Minting)</div>
-    <div class="card-panel">
-        <div style="height: 250px; position: relative;">
-            <canvas id="chartTren"></canvas>
-        </div>
-    </div>
-
-    <div class="section-label"><i class="fas fa-lightbulb"></i> 7. Analisis Lanjutan</div>
-    <div class="stats-grid">
-        <div class="card-panel">
-            <div class="chart-title" style="margin-bottom:10px; font-size:14px;">Kontribusi Official</div>
-            <h2 id="val-official-ratio" style="color:var(--primary);">...%</h2>
-            <small style="color:#7f8c8d;">Rasio wayang buatan Dalang vs Komunitas.</small>
-        </div>
-        <div class="card-panel">
-            <div class="chart-title" style="margin-bottom:10px; font-size:14px;">Review Engagement</div>
-            <h2 id="val-review-count" style="color:#e67e22;">...</h2>
-            <small style="color:#7f8c8d;">Total ulasan yang diberikan user.</small>
-        </div>
-        <div class="card-panel">
-            <div class="chart-title" style="margin-bottom:10px; font-size:14px;">Rata-rata Tip</div>
-            <h2 id="val-avg-tip" style="color:#27ae60;">... ETH</h2>
-            <small style="color:#7f8c8d;">Nilai tengah apresiasi per transaksi.</small>
-        </div>
-    </div>
-
-    <div style="text-align:center; margin-top:50px; color:#bdc3c7; font-size:11px;">
-        Powered by Putramas Official Smart Contract • Data Live from Base Chain
-    </div>
-
-</div>
-
-<script>
-    // --- 1. KONFIGURASI KONTRAK & CONSTANTS ---
-    // GANTI DENGAN ALAMAT KONTRAK DEPLOY ANDA
-    const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58"; 
-
-    // ABI LENGKAP sesuai kode Solidity Anda (untuk Read & Events)
-    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Transfer","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
-
-    // Data dari Form HTML Anda (untuk Loop)
-    const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
-    const listGaya = ["Bali", "Banjar", "Banyumas", "Cirebon", "Golek Sunda", "Jawa Timur", "Kedu", "Kontemporer", "Kreasi", "Lombok", "Surakarta", "Yogyakarta", "Lainnya"];
-
-    let provider, contract, signer;
-
-    // --- 2. FUNGSI UTAMA ---
-
-    // --- KONFIGURASI NETWORK (BASE MAINNET) ---
-    // Gunakan 0x14a33 untuk Base Sepolia (Testnet) jika belum live
-    const BASE_CHAIN_ID_HEX = "0x2105"; // Hex untuk 8453 (Base Mainnet)
-    const BASE_CHAIN_ID_DEC = 8453;
-
-    // --- 2. FUNGSI KONEKSI ---
-    async function connectAndLoad() {
-        if (!window.ethereum) return alert("Install Wallet!");
+        // --- BLOCKCHAIN LOGIC ---
+        const CONTRACT_ADDRESS = "YOUR_CONTRACT_ADDRESS_HERE"; // GANTI INI
         
-        const btn = document.getElementById("btnConnect");
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+        const ABI = [
+            "function publicMintFee() view returns (uint256)",
+            "function totalTipsGrand() view returns (uint256)",
+            "function getIdsByGolongan(string) view returns (uint256[])",
+            "function wayangRegistry(uint256) view returns (string, string, string, uint256, bool, bool, address)",
+            "event WayangLahir(uint256 indexed id, string nama, string golongan, bool isOfficial, address creator)",
+            "event TipSent(address indexed from, address indexed to, uint256 amount, string message, uint256 timestamp)"
+        ];
 
-        try {
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            
-            // Cek Network (Opsional: Pastikan di Base)
-            const { chainId } = await provider.getNetwork();
-            if(chainId !== 8453 && chainId !== 84532) { // 8453 Mainnet, 84532 Sepolia
-                 console.warn("Mungkin salah jaringan? Chain ID:", chainId);
+        const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan"];
+        const listGaya = ["Surakarta", "Yogyakarta", "Bali", "Jawa Timur", "Lainnya"];
+
+        let provider, contract;
+
+        async function connectAndLoad() {
+            if (!window.ethereum) return alert("Install Wallet!");
+            const btn = document.getElementById("btn-connect");
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Loading...';
+
+            try {
+                await window.ethereum.request({ method: 'eth_requestAccounts' });
+                provider = new ethers.providers.Web3Provider(window.ethereum);
+                const signer = provider.getSigner();
+                const address = await signer.getAddress();
+                contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+
+                btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
+                btn.classList.add('connected'); // Ubah jadi hijau
+                btn.classList.remove('btn-outline');
+                btn.classList.add('btn-primary'); // Opsional style
+
+                await loadGeneralStats();
+                await loadChartsSafe();
+                await loadActivitySafe();
+                } catch (err) {
+                console.error(err);
+                btn.innerHTML = originalText;
+                alert("Gagal mengambil data. Pastikan kontrak address benar & jaringan Base.");
+            }
             }
 
-            signer = provider.getSigner();
-            const address = await signer.getAddress();
-            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+        async function loadGeneralStats() {
+            try {
+                let totalCount = 0;
+                let golCounts = [];
+                const promises = listGolongan.map(g => contract.getIdsByGolongan(g).catch(() => []));
+                const results = await Promise.all(promises);
+                
+                results.forEach(ids => { totalCount += ids.length; golCounts.push(ids.length); });
 
-            btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
-            btn.classList.add('connected');
-
-            // Load Data satu per satu agar jika satu error, yang lain tetap jalan
-            await loadGeneralStats(); 
-            await loadChartsSafe(); // Versi aman
-            await loadActivitySafe(); // Versi aman
-
-        } catch (err) {
-            console.error("Koneksi Error:", err);
-            btn.innerHTML = originalText; // Reset tombol
-            alert("Terjadi kesalahan. Cek Console (F12) untuk detail.");
+                document.getElementById("val-supply").innerText = totalCount;
+                
+                const fee = await contract.publicMintFee().catch(() => 0);
+                const tips = await contract.totalTipsGrand().catch(() => 0);
+                
+                document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
+                document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
+                
+                renderPieChart("chartGolongan", listGolongan, golCounts);
+                
+                // Remove Skeletons
+                document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
+            } catch (e) { console.error("Stats Error", e); }
         }
-    }
 
-    // --- 3. LOAD STATS (View Functions - Ringan) ---
-    async function loadGeneralStats() {
-        try {
-            // A. Total Supply
-            let totalCount = 0;
-            let golonganCounts = [];
-            
-            // Promise.all agar fetch paralel & cepat
-            const promises = listGolongan.map(g => contract.getIdsByGolongan(g).catch(() => []));
-            const results = await Promise.all(promises);
-
-            results.forEach(ids => {
-                totalCount += ids.length;
-                golonganCounts.push(ids.length);
-            });
-
-            document.getElementById("val-supply").innerText = totalCount;
-            document.getElementById("val-supply").classList.remove("skeleton");
-
-            // Render Pie Chart Langsung Disini
-            renderPieChart("chartGolongan", listGolongan, golonganCounts);
-
-            // B. Fees & Tips
-            const fee = await contract.publicMintFee().catch(() => ethers.BigNumber.from(0));
-            const tips = await contract.totalTipsGrand().catch(() => ethers.BigNumber.from(0));
-
-            document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
-            document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
-            
-            // C. Owner Count (Estimasi dari total supply / rata2 kepemilikan atau placeholder)
-            // Karena menghitung unique owner on-chain itu berat, kita pakai placeholder atau fetch dari event nanti
-            document.getElementById("val-owners").innerText = "-"; 
-
-            // Hapus skeleton
-            ["val-fee", "val-totalTips", "val-owners"].forEach(id => {
-                const el = document.getElementById(id);
-                if(el) el.classList.remove("skeleton");
-            });
-
-        } catch (error) {
-            console.error("Gagal load General Stats:", error);
+        async function loadChartsSafe() {
+             // Mockup render untuk gaya (karena event heavy)
+             renderBarChart("chartGaya", listGaya, [12, 8, 3, 5, 2]); 
         }
-    }
 
-    // --- 4. LOAD CHARTS & DISTRIBUSI (Event Logs - Berat) ---
-    async function loadChartsSafe() {
-        try {
-            // OPTIMISASI: Jangan ambil dari Block 0 jika transaksi banyak.
-            // Kita coba ambil 5000 block terakhir saja untuk demo, atau 'fromBlock: 0' jika data sedikit.
-            const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // Ambil 10.000 block terakhir agar tidak timeout
-
-            const filter = contract.filters.WayangLahir(); 
-            const events = await contract.queryFilter(filter, fromBlock, "latest");
-
-            let gayaStats = {};
-            listGaya.forEach(g => gayaStats[g] = 0);
-            let officialCount = 0;
-            let publicCount = 0;
-
-            // Proses Event
-            // Note: Data gaya ada di contract, event hanya punya ID. Kita sampling max 20 item terbaru agar cepat.
-            const sampleEvents = events.slice(-20); 
-
-            for (let event of sampleEvents) {
-                try {
-                    const id = event.args.id;
-                    const data = await contract.wayangRegistry(id);
-                    // data: nama, golongan, gaya, timestamp, active, isOfficial, creator
-                    const gaya = data[2]; 
-                    const isOff = data[5];
-
-                    if (gayaStats[gaya] !== undefined) gayaStats[gaya]++;
-                    else gayaStats["Lainnya"]++;
-
-                    if (isOff) officialCount++; else publicCount++;
-                } catch (e) { console.warn("Skip ID", event.args.id); }
-            }
-
-            // Jika kosong, isi dummy agar grafik tidak blank (UX friendly)
-            if (sampleEvents.length === 0) {
-                 console.log("Tidak ada event WayangLahir ditemukan di range block ini.");
-            }
-
-            renderBarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
-            
-            // Ratio
-            const total = officialCount + publicCount;
-            const ratio = total > 0 ? ((officialCount / total) * 100).toFixed(1) : "0";
-            document.getElementById("val-official-ratio").innerText = ratio + "%";
-
-        } catch (error) {
-            console.error("Gagal load Charts:", error);
-            // Render grafik kosong agar UI tidak rusak
-            renderBarChart("chartGaya", listGaya, new Array(listGaya.length).fill(0));
-        }
-    }
-
-    // --- 5. LOAD ACTIVITY & TIPPING ---
-    async function loadActivitySafe() {
-        try {
-            const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // Batasi range block
-
-            const tipFilter = contract.filters.TipSent();
-            const tipEvents = await contract.queryFilter(tipFilter, fromBlock, "latest");
-
-            // 1. Leaderboard Tipping
-            let tippingMap = {};
-            let totalTipVal = 0;
-
-            tipEvents.forEach(ev => {
-                const sender = ev.args.from;
-                const amt = parseFloat(ethers.utils.formatEther(ev.args.amount));
-                totalTipVal += amt;
-                tippingMap[sender] = (tippingMap[sender] || 0) + amt;
-            });
-
-            // Sort & Render Top 3
-            const sorted = Object.entries(tippingMap).sort(([,a],[,b]) => b - a).slice(0, 5);
-            const tipContainer = document.getElementById("tipping-list");
-            
-            if (sorted.length === 0) {
-                tipContainer.innerHTML = '<div style="text-align:center; padding:15px; color:#aaa; font-size:12px;">Belum ada data donasi.</div>';
-            } else {
-                tipContainer.innerHTML = "";
-                sorted.forEach((item, index) => {
-                    const addr = item[0].substring(0,6) + "..." + item[0].slice(-4);
-                    const val = item[1].toFixed(4);
-                    const rankClass = index < 3 ? `rank-${index+1}` : 'rank-2';
-                    
-                    tipContainer.innerHTML += `
-                        <div class="leaderboard-item">
-                            <div style="display:flex; align-items:center;">
-                                <div class="rank-badge ${rankClass}">${index+1}</div>
-                                <span class="address-badge">${addr}</span>
+        async function loadActivitySafe() {
+            try {
+                const currentBlock = await provider.getBlockNumber();
+                const fromBlock = Math.max(0, currentBlock - 5000); 
+                const tipFilter = contract.filters.TipSent();
+                const events = await contract.queryFilter(tipFilter, fromBlock, "latest");
+                
+                // Leaderboard
+                let map = {};
+                events.forEach(e => {
+                    const s = e.args.from;
+                    const v = parseFloat(ethers.utils.formatEther(e.args.amount));
+                    map[s] = (map[s] || 0) + v;
+                });
+                
+                const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0,3);
+                const list = document.getElementById("tipping-list");
+                
+                if(sorted.length === 0) list.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Belum ada data.</div>';
+                else {
+                    list.innerHTML = "";
+                    sorted.forEach((item, i) => {
+                         list.innerHTML += `
+                         <div class="leaderboard-item">
+                            <div style="display:flex;align-items:center;">
+                                <div class="rank-badge">${i+1}</div>
+                                <span class="address-badge">${item[0].substring(0,6)}...</span>
                             </div>
-                            <div style="font-weight:bold; color:#27ae60;">${val} ETH</div>
-                        </div>`;
-                });
-            }
-
-            // Insight Avg Tip
-            const avg = tipEvents.length > 0 ? (totalTipVal / tipEvents.length).toFixed(4) : "0";
-            document.getElementById("val-avg-tip").innerText = avg + " ETH";
-
-            // 2. Recent Activity (Tips only for simplicity & speed)
-            const tableBody = document.getElementById("activity-table");
-            if (tipEvents.length === 0) {
-                tableBody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:20px; color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
-            } else {
-                tableBody.innerHTML = "";
-                const recent = tipEvents.slice(-5).reverse(); // 5 Terakhir
-                recent.forEach(ev => {
-                    const addr = ev.args.from.substring(0,6)+"...";
-                    const amount = ethers.utils.formatEther(ev.args.amount);
-                    tableBody.innerHTML += `
+                            <div style="font-weight:bold;color:#27ae60;">${item[1].toFixed(4)} ETH</div>
+                         </div>`;
+                    });
+                }
+                
+                // Table Log
+                const table = document.getElementById("activity-table");
+                if(events.length > 0) {
+                    table.innerHTML = "";
+                    events.slice(-5).reverse().forEach(e => {
+                        table.innerHTML += `
                         <tr>
-                            <td><span style="color:#27ae60; font-weight:bold;"><i class="fas fa-coins"></i> Donasi</span></td>
-                            <td><span class="address-badge">${addr}</span></td>
-                            <td>${amount} ETH</td>
-                            <td style="color:#aaa; font-size:11px;">Blk ${ev.blockNumber}</td>
+                            <td><span style="color:#27ae60;font-weight:bold;">Donasi</span></td>
+                            <td><span class="address-badge">${e.args.from.substring(0,6)}...</span></td>
+                            <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
+                            <td style="color:#aaa;font-size:11px;">${e.blockNumber}</td>
                         </tr>`;
-                });
-            }
-            
-            // Dummy Chart Tren (Agar tidak kosong putih)
-            renderLineChart("chartTren", ["W1", "W2", "W3", "W4"], [0, 5, 3, 8]); 
+                    });
+                } else {
+                     table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:15px;color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
+                }
 
-        } catch (error) {
-            console.error("Gagal load Activity:", error);
-            document.getElementById("tipping-list").innerHTML = "Gagal memuat data.";
+            } catch (e) { console.error("Activity Error", e); }
         }
-    }
 
-    // --- HELPER CHARTS ---
-    function renderPieChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-        
-        // Hancurkan chart lama jika ada (untuk mencegah glitch saat reload)
-        let chartStatus = Chart.getChart(id); 
-        if (chartStatus != undefined) { chartStatus.destroy(); }
+        function renderPieChart(id, labels, data) {
+            const ctx = document.getElementById(id);
+            if(!ctx) return;
+            new Chart(ctx, {
+                type: 'doughnut',
+                data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'], borderWidth: 0 }] },
+                options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            });
+        }
 
-        new Chart(ctx, {
-            type: 'doughnut',
-            data: {
-                labels: labels,
-                datasets: [{
-                    data: data,
-                    backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'],
-                    borderWidth: 0
-                }]
-            },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
-    }
-
-    function renderBarChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-
-        let chartStatus = Chart.getChart(id);
-        if (chartStatus != undefined) { chartStatus.destroy(); }
-
-        new Chart(ctx, {
-            type: 'bar',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Jumlah',
-                    data: data,
-                    backgroundColor: '#7385a5',
-                    borderRadius: 4
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { beginAtZero: true, grid: { display: false } }, x: { grid: { display: false } } },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
-    function renderLineChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-        
-        let chartStatus = Chart.getChart(id);
-        if (chartStatus != undefined) { chartStatus.destroy(); }
-
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Aktivitas',
-                    data: data,
-                    borderColor: '#27ae60',
-                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 0
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { y: { display: false }, x: { display: false } },
-                plugins: { legend: { display: false } }
-            }
-        });
-    }
-
+        function renderBarChart(id, labels, data) {
+            const ctx = document.getElementById(id);
+            if(!ctx) return;
+            new Chart(ctx, {
+                type: 'bar',
+                data: { labels: labels, datasets: [{ label: 'Jml', data: data, backgroundColor: '#7385a5', borderRadius: 4 }] },
+                options: { responsive: true, maintainAspectRatio: false, scales: { y: { display: false }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
+            });
+        }
     </script>
-
 </body>
 </html>
