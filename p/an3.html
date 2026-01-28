@@ -3,381 +3,285 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Putramas Analytics | Real-Time On-Chain Data</title>
+    <title>Putramas Analytics | Public Dashboard</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Rubik:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css"/>
     
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/5.7.2/ethers.umd.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
+    <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 
     <style>
-        /* --- STYLE PREMIUM SOFT (Putramas DNA) --- */
+        /* --- STYLE PREMIUM CLEAN (Tanpa Tombol) --- */
         :root {
             --primary: #7385a5;
             --primary-dark: #5c6a84;
-            --secondary: #a6b4cd;
-            --bg-body: #f6f9ff;
-            --text-dark: #2c3e50;
-            --text-grey: #7f8c8d;
+            --gold: #c5a059;
+            --bg-body: #f8faff;
             --white: #ffffff;
-            --shadow-soft: 0 10px 30px rgba(115, 133, 165, 0.12);
-            --shadow-hover: 0 15px 40px rgba(115, 133, 165, 0.20);
-            --radius: 20px;
+            --text-main: #1e293b;
+            --text-muted: #64748b;
+            --radius: 24px;
+            --shadow: 0 10px 30px -10px rgba(115, 133, 165, 0.15);
         }
 
         * { box-sizing: border-box; outline: none; }
-
-        body { 
-            font-family: 'Rubik', sans-serif; 
-            background-color: var(--bg-body); 
-            color: var(--text-dark); 
-            margin: 0; padding: 0;
-            overflow-x: hidden;
-        }
-
-        .container { max-width: 1200px; margin: 0 auto; padding: 40px 20px; }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg-body); color: var(--text-main); margin: 0; padding: 40px 20px; }
+        .container { max-width: 1100px; margin: 0 auto; }
 
         /* Header */
-        .header-section { margin-bottom: 50px; text-align: center; }
-        .page-title { font-size: 32px; font-weight: 800; color: var(--primary); margin-bottom: 10px; }
-        .page-subtitle { color: var(--text-grey); font-size: 14px; letter-spacing: 0.5px; }
+        .header { text-align: center; margin-bottom: 50px; }
+        .header h1 { font-size: 2.5rem; font-weight: 800; color: var(--primary); margin: 0 0 10px 0; letter-spacing: -1px; }
+        .header p { color: var(--text-muted); font-size: 1.1rem; }
+        .status-badge { display: inline-block; background: #e0f2f1; color: #00695c; padding: 5px 15px; border-radius: 50px; font-size: 0.8rem; font-weight: 700; margin-top: 15px; }
+
+        /* Grid System */
+        .grid-4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .grid-1-2 { display: grid; grid-template-columns: 1fr 1.5fr; gap: 20px; margin-bottom: 30px; }
+
+        @media(max-width: 800px) { .grid-2, .grid-1-2 { grid-template-columns: 1fr; } }
+
+        /* Cards */
+        .card { background: var(--white); border-radius: var(--radius); padding: 30px; box-shadow: var(--shadow); border: 1px solid rgba(0,0,0,0.03); transition: 0.3s; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 20px 40px -10px rgba(115, 133, 165, 0.2); }
         
-        .btn-connect {
-            background: var(--white); color: var(--primary); border: 2px solid var(--primary); 
-            padding: 12px 30px; border-radius: 50px; font-weight: 700; cursor: pointer; margin-top: 25px;
-            box-shadow: 0 5px 15px rgba(115, 133, 165, 0.1); transition: 0.3s;
-            display: inline-flex; align-items: center; gap: 10px; font-size: 0.9rem;
-        }
-        .btn-connect:hover { background: var(--primary); color: #fff; transform: translateY(-3px); }
-        .btn-connect.connected { background: #27ae60; border-color: #27ae60; color: #fff; cursor: default; }
+        /* Stats */
+        .stat-label { font-size: 0.8rem; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .stat-value { font-size: 1.8rem; font-weight: 800; color: var(--text-main); }
+        .stat-icon { float: right; font-size: 2rem; opacity: 0.1; color: var(--primary); margin-top: -30px; }
 
-        /* Card System */
-        .card-panel {
-            background: var(--white); border-radius: var(--radius); padding: 25px;
-            border: 1px solid rgba(255,255,255,0.8);
-            box-shadow: var(--shadow-soft); position: relative;
-            transition: transform 0.3s ease, box-shadow 0.3s ease;
-            overflow: hidden;
-        }
-        .card-panel:hover { transform: translateY(-5px); box-shadow: var(--shadow-hover); border-color: var(--secondary); }
+        /* Charts */
+        .chart-box { height: 250px; position: relative; width: 100%; }
+        .card-title { font-size: 1.1rem; font-weight: 700; margin-bottom: 20px; color: var(--primary-dark); }
 
-        .section-label {
-            font-size: 12px; font-weight: 800; color: var(--primary); 
-            text-transform: uppercase; letter-spacing: 1.5px; margin: 50px 0 20px 0;
-            display: flex; align-items: center; gap: 15px;
-        }
-        .section-label::after { content: ''; flex: 1; height: 2px; background: rgba(115,133,165,0.1); border-radius: 2px; }
-
-        /* Stats & Grid */
-        .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 25px; }
-        .stat-item { display: flex; align-items: center; gap: 20px; }
-        .stat-icon {
-            width: 60px; height: 60px; border-radius: 18px; background: #f0f4fa;
-            color: var(--primary); display: flex; align-items: center; justify-content: center; font-size: 24px;
-        }
-        .stat-info h4 { margin: 0; font-size: 11px; color: var(--text-grey); text-transform: uppercase; letter-spacing: 0.5px; }
-        .stat-info h2 { margin: 5px 0 0 0; font-size: 26px; font-weight: 800; color: var(--text-dark); }
-
-        .charts-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 25px; }
-        @media(max-width: 900px) { .charts-grid { grid-template-columns: 1fr; } }
+        /* Table & List */
+        .list-item { display: flex; justify-content: space-between; align-items: center; padding: 12px 0; border-bottom: 1px dashed #eee; }
+        .rank { background: var(--primary); color: #fff; width: 25px; height: 25px; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: bold; margin-right: 10px; }
+        .addr { font-family: monospace; background: #f1f5f9; padding: 4px 8px; border-radius: 6px; color: var(--primary-dark); font-size: 0.9rem; }
+        .amt { font-weight: 700; color: #27ae60; }
         
-        .chart-header { display: flex; justify-content: space-between; margin-bottom: 25px; align-items: center; }
-        .chart-title { font-weight: 700; color: var(--text-dark); font-size: 16px; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; font-size: 0.8rem; color: var(--text-muted); padding: 10px; border-bottom: 2px solid #f1f5f9; }
+        td { padding: 12px 10px; font-size: 0.9rem; border-bottom: 1px solid #f8fafc; }
 
-        /* Leaderboard */
-        .leaderboard-list { display: flex; flex-direction: column; gap: 10px; }
-        .leaderboard-item { display: flex; justify-content: space-between; align-items: center; padding: 12px; background: #fbfcfd; border-radius: 12px; }
-        .rank-badge { width: 28px; height: 28px; background: var(--primary); color: #fff; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 12px; font-weight: bold; margin-right: 10px; }
-        .address-badge { background: #eaf2ff; padding: 5px 10px; border-radius: 8px; font-family: monospace; color: var(--primary); font-size: 12px; font-weight: 600; }
-        
-        .premium-table { width: 100%; border-collapse: collapse; }
-        .premium-table th { text-align: left; font-size: 10px; color: var(--text-grey); padding: 12px; border-bottom: 2px solid #f0f4fa; }
-        .premium-table td { padding: 15px 12px; font-size: 13px; border-bottom: 1px dashed #eee; }
-
-        /* Loader */
-        .skeleton { animation: pulse 1.5s infinite; background: #eee; color: transparent; border-radius: 4px; }
-        @keyframes pulse { 0% { opacity: 0.5; } 50% { opacity: 0.8; } 100% { opacity: 0.5; } }
+        /* Loading Animation */
+        .skeleton { background: #e2e8f0; color: transparent !important; border-radius: 6px; animation: pulse 1.5s infinite; }
+        @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <div class="header-section">
-        <h1 class="page-title">Putramas Analytics</h1>
-        <p class="page-subtitle">Dashboard Transparansi & Statistik Smart Contract</p>
-         <button id="btn-connect" class="btn-connect" onclick="connectWallet()">
-            <i class="fas fa-wallet"></i> Hubungkan Wallet (Opsional)
-         </button>
+    
+    <div class="header" data-aos="fade-down">
+        <h1>Putramas Analytics</h1>
+        <p>Dashboard Data Publik Smart Contract (Base Mainnet)</p>
+        <div class="status-badge"><i class="fas fa-circle" style="font-size:8px; margin-right:5px;"></i> LIVE DATA</div>
     </div>
 
-    <div class="section-label"><i class="fas fa-cube"></i> 1. Statistik Kontrak & Ekonomi</div>
-    <div class="stats-grid">
-        <div class="card-panel stat-item">
+    <div class="grid-4" data-aos="fade-up">
+        <div class="card">
+            <div class="stat-label">Total Wayang</div>
+            <div class="stat-value skeleton" id="val-supply">0</div>
             <div class="stat-icon"><i class="fas fa-scroll"></i></div>
-            <div class="stat-info">
-                <h4>Total Wayang</h4>
-                <h2 id="val-supply" class="skeleton">0</h2>
-            </div>
         </div>
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fas fa-ticket-alt"></i></div>
-            <div class="stat-info">
-                <h4>Biaya Minting</h4>
-                <h2 id="val-fee" class="skeleton">0 ETH</h2>
-            </div>
+        <div class="card">
+            <div class="stat-label">Biaya Minting</div>
+            <div class="stat-value skeleton" id="val-fee">0</div>
+            <div class="stat-icon"><i class="fas fa-tag"></i></div>
         </div>
-        <div class="card-panel stat-item">
+        <div class="card">
+            <div class="stat-label">Total Donasi</div>
+            <div class="stat-value skeleton" id="val-tips">0</div>
             <div class="stat-icon"><i class="fab fa-ethereum"></i></div>
-            <div class="stat-info">
-                <h4>Total Tips</h4>
-                <h2 id="val-totalTips" class="skeleton">0 ETH</h2>
-            </div>
         </div>
-        <div class="card-panel stat-item">
-            <div class="stat-icon"><i class="fas fa-users"></i></div>
-            <div class="stat-info">
-                <h4>Rasio Official</h4>
-                <h2 id="val-official-ratio" class="skeleton">-%</h2>
-            </div>
+        <div class="card">
+            <div class="stat-label">Rasio Official</div>
+            <div class="stat-value skeleton" id="val-ratio">0%</div>
+            <div class="stat-icon"><i class="fas fa-check-circle"></i></div>
         </div>
     </div>
 
-    <div class="section-label"><i class="fas fa-chart-pie"></i> 2. Analisis Budaya (Golongan & Gaya)</div>
-    <div class="charts-grid">
-        <div class="card-panel">
-            <div class="chart-header"><div class="chart-title">Distribusi Golongan</div></div>
-            <div style="height: 250px; position: relative;"><canvas id="chartGolongan"></canvas></div>
+    <div class="grid-2" data-aos="fade-up" data-aos-delay="100">
+        <div class="card">
+            <div class="card-title">Distribusi Golongan</div>
+            <div class="chart-box"><canvas id="chartGolongan"></canvas></div>
         </div>
-        <div class="card-panel">
-            <div class="chart-header"><div class="chart-title">Distribusi Gaya Seni</div></div>
-            <div style="height: 250px; position: relative;"><canvas id="chartGaya"></canvas></div>
-        </div>
-    </div>
-
-    <div class="section-label"><i class="fas fa-chart-line"></i> 3. Tren Waktu (Minting Activity)</div>
-    <div class="card-panel">
-        <div style="height: 250px; position: relative;">
-            <canvas id="chartTren"></canvas>
+        <div class="card">
+            <div class="card-title">Distribusi Gaya Seni</div>
+            <div class="chart-box"><canvas id="chartGaya"></canvas></div>
         </div>
     </div>
 
-    <div class="section-label"><i class="fas fa-crown"></i> 4. Leaderboard & Aktivitas</div>
-    <div class="charts-grid" style="grid-template-columns: 1fr 1.5fr;">
-        <div class="card-panel">
-            <div class="chart-header"><div class="chart-title">Top Patron (Tips)</div></div>
-            <div id="tipping-list" class="leaderboard-list">
-                <div style="text-align:center; padding:20px; color:#aaa;">Menunggu Data...</div>
+    <div class="card" style="margin-bottom: 30px;" data-aos="fade-up" data-aos-delay="200">
+        <div class="card-title">Tren Aktivitas Minting (Bulanan)</div>
+        <div class="chart-box"><canvas id="chartTrend"></canvas></div>
+    </div>
+
+    <div class="grid-1-2" data-aos="fade-up" data-aos-delay="300">
+        <div class="card">
+            <div class="card-title">Top Patron (Donatur)</div>
+            <div id="leaderboard-container">
+                <div style="text-align:center; padding:20px; color:#aaa;">Memuat Data...</div>
             </div>
         </div>
-        <div class="card-panel">
-            <div class="chart-header"><div class="chart-title">Log Aktivitas</div></div>
-            <div class="table-responsive">
-                <table class="premium-table">
-                    <thead><tr><th>Event</th><th>Dari / Kreator</th><th>Detail</th><th>Blk</th></tr></thead>
-                    <tbody id="activity-table"><tr><td colspan="4" style="text-align:center;">Memuat Event...</td></tr></tbody>
+        <div class="card">
+            <div class="card-title">Log Aktivitas Terkini</div>
+            <div style="overflow-x:auto;">
+                <table id="activity-table">
+                    <thead><tr><th>Event</th><th>Address</th><th>Detail</th><th>Block</th></tr></thead>
+                    <tbody><tr><td colspan="4" style="text-align:center;">Memuat...</td></tr></tbody>
                 </table>
             </div>
         </div>
     </div>
 
-    <div style="text-align:center; margin-top:50px; color:#bdc3c7; font-size:11px;">
-        Powered by Putramas Official • Data Live from Base Chain
+    <div style="text-align:center; color:#94a3b8; font-size:0.85rem;">
+        &copy; 2024 Putramas Official • Blockchain Data Viewer
     </div>
 </div>
 
 <script>
-    AOS.init({ once: true, offset: 100, duration: 800 });
+    AOS.init({ duration: 800, once: true });
 
     // --- CONFIG ---
     const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
-    const PUBLIC_RPC = "https://mainnet.base.org"; // Public RPC agar bisa baca data tanpa wallet
-    
-    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
+    const PUBLIC_RPC = "https://mainnet.base.org"; // Jalur Khusus Baca Data (Tanpa Wallet)
+
+    // ABI (Hanya Fungsi Read & Event Penting)
+    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}]
 
     const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
-    const listGaya = ["Bali", "Banjar", "Banyumas", "Cirebon", "Golek Sunda", "Jawa Timur", "Kedu", "Kontemporer", "Kreasi", "Lombok", "Surakarta", "Yogyakarta", "Lainnya"];
     
-    // Global Vars
+    // Variabel Global
     let provider, contract;
-    let foundTokenIds = []; 
+    let foundIds = []; 
 
-    // --- AUTO INIT (Jalan Otomatis Saat Page Load) ---
-    window.onload = async function() {
-        // Gunakan Provider Publik (Read-Only)
-        provider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
-        contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
-        
-        console.log("Dashboard initialized via Public RPC");
-        
-        // Load semua data secara paralel
-        await loadAllData();
-        
-        // Cek jika user punya wallet, update status tombol
-        checkIfWalletConnected();
+    // --- INIT (Jalan Otomatis) ---
+    window.onload = async () => {
+        try {
+            // 1. Setup Provider Publik
+            provider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
+            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            
+            console.log("Connected to Base via Public RPC");
+
+            // 2. Load Data Paralel (Cepat)
+            await Promise.all([
+                loadGlobalStats(),  // Supply, Fee, Tips, Golongan
+                loadActivity()      // Tabel Log & Leaderboard
+            ]);
+
+            // 3. Load Detail (Gaya & Tren Waktu) setelah ID ditemukan
+            await loadDeepDetails();
+
+        } catch (e) {
+            console.error("Init Error:", e);
+            alert("Gagal memuat data dari Blockchain. Silakan refresh.");
+        }
     };
 
-    // --- MANUAL CONNECT (Hanya untuk tombol) ---
-    async function connectWallet() {
-        if (!window.ethereum) return alert("Install MetaMask!");
-        try {
-            await window.ethereum.request({ method: 'eth_requestAccounts' });
-            // Switch ke Provider Wallet (Signer)
-            provider = new ethers.providers.Web3Provider(window.ethereum);
-            const { chainId } = await provider.getNetwork();
-            
-            if (chainId !== 8453) {
-                try {
-                    await window.ethereum.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: '0x2105' }] });
-                    provider = new ethers.providers.Web3Provider(window.ethereum);
-                } catch(e) { return alert("Wajib Base Network"); }
-            }
-
-            const signer = provider.getSigner();
-            const address = await signer.getAddress();
-            const btn = document.getElementById("btn-connect");
-            
-            btn.innerHTML = `<i class="fas fa-check"></i> ${address.substring(0,6)}...`;
-            btn.classList.add('connected');
-            
-            // Reload data dengan provider wallet (opsional, tapi bagus untuk refresh)
-            contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, signer);
-            
-        } catch (e) { console.error(e); }
-    }
-
-    async function checkIfWalletConnected() {
-        if (window.ethereum) {
-            const accounts = await window.ethereum.request({ method: 'eth_accounts' });
-            if (accounts.length > 0) connectWallet();
-        }
-    }
-
-    // --- CORE DATA LOADER ---
-    async function loadAllData() {
-        try {
-            // 1. Load Golongan & Basic Stats
-            let totalCount = 0;
-            let golCounts = [];
-            foundTokenIds = [];
-
-            const fee = await contract.publicMintFee().catch(() => 0);
-            const tips = await contract.totalTipsGrand().catch(() => 0);
-            
-            document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
-            document.getElementById("val-totalTips").innerText = ethers.utils.formatEther(tips) + " ETH";
-
-            const promises = listGolongan.map(async (gol) => {
-                const ids = await contract.getIdsByGolongan(gol).catch(() => []);
-                return { count: ids.length, ids: ids };
-            });
-
-            const results = await Promise.all(promises);
-            results.forEach(res => {
-                totalCount += res.count;
-                golCounts.push(res.count);
-                if(res.ids.length > 0) foundTokenIds.push(...res.ids);
-            });
-
-            document.getElementById("val-supply").innerText = totalCount;
-            renderPieChart("chartGolongan", listGolongan, golCounts);
-            
-            // 2. Load Deep Analysis (Gaya & Waktu)
-            await loadDeepAnalysis();
-            
-            // 3. Load Tips Activity
-            await loadActivity();
-
-            // Clear Skeletons
-            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
-
-        } catch (e) { console.error("Data Load Error:", e); }
-    }
-
-    // --- DEEP ANALYSIS (Gaya + Time Trend) ---
-    async function loadDeepAnalysis() {
-        let gayaStats = {};
-        listGaya.forEach(g => gayaStats[g] = 0);
-        let officialCount = 0;
-        let timestamps = []; // Array untuk menyimpan waktu minting
-
-        // Loop ID yang sudah ditemukan (Akurasi 100%)
-        // Batasi 50 terakhir jika terlalu banyak untuk performa
-        const idsToProcess = foundTokenIds; // .slice(-50) jika ingin sampling
-
-        for (let i = 0; i < idsToProcess.length; i++) {
-            try {
-                const id = idsToProcess[i];
-                const data = await contract.wayangRegistry(id);
-                // Index: 2=Gaya, 3=Timestamp, 5=isOfficial
-                
-                const gaya = data[2];
-                const ts = data[3].toNumber(); // Ambil timestamp
-                const isOff = data[5];
-
-                // Gaya
-                if (gayaStats[gaya] !== undefined) gayaStats[gaya]++;
-                else {
-                    if(!gayaStats["Lainnya"]) gayaStats["Lainnya"] = 0;
-                    gayaStats["Lainnya"]++;
-                }
-
-                // Official
-                if (isOff) officialCount++;
-
-                // Waktu (Push ke array)
-                if (ts > 0) timestamps.push(ts);
-
-            } catch (e) { console.warn("Skip ID", i); }
-        }
-
-        // Render Gaya
-        renderPolarChart("chartGaya", Object.keys(gayaStats), Object.values(gayaStats));
+    // --- LOADERS ---
+    
+    async function loadGlobalStats() {
+        let total = 0;
+        let golData = [];
         
-        // Render Rasio
-        const total = foundTokenIds.length;
-        const ratio = total > 0 ? ((officialCount / total) * 100).toFixed(1) : "0";
-        document.getElementById("val-official-ratio").innerText = ratio + "%";
-
-        // Render Time Trend (PENTING!)
-        processAndRenderTrend(timestamps);
-    }
-
-    // --- TREND CHART LOGIC ---
-    function processAndRenderTrend(timestamps) {
-        // Urutkan waktu dari lama ke baru
-        timestamps.sort((a, b) => a - b);
-
-        // Grouping per Bulan
-        let monthlyCounts = {};
+        // Fetch Basic
+        const fee = await contract.publicMintFee().catch(() => 0);
+        const tips = await contract.totalTipsGrand().catch(() => 0);
         
-        timestamps.forEach(ts => {
-            const date = new Date(ts * 1000);
-            const key = date.toLocaleString('id-ID', { month: 'short', year: '2-digit' }); // Cth: Jan 24
-            monthlyCounts[key] = (monthlyCounts[key] || 0) + 1;
+        // Update UI
+        document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
+        document.getElementById("val-tips").innerText = ethers.utils.formatEther(tips) + " ETH";
+
+        // Fetch Golongan Loop
+        const promises = listGolongan.map(async (g) => {
+            const ids = await contract.getIdsByGolongan(g).catch(() => []);
+            return { label: g, count: ids.length, ids: ids };
         });
 
-        const labels = Object.keys(monthlyCounts);
-        const data = Object.values(monthlyCounts);
+        const results = await Promise.all(promises);
+        
+        results.forEach(res => {
+            total += res.count;
+            golData.push(res.count);
+            if(res.ids.length > 0) foundIds.push(...res.ids);
+        });
 
-        // Jika data kosong (belum ada minting), buat dummy agar grafik tidak blank
-        if (labels.length === 0) {
-            renderLineChart("chartTren", ["Jan", "Feb", "Mar"], [0, 0, 0]);
-        } else {
-            renderLineChart("chartTren", labels, data);
-        }
+        document.getElementById("val-supply").innerText = total;
+        renderDoughnut("chartGolongan", listGolongan, golData);
+        
+        // Hapus Skeleton
+        document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
     }
 
-    // --- ACTIVITY (Event Logs) ---
+    async function loadDeepDetails() {
+        // Variabel Statistik
+        let gayaCounts = {}; 
+        let officialCount = 0;
+        let timeData = {}; // Format: "Jan 24": 5
+
+        // Optimasi: Fetch detail ID secara paralel (max 50 concurrent request agar RPC tidak reject)
+        // Jika data > 100, sebaiknya dipaginasi. Untuk sekarang loop biasa cukup cepat.
+        
+        const fetchPromises = foundIds.map(async (id) => {
+            try {
+                const data = await contract.wayangRegistry(id);
+                return {
+                    gaya: data[2], 
+                    ts: data[3].toNumber(), 
+                    isOff: data[5]
+                };
+            } catch { return null; }
+        });
+
+        const details = await Promise.all(fetchPromises);
+
+        // Olah Data
+        details.forEach(d => {
+            if(!d) return;
+
+            // 1. Gaya
+            gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
+
+            // 2. Official Ratio
+            if(d.isOff) officialCount++;
+
+            // 3. Time Trend (Grouping Bulanan)
+            const date = new Date(d.ts * 1000);
+            const key = date.toLocaleString('id-ID', { month: 'short', year: '2-digit' });
+            timeData[key] = (timeData[key] || 0) + 1;
+        });
+
+        // Update UI Ratio
+        const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
+        document.getElementById("val-ratio").innerText = ratio + "%";
+
+        // Render Chart Gaya (Polar)
+        const gayaLabels = Object.keys(gayaCounts);
+        const gayaVals = Object.values(gayaCounts);
+        renderPolar("chartGaya", gayaLabels, gayaVals);
+
+        // Render Chart Tren (Line)
+        // Sort Bulan secara manual/kronologis (simple sort key string)
+        const trendLabels = Object.keys(timeData); // ["Dec 23", "Jan 24"]
+        const trendVals = Object.values(timeData); // [5, 2]
+        renderLine("chartTrend", trendLabels, trendVals);
+    }
+
     async function loadActivity() {
         try {
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // 10k block terakhir
+            const fromBlock = Math.max(0, currentBlock - 10000); // 10k Blok terakhir
             const filter = contract.filters.TipSent();
             const events = await contract.queryFilter(filter, fromBlock, "latest");
 
+            // Leaderboard Map
             let map = {};
             events.forEach(e => {
                 const s = e.args.from;
@@ -385,92 +289,73 @@
                 map[s] = (map[s] || 0) + v;
             });
 
+            // Render Leaderboard
             const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0, 3);
-            const list = document.getElementById("tipping-list");
+            const board = document.getElementById("leaderboard-container");
+            board.innerHTML = "";
             
-            if(sorted.length === 0) list.innerHTML = '<div style="text-align:center;color:#aaa;padding:10px;">Belum ada data.</div>';
+            if(sorted.length === 0) board.innerHTML = '<div style="text-align:center; padding:15px; color:#aaa;">Belum ada data.</div>';
             else {
-                list.innerHTML = "";
                 sorted.forEach((item, i) => {
-                     list.innerHTML += `
-                     <div class="leaderboard-item">
+                    board.innerHTML += `
+                    <div class="list-item">
                         <div style="display:flex;align-items:center;">
-                            <div class="rank-badge">${i+1}</div>
-                            <span class="address-badge">${item[0].substring(0,6)}...</span>
+                            <div class="rank">${i+1}</div>
+                            <div class="addr">${item[0].substring(0,6)}...${item[0].slice(-4)}</div>
                         </div>
-                        <div style="font-weight:bold;color:#27ae60;">${item[1].toFixed(4)} ETH</div>
-                     </div>`;
+                        <div class="amt">${item[1].toFixed(4)} ETH</div>
+                    </div>`;
                 });
             }
 
-            const table = document.getElementById("activity-table");
-            if(events.length > 0) {
-                table.innerHTML = "";
-                events.slice(-5).reverse().forEach(e => {
-                    table.innerHTML += `<tr>
-                        <td><span style="color:#27ae60;font-weight:bold;">Donasi</span></td>
-                        <td><span class="address-badge">${e.args.from.substring(0,6)}...</span></td>
+            // Render Table Logs
+            const table = document.getElementById("activity-table").getElementsByTagName('tbody')[0];
+            table.innerHTML = "";
+            const logs = events.slice(-5).reverse();
+            
+            if(logs.length === 0) table.innerHTML = '<tr><td colspan="4" style="text-align:center;">Tidak ada aktivitas.</td></tr>';
+            else {
+                logs.forEach(e => {
+                    const row = table.insertRow();
+                    row.innerHTML = `
+                        <td><span style="color:#27ae60;font-weight:700;">Donasi</span></td>
+                        <td><span class="addr">${e.args.from.substring(0,6)}...</span></td>
                         <td>${ethers.utils.formatEther(e.args.amount)} ETH</td>
-                        <td style="color:#aaa;font-size:11px;">${e.blockNumber}</td>
-                    </tr>`;
+                        <td style="color:#aaa;">${e.blockNumber}</td>
+                    `;
                 });
-            } else {
-                 table.innerHTML = '<tr><td colspan="4" style="text-align:center;padding:15px;color:#aaa;">Tidak ada aktivitas baru.</td></tr>';
             }
-        } catch (e) { console.error(e); }
+        } catch(e) { console.warn("Activity fetch limit", e); }
     }
 
-    // --- CHARTS ---
-    function renderPieChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-        if(Chart.getChart(id)) Chart.getChart(id).destroy();
-        new Chart(ctx, {
+    // --- CHARTS CONFIG ---
+    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+    Chart.defaults.color = '#64748b';
+
+    function renderDoughnut(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
             type: 'doughnut',
-            data: { labels: labels, datasets: [{ data: data, backgroundColor: ['#7385a5', '#c5a059', '#5c6a84', '#e3e9f4', '#1e293b'], borderWidth: 0 }] },
-            options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } } }
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['#7385a5', '#c5a059', '#a6b4cd', '#e2e8f0', '#1e293b', '#64748b'], borderWidth:0 }] },
+            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
         });
     }
 
-    function renderPolarChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-        if(Chart.getChart(id)) Chart.getChart(id).destroy();
-        new Chart(ctx, {
+    function renderPolar(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
             type: 'polarArea',
-            data: { labels: labels, datasets: [{ label: 'Jml', data: data, backgroundColor: ['rgba(115,133,165,0.8)', 'rgba(197,160,89,0.8)', 'rgba(92,106,132,0.8)', 'rgba(227,233,244,0.9)'], borderWidth: 2, borderColor: '#fff' }] },
-            options: { responsive: true, maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { position: 'right', labels: { boxWidth: 10, usePointStyle: true, font: { size: 10 } } } } }
+            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['rgba(115,133,165,0.8)', 'rgba(197,160,89,0.8)', 'rgba(30,41,59,0.7)', 'rgba(226,232,240,0.9)'], borderWidth:2, borderColor:'#fff' }] },
+            options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { position:'right', labels: { boxWidth:10, usePointStyle:true } } } }
         });
     }
 
-    function renderLineChart(id, labels, data) {
-        const ctx = document.getElementById(id);
-        if(!ctx) return;
-        if(Chart.getChart(id)) Chart.getChart(id).destroy();
-        new Chart(ctx, {
+    function renderLine(id, lbl, dat) {
+        new Chart(document.getElementById(id), {
             type: 'line',
-            data: {
-                labels: labels,
-                datasets: [{
-                    label: 'Minting Activity',
-                    data: data,
-                    borderColor: '#27ae60',
-                    backgroundColor: 'rgba(39, 174, 96, 0.1)',
-                    fill: true, tension: 0.4, pointRadius: 4, pointBackgroundColor: '#fff', borderWidth: 2
-                }]
-            },
-            options: {
-                responsive: true, maintainAspectRatio: false,
-                scales: { 
-                    y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { borderDash: [5,5] } },
-                    x: { grid: { display: false } }
-                },
-                plugins: { legend: { display: false } }
-            }
+            data: { labels: lbl, datasets: [{ label: 'Minting', data: dat, borderColor: '#27ae60', backgroundColor: 'rgba(39,174,96,0.1)', fill:true, tension:0.4 }] },
+            options: { maintainAspectRatio: false, scales: { y: { beginAtZero: true, ticks: { stepSize:1 }, grid: { borderDash:[5,5] } }, x: { grid: { display: false } } }, plugins: { legend: { display: false } } }
         });
     }
-</script>
 
+</script>
 </body>
 </html>
-
