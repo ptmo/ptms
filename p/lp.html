@@ -596,7 +596,7 @@
             </div>
         </div>
 
-        <div class="card" style="height: 450px; display: flex; flex-direction: column;">
+        <div class="card" style="height: 400px; display: flex; flex-direction: column;">
     <div class="card-title">
         <i class="fas fa-crown" style="color: var(--gold); margin-right: 8px;"></i>
         Panggung Populer (Top Likes)
@@ -613,6 +613,7 @@
         </div>
     </div>
 </div>
+
 
 </section>
 
@@ -855,23 +856,23 @@
         return { total, fee, tips, golData };
     }
 
-        async function loadDeepDetails() {
+            async function loadDeepDetails() {
         console.log("Loading Top Popular List...");
         let gayaCounts = {}; 
         let officialCount = 0;
         let totalLikesGlobal = 0;
 
-        // 1. Fetch Data Lengkap dari Blockchain
+        // 1. Fetch Data Lengkap
         const fetchPromises = foundIds.map(async (id) => {
             try {
-                // Ambil Data Registry & Total Likes secara paralel
+                // Ambil Data Registry & Total Likes
                 const [data, likesBn] = await Promise.all([
                     contract.wayangRegistry(id),
                     contract.totalLikes(id).catch(() => ethers.BigNumber.from(0))
                 ]);
                 
                 return {
-                    id: id,
+                    id: id, // Penting untuk Link
                     nama: data[0],
                     golongan: data[1],
                     gaya: data[2], 
@@ -883,20 +884,21 @@
 
         const details = await Promise.all(fetchPromises);
         
-        // 2. Filter Data Valid (Buang yang null)
+        // 2. Filter Data Valid
         const validDetails = details.filter(d => d !== null);
 
-        // 3. Hitung Statistik Global (Untuk Chart & Header)
+        // 3. Hitung Statistik Global (Gaya & Total Likes)
         validDetails.forEach(d => {
             gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
             if(d.isOff) officialCount++;
             totalLikesGlobal += d.likes;
         });
 
-        // 4. SORTING: Urutkan dari Likes Terbanyak (Top 20)
+        // 4. LOGIC SORTING (Urutkan dari Likes Terbanyak)
+        // Kita ambil Top 20 agar list bisa discroll
         const sortedByLikes = [...validDetails].sort((a, b) => b.likes - a.likes).slice(0, 20);
 
-        // 5. RENDER LIST KE HTML
+        // 5. RENDER LIST HTML
         const listContainer = document.getElementById("top-wayang-list");
         
         if (validDetails.length === 0) {
@@ -905,38 +907,35 @@
             let listHtml = '<ul style="list-style: none; padding: 0; margin: 0;">';
             
             sortedByLikes.forEach((item, index) => {
-                // Tentukan warna ranking
-                let rankColor = "#64748b"; // Default abu
-                let iconRank = "";
-                
-                if(index === 0) { rankColor = "#fbc02d"; iconRank = '<i class="fas fa-trophy"></i>'; } // Emas
-                else if(index === 1) { rankColor = "#9e9e9e"; } // Perak
-                else if(index === 2) { rankColor = "#ef6c00"; } // Perunggu
+                // Tentukan warna ranking (Emas, Perak, Perunggu, Sisanya)
+                let rankColor = "#f1f5f9"; // Default abu
+                let rankText = "#64748b";
+                if(index === 0) { rankColor = "#fff9c4"; rankText = "#fbc02d"; } // Emas
+                else if(index === 1) { rankColor = "#f5f5f5"; rankText = "#9e9e9e"; } // Perak
+                else if(index === 2) { rankColor = "#ffe0b2"; rankText = "#ef6c00"; } // Perunggu
+
+                // Gambar Placeholder (Bisa diganti URL asli jika ada)
+                // Kita pakai inisial huruf depan sebagai gambar jika tidak ada image
+                const initial = item.nama.charAt(0).toUpperCase();
 
                 listHtml += `
-                <li style="margin-bottom: 10px;">
-                    <a href="detail?id=${item.id}" target="_blank" style="text-decoration: none; color: inherit;">
-                        <div class="popular-item">
+                <li style="margin-bottom: 8px;">
+                    <a href="https://opensea.io/assets/base/${CONTRACT_ADDRESS}/${item.id}" target="_blank" style="text-decoration: none; color: inherit;">
+                        <div class="popular-item" style="display: flex; align-items: center; padding: 10px; background: #fff; border: 1px solid #f0f0f0; border-radius: 12px; transition: 0.2s;">
                             
-                            <div style="font-weight: 800; font-size: 1rem; color: ${rankColor}; width: 30px; text-align:center;">
-                                ${index + 1}
-                            </div>
+                            <div style="font-weight: 800; font-size: 0.9rem; color: ${rankText}; width: 25px;">#${index + 1}</div>
                             
-                            <div class="thumb-wrapper">
-                                <img id="thumb-${item.id}" src="https://via.placeholder.com/50?text=..." alt="${item.nama}" class="wayang-thumb">
+                            <div style="width: 40px; height: 40px; background: linear-gradient(135deg, var(--primary), var(--primary-dark)); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: #fff; font-weight: bold; margin-right: 12px; font-size: 1.2rem;">
+                                ${initial}
                             </div>
                             
                             <div style="flex: 1;">
-                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">
-                                    ${item.nama} ${iconRank}
-                                </div>
-                                <div style="font-size: 0.75rem; color: var(--text-muted);">
-                                    ${item.golongan} • ID #${item.id}
-                                </div>
+                                <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-main);">${item.nama}</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">${item.golongan} • ID #${item.id}</div>
                             </div>
                             
-                            <div style="text-align: right; background: #fff5f5; padding: 4px 8px; border-radius: 8px;">
-                                <div style="font-size: 0.85rem; font-weight: 800; color: #e74c3c;">
+                            <div style="text-align: right;">
+                                <div style="font-size: 0.9rem; font-weight: 800; color: #e74c3c;">
                                     <i class="fas fa-heart"></i> ${item.likes}
                                 </div>
                             </div>
@@ -944,18 +943,24 @@
                     </a>
                 </li>
                 `;
-                
-                // Panggil fungsi lazy load gambar (agar tidak berat)
-                fetchThumbnail(item.id); 
             });
             listHtml += '</ul>';
             listContainer.innerHTML = listHtml;
         }
 
-        // Update Total Global di Header Card
+        // Update Total Global di Header
         if(document.getElementById("val-total-likes")) {
             document.getElementById("val-total-likes").innerText = totalLikesGlobal;
         }
+
+        // Return Data untuk Chart
+        const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
+        const gayaLabels = Object.keys(gayaCounts);
+        const gayaVals = Object.values(gayaCounts);
+
+        return { ratio, gayaLabels, gayaVals };
+    }
+
 
         // Return Data untuk Chart
         const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
