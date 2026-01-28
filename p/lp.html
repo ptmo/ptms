@@ -518,6 +518,43 @@
     </section>
 
     <section id="vision" style="padding-top: 5px;">
+        <div class="grid-2" data-aos="fade-up" data-aos-delay="200">
+        <div class="card" style="height: 400px; overflow: hidden; display: flex; flex-direction: column;">
+            <div class="card-title">
+                <i class="fas fa-satellite-dish" style="color: var(--gold); margin-right: 8px;"></i>
+                Aktivitas Jaringan (Live)
+            </div>
+            <div style="flex: 1; overflow-y: auto; padding-right: 5px;" id="activity-feed">
+                <div style="text-align:center; padding: 20px; color: #ccc;">
+                    <i class="fas fa-circle-notch fa-spin"></i> Memuat data...
+                </div>
+            </div>
+        </div>
+
+        <div class="card">
+            <div class="card-title">Statistik Komunitas</div>
+            
+            <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px dashed #eee;">
+                <div>
+                    <div class="stat-label">Total Likes</div>
+                    <div class="stat-value" id="val-total-likes">0</div>
+                </div>
+                <div class="stat-icon" style="opacity: 0.2; color: #e74c3c;"><i class="fas fa-heart"></i></div>
+            </div>
+
+            <div style="display: flex; align-items: center; justify-content: space-between;">
+                <div>
+                    <div class="stat-label">Wayang Paling Populer</div>
+                    <div style="font-size: 1.1rem; font-weight: 700; color: var(--primary);" id="val-top-wayang">-</div>
+                    <div style="font-size: 0.8rem; color: var(--text-muted);" id="val-top-wayang-score">0 Likes</div>
+                </div>
+                <div class="stat-icon" style="opacity: 0.2; color: var(--gold);"><i class="fas fa-crown"></i></div>
+            </div>
+        </div>
+    </div>
+    </section>
+
+    <section id="vision" style="padding-top: 5px;">
         <div class="container">
         <div style="max-width: 600px; margin: 0 auto 60px auto; text-align: center;" data-aos="fade-up">
                 <h2 style="font-size: 2rem; font-weight: 800; margin-bottom: 30px;">
@@ -664,16 +701,23 @@
         renderPolar("chartGaya", cached.gayaLabels, cached.gayaVals);
     }
 
-    async function fetchAndUpdate() {
+        async function fetchAndUpdate() {
         updateProgress(0);
 
-        const stats = await loadGlobalStats();  // Kembalikan data stats
+        // 1. Ambil Data Utama (Wajib ditunggu/await karena mau masuk cache)
+        const stats = await loadGlobalStats();  
         updateProgress(50);
 
-        const deep = await loadDeepDetails(); // Kembalikan deep data
+        // 2. Ambil Data Detail (Wajib ditunggu/await karena mau masuk cache)
+        const deep = await loadDeepDetails(); 
+        
+        // 3. Ambil Activity Feed (JANGAN pakai await)
+        // Biarkan dia jalan sendiri di background agar tidak menunda render grafik utama
+        loadActivity(); 
+
         updateProgress(100);
 
-        // Gabung data untuk cache
+        // 4. Siapkan Data untuk Disimpan
         const cacheData = {
             total: stats.total,
             fee: stats.fee,
@@ -686,7 +730,9 @@
 
         console.log("Saving new data to cache...");
         setCache(cacheData);
-        renderFromCache(cacheData); // Update UI jika perlu
+        
+        // 5. Render Ulang Grafik Utama
+        renderFromCache(cacheData); 
     }
 
     function updateProgress(percent) {
@@ -722,19 +768,29 @@
         return { total, fee, tips, golData };
     }
 
-    async function loadDeepDetails() {
-        console.log("Loading deep details for", foundIds.length, "IDs...");
-        // Variabel Statistik
+        async function loadDeepDetails() {
+        console.log("Loading deep details + Engagement...");
         let gayaCounts = {}; 
         let officialCount = 0;
+        
+        // Variabel baru untuk engagement
+        let totalLikesGlobal = 0;
+        let highestLikes = -1;
+        let topWayangName = "-";
 
-        // Promise.all untuk wayangRegistry (non-multicall)
         const fetchPromises = foundIds.map(async (id) => {
             try {
-                const data = await contract.wayangRegistry(id);
+                // Kita panggil wayangRegistry DAN totalLikes secara paralel per ID
+                const [data, likesBn] = await Promise.all([
+                    contract.wayangRegistry(id),
+                    contract.totalLikes(id).catch(() => ethers.BigNumber.from(0))
+                ]);
+                
                 return {
+                    nama: data[0],
                     gaya: data[2], 
-                    isOff: data[5]
+                    isOff: data[5],
+                    likes: likesBn.toNumber()
                 };
             } catch { return null; }
         });
@@ -745,13 +801,26 @@
             if(!d) return;
             gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
             if(d.isOff) officialCount++;
+            
+            // Hitung Likes
+            totalLikesGlobal += d.likes;
+            if (d.likes > highestLikes) {
+                highestLikes = d.likes;
+                topWayangName = d.nama;
+            }
         });
+
+        // Update UI Engagement (Langsung update elemen HTML baru)
+        if(document.getElementById("val-total-likes")) {
+            document.getElementById("val-total-likes").innerText = totalLikesGlobal;
+            document.getElementById("val-top-wayang").innerText = topWayangName;
+            document.getElementById("val-top-wayang-score").innerText = highestLikes + " Likes";
+        }
 
         const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
         const gayaLabels = Object.keys(gayaCounts);
         const gayaVals = Object.values(gayaCounts);
 
-        console.log("Deep details loaded: ratio =", ratio);
         return { ratio, gayaLabels, gayaVals };
     }
 
@@ -774,6 +843,84 @@
             options: { maintainAspectRatio: false, scales: { r: { ticks: { display: false }, grid: { display: false } } }, plugins: { legend: { position:'right', labels: { boxWidth:10, usePointStyle:true } } } }
         });
     }
+
+            // --- SNIPPET JS: Load Activity & Likes ---
+
+    // 1. Fungsi untuk mengambil Event Logs (Aktivitas)
+    async function loadActivity() {
+        console.log("Loading activity feed...");
+        const feedContainer = document.getElementById('activity-feed');
+        
+        try {
+            // Ambil block number saat ini
+            const currentBlock = await provider.getBlockNumber();
+            // Ambil event dari 5000 block terakhir (cukup ringan untuk public RPC)
+            const fromBlock = currentBlock - 10000; 
+
+            // Filter Event: TipSent & WayangLahir
+            const filterTips = contract.filters.TipSent();
+            const filterMint = contract.filters.WayangLahir();
+
+            // Fetch logs secara paralel
+            const [logsTips, logsMint] = await Promise.all([
+                contract.queryFilter(filterTips, fromBlock),
+                contract.queryFilter(filterMint, fromBlock)
+            ]);
+
+            // Gabungkan dan urutkan berdasarkan blockNumber (terbaru diatas)
+            const allActivity = [
+                ...logsTips.map(l => ({type: 'TIP', ...l})),
+                ...logsMint.map(l => ({type: 'MINT', ...l}))
+            ].sort((a, b) => b.blockNumber - a.blockNumber).slice(0, 10); // Ambil 10 terakhir
+
+            // Render HTML
+            if (allActivity.length === 0) {
+                feedContainer.innerHTML = '<div style="text-align:center; padding:20px; color:#aaa;">Belum ada aktivitas baru.</div>';
+                return;
+            }
+
+            let html = '<ul style="list-style: none; padding: 0; margin: 0;">';
+            
+            for (let item of allActivity) {
+                const txHash = item.transactionHash.substring(0, 6) + '...' + item.transactionHash.substring(62);
+                
+                if (item.type === 'TIP') {
+                    const amount = ethers.utils.formatEther(item.args.amount);
+                    const sender = item.args.from.substring(0, 6);
+                    html += `
+                    <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="background: #e8f5e9; color: #2e7d32; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-coins" style="font-size: 0.8rem;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 600;">Donasi Masuk <span style="color: #27ae60;">+${parseFloat(amount).toFixed(4)} ETH</span></div>
+                            <div style="font-size: 0.8rem; color: #666;">Dari: ${sender}... • "${item.args.message}"</div>
+                        </div>
+                    </li>`;
+                } else {
+                    const nama = item.args.nama;
+                    const gol = item.args.golongan;
+                    html += `
+                    <li style="padding: 12px 0; border-bottom: 1px solid #f0f0f0; display: flex; gap: 10px; align-items: flex-start;">
+                        <div style="background: #e3f2fd; color: #1565c0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                            <i class="fas fa-magic" style="font-size: 0.8rem;"></i>
+                        </div>
+                        <div>
+                            <div style="font-size: 0.9rem; font-weight: 600;">Wayang Baru Lahir!</div>
+                            <div style="font-size: 0.8rem; color: #666;">${nama} (${gol}) telah diciptakan.</div>
+                        </div>
+                    </li>`;
+                }
+            }
+            html += '</ul>';
+            feedContainer.innerHTML = html;
+
+        } catch (e) {
+            console.error("Activity Error:", e);
+            feedContainer.innerHTML = '<div style="color:red; font-size:0.8rem; text-align:center;">Gagal memuat aktivitas.</div>';
+        }
+    }
+
 
         </script>
 
