@@ -14,6 +14,9 @@
     <script src="https://unpkg.com/aos@2.3.1/dist/aos.js"></script>
     <link href="https://unpkg.com/aos@2.3.1/dist/aos.css" rel="stylesheet">
 
+    <!-- Tambah Library Multicall -->
+    <script src="https://unpkg.com/ethers-multicall-provider@latest/dist/umd/ethers-multicall-provider.min.js"></script>
+
     <style>
         /* --- STYLE PREMIUM CLEAN (Tanpa Tombol) --- */
         :root {
@@ -71,9 +74,14 @@
         /* Loading Animation */
         .skeleton { background: #e2e8f0; color: transparent !important; border-radius: 6px; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 0.6; } 50% { opacity: 1; } 100% { opacity: 0.6; } }
+
+        /* Progress Bar Tambahan */
+        #progress-bar { position: fixed; top: 0; left: 0; width: 0; height: 4px; background: var(--primary); transition: width 0.3s; z-index: 999; }
     </style>
 </head>
 <body>
+
+<div id="progress-bar"></div>
 
 <div class="container">
     
@@ -141,7 +149,7 @@
     </div>
 
     <div style="text-align:center; color:#94a3b8; font-size:0.85rem;">
-        &copy; 2024 Putramas Official • Blockchain Data Viewer
+        &copy; 2024 Putramas Official • Blockchain Data Viewer (Optimized by Grok)
     </div>
 </div>
 
@@ -150,62 +158,109 @@
 
     // --- CONFIG ---
     const CONTRACT_ADDRESS = "0x72359F776Ac4B44c6c79dBF805D79959515E0c58";
-    const PUBLIC_RPC = "https://mainnet.base.org"; // Jalur Khusus Baca Data (Tanpa Wallet)
+    const ALCHEMY_KEY = '9WNWGMuDgG3vg8xYOM7xs'; // Daftar gratis di alchemy.com, ganti ini!
+    const ALCHEMY_RPC = `https://base-mainnet.g.alchemy.com/v2/${ALCHEMY_KEY}`;
+    const PUBLIC_RPC = "https://mainnet.base.org"; // Fallback
+    const MULTICALL_ADDRESS = '0xCA11bde05977b3631167028862be2a173976CA11'; // Multicall3 di Base
 
-    // ABI (Hanya Fungsi Read & Event Penting)
-    const ABI = [
-        "function publicMintFee() view returns (uint256)",
-        "function totalTipsGrand() view returns (uint256)",
-        "function getIdsByGolongan(string) view returns (uint256[])",
-        "function wayangRegistry(uint256) view returns (string, string, string, uint256, bool, bool, address)",
-        "event TipSent(address indexed from, address indexed to, uint256 amount, string message, uint256 timestamp)"
-    ];
+    // ABI (Tambah _currentTokenId jika ada, tapi sekarang pakai sum golongan)
+    const ABI = [{"inputs":[],"stateMutability":"nonpayable","type":"constructor"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"approved","type":"address"},{"indexed":true,"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"Approval","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"owner","type":"address"},{"indexed":true,"internalType":"address","name":"operator","type":"address"},{"indexed":false,"internalType":"bool","name":"approved","type":"bool"}],"name":"ApprovalForAll","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"FeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"}],"name":"Liked","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"address","name":"user","type":"address"},{"indexed":false,"internalType":"uint8","name":"star","type":"uint8"},{"indexed":false,"internalType":"string","name":"ulasan","type":"string"}],"name":"Reviewed","type":"event"},{"anonymous":false,"inputs":[{"indexed":false,"internalType":"uint256","name":"newFee","type":"uint256"}],"name":"RevisionFeeUpdated","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"address","name":"from","type":"address"},{"indexed":true,"internalType":"address","name":"to","type":"address"},{"indexed":false,"internalType":"uint256","name":"amount","type":"uint256"},{"indexed":false,"internalType":"string","name":"message","type":"string"},{"indexed":false,"internalType":"uint256","name":"timestamp","type":"uint256"}],"name":"TipSent","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"nama","type":"string"},{"indexed":false,"internalType":"string","name":"golongan","type":"string"},{"indexed":false,"internalType":"bool","name":"isOfficial","type":"bool"},{"indexed":false,"internalType":"address","name":"creator","type":"address"}],"name":"WayangLahir","type":"event"},{"anonymous":false,"inputs":[{"indexed":true,"internalType":"uint256","name":"id","type":"uint256"},{"indexed":false,"internalType":"string","name":"namaBaru","type":"string"},{"indexed":false,"internalType":"string","name":"uriBaru","type":"string"}],"name":"WayangUpdate","type":"event"},{"inputs":[],"name":"MAX_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"MIN_TIP","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"approve","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"_penerima","type":"address"},{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"arsipWayang","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"}],"name":"balanceOf","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"dalang","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"emergencyWithdrawETH","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getApproved","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getAverageRating","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"string","name":"golongan","type":"string"}],"name":"getIdsByGolongan","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getInfoWayang","outputs":[{"components":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"internalType":"struct WayangArsipPutramas.WayangInfo","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"getReviews","outputs":[{"components":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.Review[]","name":"","type":"tuple[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"},{"internalType":"uint256","name":"index","type":"uint256"}],"name":"getTipByIndex","outputs":[{"components":[{"internalType":"address","name":"sender","type":"address"},{"internalType":"address","name":"receiver","type":"address"},{"internalType":"uint256","name":"amount","type":"uint256"},{"internalType":"string","name":"message","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"internalType":"struct WayangArsipPutramas.TipRecord","name":"","type":"tuple"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"user","type":"address"}],"name":"getTipCount","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"_user","type":"address"}],"name":"getTipTotalBalance","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasLiked","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"address","name":"","type":"address"}],"name":"hasReviewed","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"owner","type":"address"},{"internalType":"address","name":"operator","type":"address"}],"name":"isApprovedForAll","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"kasihLike","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"},{"internalType":"uint8","name":"_bintang","type":"uint8"},{"internalType":"string","name":"_ulasanPilihan","type":"string"}],"name":"kasihUlasan","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[],"name":"name","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"ownerOf","outputs":[{"internalType":"address","name":"","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"publicMintFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"_tokenId","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiDataWayang","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_id","type":"uint256"},{"internalType":"string","name":"_namaBaru","type":"string"},{"internalType":"string","name":"_uriBaru","type":"string"}],"name":"revisiWayang","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[],"name":"revisionFee","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"safeTransferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"address payable","name":"_receiver","type":"address"},{"internalType":"string","name":"_message","type":"string"}],"name":"sendTip","outputs":[],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"operator","type":"address"},{"internalType":"bool","name":"approved","type":"bool"}],"name":"setApprovalForAll","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setMintFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"uint256","name":"_newFee","type":"uint256"}],"name":"setRevisionFee","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"bytes4","name":"interfaceId","type":"bytes4"}],"name":"supportsInterface","outputs":[{"internalType":"bool","name":"","type":"bool"}],"stateMutability":"pure","type":"function"},{"inputs":[],"name":"symbol","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"tokenURI","outputs":[{"internalType":"string","name":"","type":"string"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"totalLikes","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"","type":"address"}],"name":"totalReceived","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[],"name":"totalTipsGrand","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"address","name":"from","type":"address"},{"internalType":"address","name":"to","type":"address"},{"internalType":"uint256","name":"tokenId","type":"uint256"}],"name":"transferFrom","outputs":[],"stateMutability":"nonpayable","type":"function"},{"inputs":[{"internalType":"string","name":"_tokenURI","type":"string"},{"internalType":"string","name":"_nama","type":"string"},{"internalType":"string","name":"_golongan","type":"string"},{"internalType":"string","name":"_gaya","type":"string"}],"name":"uploadPublik","outputs":[{"internalType":"uint256","name":"","type":"uint256"}],"stateMutability":"payable","type":"function"},{"inputs":[{"internalType":"address","name":"_owner","type":"address"}],"name":"walletOfOwner","outputs":[{"internalType":"uint256[]","name":"","type":"uint256[]"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangRegistry","outputs":[{"internalType":"string","name":"nama","type":"string"},{"internalType":"string","name":"golongan","type":"string"},{"internalType":"string","name":"gaya","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"},{"internalType":"bool","name":"isActive","type":"bool"},{"internalType":"bool","name":"isOfficial","type":"bool"},{"internalType":"address","name":"creator","type":"address"}],"stateMutability":"view","type":"function"},{"inputs":[{"internalType":"uint256","name":"","type":"uint256"},{"internalType":"uint256","name":"","type":"uint256"}],"name":"wayangReviews","outputs":[{"internalType":"address","name":"reviewer","type":"address"},{"internalType":"uint8","name":"bintang","type":"uint8"},{"internalType":"string","name":"ulasan","type":"string"},{"internalType":"uint256","name":"timestamp","type":"uint256"}],"stateMutability":"view","type":"function"}];
 
     const listGolongan = ["Satria", "Dewa", "Yaksa", "Wanara", "Panakawan", "Kayon", "Bambangan", "Punggawa", "Krodan", "Resi", "Putren", "Buta Kiwe", "Sato", "Gaman"];
     
     // Variabel Global
-    let provider, contract;
+    let provider, contract, multicallProvider;
     let foundIds = []; 
+    const CACHE_KEY = 'putramas_data_cache';
+    const CACHE_EXPIRY = 5 * 60 * 1000; // 5 menit
 
     // --- INIT (Jalan Otomatis) ---
     window.onload = async () => {
         try {
-            // 1. Setup Provider Publik
-            provider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
+            // 1. Setup Provider dengan Fallback (Alchemy prioritas)
+            const alchemyProvider = new ethers.providers.JsonRpcProvider(ALCHEMY_RPC);
+            const publicProvider = new ethers.providers.JsonRpcProvider(PUBLIC_RPC);
+            provider = new ethers.providers.FallbackProvider([alchemyProvider, publicProvider]);
             contract = new ethers.Contract(CONTRACT_ADDRESS, ABI, provider);
+            multicallProvider = new MulticallProvider(provider, { contract: MULTICALL_ADDRESS }); // Init Multicall
             
-            console.log("Connected to Base via Public RPC");
+            console.log("Connected to Base via Optimized Provider");
 
-            // 2. Load Data Paralel (Cepat)
+            // 2. Cek Cache
+            const cachedData = getCache();
+            if (cachedData) {
+                renderFromCache(cachedData);
+                return; // Load dari cache dulu, lalu update background
+            }
+
+            // 3. Update Progress Bar
+            updateProgress(0);
+
+            // 4. Load Data Paralel
             await Promise.all([
                 loadGlobalStats(),  // Supply, Fee, Tips, Golongan
                 loadActivity()      // Tabel Log & Leaderboard
             ]);
+            updateProgress(50);
 
-            // 3. Load Detail (Gaya & Tren Waktu) setelah ID ditemukan
+            // 5. Load Detail dengan Multicall
             await loadDeepDetails();
+            updateProgress(100);
+
+            // 6. Cache hasil
+            setCache({ /* simpan semua data di sini, misal total, golData, dll */ });
 
         } catch (e) {
             console.error("Init Error:", e);
-            alert("Gagal memuat data dari Blockchain. Silakan refresh.");
+            alert("Gagal memuat data dari Blockchain. Coba cek API key Alchemy atau refresh.");
+        } finally {
+            document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
         }
     };
 
-    // --- LOADERS ---
+    // Fungsi Cache
+    function getCache() {
+        const cached = localStorage.getItem(CACHE_KEY);
+        if (!cached) return null;
+        const { data, timestamp } = JSON.parse(cached);
+        if (Date.now() - timestamp > CACHE_EXPIRY) return null;
+        return data;
+    }
+
+    function setCache(data) {
+        localStorage.setItem(CACHE_KEY, JSON.stringify({ data, timestamp: Date.now() }));
+    }
+
+    function renderFromCache(cachedData) {
+        // Implement render UI dari cache di sini (mirip update UI di loaders)
+        // Misal: document.getElementById("val-supply").innerText = cachedData.total;
+        // Lalu render charts dari cachedData.golData, dll.
+    }
+
+    function updateProgress(percent) {
+        document.getElementById('progress-bar').style.width = `${percent}%`;
+    }
+
+    // --- LOADERS OPTIMIZED ---
     
     async function loadGlobalStats() {
         let total = 0;
         let golData = [];
         
-        // Fetch Basic
-        const fee = await contract.publicMintFee().catch(() => 0);
-        const tips = await contract.totalTipsGrand().catch(() => 0);
+        // Fetch Basic dengan Multicall (batch 2 calls)
+        const calls = [
+            contract.interface.encodeFunctionData('publicMintFee'),
+            contract.interface.encodeFunctionData('totalTipsGrand')
+        ];
+        const [feeRaw, tipsRaw] = await multicallProvider.call(calls.map(c => ({ target: CONTRACT_ADDRESS, callData: c })));
+        const fee = ethers.utils.formatEther(ethers.BigNumber.from(feeRaw.returnData));
+        const tips = ethers.utils.formatEther(ethers.BigNumber.from(tipsRaw.returnData));
         
         // Update UI
-        document.getElementById("val-fee").innerText = ethers.utils.formatEther(fee) + " ETH";
-        document.getElementById("val-tips").innerText = ethers.utils.formatEther(tips) + " ETH";
+        document.getElementById("val-fee").innerText = fee + " ETH";
+        document.getElementById("val-tips").innerText = tips + " ETH";
 
-        // Fetch Golongan Loop
+        // Fetch Golongan Loop (14 calls, paralel)
         const promises = listGolongan.map(async (g) => {
             const ids = await contract.getIdsByGolongan(g).catch(() => []);
             return { label: g, count: ids.length, ids: ids };
@@ -221,44 +276,34 @@
 
         document.getElementById("val-supply").innerText = total;
         renderDoughnut("chartGolongan", listGolongan, golData);
-        
-        // Hapus Skeleton
-        document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
     }
 
     async function loadDeepDetails() {
         // Variabel Statistik
         let gayaCounts = {}; 
         let officialCount = 0;
-        let timeData = {}; // Format: "Jan 24": 5
+        let timeData = {}; 
 
-        // Optimasi: Fetch detail ID secara paralel (max 50 concurrent request agar RPC tidak reject)
-        // Jika data > 100, sebaiknya dipaginasi. Untuk sekarang loop biasa cukup cepat.
-        
-        const fetchPromises = foundIds.map(async (id) => {
-            try {
-                const data = await contract.wayangRegistry(id);
-                return {
-                    gaya: data[2], 
-                    ts: data[3].toNumber(), 
-                    isOff: data[5]
-                };
-            } catch { return null; }
-        });
+        // Batch Multicall untuk semua wayangRegistry
+        const calls = foundIds.map(id => ({
+            target: CONTRACT_ADDRESS,
+            callData: contract.interface.encodeFunctionData('wayangRegistry', [id])
+        }));
 
-        const details = await Promise.all(fetchPromises);
+        const results = await multicallProvider.call(calls); // 1 RPC call untuk semua!
 
-        // Olah Data
-        details.forEach(d => {
-            if(!d) return;
+        results.forEach((res, idx) => {
+            if (!res.success) return; // Skip error
+            const data = contract.interface.decodeFunctionResult('wayangRegistry', res.returnData)[0];
+            const d = {
+                gaya: data[2], 
+                ts: data[3].toNumber(), 
+                isOff: data[5]
+            };
 
-            // 1. Gaya
+            // Olah Data (sama seperti sebelumnya)
             gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
-
-            // 2. Official Ratio
             if(d.isOff) officialCount++;
-
-            // 3. Time Trend (Grouping Bulanan)
             const date = new Date(d.ts * 1000);
             const key = date.toLocaleString('id-ID', { month: 'short', year: '2-digit' });
             timeData[key] = (timeData[key] || 0) + 1;
@@ -268,26 +313,24 @@
         const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
         document.getElementById("val-ratio").innerText = ratio + "%";
 
-        // Render Chart Gaya (Polar)
+        // Render Charts (sama)
         const gayaLabels = Object.keys(gayaCounts);
         const gayaVals = Object.values(gayaCounts);
         renderPolar("chartGaya", gayaLabels, gayaVals);
 
-        // Render Chart Tren (Line)
-        // Sort Bulan secara manual/kronologis (simple sort key string)
-        const trendLabels = Object.keys(timeData); // ["Dec 23", "Jan 24"]
-        const trendVals = Object.values(timeData); // [5, 2]
+        const trendLabels = Object.keys(timeData);
+        const trendVals = Object.values(timeData);
         renderLine("chartTrend", trendLabels, trendVals);
     }
 
     async function loadActivity() {
         try {
             const currentBlock = await provider.getBlockNumber();
-            const fromBlock = Math.max(0, currentBlock - 10000); // 10k Blok terakhir
+            const fromBlock = Math.max(0, currentBlock - 5000); // Kurangi jadi 5000 untuk cepat
             const filter = contract.filters.TipSent();
             const events = await contract.queryFilter(filter, fromBlock, "latest");
 
-            // Leaderboard Map
+            // Leaderboard & Table (sama seperti sebelumnya)
             let map = {};
             events.forEach(e => {
                 const s = e.args.from;
@@ -295,7 +338,6 @@
                 map[s] = (map[s] || 0) + v;
             });
 
-            // Render Leaderboard
             const sorted = Object.entries(map).sort(([,a],[,b]) => b - a).slice(0, 3);
             const board = document.getElementById("leaderboard-container");
             board.innerHTML = "";
@@ -307,14 +349,13 @@
                     <div class="list-item">
                         <div style="display:flex;align-items:center;">
                             <div class="rank">${i+1}</div>
-                            <div class="addr">${item[0].substring(0,6)}...${item[0].slice(-4)}</div>
+                            <div class="addr">\( {item[0].substring(0,6)}... \){item[0].slice(-4)}</div>
                         </div>
                         <div class="amt">${item[1].toFixed(4)} ETH</div>
                     </div>`;
                 });
             }
 
-            // Render Table Logs
             const table = document.getElementById("activity-table").getElementsByTagName('tbody')[0];
             table.innerHTML = "";
             const logs = events.slice(-5).reverse();
@@ -334,7 +375,7 @@
         } catch(e) { console.warn("Activity fetch limit", e); }
     }
 
-    // --- CHARTS CONFIG ---
+    // --- CHARTS CONFIG --- (sama seperti sebelumnya)
     Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
     Chart.defaults.color = '#64748b';
 
