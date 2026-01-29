@@ -1032,39 +1032,63 @@
     }
         
 
-    // --- UPDATE FUNGSI FETCH UTAMA ---
+    // --- FUNGSI FETCH UTAMA (UPGRADED V2) ---
     async function fetchAndUpdate() {
-        updateProgress(0);
+        console.log("🚀 Memulai Update Data Dashboard...");
+        updateProgress(10);
         
-        // 1. Ambil Data Global & ID (Wajib)
-        const stats = await loadGlobalStats();  
-        updateProgress(40);
+        try {
+            // 1. Ambil Data Global & ID (Wajib & Paling Penting)
+            // Fungsi ini mengisi variabel 'foundIds' yang dipakai fungsi lain
+            const stats = await loadGlobalStats();  
+            updateProgress(30);
 
-        // 2. Tampilkan Wayang dari "Kulkas" (Storage) - Menggunakan ID yang barusan diambil
-        // INI PENGGANTI loadActivity() YANG LAMA
-        await loadRecentMintsFromStorage(); 
-        
-        // 3. Aktifkan Listener untuk Donasi (Mode Satpam)
-        setupLiveListeners();
+            // 2. Metode Kulkas (Recent Mints)
+            // Kita cek dulu apakah fungsinya ada, biar tidak error merah "is not defined"
+            if (typeof loadRecentMintsFromStorage === 'function') {
+                await loadRecentMintsFromStorage(); 
+            } else {
+                console.warn("⚠️ Fungsi loadRecentMintsFromStorage tidak ditemukan, melewati langkah ini.");
+            }
+            updateProgress(50);
+            
+            // 3. Aktifkan Satpam (Live Listener)
+            if (typeof setupLiveListeners === 'function') {
+                setupLiveListeners();
+            } else {
+                console.warn("⚠️ Fungsi setupLiveListeners tidak ditemukan.");
+            }
+            updateProgress(60);
 
-        // 4. Ambil Detail (Deep)
-        const deep = await loadDeepDetails(); 
-        updateProgress(100);
+            // 4. Ambil Detail (Deep Analysis & Ranking)
+            const deep = await loadDeepDetails(); 
+            updateProgress(90);
 
-        // Cache Logic (Sama seperti sebelumnya)
-        const cacheData = {
-            total: stats.total,
-            fee: stats.fee,
-            tips: stats.tips,
-            golData: stats.golData,
-            ratio: deep.ratio,
-            gayaLabels: deep.gayaLabels,
-            gayaVals: deep.gayaVals
-        };
-        setCache(cacheData);
-        renderFromCache(cacheData); 
+            // 5. Cache Logic (Simpan data agar reload berikutnya ngebut)
+            const cacheData = {
+                total: stats.total,
+                fee: stats.fee,
+                tips: stats.tips,
+                golData: stats.golData,
+                ratio: deep.ratio,
+                gayaLabels: deep.gayaLabels,
+                gayaVals: deep.gayaVals
+            };
+            
+            console.log("💾 Menyimpan data terbaru ke Cache Browser...");
+            setCache(cacheData);
+            renderFromCache(cacheData); 
+            
+            updateProgress(100);
+            console.log("✅ Dashboard berhasil diperbarui!");
+
+        } catch (error) {
+            console.error("❌ Fatal Error di fetchAndUpdate:", error);
+            // Tetap coba render apa adanya jika ada data tersisa
+            updateProgress(100);
+            alert("Terjadi kesalahan saat memuat data. Cek koneksi internet Anda.");
+        }
     }
-
             
         </script>
 
