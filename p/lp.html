@@ -871,20 +871,34 @@
         return { total, fee, tips, golData };
     }   
 
-    
+    // --- FUNGSI LOAD TOP POPULAR (ANTI-CRASH) ---
     async function loadDeepDetails() {
         console.log("Loading Top Popular List...");
+        
+        // 1. SAFETY CHECK (PENTING! Agar tidak Fatal Error)
+        // Jika foundIds belum ada isinya, kita berhenti dulu, jangan paksa .map()
+        if (typeof foundIds === 'undefined' || !foundIds || foundIds.length === 0) {
+            console.warn("⚠️ Data ID belum siap, melewati proses statistik detail.");
+            // Update UI agar tidak loading selamanya
+            const listContainer = document.getElementById("top-wayang-list");
+            if(listContainer) listContainer.innerHTML = '<div style="text-align:center; color:#aaa; padding:20px;">Menunggu data...</div>';
+            return { ratio: "0", gayaLabels: [], gayaVals: [] };
+        }
+
         let gayaCounts = {}; 
         let officialCount = 0;
         let totalLikesGlobal = 0;
 
-        // 1. Fetch Data Lengkap dari Blockchain
+        // 2. Fetch Data (Dengan Limitasi Batch Sederhana)
+        // Kita gunakan try-catch di dalam map agar satu error tidak mematikan semua
         const fetchPromises = foundIds.map(async (id) => {
             try {
-                // Ambil Data Registry & Total Likes secara paralel
+                // Gunakan contractReader jika ada (lebih stabil), jika tidak pakai contract biasa
+                const reader = (typeof contractReader !== 'undefined') ? contractReader : contract;
+
                 const [data, likesBn] = await Promise.all([
-                    contract.wayangRegistry(id),
-                    contract.totalLikes(id).catch(() => ethers.BigNumber.from(0))
+                    reader.wayangRegistry(id),
+                    reader.totalLikes(id).catch(() => ethers.BigNumber.from(0))
                 ]);
                 
                 return {
@@ -895,40 +909,44 @@
                     isOff: data[5],
                     likes: likesBn.toNumber()
                 };
-            } catch { return null; }
+            } catch (err) { 
+                return null; // Jika gagal, return null (jangan crash)
+            }
         });
 
         const details = await Promise.all(fetchPromises);
         
-        // 2. Filter Data Valid (Buang yang null)
+        // 3. Filter Data Valid
         const validDetails = details.filter(d => d !== null);
 
-        // 3. Hitung Statistik Global (Untuk Chart & Header)
+        // 4. Hitung Statistik
         validDetails.forEach(d => {
             gayaCounts[d.gaya] = (gayaCounts[d.gaya] || 0) + 1;
             if(d.isOff) officialCount++;
             totalLikesGlobal += d.likes;
         });
 
-        // 4. SORTING: Urutkan dari Likes Terbanyak (Top 20)
+        // 5. SORTING & RENDER
         const sortedByLikes = [...validDetails].sort((a, b) => b.likes - a.likes).slice(0, 20);
-
-        // 5. RENDER LIST KE HTML
         const listContainer = document.getElementById("top-wayang-list");
         
+        if (!listContainer) return { ratio: "0", gayaLabels: [], gayaVals: [] }; // Safety check elemen
+
         if (validDetails.length === 0) {
             listContainer.innerHTML = '<div style="text-align:center; color:#aaa; margin-top:20px;">Belum ada data wayang.</div>';
         } else {
             let listHtml = '<ul style="list-style: none; padding: 0; margin: 0;">';
             
             sortedByLikes.forEach((item, index) => {
-                // Tentukan warna ranking
-                let rankColor = "#64748b"; // Default abu
+                // Warna Ranking
+                let rankColor = "#64748b"; 
                 let iconRank = "";
-                
-                if(index === 0) { rankColor = "#fbc02d"; iconRank = '<i class="fas fa-trophy"></i>'; } // Emas
-                else if(index === 1) { rankColor = "#9e9e9e"; } // Perak
-                else if(index === 2) { rankColor = "#ef6c00"; } // Perunggu
+                if(index === 0) { rankColor = "#fbc02d"; iconRank = '<i class="fas fa-trophy"></i>'; }
+                else if(index === 1) { rankColor = "#9e9e9e"; }
+                else if(index === 2) { rankColor = "#ef6c00"; }
+
+                // ID Unik untuk thumbnail
+                const thumbId = `thumb-rank-${item.id}`;
 
                 listHtml += `
                 <li style="margin-bottom: 10px;">
@@ -940,11 +958,12 @@
                             </div>
                             
                             <div class="thumb-wrapper" style="width: 45px; height: 45px; min-width: 45px; border-radius: 8px; overflow: hidden; border: 1px solid #eee; background: #f9f9f9; flex-shrink: 0;">
-                                <img id="thumb-${item.id}" 
+                                <img id="${thumbId}" 
                                      src="https://via.placeholder.com/50?text=..." 
                                      alt="${item.nama}" 
                                      class="wayang-thumb"
-                                     style="width: 100%; height: 100%; object-fit: cover; display: block;">
+                                     style="width: 100%; height: 100%; object-fit: cover; display: block;"
+                                     onerror="this.src='https://via.placeholder.com/50?text=Err'">
                             </div>
                             
                             <div style="flex: 1; min-width: 0; padding-left: 10px;">
@@ -966,19 +985,18 @@
                 </li>
                 `;
                 
-                // Panggil fungsi lazy load gambar (agar tidak berat)
-                fetchThumbnail(item.id); 
+                // Panggil Lazy Load Gambar (Delay sedikit agar tidak memberatkan)
+                setTimeout(() => fetchThumbnail(item.id, thumbId), 500 + (index * 200));
             });
             listHtml += '</ul>';
             listContainer.innerHTML = listHtml;
         }
 
-        // Update Total Global di Header Card
+        // Update Total Global di Header
         if(document.getElementById("val-total-likes")) {
             document.getElementById("val-total-likes").innerText = totalLikesGlobal;
         }
 
-        // Return Data untuk Chart
         const ratio = foundIds.length > 0 ? ((officialCount / foundIds.length) * 100).toFixed(1) : "0";
         const gayaLabels = Object.keys(gayaCounts);
         const gayaVals = Object.values(gayaCounts);
@@ -986,33 +1004,39 @@
         return { ratio, gayaLabels, gayaVals };
     }
 
-    // --- FUNGSI TAMBAHAN: Fetch Gambar Kecil ---
-    async function fetchThumbnail(id) {
+    // --- FUNGSI FETCH THUMBNAIL (DIPERBAIKI) ---
+    async function fetchThumbnail(id, elementId) {
         try {
-            // Ambil Token URI
-            const uri = await contract.tokenURI(id);
-            // Convert IPFS ke HTTP Gateway (Pilih gateway umum/dedicated)
+            // Gunakan reader agar tidak perlu wallet connect
+            const reader = (typeof contractReader !== 'undefined') ? contractReader : contract;
+            
+            const uri = await reader.tokenURI(id);
+            if(!uri) return;
+
+            // Resolve Gateway
             const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
             
-            // Fetch Metadata JSON
             const response = await fetch(metadataUrl);
+            if(!response.ok) return; // Jika gagal fetch, diam saja (pakai placeholder)
+
             const metadata = await response.json();
             
-            // Ambil URL Gambar
-            let imgUrl = metadata.image || metadata.image_url;
-            imgUrl = imgUrl.replace("ipfs://", "https://ipfs.io/ipfs/"); // Convert lagi gambar
+            let rawImg = metadata.image || metadata.image_url;
+            if(!rawImg) return;
 
-            // Update src gambar di HTML
-            const imgEl = document.getElementById(`thumb-${id}`);
+            // Optimasi Gambar (WSRV)
+            const cleanImgUrl = rawImg.replace("ipfs://", "https://ipfs.io/ipfs/");
+            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanImgUrl)}&w=100&q=75&output=webp`;
+
+            const imgEl = document.getElementById(elementId);
             if(imgEl) {
-                imgEl.src = imgUrl;
+                imgEl.src = optimizedUrl;
             }
         } catch (e) {
-            // Jika gagal, biarkan placeholder atau ganti gambar default
-            console.warn(`Gagal load gambar ID ${id}`);
+            // Silent catch (jangan bikin fatal error)
+            // console.warn(`Gagal load thumbnail ID ${id}`); 
         }
     }
-
     
     // --- CHARTS CONFIG --- (sama)
     Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
