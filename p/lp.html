@@ -892,46 +892,84 @@
         }
     };
 
-    // --- FUNGSI RANDOM IMAGE FLIP CARD ---
-function injectRandomWayangToAbout() {
-    // Pastikan data ID ada
+    // --- FUNGSI RANDOM IMAGE FLIP CARD (UPGRADED: AUTO FETCH) ---
+async function injectRandomWayangToAbout() {
+    // 1. Cek apakah ada data ID
     if (!foundIds || foundIds.length === 0) return;
 
-    // Elemen target
-    const img1 = document.getElementById('random-wayang-1');
-    const lbl1 = document.getElementById('label-wayang-1');
-    const img2 = document.getElementById('random-wayang-2');
-    const lbl2 = document.getElementById('label-wayang-2');
+    // 2. Fungsi Helper untuk pilih ID Acak
+    const getRandomId = () => foundIds[Math.floor(Math.random() * foundIds.length)];
 
-    // Fungsi helper ambil random
-    const getRandomData = () => {
-        // Ambil index acak
-        const randomId = foundIds[Math.floor(Math.random() * foundIds.length)];
-        
-        // Coba ambil gambar dari Cache LocalStorage (yg disimpan fungsi galeri)
-        let src = localStorage.getItem(`img_v6_${randomId}`);
-        
-        // Jika tidak ada di cache, pakai placeholder tapi tetap tampilkan ID
-        if (!src) src = "https://via.placeholder.com/400x400?text=Wayang+" + randomId;
-        
-        return { id: randomId, src: src };
-    };
+    // 3. Pilih 2 ID Acak (Pastikan beda jika memungkinkan)
+    let id1 = getRandomId();
+    let id2 = getRandomId();
+    // Coba cari ID lain kalau kebetulan sama
+    while(id1 === id2 && foundIds.length > 1) {
+        id2 = getRandomId();
+    }
 
-    // Set Data ke Card 1
-    const data1 = getRandomData();
-    if(img1) img1.src = data1.src;
-    if(lbl1) lbl1.innerText = data1.id;
+    // 4. Update Kartu 1
+    updateCardData(id1, 'random-wayang-1', 'label-wayang-1');
 
-    // Set Data ke Card 2 (Pastikan beda ID kalau bisa, tapi random tidak apa2)
-    const data2 = getRandomData();
-    if(img2) img2.src = data2.src;
-    if(lbl2) lbl2.innerText = data2.id;
+    // 5. Update Kartu 2
+    updateCardData(id2, 'random-wayang-2', 'label-wayang-2');
 }
 
-// Panggil fungsi ini setelah data 'foundIds' terisi
-// (Biasanya di akhir fetchAndUpdate)
-// Tambahkan baris ini di dalam fetchAndUpdate Anda, di paling bawah:
-// injectRandomWayangToAbout();
+// --- FUNGSI PEKERJA (WORKER) UNTUK DOWNLOAD GAMBAR ---
+async function updateCardData(id, imgElId, lblElId) {
+    const imgEl = document.getElementById(imgElId);
+    const lblEl = document.getElementById(lblElId);
+
+    if (!imgEl || !lblEl) return;
+
+    // Set Label ID
+    lblEl.innerText = id;
+
+    // A. CEK CACHE DULU (Paling Cepat)
+    let cachedSrc = (typeof GLOBAL_IMG_CACHE !== 'undefined' ? GLOBAL_IMG_CACHE[id] : null) 
+                    || localStorage.getItem(`img_v6_${id}`);
+
+    if (cachedSrc) {
+        // Jika ada di cache, langsung pasang
+        imgEl.src = cachedSrc;
+        return;
+    }
+
+    // B. JIKA TIDAK ADA DI CACHE -> DOWNLOAD DARI BLOCKCHAIN
+    try {
+        // Pasang loading spinner sementara
+        imgEl.src = "https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif"; 
+
+        // 1. Ambil URI dari Contract
+        // Gunakan contractReader jika ada agar tidak perlu wallet connect
+        const reader = (typeof contractReader !== 'undefined') ? contractReader : contract;
+        const uri = await reader.tokenURI(id);
+
+        // 2. Ambil Metadata
+        const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+        const res = await fetch(metadataUrl);
+        const data = await res.json();
+
+        // 3. Ambil URL Gambar Asli
+        let rawImg = data.image || data.image_url;
+        if (rawImg) {
+            // 4. Optimasi Gambar (WSRV)
+            const cleanUrl = rawImg.replace("ipfs://", "https://ipfs.io/ipfs/");
+            const finalUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=400&q=80&output=webp`;
+
+            // 5. Update Gambar
+            imgEl.src = finalUrl;
+
+            // 6. Simpan ke Cache (Supaya besok instan)
+            if (typeof GLOBAL_IMG_CACHE !== 'undefined') GLOBAL_IMG_CACHE[id] = finalUrl;
+            localStorage.setItem(`img_v6_${id}`, finalUrl);
+        }
+    } catch (e) {
+        console.warn(`Gagal load random wayang ID ${id}`, e);
+        // Jika gagal total, pakai placeholder
+        imgEl.src = "https://via.placeholder.com/400x400?text=Wayang+" + id;
+    }
+}
 
     // Fungsi Cache
     function getCache() {
