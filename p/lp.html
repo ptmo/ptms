@@ -247,7 +247,7 @@
     pointer-events: none;
 }
 
-/* --- WADAH BELAKANG (Fixed) --- */
+/* --- WADAH BELAKANG --- */
 .flip-back {
     background: linear-gradient(135deg, #f6f9ff 0%, #c4d7e8 100%);
     transform: rotateY(180deg);
@@ -258,80 +258,79 @@
     position: relative; 
     padding: 0;
     overflow: hidden; 
+    
+    /* PENTING: Hilangkan blok biru saat diklik di Android/iOS */
+    -webkit-tap-highlight-color: transparent; 
 }
 
-/* --- EFEK 1: HOVER SHINE (TANPA BLUR) --- */
+/* --- EFEK 1: HOVER SHINE (DIPERBAIKI) --- */
 .flip-back::after {
     content: '';
     position: absolute;
     inset: 0;
     
-    /* Gradient Kilau yang Lebih Transparan (Soft) */
+    /* Gradient Kilau: Transparan -> Putih -> Transparan */
     background: linear-gradient(
         125deg,
-        rgba(255, 255, 255, 0) 30%,    /* Bening */
-        rgba(255, 255, 255, 0.4) 50%,  /* Kilau Putih */
-        rgba(255, 255, 255, 0) 70%     /* Bening */
+        rgba(255, 255, 255, 0) 40%,    
+        rgba(255, 255, 255, 0.5) 50%,  
+        rgba(255, 255, 255, 0) 60%     
     );
-    background-size: 200% 200%;
     
-    /* PENTING: HAPUS 'blur' AGAR GAMBAR JELAS */
-    /* Kita ganti dengan Saturate saja agar warna lebih tajam saat disentuh */
-    backdrop-filter: saturate(120%); 
-    -webkit-backdrop-filter: saturate(120%);
+    /* Ukuran Background diperbesar agar bisa "jalan" */
+    background-size: 300% 300%;
     
-    /* FIX GHOSTING: Gunakan visibility agar benar-benar hilang saat diam */
+    /* POSISI AWAL: Di luar area (Kanan Bawah) */
+    background-position: 150% 150%; 
+    
+    /* Filter agar warna di bawahnya lebih "Pop" saat kilau lewat */
+    backdrop-filter: saturate(150%);
+    -webkit-backdrop-filter: saturate(150%);
+    
     opacity: 0;
-    visibility: hidden; 
+    transition: all 0.6s ease; /* Durasi kilau lewat */
     
-    transition: all 0.5s ease;
     z-index: 15;
     pointer-events: none;
 }
 
-/* Trigger Hover */
-.about-card-3d:hover .flip-back::after {
+/* --- TRIGGER ANIMASI (HOVER & ACTIVE/KLIK) --- */
+/* Gunakan :active agar di HP efeknya muncul saat jari menempel */
+.about-card-3d:hover .flip-back::after,
+.about-card-3d:active .flip-back::after {
     opacity: 1;
-    visibility: visible; /* Munculkan hanya saat disentuh */
-    background-position: 0% 0%; /* Gerakan kilau lewat */
+    visibility: visible;
+    
+    /* POSISI AKHIR: Geser ke Kiri Atas (Efek Swipe) */
+    background-position: 0% 0%; 
 }
 
 /* --- EFEK 2: KLIK SUPERNOVA --- */
-
-/* Elemen partikel ledakan (akan dibuat via JS) */
 .supernova-burst {
     position: absolute;
-    top: 50%; /* Mulai dari tengah */
+    top: 50%; 
     left: 50%;
-    width: 10px; /* Ukuran awal kecil */
-    height: 10px;
+    width: 20px; 
+    height: 20px;
     border-radius: 50%;
     
-    /* Inti cahaya putih terang yang menyebar ke oranye/transparan */
-    background: radial-gradient(circle, rgba(255,255,255,1) 10%, rgba(255,200,50,0.8) 40%, rgba(255,100,0,0) 70%);
+    /* Warna ledakan lebih intens */
+    background: radial-gradient(circle, #ffffff 10%, #ffcc00 50%, transparent 70%);
     
-    /* Posisi tengah sempurna dan scale awal 0 */
     transform: translate(-50%, -50%) scale(0);
+    animation: supernovaAnim 0.6s cubic-bezier(0, 0.9, 0.57, 1) forwards;
     
-    /* Jalankan animasi sekali */
-    animation: supernovaAnim 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94) forwards;
+    /* Z-INDEX SANGAT PENTING: Harus lebih tinggi dari link overlay (z-20) */
+    /* Agar ledakan terlihat DI ATAS link, bukan di bawahnya */
+    z-index: 30; 
     
-    z-index: 18; /* Di atas efek glass, di bawah link overlay */
-    pointer-events: none; /* Tidak mengganggu klik */
-    mix-blend-mode: screen; /* Agar cahayanya terlihat 'menyatu' dan terang */
+    pointer-events: none; 
+    mix-blend-mode: screen; 
 }
 
-/* Definisi Keyframes Animasi */
 @keyframes supernovaAnim {
-    0% {
-        transform: translate(-50%, -50%) scale(0);
-        opacity: 1;
-    }
-    100% {
-        /* Membesar drastis (scale 40x) dan menghilang */
-        transform: translate(-50%, -50%) scale(40);
-        opacity: 0;
-    }
+    0% { transform: translate(-50%, -50%) scale(0); opacity: 1; }
+    100% { transform: translate(-50%, -50%) scale(30); opacity: 0; }
 }
 
 /* --- GAMBAR (Full & Centered) --- */
@@ -353,7 +352,7 @@
     margin-bottom: 15px; /* Jarak dari bawah dikurangi */
     padding: 12px 15px; /* Padding lebih kecil agar hemat ruang */
     
-    background: rgba(255, 255, 255, 0.75); /* Sedikit lebih solid agar teks kecil terbaca */
+    background: rgba(255, 255, 255, 0.25); /* Sedikit lebih solid agar teks kecil terbaca */
     backdrop-filter: blur(8px);
     -webkit-backdrop-filter: blur(8px);
     border-radius: 12px;
@@ -574,7 +573,7 @@
     z-index: 5; /* Di bawah metadata, tapi di atas background */
     
     /* Styling Icon */
-    font-size: 1.5rem; /* Ukuran Besar */
+    font-size: 1rem; /* Ukuran Besar */
     color: #7385a5;  /* Warna Abu-abu Elegan */
     filter: drop-shadow(0 2px 5px rgba(0,0,0,0.1));
     
@@ -1751,25 +1750,31 @@ async function fetchAndUpdate() {
             });
         }
 
-        // --- B. Efek Supernova pada Kartu 3D ---
-        const cards = document.querySelectorAll('.about-card-3d');
-        cards.forEach(card => {
-            card.addEventListener('click', function(e) {
-                // Cari sisi belakang kartu
-                const targetBack = this.querySelector('.flip-back');
-                if (!targetBack) return;
+    // --- B. Efek Supernova pada Kartu 3D ---
+    const cards = document.querySelectorAll('.about-card-3d');
+    
+    cards.forEach(card => {
+        // Gunakan 'mousedown' atau 'pointerdown' untuk respon instan (lebih cepat dari click)
+        card.addEventListener('pointerdown', function(e) {
+            const targetBack = this.querySelector('.flip-back');
+            if (!targetBack) return;
 
-                // Buat elemen ledakan
-                const burst = document.createElement('div');
-                burst.classList.add('supernova-burst');
-                targetBack.appendChild(burst);
+            // Buat elemen
+            const burst = document.createElement('div');
+            burst.classList.add('supernova-burst');
+            
+            // Tentukan posisi ledakan sesuai titik sentuh (Opsional, tapi keren)
+            // Atau biarkan default (tengah) sesuai CSS jika mau simpel.
+            // Di sini kita pakai default tengah sesuai CSS Anda.
 
-                // Hapus setelah animasi selesai (800ms)
-                setTimeout(() => {
-                    burst.remove();
-                }, 800);
-            });
+            targetBack.appendChild(burst);
+
+            // Hapus elemen
+            setTimeout(() => {
+                burst.remove();
+            }, 600); // Sesuaikan dengan durasi animasi CSS (0.6s)
         });
+    });
 
         // --- C. Tahun Copyright ---
         const yearSpan = document.getElementById("year");
