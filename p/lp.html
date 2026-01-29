@@ -173,30 +173,113 @@
 
         /* --- 6. ABOUT (Split Layout) --- */
         
-        .about-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 80px; align-items: center; }
-        .about-card {
-            background: var(--surface); padding: 50px; border-radius: var(--radius-box);
-            box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,0.5);
-            position: relative; overflow: hidden;
-        }
+        /* Container Utama */
+.about-grid { 
+    display: grid; 
+    grid-template-columns: 1fr 1fr; 
+    gap: 80px; 
+    align-items: center; 
+    perspective: 1500px; /* Memberikan kedalaman 3D */
+}
 
-        .about-card::after {
-            content: ''; position: absolute; bottom: 0; right: 0; width: 150px; height: 150px;
-            background: linear-gradient(135deg, transparent, rgba(197, 160, 89, 0.1));
-            border-radius: 50% 0 0 0;
-        }
+/* Wrapper Kartu */
+.about-card-3d {
+    background: transparent;
+    width: 100%;
+    height: 320px; /* Tinggi harus fix agar flip sempurna */
+    cursor: pointer;
+}
 
-        .about-text {
-            background: linear-gradient(135deg, #ffffff 0%, #e3e7ed 90%); padding: 50px; border-radius: var(--radius-box);
-            box-shadow: var(--shadow-lg); border: 1px solid rgba(255,255,255,0.5);
-            position: relative; overflow: hidden;
-        }
+/* Bagian yang Berputar (Inner) */
+.flip-inner {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    text-align: left;
+    transition: transform 0.8s cubic-bezier(0.175, 0.885, 0.32, 1.275); /* Efek Soft Bounce */
+    transform-style: preserve-3d;
+}
 
-        .about-text::after {
-            content: ''; position: absolute; bottom: 0; right: 0; width: 150px; height: 150px;
-            background: linear-gradient(135deg, transparent, rgba(197, 160, 89, 0.1));
-            border-radius: 50% 0 0 0;
-        }
+/* Trigger Hover */
+.about-card-3d:hover .flip-inner {
+    transform: rotateY(180deg);
+}
+
+/* Style Umum Depan & Belakang */
+.flip-face {
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    -webkit-backface-visibility: hidden;
+    backface-visibility: hidden;
+    border-radius: var(--radius-box, 20px);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+    border: 1px solid rgba(255,255,255,0.6);
+    overflow: hidden;
+}
+
+/* Tampilan Depan (Konten Teks) */
+.flip-front {
+    background: var(--surface, #fff); /* Fallback putih */
+    background: linear-gradient(135deg, #ffffff 0%, #f3f6fa 100%);
+    padding: 50px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+}
+
+/* Dekorasi Sudut (Pengganti ::after lama) */
+.corner-decor {
+    position: absolute; bottom: 0; right: 0; width: 120px; height: 120px;
+    background: linear-gradient(135deg, transparent 50%, rgba(197, 160, 89, 0.15) 100%);
+    border-radius: 100% 0 0 0;
+    pointer-events: none;
+}
+
+/* Tampilan Belakang (Gambar Wayang) */
+.flip-back {
+    background-color: #2c3e50;
+    transform: rotateY(180deg); /* Sudah diputar duluan */
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+}
+
+/* Gambar Wayang Full Cover */
+.wayang-bg {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    filter: brightness(0.6); /* Gelapkan sedikit agar teks terbaca */
+    transition: transform 6s ease; /* Zoom lambat saat dilihat */
+}
+
+.about-card-3d:hover .wayang-bg {
+    transform: scale(1.1);
+}
+
+/* Overlay Teks di Belakang */
+.overlay-back {
+    position: absolute;
+    z-index: 2;
+    text-align: center;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    backdrop-filter: blur(4px);
+    padding: 10px 20px;
+    background: rgba(255,255,255,0.1);
+    border-radius: 30px;
+    border: 1px solid rgba(255,255,255,0.2);
+}
+
+/* Responsif HP */
+@media (max-width: 768px) {
+    .about-grid { grid-template-columns: 1fr; gap: 30px; }
+    .about-card-3d { height: 280px; }
+    .flip-front { padding: 30px; }
+}
 
         /* --- 7. FEATURES (Bento Grid Style) --- */
         .bento-grid {
@@ -475,19 +558,49 @@
     </div>
 
     <section id="about" style="padding-top: 15px;">
-        <div class="container about-grid">
-            <div class="about-card" data-aos="fade-right">
-                <i class="fas fa-scroll" style="font-size: 2rem; color: var(--primary); margin-bottom: 25px;"></i>
-                <h3 style="font-size: 1.5rem; color: var(--text-main);">Preservasi Digital</h3>
-                <p style="font-size: 12px; font-weight: bold; color: #666;">Teknologi Blockchain memastikan setiap data budaya tercatat permanen tanpa risiko manipulasi atau penghapusan sepihak.</p>
-            </div>
+    <div class="container about-grid">
+        
+        <div class="about-card-3d" data-aos="fade-right">
+            <div class="flip-inner">
+                <div class="flip-face flip-front">
+                    <i class="fas fa-scroll" style="font-size: 2rem; color: var(--primary); margin-bottom: 25px;"></i>
+                    <h3 style="font-size: 1.5rem; color: var(--text-main);">Preservasi Digital</h3>
+                    <p style="font-size: 12px; font-weight: bold; color: #666;">Teknologi Blockchain memastikan setiap data budaya tercatat permanen tanpa risiko manipulasi.</p>
+                    
+                    <div class="corner-decor"></div>
+                </div>
 
-            <div class="about-card" data-aos="fade-left">
-                <i class="fas fa-landmark" style="font-size: 2rem; color: var(--primary); margin-bottom: 25px;"></i>
-                <h3 style="font-size: 1.5rem; color: var(--text-main);">Arsip Digital Galeri</h3>
-                <p style="font-size: 12px; font-weight: bold; color: #666;">Wayang Nusantara Platform arsip digital galeri, yang tersimpan <strong>Immutable</strong> di teknologi futuristik yang terverifikasi.</p>
-            </div>       
+                <div class="flip-face flip-back">
+                    <img id="random-wayang-1" class="wayang-bg" src="https://via.placeholder.com/300x300?text=Loading..." alt="Wayang Art">
+                    <div class="overlay-back">
+                        <span style="color:#fff; font-weight:bold; letter-spacing:1px;">Koleksi #<span id="label-wayang-1">?</span></span>
+                        <i class="fas fa-external-link-alt" style="font-size:0.8rem; margin-top:5px; opacity:0.7;"></i>
+                    </div>
+                </div>
+            </div>
         </div>
+
+        <div class="about-card-3d" data-aos="fade-left">
+            <div class="flip-inner">
+                <div class="flip-face flip-front">
+                    <i class="fas fa-landmark" style="font-size: 2rem; color: var(--primary); margin-bottom: 25px;"></i>
+                    <h3 style="font-size: 1.5rem; color: var(--text-main);">Arsip Digital Galeri</h3>
+                    <p style="font-size: 12px; font-weight: bold; color: #666;">Wayang Nusantara Platform arsip digital galeri, yang tersimpan <strong>Immutable</strong> dan terverifikasi.</p>
+                    
+                    <div class="corner-decor"></div>
+                </div>
+
+                <div class="flip-face flip-back">
+                    <img id="random-wayang-2" class="wayang-bg" src="https://via.placeholder.com/300x300?text=Loading..." alt="Wayang Art">
+                    <div class="overlay-back">
+                        <span style="color:#fff; font-weight:bold; letter-spacing:1px;">Koleksi #<span id="label-wayang-2">?</span></span>
+                        <i class="fas fa-external-link-alt" style="font-size:0.8rem; margin-top:5px; opacity:0.7;"></i>
+                    </div>
+                </div>
+            </div>
+        </div>       
+
+    </div>
     </section>
 
     <section id="features" style="padding-top: 5px;">
@@ -778,6 +891,47 @@
             document.querySelectorAll('.skeleton').forEach(el => el.classList.remove('skeleton'));
         }
     };
+
+    // --- FUNGSI RANDOM IMAGE FLIP CARD ---
+function injectRandomWayangToAbout() {
+    // Pastikan data ID ada
+    if (!foundIds || foundIds.length === 0) return;
+
+    // Elemen target
+    const img1 = document.getElementById('random-wayang-1');
+    const lbl1 = document.getElementById('label-wayang-1');
+    const img2 = document.getElementById('random-wayang-2');
+    const lbl2 = document.getElementById('label-wayang-2');
+
+    // Fungsi helper ambil random
+    const getRandomData = () => {
+        // Ambil index acak
+        const randomId = foundIds[Math.floor(Math.random() * foundIds.length)];
+        
+        // Coba ambil gambar dari Cache LocalStorage (yg disimpan fungsi galeri)
+        let src = localStorage.getItem(`img_v6_${randomId}`);
+        
+        // Jika tidak ada di cache, pakai placeholder tapi tetap tampilkan ID
+        if (!src) src = "https://via.placeholder.com/400x400?text=Wayang+" + randomId;
+        
+        return { id: randomId, src: src };
+    };
+
+    // Set Data ke Card 1
+    const data1 = getRandomData();
+    if(img1) img1.src = data1.src;
+    if(lbl1) lbl1.innerText = data1.id;
+
+    // Set Data ke Card 2 (Pastikan beda ID kalau bisa, tapi random tidak apa2)
+    const data2 = getRandomData();
+    if(img2) img2.src = data2.src;
+    if(lbl2) lbl2.innerText = data2.id;
+}
+
+// Panggil fungsi ini setelah data 'foundIds' terisi
+// (Biasanya di akhir fetchAndUpdate)
+// Tambahkan baris ini di dalam fetchAndUpdate Anda, di paling bawah:
+// injectRandomWayangToAbout();
 
     // Fungsi Cache
     function getCache() {
@@ -1231,6 +1385,10 @@
             
             updateProgress(100);
             console.log("✅ Dashboard berhasil diperbarui!");
+
+            if (typeof injectRandomWayangToAbout === 'function') {
+                injectRandomWayangToAbout();
+            }
 
         } catch (error) {
             console.error("❌ Fatal Error di fetchAndUpdate:", error);
