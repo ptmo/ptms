@@ -846,6 +846,8 @@
     let foundIds = []; 
     const CACHE_KEY = 'putramas_data_cache';
     const CACHE_EXPIRY = 5 * 60 * 1000; // 5 menit
+    const MY_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+        
 
     // --- INIT (Jalan Otomatis) ---
     window.onload = async () => {
@@ -892,98 +894,96 @@
         }
     };
 
-    // --- FUNGSI UPDATE GAMBAR ABOUT (DIRECT FETCH / NO CACHE READ) ---
+// --- FUNGSI UTAMA: RANDOM IMAGE ABOUT ---
 async function injectRandomWayangToAbout() {
-    console.log("🎲 Mengambil Random Wayang untuk Kartu About...");
+    console.log("🎲 Mengambil Random Wayang via Pinata Gateway...");
 
     // 1. Cek Data ID
     if (!foundIds || foundIds.length === 0) {
-        console.warn("⚠️ Data ID belum siap. Mencoba lagi nanti...");
-        // Coba lagi dalam 2 detik jika data belum siap
+        // Coba lagi nanti jika data belum siap
         setTimeout(injectRandomWayangToAbout, 2000); 
         return;
     }
 
-    // 2. Pilih 2 ID Acak yang Berbeda
+    // 2. Helper Random ID
     const getRandomId = () => foundIds[Math.floor(Math.random() * foundIds.length)];
     
+    // 3. Pilih 2 ID Unik
     let id1 = getRandomId();
     let id2 = getRandomId();
-    
-    // Pastikan ID beda (looping max 5x biar ga hang)
     let attempts = 0;
-    while (id1 === id2 && attempts < 5) {
+    while (id1 === id2 && attempts < 10) {
         id2 = getRandomId();
         attempts++;
     }
 
-    // 3. Jalankan Fetcher Paralel (Biar cepat)
-    // Kita tidak pakai 'await' di sini agar tidak memblokir UI utama
+    // 4. Eksekusi Fetcher
     fetchAndDisplayWayang(id1, 'random-wayang-1', 'label-wayang-1');
     fetchAndDisplayWayang(id2, 'random-wayang-2', 'label-wayang-2');
 }
 
-// --- FUNGSI PENGAMBIL DATA (WORKER) ---
+// --- FUNGSI WORKER (PINATA + WSRV) ---
 async function fetchAndDisplayWayang(id, imgElementId, labelElementId) {
     const imgEl = document.getElementById(imgElementId);
     const lblEl = document.getElementById(labelElementId);
 
     if (!imgEl) return;
 
-    // A. Tampilkan State Loading & Label ID
+    // A. Setup Tampilan Awal
     if(lblEl) lblEl.innerText = id;
-    imgEl.style.opacity = "0.5"; // Redupkan saat loading
+    imgEl.style.opacity = "0.5"; 
+    // Loader sementara
     imgEl.src = "https://cdnjs.cloudflare.com/ajax/libs/galleriffic/2.0.1/css/loader.gif"; 
 
     try {
-        // B. TANYA BLOCKCHAIN (tokenURI)
-        // Gunakan contractReader (public RPC) jika ada, agar stabil
+        // B. Resolve Token URI
         const reader = (typeof contractReader !== 'undefined') ? contractReader : contract;
-        
         const uri = await reader.tokenURI(id);
+        
         if(!uri) throw new Error("URI Kosong");
 
-        // C. FETCH METADATA JSON
-        // Gunakan gateway IPFS.IO yang standar
-        const metadataUrl = uri.replace("ipfs://", "https://ipfs.io/ipfs/");
+        // C. Ambil Metadata JSON (Via PINATA Gateway)
+        // Mengganti ipfs:// dengan gateway pribadi Anda
+        const metadataUrl = uri.replace("ipfs://", MY_GATEWAY);
         
         const res = await fetch(metadataUrl);
-        if(!res.ok) throw new Error("Gagal ambil JSON");
+        if(!res.ok) throw new Error("Gagal ambil Metadata");
         
         const data = await res.json();
         const rawImg = data.image || data.image_url;
 
         if (rawImg) {
-            // D. OPTIMASI GAMBAR (WSRV.NL) - INI KUNCINYA
-            // Kita pakai proxy ini agar: Cepat, Format WebP, dan Bypass CORS
-            const cleanUrl = rawImg.replace("ipfs://", "https://ipfs.io/ipfs/");
-            const robustUrl = `https://wsrv.nl/?url=${encodeURIComponent(cleanUrl)}&w=400&q=80&output=webp`;
+            // D. Proses Gambar (PINATA -> WSRV)
+            // 1. Dapatkan URL Gambar Pinata (High Quality tapi Besar)
+            const pinataImgUrl = rawImg.replace("ipfs://", MY_GATEWAY);
 
-            // E. UPDATE GAMBAR
-            // Preload dulu di memori agar munculnya mulus
+            // 2. Oper ke WSRV untuk Resize & Convert ke WebP (Agar ringan di browser)
+            // Kita minta WSRV mengambil gambar DARI Pinata (bukan dari public ipfs yg lemot)
+            const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(pinataImgUrl)}&w=400&q=80&output=webp`;
+
+            // E. Tampilkan
             const tempImg = new Image();
-            tempImg.src = robustUrl;
+            tempImg.src = optimizedUrl;
             
             tempImg.onload = () => {
-                imgEl.src = robustUrl;
-                imgEl.style.opacity = "1"; // Terangkan kembali
+                imgEl.src = optimizedUrl;
+                imgEl.style.opacity = "1";
                 
-                // Opsional: Tetap simpan ke cache untuk fitur lain (Galeri), 
-                // tapi fitur About ini tidak membacanya (sesuai request).
-                if (typeof GLOBAL_IMG_CACHE !== 'undefined') GLOBAL_IMG_CACHE[id] = robustUrl;
-                localStorage.setItem(`img_v6_${id}`, robustUrl);
+                // Simpan ke cache global untuk fitur lain
+                if (typeof GLOBAL_IMG_CACHE !== 'undefined') GLOBAL_IMG_CACHE[id] = optimizedUrl;
             };
             
             tempImg.onerror = () => {
-                // Fallback jika proxy gagal
-                imgEl.src = cleanUrl; 
+                console.warn("WSRV Gagal, Fallback ke Raw Pinata");
+                // Jika optimasi gagal, pakai gambar asli dari Pinata (tetap cepat)
+                imgEl.src = pinataImgUrl;
                 imgEl.style.opacity = "1";
             };
         }
 
     } catch (error) {
-        console.warn(`Gagal fetch About ID ${id}:`, error);
-        // Fallback Placeholder jika error
+        console.warn(`Gagal fetch ID ${id}:`, error);
+        // Fallback Placeholder
         imgEl.src = `https://via.placeholder.com/400x400/2c3e50/ffffff?text=Wayang+#${id}`;
         imgEl.style.opacity = "1";
     }
