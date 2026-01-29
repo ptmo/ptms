@@ -1252,17 +1252,50 @@ async function fetchAndDisplayWayang(id, imgElementId, labelElementId) {
         }
     }
     
-    // --- CHARTS CONFIG --- (sama)
-    Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
-    Chart.defaults.color = '#64748b';
+    // --- CHARTS CONFIG ---
+Chart.defaults.font.family = "'Plus Jakarta Sans', sans-serif";
+Chart.defaults.color = '#64748b';
 
-    function renderDoughnut(id, lbl, dat) {
-        new Chart(document.getElementById(id), {
-            type: 'doughnut',
-            data: { labels: lbl, datasets: [{ data: dat, backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'], borderWidth:0 }] },
-            options: { maintainAspectRatio: false, plugins: { legend: { display: false } } }
-        });
+function renderDoughnut(id, lbl, dat) {
+    const canvasElement = document.getElementById(id);
+    
+    // Safety check: Pastikan elemen canvas ada
+    if (!canvasElement) return;
+
+    // --- PERBAIKAN UTAMA: HANCURKAN CHART LAMA ---
+    // Chart.getChart() mengambil instance chart yang nempel di canvas ini
+    const existingChart = Chart.getChart(canvasElement);
+    if (existingChart) {
+        existingChart.destroy(); // Hapus bersih chart lama
     }
+    // ---------------------------------------------
+
+    // Baru gambar chart baru
+    new Chart(canvasElement, {
+        type: 'doughnut',
+        data: { 
+            labels: lbl, 
+            datasets: [{ 
+                data: dat, 
+                backgroundColor: ['#7385a5', '#889bbd', '#9db1d5', '#b2c7ed', '#c7ddff', '#5c6a84', '#a6b4cd'], 
+                borderWidth: 0 
+            }] 
+        },
+        options: { 
+            maintainAspectRatio: false, 
+            plugins: { 
+                legend: { display: false },
+                tooltip: {
+                    callbacks: {
+                        label: function(context) {
+                            return ' ' + context.label + ': ' + context.raw;
+                        }
+                    }
+                }
+            } 
+        }
+    });
+}
 
     function renderPolar(id, lbl, dat) {
         new Chart(document.getElementById(id), {
@@ -1392,39 +1425,45 @@ async function fetchAndDisplayWayang(id, imgElementId, labelElementId) {
     }
         
 
-    // --- FUNGSI FETCH UTAMA (UPGRADED V2) ---
-    async function fetchAndUpdate() {
-        console.log("🚀 Memulai Update Data Dashboard...");
-        updateProgress(10);
+    // --- FUNGSI FETCH UTAMA (FIXED & ROBUST) ---
+async function fetchAndUpdate() {
+    console.log("🚀 Memulai Update Data Dashboard...");
+    updateProgress(10);
+    
+    try {
+        // 1. Ambil Data Global & ID (Wajib)
+        // Fungsi ini mengisi variabel 'foundIds'
+        const stats = await loadGlobalStats();  
+        updateProgress(30);
+
+        // --- UPDATE 1: PINDAHKAN GAMBAR KE SINI ---
+        // Panggil gambar SEGERA setelah kita punya ID.
+        // Jadi kalaupun Chart di bawah error, gambar di kartu About TETAP MUNCUL.
+        if (typeof injectRandomWayangToAbout === 'function') {
+            injectRandomWayangToAbout();
+        }
+        // ------------------------------------------
+
+        // 2. Metode Kulkas (Recent Mints)
+        if (typeof loadRecentMintsFromStorage === 'function') {
+            await loadRecentMintsFromStorage(); 
+        } else {
+            console.warn("⚠️ Fungsi loadRecentMintsFromStorage tidak ditemukan.");
+        }
+        updateProgress(50);
         
+        // 3. Aktifkan Satpam (Live Listener)
+        if (typeof setupLiveListeners === 'function') {
+            setupLiveListeners();
+        }
+        updateProgress(60);
+
+        // 4. Ambil Detail & Render Grafik (Bungkus Try-Catch Sendiri)
         try {
-            // 1. Ambil Data Global & ID (Wajib & Paling Penting)
-            // Fungsi ini mengisi variabel 'foundIds' yang dipakai fungsi lain
-            const stats = await loadGlobalStats();  
-            updateProgress(30);
-
-            // 2. Metode Kulkas (Recent Mints)
-            // Kita cek dulu apakah fungsinya ada, biar tidak error merah "is not defined"
-            if (typeof loadRecentMintsFromStorage === 'function') {
-                await loadRecentMintsFromStorage(); 
-            } else {
-                console.warn("⚠️ Fungsi loadRecentMintsFromStorage tidak ditemukan, melewati langkah ini.");
-            }
-            updateProgress(50);
-            
-            // 3. Aktifkan Satpam (Live Listener)
-            if (typeof setupLiveListeners === 'function') {
-                setupLiveListeners();
-            } else {
-                console.warn("⚠️ Fungsi setupLiveListeners tidak ditemukan.");
-            }
-            updateProgress(60);
-
-            // 4. Ambil Detail (Deep Analysis & Ranking)
             const deep = await loadDeepDetails(); 
             updateProgress(90);
 
-            // 5. Cache Logic (Simpan data agar reload berikutnya ngebut)
+            // Cache Logic
             const cacheData = {
                 total: stats.total,
                 fee: stats.fee,
@@ -1437,22 +1476,33 @@ async function fetchAndDisplayWayang(id, imgElementId, labelElementId) {
             
             console.log("💾 Menyimpan data terbaru ke Cache Browser...");
             setCache(cacheData);
-            renderFromCache(cacheData); 
+            renderFromCache(cacheData); // Ini memanggil renderDoughnut
             
-            updateProgress(100);
-            console.log("✅ Dashboard berhasil diperbarui!");
+        } catch (chartError) {
+            console.warn("⚠️ Gagal render grafik (Data utama aman):", chartError);
+            // Jangan throw error, biarkan lanjut ke finish
+        }
 
-            if (typeof injectRandomWayangToAbout === 'function') {
-                injectRandomWayangToAbout();
-            }
+        // --- FINISHING (SUKSES) ---
+        updateProgress(100);
+        console.log("✅ Dashboard berhasil diperbarui!");
 
-        } catch (error) {
-            console.error("❌ Fatal Error di fetchAndUpdate:", error);
-            // Tetap coba render apa adanya jika ada data tersisa
-            updateProgress(100);
-            showToast("jaringan Terhubung. Selamat Menjelajah.", 'success', 1000);
+        // Toast Sukses di sini (Bukan di catch)
+        if(typeof showToast === 'function') {
+            showToast("Jaringan Terhubung. Selamat Menjelajah.", 'success', 2000);
+        }
+
+    } catch (fatalError) {
+        // --- HANDLING FATAL ERROR ---
+        console.error("❌ Fatal Error di fetchAndUpdate:", fatalError);
+        updateProgress(100);
+        
+        // Toast Error/Warning
+        if(typeof showToast === 'function') {
+            showToast("Koneksi lambat, data tidak lengkap.", 'warning', 3000);
         }
     }
+}
             
         </script>
 
