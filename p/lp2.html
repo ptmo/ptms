@@ -190,7 +190,7 @@ img {
 
 .mlebet:hover,
 .tandur:hover {
-    background-color: var(--primary);
+    background: var(--primary);
     color: #fff;
     transform: translateY(-2px);
     box-shadow: 0 10px 24px rgba(0, 0, 0, 0.15);
@@ -874,7 +874,115 @@ img {
         border-color: var(--primary);
     }
 
-    
+    /* --- CUSTOM LANGUAGE DROPDOWN --- */
+.custom-dropdown {
+    position: relative;
+    display: inline-block;
+    margin-right: 15px;
+    font-family: 'Plus Jakarta Sans', sans-serif;
+}
+
+/* Tombol Utama (Yang terlihat) */
+.dropdown-selected {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px 16px;
+    border-radius: 50px;
+    border: 2px solid var(--primary);
+    color: var(--primary);
+    font-weight: 700;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    background: rgba(255, 255, 255, 0.5); /* Semi transparan */
+    backdrop-filter: blur(5px);
+}
+
+.dropdown-selected:hover {
+    background: var(--primary);
+    color: #fff;
+    box-shadow: 0 5px 15px rgba(115, 133, 165, 0.3);
+    transform: translateY(-2px);
+}
+
+/* Panah Kecil */
+.dropdown-arrow {
+    font-size: 0.7rem;
+    transition: transform 0.3s ease;
+}
+
+/* Saat Dropdown Terbuka */
+.custom-dropdown.active .dropdown-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-dropdown.active .dropdown-selected {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* Daftar Pilihan (Hidden by default) */
+.dropdown-options {
+    position: absolute;
+    top: 120%; /* Jarak dari tombol */
+    left: 50%;
+    transform: translateX(-50%) translateY(-10px);
+    width: 160px;
+    background: #fff;
+    border-radius: 16px;
+    box-shadow: 0 10px 30px rgba(0,0,0,0.15);
+    padding: 8px;
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s cubic-bezier(0.68, -0.55, 0.27, 1.55);
+    z-index: 100;
+    border: 1px solid rgba(0,0,0,0.05);
+}
+
+/* Munculkan Daftar */
+.custom-dropdown.active .dropdown-options {
+    opacity: 1;
+    visibility: visible;
+    transform: translateX(-50%) translateY(0);
+}
+
+/* Item Pilihan */
+.dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 12px;
+    border-radius: 10px;
+    cursor: pointer;
+    transition: 0.2s;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-main);
+}
+
+.dropdown-item:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+}
+
+/* Icon Bendera (SVG) */
+.flag-icon {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    object-fit: cover;
+    box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+}
+
+/* Responsif Mobile */
+@media (max-width: 768px) {
+    .dropdown-selected span {
+        display: none; /* Sembunyikan teks nama bahasa di HP, sisa bendera */
+    }
+    .custom-dropdown { margin-right: 10px; }
+}
+
     </style>
 </head>
 <body>
@@ -894,12 +1002,45 @@ img {
                     <a href="#vision" data-i18n="nav_vision">Visi</a>
                 </div>
 
-                <select id="lang-selector" style="padding: 5px 10px; border-radius: 20px; border: 1px solid var(--primary); background: rgba(255,255,255,0.8); color: var(--primary); font-weight: bold; cursor: pointer; outline: none; margin-right: 10px;">
-                    <option value="id">🇮🇩 ID</option>
-                    <option value="en">🇬🇧 EN</option>
-                    <option value="jv">ꦗꦮ JV</option>
-                    <option value="su">ᮞᮨ SU</option>
-                </select>
+                <div class="custom-dropdown" id="custom-lang-dropdown">
+    
+    <div class="dropdown-selected" onclick="toggleDropdown()">
+        <img id="current-flag" src="" class="flag-icon">
+        <span id="current-lang-text">ID</span>
+        <i class="fas fa-chevron-down dropdown-arrow"></i>
+    </div>
+
+    <div class="dropdown-options">
+        
+        <div class="dropdown-item" onclick="selectLang('id')">
+            <svg class="flag-icon" viewBox="0 0 640 480">
+                <path fill="#e11837" d="M0 0h640v240H0z"/>
+                <path fill="#fefefe" d="M0 240h640v240H0z"/>
+            </svg>
+            Indonesian
+        </div>
+
+        <div class="dropdown-item" onclick="selectLang('jv')">
+            <div style="width:20px; height:20px; background:#8d6e63; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px;">ꦗ</div>
+            Jawa
+        </div>
+
+        <div class="dropdown-item" onclick="selectLang('su')">
+            <div style="width:20px; height:20px; background:#00897b; color:#fff; border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:10px;">ᮞ</div>
+            Sunda
+        </div>
+
+        <div class="dropdown-item" onclick="selectLang('en')">
+            <svg class="flag-icon" viewBox="0 0 640 480">
+                <path fill="#012169" d="M0 0h640v480H0z"/>
+                <path fill="#FFF" d="M75 0l244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0h75z"/>
+                <path fill="#C8102E" d="M424 294l216 166v20h-59L345 297v183h-52V294L54 480H0v-23l240-196H0v-46h236L0 23V0h54l238 186V0h52v189L585 0h55v22L424 207h216v45H424v42z"/>
+            </svg>
+            English
+        </div>
+
+    </div>
+</div>
 
                 <a href="beranda" class="btn-masuk">
                     <i class="fas fa-sign-in-alt"></i> <span data-i18n="btn_login">Masuk</span>
@@ -2299,14 +2440,31 @@ async function fetchAndUpdate() {
         return translations[lang][key] || translations['id'][key] || key;
     }
 
-    // --- 3. LOGIC GANTI BAHASA ---
-    const langSelector = document.getElementById('lang-selector');
+        // --- 3. LOGIC GANTI BAHASA (CUSTOM DROPDOWN) ---
+    
+    // Data untuk Tampilan Tombol Dropdown (Bendera & Teks)
+    const flagData = {
+        id: { 
+            text: "ID", 
+            svg: '<svg viewBox="0 0 640 480"><path fill="#e11837" d="M0 0h640v240H0z"/><path fill="#fefefe" d="M0 240h640v240H0z"/></svg>' 
+        },
+        en: { 
+            text: "EN", 
+            svg: '<svg viewBox="0 0 640 480"><path fill="#012169" d="M0 0h640v480H0z"/><path fill="#FFF" d="M75 0l244 181L562 0h78v62L400 241l240 178v61h-80L320 301 81 480H0v-60l239-178L0 64V0h75z"/><path fill="#C8102E" d="M424 294l216 166v20h-59L345 297v183h-52V294L54 480H0v-23l240-196H0v-46h236L0 23V0h54l238 186V0h52v189L585 0h55v22L424 207h216v45H424v42z"/></svg>' 
+        },
+        jv: { 
+            text: "JV", 
+            svg: '<div style="width:100%; height:100%; background:#8d6e63; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; border-radius:50%;">ꦗ</div>' 
+        },
+        su: { 
+            text: "SU", 
+            svg: '<div style="width:100%; height:100%; background:#00897b; color:#fff; display:flex; align-items:center; justify-content:center; font-size:10px; border-radius:50%;">ᮞ</div>' 
+        }
+    };
 
+    // Fungsi 1: Update Teks Statis (HTML)
     function changeLanguage(lang) {
-        // Simpan preferensi
-        localStorage.setItem('selectedLang', lang);
-
-        // Update semua teks statis (HTML)
+        // Update semua elemen dengan atribut data-i18n
         const elements = document.querySelectorAll('[data-i18n]');
         elements.forEach(el => {
             const key = el.getAttribute('data-i18n');
@@ -2314,36 +2472,64 @@ async function fetchAndUpdate() {
                 el.innerText = translations[lang][key];
             }
         });
-
-        // Update nilai dropdown
-        if(langSelector) langSelector.value = lang;
     }
 
-        // --- 4. INIT & EVENT LISTENER (VERSI RELOAD) ---
+    // Fungsi 2: Toggle Dropdown (Buka/Tutup)
+    function toggleDropdown() {
+        const dropdown = document.getElementById('custom-lang-dropdown');
+        if (dropdown) dropdown.classList.toggle('active');
+    }
+
+    // Fungsi 3: Saat Bahasa Dipilih
+    function selectLang(lang) {
+        // A. Simpan Pilihan ke Memori
+        localStorage.setItem('selectedLang', lang);
+        
+        // B. Refresh Halaman (Agar Grafik & JS Dinamis ter-update)
+        location.reload(); 
+    }
+
+    // Fungsi 4: Update Tampilan Tombol (Bendera & Teks Terpilih)
+    function updateDropdownUI(lang) {
+        const currentFlagImg = document.getElementById('current-flag');
+        const currentText = document.getElementById('current-lang-text');
+        
+        if (currentText && flagData[lang]) {
+            currentText.innerText = flagData[lang].text;
+        }
+
+        // Ganti Icon Bendera
+        if (currentFlagImg && flagData[lang]) {
+            const iconWrapper = document.createElement('div');
+            iconWrapper.innerHTML = flagData[lang].svg;
+            
+            const newIcon = iconWrapper.firstElementChild;
+            newIcon.classList.add('flag-icon');
+            newIcon.id = 'current-flag';
+            
+            currentFlagImg.replaceWith(newIcon);
+        }
+    }
+
+    // Tutup dropdown jika klik di luar area
+    window.onclick = function(event) {
+        if (!event.target.closest('.custom-dropdown')) {
+            const dropdown = document.getElementById('custom-lang-dropdown');
+            if (dropdown) dropdown.classList.remove('active');
+        }
+    }
+
+    // --- 4. INIT & EVENT LISTENER (VERSI CUSTOM) ---
     document.addEventListener("DOMContentLoaded", () => {
         
         // A. Cek bahasa apa yang tersimpan (Default: ID)
         const savedLang = localStorage.getItem('selectedLang') || 'id';
         
-        // B. Set Nilai Dropdown sesuai simpanan
-        const langSelector = document.getElementById('lang-selector');
-        if(langSelector) langSelector.value = savedLang;
-
-        // C. Terjemahkan Teks Statis (HTML)
+        // B. Terjemahkan Teks Statis (HTML)
         changeLanguage(savedLang);
 
-        // D. LISTENER SAAT GANTI BAHASA
-        if(langSelector) {
-            langSelector.addEventListener('change', (e) => {
-                // 1. Simpan Pilihan Baru ke Memori
-                localStorage.setItem('selectedLang', e.target.value);
-                
-                // 2. REFRESH HALAMAN
-                // Ini akan memaksa Grafik (Chart.js) dan Script Web3 
-                // untuk dimuat ulang menggunakan bahasa baru.
-                location.reload(); 
-            });
-        }
+        // C. Update Tampilan Tombol Dropdown (Bendera & Kode)
+        updateDropdownUI(savedLang);
     });
 </script>
 
