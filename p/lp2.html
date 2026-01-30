@@ -1024,7 +1024,63 @@ img {
         border-color: var(--primary);
     }
 
+    /* --- STYLE TOMBOL REFRESH --- */
+.btn-refresh-chart {
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    cursor: pointer;
+    font-size: 1rem;
+    transition: all 0.3s ease;
+    padding: 5px;
+    border-radius: 50%;
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.btn-refresh-chart:hover {
+    background: var(--primary-soft);
+    color: var(--primary);
+    transform: rotate(180deg); /* Efek putar saat hover */
+}
+
+/* --- STYLE LOADER CAKRA OVERLAY --- */
+.chart-loader {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(255, 255, 255, 0.85); /* Latar semi transparan (Glass) */
+    backdrop-filter: blur(2px);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    z-index: 10;
+    border-radius: var(--radius-box);
     
+    /* Default Sembunyi */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+/* Class untuk Memunculkan Loader */
+.chart-loader.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Kustomisasi Ikon Cakra */
+.cakra-icon {
+    font-size: 0.85rem; /* Ukuran Besar */
+    color: var(--primary);
+    filter: drop-shadow(0 4px 6px rgba(115, 133, 165, 0.4));
+}
     </style>
 </head>
 <body>
@@ -1358,16 +1414,44 @@ img {
             </div>
 
             <div class="grid-2" data-aos="fade-up" data-aos-delay="100">
-                <div class="card">
-                    <div class="card-title" data-i18n="chart_gol">Dominasi Golongan</div>
-                    <div class="chart-box"><canvas id="chartGolongan"></canvas></div>
-                </div>
-                <div class="card">
-                    <div class="card-title" data-i18n="chart_style">Dominasi Gagrak</div>
-                    <div class="chart-box"><canvas id="chartGaya"></canvas></div>
-                </div>
+    
+    <div class="card" style="position: relative; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="card-title" data-i18n="chart_gol" style="margin-bottom: 0;">Dominasi Golongan</div>
+            <button class="btn-refresh-chart" onclick="refreshSpecificCharts()" title="Refresh Data">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        
+        <div class="chart-box">
+            <canvas id="chartGolongan"></canvas>
+            
+            <div id="loader-golongan" class="chart-loader">
+                <i class="fas fa-dharmachakra fa-spin cakra-icon"></i>
+                <span style="font-size: 0.8rem; font-weight: 600; margin-top: 10px; color: var(--primary);">Memuat Data...</span>
             </div>
         </div>
+    </div>
+
+    <div class="card" style="position: relative; overflow: hidden;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+            <div class="card-title" data-i18n="chart_style" style="margin-bottom: 0;">Dominasi Gagrak</div>
+            <button class="btn-refresh-chart" onclick="refreshSpecificCharts()" title="Refresh Data">
+                <i class="fas fa-sync-alt"></i>
+            </button>
+        </div>
+        
+        <div class="chart-box">
+            <canvas id="chartGaya"></canvas>
+            
+            <div id="loader-gaya" class="chart-loader">
+                <i class="fas fa-dharmachakra fa-spin cakra-icon"></i>
+                <span style="font-size: 0.8rem; font-weight: 600; margin-top: 10px; color: var(--primary);">Memuat Data...</span>
+            </div>
+        </div>
+    </div>
+  </div>
+</div>
     </section>
 
     <section id="activity" style="padding-top: 5px;">
@@ -2225,6 +2309,53 @@ async function fetchAndUpdate() {
         }
     }
 }
+
+        // --- FUNGSI REFRESH KHUSUS CHART ---
+    async function refreshSpecificCharts() {
+        // 1. Ambil elemen Loader
+        const loaderGol = document.getElementById('loader-golongan');
+        const loaderGaya = document.getElementById('loader-gaya');
+        const btns = document.querySelectorAll('.btn-refresh-chart');
+
+        // 2. Tampilkan Loader Cakra & Putar Tombol
+        if(loaderGol) loaderGol.classList.add('active');
+        if(loaderGaya) loaderGaya.classList.add('active');
+        
+        // Matikan tombol sementara biar gak dispam
+        btns.forEach(btn => {
+            btn.disabled = true; 
+            btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i>'; // Ubah icon tombol jadi loading juga
+        });
+
+        console.log("🔄 Merefresh data grafik...");
+
+        try {
+            // 3. Hapus Cache Lama (PENTING: Agar data benar-benar baru)
+            localStorage.removeItem('putramas_data_cache');
+
+            // 4. Panggil Fungsi Fetch Utama
+            // Kita pakai await agar loader tidak hilang sebelum data selesai diambil
+            await fetchAndUpdate(); 
+
+            // Tambahan delay sedikit biar animasi Cakra terlihat enak (opsional)
+            await new Promise(r => setTimeout(r, 800));
+
+        } catch (error) {
+            console.error("Gagal refresh grafik:", error);
+            // Opsional: Tampilkan pesan error sederhana (Toast)
+        } finally {
+            // 5. Sembunyikan Loader & Kembalikan Tombol
+            if(loaderGol) loaderGol.classList.remove('active');
+            if(loaderGaya) loaderGaya.classList.remove('active');
+            
+            btns.forEach(btn => {
+                btn.disabled = false;
+                btn.innerHTML = '<i class="fas fa-sync-alt"></i>';
+            });
+            
+            console.log("✅ Grafik berhasil direfresh!");
+        }
+    }
             
         </script>
 
