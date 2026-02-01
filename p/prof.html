@@ -2056,7 +2056,7 @@ window.loadNextProfileBatch = async function() {
             }
         } catch (e) {
             console.error(`Gagal final ID ${id} (Skip):`, e);
-            renderCard(id.toString(), "Gagal Memuat", "img/placeholder.jpg", container);
+            renderCard(id.toString(), "Gagal Memuat", "https://placehold.co/400x400/png?text=Wayang+Image", container);
         }
         
         // JEDA: Karena pakai Alchemy, kita bisa lebih ngebut (50ms cukup)
@@ -2086,8 +2086,7 @@ window.fetchMetadata = async function(tokenURI) {
     const GATEWAYS = [
         "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Gateway Utama Anda
         "https://ipfs.io/ipfs/",
-        "https://gateway.pinata.cloud/ipfs/",
-        "https://cloudflare-ipfs.com/ipfs/"
+        "https://gateway.pinata.cloud/ipfs/"
     ];
 
     // Bersihkan URI (buang ipfs:// prefix)
@@ -2131,7 +2130,7 @@ window.fetchMetadata = async function(tokenURI) {
     }
 
     // Jika semua gagal, kembalikan null/placeholder
-    return { name: `Wayang #${cid.substring(0,5)}`, image: "https://via.placeholder.com/300?text=Data+Error" };
+    return { name: `Wayang #${cid.substring(0,5)}`, image: "https://via.placeholder.com/50?text=..." };
 };
 
 // Helper untuk memproses Gambar agar pakai Proxy (Anti-Broken)
@@ -2140,7 +2139,7 @@ function processJsonImage(json, cid) {
     let name = json.name || `Wayang #${cid.substring(0,4)}`;
 
     if (!img) {
-        return { name: name, image: "https://via.placeholder.com/300?text=No+Image" };
+        return { name: name, image: "https://via.placeholder.com/50?text=..." };
     }
 
     // 1. Standarisasi URL Gambar
@@ -2155,7 +2154,7 @@ function processJsonImage(json, cid) {
     // lalu mengirimkannya ke Anda sebagai cache. Ini mempebaiki error CORS dan SSL.
     // w=400 (resize lebar 400px), q=80 (kualitas 80%), output=webp (ringan)
     
-    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=400&q=80&output=webp`;
+    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=300&q=75&output=webp`;
 
     return { 
         name: name, 
@@ -2186,7 +2185,7 @@ window.renderCard = function(id, name, img, container) {
             ${badgeHtml} 
             <div class="card-img-container">
                 <img src="${img}" loading="lazy" alt="${name}" 
-                     onerror="this.src='https://placehold.co/400x400/png?text=Wayang+Image'">
+                     onerror="this.src='https://via.placeholder.com/50?text=Err'">
             </div>
         </div>
             <div class="card-body">
