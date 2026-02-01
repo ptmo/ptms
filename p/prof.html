@@ -2082,44 +2082,86 @@ window.handleProfileScroll = function() {
 };
 
 window.fetchMetadata = async function(tokenURI) {
-    const PINATA_GATEWAY = "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/";
+    // Daftar Gateway untuk rotasi (jika satu gagal, coba yang lain)
+    const GATEWAYS = [
+        "https://magenta-secondary-guan-686.mypinata.cloud/ipfs/", // Gateway Utama Anda
+        "https://ipfs.io/ipfs/",
+        "https://gateway.pinata.cloud/ipfs/",
+        "https://cloudflare-ipfs.com/ipfs/"
+    ];
+
+    // Bersihkan URI (buang ipfs:// prefix)
+    let cid = tokenURI.replace("ipfs://", "");
     
-    try {
-        const cid = tokenURI.replace("ipfs://", "");
-        const url = `${PINATA_GATEWAY}${cid}`;
-        
-        const response = await fetch(url, { timeout: 5000 });
-        if (!response.ok) throw new Error("Gateway Error");
-        
-        const json = await response.json();
-        
-        let img = json.image || json.image_url;
-        if (img && img.startsWith("ipfs://")) {
-            img = img.replace("ipfs://", PINATA_GATEWAY);
-        } else if (!img) {
-            img = "img/placeholder.jpg";
-        }
+    // Kadang URI formatnya sudah HTTP, kita ambil CID-nya saja jika perlu,
+    // tapi untuk aman, kita asumsikan tokenURI standar ipfs://CID
+    if (tokenURI.startsWith("http")) {
+       // Jika sudah http, coba fetch langsung dulu
+       try {
+           const res = await fetch(tokenURI, { method: 'GET', mode: 'cors' });
+           if(res.ok) {
+               const json = await res.json();
+               return processJsonImage(json, cid);
+           }
+       } catch(e) {}
+    }
 
-        return { 
-            name: json.name || `Wayang #${id}`, 
-            image: img 
-        };
-    } catch (e) {
-        console.warn("Metadata gagal dimuat, mencoba gateway fallback...");
-
+    // --- LOGIKA ROTASI GATEWAY (Untuk Metadata JSON) ---
+    for (const gateway of GATEWAYS) {
         try {
-            const fallbackUrl = tokenURI.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/");
-            const res = await fetch(fallbackUrl);
-            const data = await res.json();
-            return { 
-                name: data.name, 
-                image: data.image.replace("ipfs://", "https://cloudflare-ipfs.com/ipfs/") 
-            };
-        } catch (err) {
-            return { name: "Karya Seni", image: "img/placeholder.jpg" };
+            const url = `${gateway}${cid}`;
+            // Timeout pendek (2 detik) agar cepat pindah jika gateway lemot
+            const controller = new AbortController();
+            const timeoutId = setTimeout(() => controller.abort(), 2000);
+
+            const response = await fetch(url, { 
+                method: 'GET',
+                signal: controller.signal 
+            });
+            clearTimeout(timeoutId);
+
+            if (response.ok) {
+                const json = await response.json();
+                return processJsonImage(json, cid); // Sukses!
+            }
+        } catch (e) {
+            // Lanjut ke gateway berikutnya...
+            continue;
         }
     }
+
+    // Jika semua gagal, kembalikan null/placeholder
+    return { name: `Wayang #${cid.substring(0,5)}`, image: "https://via.placeholder.com/300?text=Data+Error" };
 };
+
+// Helper untuk memproses Gambar agar pakai Proxy (Anti-Broken)
+function processJsonImage(json, cid) {
+    let img = json.image || json.image_url;
+    let name = json.name || `Wayang #${cid.substring(0,4)}`;
+
+    if (!img) {
+        return { name: name, image: "https://via.placeholder.com/300?text=No+Image" };
+    }
+
+    // 1. Standarisasi URL Gambar
+    // Jika formatnya ipfs://... ubah jadi URL Gateway publik yang umum
+    let rawUrl = img;
+    if (img.startsWith("ipfs://")) {
+        rawUrl = img.replace("ipfs://", "https://ipfs.io/ipfs/");
+    }
+
+    // 2. GUNAKAN WSRV.NL (IMAGE PROXY) - INI KUNCINYA!
+    // wsrv.nl akan mendownload gambar dari IPFS di server mereka (bukan di browser Anda)
+    // lalu mengirimkannya ke Anda sebagai cache. Ini mempebaiki error CORS dan SSL.
+    // w=400 (resize lebar 400px), q=80 (kualitas 80%), output=webp (ringan)
+    
+    const optimizedUrl = `https://wsrv.nl/?url=${encodeURIComponent(rawUrl)}&w=400&q=80&output=webp`;
+
+    return { 
+        name: name, 
+        image: optimizedUrl 
+    };
+}
 
 window.renderCard = function(id, name, img, container) {
     let isMyProfile = false;
@@ -2144,7 +2186,7 @@ window.renderCard = function(id, name, img, container) {
             ${badgeHtml} 
             <div class="card-img-container">
                 <img src="${img}" loading="lazy" alt="${name}" 
-                     onerror="this.src='img/placeholder.jpg'">
+                     onerror="this.src='https://placehold.co/400x400/png?text=Wayang+Image'">
             </div>
         </div>
             <div class="card-body">
