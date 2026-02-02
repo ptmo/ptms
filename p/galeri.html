@@ -1810,60 +1810,76 @@ function unlockInterface() {
     }
         }
 
+let isConnecting = false;
+
 async function connectWallet() {
+    // 1. CEK PENGUNCI: Jika sedang connecting, hentikan fungsi
+    if (isConnecting) return; 
+    
     if (!window.ethereum) return showToast("Install Metamask!", 'wolf');
     
     const btnConnect = document.getElementById("btn-connect");
     const originalText = btnConnect.innerHTML;
+    
+    // 2. KUNCI PROSES & MATIKAN TOMBOL
+    isConnecting = true;
+    btnConnect.disabled = true; // Tombol jadi tidak bisa diklik fisik
+    btnConnect.style.cursor = "not-allowed";
     btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
 
     try {
-        // 1. Setup Provider & Signer
+        // Setup Provider & Signer
         provider = new ethers.providers.Web3Provider(window.ethereum);
         await provider.send("eth_requestAccounts", []);
         
         const network = await provider.getNetwork();
-        // Pastikan Chain ID Base Sepolia (84532) atau Base Mainnet (8453) sesuai kebutuhan
-        // Di sini saya pakai Base Mainnet ID (8453) sesuai kode sebelumnya
         if (network.chainId !== 8453) await switchNetwork(); 
 
         signer = provider.getSigner();
         userAddress = await signer.getAddress(); 
 
-        // --- [BAGIAN INI YANG HILANG SEBELUMNYA] ---
-        // 2. Update Tampilan Address di Modal
+        // Update Tampilan Address di Modal
         document.getElementById("modalFullAddress").innerText = userAddress;
         document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
         
-        // 3. Ambil Saldo Native (ETH) & Tampilkan
+        // Ambil Saldo Native (ETH) & Tampilkan
         const balance = await provider.getBalance(userAddress);
         const ethBalance = ethers.utils.formatEther(balance);
         const elBalance = document.getElementById("modalBalance");
         if(elBalance) {
-            // Tampilkan 4 desimal saja biar rapi
             elBalance.innerHTML = `${parseFloat(ethBalance).toFixed(4)} <span style="font-size:14px; color:#7385a5;">ETH</span>`;
         }
-        // -------------------------------------------
 
-        // 4. Update UI Navbar
+        // Update UI Navbar
         btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
         btnConnect.classList.add("connected");
+        // Hapus event onclick lama biar bersih, ganti ke toggle modal
         btnConnect.onclick = toggleWalletModal; 
         
-        // 5. Update Data Pendapatan/Tips (Smart Contract)
+        // Update Data Pendapatan/Tips (Smart Contract)
         await updateModalWalletData(userAddress);
         
         if(typeof showToast === "function") showToast("Akses Terbuka!", "success");
 
-        // 6. Buka Kunci Tampilan
+        // Buka Kunci Tampilan
         unlockInterface(); 
 
     } catch (err) { 
         console.error(err);
+        // Jika error/cancel, kembalikan tombol seperti semula
         btnConnect.innerHTML = originalText; 
+    } finally {
+        // 3. BUKA KUNCI (Apapun yang terjadi, sukses/gagal, kunci dibuka)
+        isConnecting = false;
+        btnConnect.disabled = false; // Tombol hidup lagi (kalau belum connect)
+        btnConnect.style.cursor = "pointer";
+        
+        // Jika sudah connect (class connected), pastikan tetap enable agar bisa diklik untuk buka modal
+        if (btnConnect.classList.contains("connected")) {
+            btnConnect.disabled = false;
+        }
     }
 }
-
 
 async function switchNetwork() {
     try {
@@ -2368,28 +2384,29 @@ window.loadTopEngagement = loadTopEngagement;
 // --- UPDATE FUNGSI INIT (AUTO CHECK SAAT LOAD) ---
 async function init() {
     console.log("🚀 Inisialisasi Sistem...");
+    
+    // Cegah konflik saat init berjalan
+    if (isConnecting) return; 
+    isConnecting = true;
+
     try {
-        // Cek apakah user sudah terhubung sebelumnya
         if (window.ethereum) {
-            // Gunakan variabel global 'provider' jika ada, atau buat baru
             provider = new ethers.providers.Web3Provider(window.ethereum);
             const accounts = await provider.listAccounts();
             
             if (accounts.length > 0) {
                 console.log("User terdeteksi, membuka akses otomatis...");
                 
-                // Set variabel global
                 userAddress = accounts[0];
                 signer = provider.getSigner();
                 
-                // --- [UPDATE UI SAAT AUTO-LOGIN] ---
-                // 1. Update Address
+                // Update Address UI
                 const fullAddrEl = document.getElementById("modalFullAddress");
                 const shortAddrEl = document.getElementById("modalShortAddress");
                 if(fullAddrEl) fullAddrEl.innerText = userAddress;
                 if(shortAddrEl) shortAddrEl.innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
 
-                // 2. Update Saldo ETH
+                // Update Saldo ETH
                 const balance = await provider.getBalance(userAddress);
                 const ethBalance = ethers.utils.formatEther(balance);
                 const elBalance = document.getElementById("modalBalance");
@@ -2397,7 +2414,7 @@ async function init() {
                     elBalance.innerHTML = `${parseFloat(ethBalance).toFixed(4)} <span style="font-size:14px; color:#7385a5;">ETH</span>`;
                 }
 
-                // 3. Update Tombol Navbar
+                // Update Tombol Navbar
                 const btnConnect = document.getElementById("btn-connect");
                 if(btnConnect) {
                     btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
@@ -2405,17 +2422,22 @@ async function init() {
                     btnConnect.onclick = toggleWalletModal;
                 }
                 
-                // 4. Update Data Tips (Background)
+                // Update Data Tips
                 updateModalWalletData(userAddress);
 
-                // 5. BUKA KUNCI
+                // BUKA KUNCI TAMPILAN
                 unlockInterface();
             }
         }
     } catch (error) {
         console.error("Gagal memulai sistem:", error);
+    } finally {
+        // Lepas kunci setelah init selesai cek
+        isConnecting = false;
     }
 }
 
+// Pastikan init dipanggil di akhir
+init();
 
                 </script>
