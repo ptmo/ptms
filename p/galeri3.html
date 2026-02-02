@@ -1116,88 +1116,7 @@
     letter-spacing: 0.3px;
     }
 
-    /* --- LOGIN GATEWAY PREMIUM --- */
-#loginSection {
-    position: fixed;
-    top: 0; left: 0; width: 100%; height: 100%;
-    background: linear-gradient(135deg, #f6f9ff 0%, #c4d7e8 100%);
-    z-index: 99999; /* Paling Depan */
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    transition: opacity 0.6s ease, visibility 0.6s ease;
-}
 
-#loginSection.hidden {
-    opacity: 0;
-    visibility: hidden;
-    pointer-events: none;
-}
-
-.login-card-glass {
-    background: rgba(255, 255, 255, 0.75);
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    border: 1px solid rgba(255, 255, 255, 0.8);
-    box-shadow: 
-        0 20px 50px rgba(115, 133, 165, 0.2),
-        0 10px 20px rgba(0,0,0,0.05);
-    padding: 50px 30px;
-    border-radius: 32px;
-    text-align: center;
-    width: 90%;
-    max-width: 420px;
-    animation: floatUp 0.8s cubic-bezier(0.16, 1, 0.3, 1);
-}
-
-.gate-icon {
-    width: 90px; height: 90px;
-    background: #fff;
-    border-radius: 50%;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 25px auto;
-    box-shadow: 0 10px 30px rgba(115, 133, 165, 0.3);
-    font-size: 40px; color: #7385a5;
-}
-
-.gate-title {
-    font-size: 26px; color: #2c3e50; font-weight: 800;
-    margin: 0 0 10px 0; letter-spacing: -0.5px;
-}
-
-.gate-desc {
-    font-size: 14px; color: #7f8c8d; line-height: 1.6;
-    margin-bottom: 35px;
-}
-
-.btn-gate-hero {
-    width: 100%; padding: 16px;
-    border-radius: 50px; border: none;
-    font-size: 16px; font-weight: 700;
-    cursor: pointer; transition: all 0.2s;
-    display: flex; align-items: center; justify-content: center; gap: 10px;
-    box-shadow: 0 8px 20px rgba(115, 133, 165, 0.25);
-    font-family: 'Rubik', sans-serif;
-}
-
-/* Warna Mode Konek */
-.btn-gate-hero.connect {
-    background: linear-gradient(135deg, #2c3e50 0%, #34495e 100%);
-    color: #fff;
-}
-.btn-gate-hero.connect:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(44, 62, 80, 0.4); }
-
-/* Warna Mode Masuk (Welcome Back) */
-.btn-gate-hero.enter {
-    background: linear-gradient(135deg, #7385a5 0%, #5c6a84 100%);
-    color: #fff;
-}
-.btn-gate-hero.enter:hover { transform: translateY(-3px); box-shadow: 0 15px 30px rgba(115, 133, 165, 0.5); }
-
-@keyframes floatUp {
-    from { opacity: 0; transform: translateY(40px); }
-    to { opacity: 1; transform: translateY(0); }
-}
 </style>
        <nav class="navbar">
         <div class="nav-left">
@@ -1212,27 +1131,6 @@
         </button>
     </div>
        </nav>
-
-    <div id="loginSection">
-    <div class="login-card-glass">
-        <div class="gate-icon">
-            <img src="img/icon-192.png" style="width:100%; height:100%; border-radius:50%; object-fit:cover;">
-        </div>
-        
-        <h2 id="gateTitle" class="gate-title">Selamat Datang</h2>
-        <p id="gateDesc" class="gate-desc">
-            Akses galeri wayang digital dan kelola aset<br>Nusantara berbasis Blockchain.
-        </p>
-
-        <button id="btnGate" class="btn-gate-hero connect" onclick="handleGateAction()">
-            <i class="fas fa-wallet"></i> Hubungkan Wallet
-        </button>
-        
-        <div style="margin-top:25px; font-size:11px; color:#bdc3c7;">
-            &copy; <span id="gateYear"></span> Putramas Official
-        </div>
-    </div>
-</div>
 
 <div id="mainApp" style="display:none; opacity:0; transition: opacity 0.8s ease;">
 </div>
@@ -1472,108 +1370,7 @@ let isModalFetching = false;
 const CACHE_TOP_KEY = "TOP_ENGAGEMENT_FIXED_V3";
 const CACHE_EXPIRY_MS = 60 * 60 * 1000;  
 
-window.filterKategori = filterKategori;
-
-// --- LOGIKA SMART GATEWAY ---
-
-document.addEventListener("DOMContentLoaded", () => {
-    // Set Tahun
-    document.getElementById("gateYear").innerText = new Date().getFullYear();
-    
-    // Cek Status Login
-    checkGateStatus();
-});
-
-function checkGateStatus() {
-    const savedWallet = localStorage.getItem('userWallet');
-    
-    // Elemen UI Gateway
-    const title = document.getElementById('gateTitle');
-    const desc = document.getElementById('gateDesc');
-    const btn = document.getElementById('btnGate');
-
-    if (savedWallet) {
-        // --- KASUS: USER SUDAH PERNAH LOGIN (WELCOME BACK) ---
-        const short = savedWallet.substring(0, 6) + "..." + savedWallet.slice(-4);
-        
-        title.innerText = "Selamat Datang Kembali";
-        desc.innerHTML = `Akun terdeteksi: <b style="color:#7385a5;">${short}</b><br>Lanjutkan akses ke galeri?`;
-        
-        // Ubah Tombol jadi "Masuk"
-        btn.innerHTML = `<i class="fas fa-sign-in-alt"></i> Masuk Galeri`;
-        btn.className = "btn-gate-hero enter"; // Ganti warna
-        
-        // Set aksi tombol: Langsung masuk
-        btn.onclick = function() {
-            enterApplication(savedWallet);
-        };
-
-    } else {
-        // --- KASUS: USER BARU (HARUS KONEK) ---
-        title.innerText = "Akses Ruang Koleksi";
-        desc.innerHTML = "Hubungkan dompet Web3 Anda untuk membuka<br>sertifikat kepemilikan dan data koleksi.";
-        
-        btn.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan Wallet`;
-        btn.className = "btn-gate-hero connect";
-        
-        // Set aksi tombol: Trigger MetaMask
-        btn.onclick = function() {
-            handleLoginProcess();
-        };
-    }
-}
-
-// Fungsi 1: Masuk Aplikasi (Transisi Halus)
-function enterApplication(address) {
-    const gate = document.getElementById('loginSection');
-    const app = document.getElementById('mainApp');
-    
-    // Fade Out Gerbang
-    gate.classList.add('hidden');
-    
-    setTimeout(() => {
-        gate.style.display = 'none'; // Hilangkan gerbang
-        app.style.display = 'block'; // Munculkan App
-        
-        // Trigger Fade In App
-        setTimeout(() => app.style.opacity = '1', 50);
-
-        // Jalankan Script Utama (Init Data)
-        if(typeof window.initGatekeeper === 'function') {
-            window.initGatekeeper(); // Load data blockchain
-        }
-    }, 600);
-}
-
-// Fungsi 2: Proses Login Baru
-async function handleLoginProcess() {
-    const btn = document.getElementById('btnGate');
-    const originalText = btn.innerHTML;
-    
-    btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Menghubungkan...`;
-    btn.disabled = true;
-
-    try {
-        // Panggil fungsi connectWallet() utama Anda
-        await window.connectWallet();
-        
-        // Cek lagi apakah sukses tersimpan?
-        const check = localStorage.getItem('userWallet');
-        if (check) {
-            // Sukses! Masuk
-            enterApplication(check);
-        } else {
-            throw new Error("Koneksi dibatalkan");
-        }
-
-    } catch (e) {
-        console.error(e);
-        // Reset Tombol
-        btn.innerHTML = originalText;
-        btn.disabled = false;
-        if(typeof showToast === 'function') showToast("Gagal koneksi. Coba lagi.", "error");
-    }
-}
+window.filterKategori = filterKategori
 
 function resolveIpfs(url) {
     if (!url) return "";
