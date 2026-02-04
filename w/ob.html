@@ -255,7 +255,7 @@
             margin-left: 5px;
         }
 
-        /* --- PREMIUM TOAST NOTIFICATIONS --- */
+        /* --- PREMIUM TOAST NOTIFICATIONS (UPGRADED GLASS) --- */
 #toast-container {
     position: fixed;
     top: 20px;
@@ -264,37 +264,58 @@
     display: flex;
     flex-direction: column;
     gap: 15px;
+    pointer-events: none; /* Agar area kosong tembus klik */
 }
 
 .toast {
-    min-width: 300px;
-    max-width: 400px;
-    background: rgba(40, 42, 54, 0.95); /* Gelap transparan */
-    backdrop-filter: blur(10px);        /* Efek blur premium */
-    border-left: 5px solid;
-    border-radius: 8px;
-    padding: 15px 20px 15px 15px;       /* Padding kanan lebih besar utk tombol close */
-    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    pointer-events: auto; /* Aktifkan klik pada toast */
+    min-width: 320px;
+    max-width: 420px;
+    
+    /* --- GLASSMORPHISM CORE --- */
+    background: rgba(40, 42, 54, 0.65); /* Transparansi tinggi */
+    backdrop-filter: blur(16px) saturate(180%); /* Blur kuat + saturasi warna di belakangnya */
+    -webkit-backdrop-filter: blur(16px) saturate(180%);
+    
+    /* Border Kaca Halus (Keliling) */
+    border: 1px solid rgba(255, 255, 255, 0.1); 
+    border-left-width: 4px; /* Border warna indikator tetap tebal */
+    
+    border-radius: 12px; /* Lebih bulat lebih modern */
+    padding: 16px 20px 16px 18px;
+    
+    /* Shadow lembut namun dalam */
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+    
     display: flex;
-    align-items: center;
+    align-items: flex-start; /* Align start agar icon sejajar judul jika teks panjang */
     gap: 15px;
     position: relative;
     overflow: hidden;
-    transform: translateX(120%);
-    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    
+    /* --- ANIMASI HALUS (PHYSICS BASED) --- */
+    /* Mulai dari kanan, sedikit kecil, dan transparan */
+    opacity: 0;
+    transform: translateX(50px) scale(0.95);
+    transition: all 0.5s cubic-bezier(0.22, 1, 0.36, 1); /* Kurva smooth seperti iOS */
+    
     font-family: 'Inter', sans-serif;
 }
 
+/* State saat muncul */
 .toast.show {
-    transform: translateX(0);
+    opacity: 1;
+    transform: translateX(0) scale(1);
 }
 
 /* Icon Section */
 .toast-icon {
-    font-size: 1.5rem;
+    font-size: 1.4rem;
     display: flex;
     align-items: center;
     justify-content: center;
+    margin-top: 2px; /* Penyesuaian optik */
+    filter: drop-shadow(0 0 5px rgba(255,255,255,0.2)); /* Icon sedikit glowing */
 }
 
 /* Text Section */
@@ -302,68 +323,83 @@
     flex: 1;
     display: flex;
     flex-direction: column;
+    justify-content: center;
 }
 
 .toast-title {
-    font-weight: 800;
+    font-weight: 700;
     font-size: 0.95rem;
-    color: var(--text-main);
-    margin-bottom: 2px;
+    color: #f8f8f2;
+    margin-bottom: 4px;
+    letter-spacing: 0.3px;
 }
 
 .toast-message {
     font-size: 0.85rem;
-    color: var(--text-muted);
-    line-height: 1.4;
+    color: rgba(248, 248, 242, 0.75); /* Putih transparan agar menyatu dgn kaca */
+    line-height: 1.5;
+    font-weight: 400;
 }
 
-/* Close Button (Merah di Pojok Kanan Atas) */
+/* Close Button (Updated) */
 .toast-close {
     position: absolute;
-    top: 8px;
-    right: 10px;
-    color: #ff5555; /* Merah Dracula */
+    top: 10px;
+    right: 12px;
+    color: rgba(255, 255, 255, 0.4);
     cursor: pointer;
-    font-size: 1rem;
-    opacity: 0.7;
-    transition: opacity 0.2s;
+    font-size: 0.9rem;
+    padding: 4px; /* Hit area lebih besar */
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
 }
 
 .toast-close:hover {
-    opacity: 1;
-    transform: scale(1.1);
+    color: #ff5555; /* Merah saat hover */
+    background: rgba(255, 85, 85, 0.1); /* Background merah tipis */
+    transform: rotate(90deg); /* Efek putar sedikit */
 }
 
-/* --- VARIAN WARNA --- */
+/* --- VARIAN WARNA + AMBIENT GLOW --- */
+/* Setiap varian memberikan glow warna redup di sekeliling kaca */
+
 /* SUCCESS */
-.toast-success { border-left-color: #50fa7b; }
+.toast-success { 
+    border-left-color: #50fa7b; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(80, 250, 123, 0.05);
+}
 .toast-success .toast-icon { color: #50fa7b; }
 
 /* ERROR */
-.toast-error { border-left-color: #ff5555; }
+.toast-error { 
+    border-left-color: #ff5555; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 85, 85, 0.05);
+}
 .toast-error .toast-icon { color: #ff5555; }
 
 /* WARNING */
-.toast-warning { border-left-color: #ffb86c; }
+.toast-warning { 
+    border-left-color: #ffb86c; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 184, 108, 0.05);
+}
 .toast-warning .toast-icon { color: #ffb86c; }
 
 /* INFO */
-.toast-info { border-left-color: #8be9fd; }
+.toast-info { 
+    border-left-color: #8be9fd; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(139, 233, 253, 0.05);
+}
 .toast-info .toast-icon { color: #8be9fd; }
 
 /* LOADING */
-.toast-loading { border-left-color: #bd93f9; }
-.toast-loading .toast-icon { color: #bd93f9; }
-
-/* Progress Bar (Optional Animation) */
-.toast-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    height: 3px;
-    background: rgba(255,255,255,0.2);
-    width: 100%;
+.toast-loading { 
+    border-left-color: #bd93f9; 
+    box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(189, 147, 249, 0.05);
 }
+.toast-loading .toast-icon { color: #bd93f9; }
 
         @media (max-width: 1024px) {
             .container {
