@@ -4,26 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Wayang Shield Gen 6 | VS Code Edition</title>
-    
     <script src="https://cdn.jsdelivr.net/npm/javascript-obfuscator/dist/index.browser.js"></script>
-    
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
-
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     
     <style>
-        :root {
-            /* Tema disesuaikan dengan DRACULA Theme */
-            --bg-dark: #282a36;      /* Dracula Background */
-            --bg-panel: #44475a;     /* Dracula Current Line */
-            --bg-input: #6272a4;     /* Dracula Comment */
-            --primary: #bd93f9;      /* Dracula Purple */
-            --primary-hover: #ff79c6;/* Dracula Pink */
-            --secondary: #50fa7b;    /* Dracula Green */
-            --text-main: #f8f8f2;    /* Dracula Foreground */
+        root {
+            /* Palette Tema DRACULA (Standar Industri) */
+            --bg-dark: #282a36;      /* Background Utama */
+            --bg-panel: #44475a;     /* Panel Background */
+            --bg-input: #6272a4;     /* Input/Border */
+            --primary: #bd93f9;      /* Ungu Dracula */
+            --primary-hover: #9776c7;/* Pink Dracula */
+            --secondary: #73fb95;    /* Hijau Dracula */
+            --text-main: #f8f8f2;    /* Putih Tulang */
             --text-muted: #6272a4;
             --border: #6272a4;
         }
@@ -40,17 +41,18 @@
         }
 
         /* --- CodeMirror Customization (PENTING) --- */
+        /* Memaksa editor memenuhi panel */
         .CodeMirror {
-            height: 100%; /* Agar full panel */
+            height: 100%; 
             font-family: 'JetBrains Mono', monospace;
             font-size: 13px;
-            border-radius: 0 0 8px 8px; /* Rounded bawah mengikuti panel */
-            background-color: #282a36 !important; 
+            background-color: #282a36 !important; /* Paksa warna Dracula */
+            color: #f8f8f2;
         }
         
-        /* Agar scrollbar CodeMirror rapi */
-        .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
-            background-color: transparent;
+        /* Agar scrollbar CodeMirror rapi & tidak nabrak */
+        .CodeMirror-scroll {
+            padding-bottom: 30px;
         }
 
         /* --- LAYOUT GRID --- */
@@ -82,40 +84,55 @@
             background: var(--bg-panel);
             border-radius: 8px;
             border: 1px solid var(--border);
+            /* Flexbox Wajib */
             display: flex;
-            flex-direction: column;
-            overflow: hidden;
-            height: 100%;
+            flex-direction: column; 
+            /* Penting: Height harus terdefinisi agar overflow bekerja */
+            height: 100%; 
+            overflow: hidden; 
             position: relative;
         }
 
         .panel-header {
             padding: 12px 15px;
-            background: rgba(0,0,0,0.2);
+            background: rgba(0,0,0,0.2); /* Gelapkan header sedikit */
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--primary); /* Ganti jadi ungu */
+            color: var(--primary); /* Ganti ungu biar matching */
             display: flex;
             justify-content: space-between;
-            z-index: 5;
+            z-index: 5; /* Di atas editor */
         }
 
-        /* Editor Wrapper (Tempat CodeMirror) */
+        /* EDITORS WRAPPER */
         .editor-wrapper { 
             flex-grow: 1; 
             position: relative; 
-            overflow: hidden; 
+            overflow: hidden; /* Mencegah editor keluar panel */
         }
 
+        /* --- PAKSA TEXTAREA ASLI MENGHILANG --- */
+.editor-wrapper textarea {
+    /* Gunakan opacity 0 agar CodeMirror tetap bisa membaca isinya saat inisialisasi, 
+       tapi user tidak melihat kotak putihnya */
+    opacity: 0 !important;
+    position: absolute;
+    z-index: -10;
+    pointer-events: none;
+}
+        
         /* CONTROLS (MIDDLE PANEL) */
         .controls-content {
             padding: 15px;
-            flex: 1;
+            /* Mengisi ruang kosong yang tersisa */
+            flex: 1; 
+            /* Aktifkan Scroll Vertikal */
             overflow-y: auto; 
-            min-height: 0;
+            /* Mencegah overflow keluar container */
+            min-height: 0; 
             display: flex;
             flex-direction: column;
             gap: 15px;
@@ -123,7 +140,7 @@
 
         .section-label {
             font-size: 0.75rem;
-            color: var(--text-main);
+            color: var(--text-main); /* Ubah jadi terang dikit */
             opacity: 0.7;
             text-transform: uppercase;
             font-weight: 700;
@@ -135,7 +152,7 @@
         select, input[type="text"] {
             width: 100%;
             padding: 10px;
-            background: var(--bg-dark); /* Lebih gelap */
+            background: var(--bg-dark); /* Lebih gelap dari panel */
             border: 1px solid var(--border);
             color: white;
             border-radius: 4px;
@@ -144,8 +161,13 @@
         }
         select:focus, input:focus { border-color: var(--primary); outline: none; }
 
-        /* Toggles */
-        .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        /* Custom Toggles Grid */
+        .toggle-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 10px;
+        }
+
         .toggle-btn {
             background: var(--bg-dark);
             border: 1px solid var(--border);
@@ -157,46 +179,105 @@
             text-align: center;
             transition: all 0.2s;
         }
+        
         .toggle-btn.active {
-            background: rgba(189, 147, 249, 0.2); /* Purple tint */
+            background: rgba(189, 147, 249, 0.2); /* Tint Ungu */
             border-color: var(--primary);
             color: var(--primary);
             font-weight: 600;
         }
+
         .toggle-btn:hover { background: rgba(255,255,255,0.05); }
 
-        /* Buttons */
-        .action-area {
-            padding: 15px;
-            border-top: 1px solid var(--border);
-            background: var(--bg-panel);
-            flex-shrink: 0;
-            z-index: 10;
-        }
+        /* --- CSS UPDATE --- */
 
-        .btn {
-            width: 100%; padding: 12px; border: none; border-radius: 4px;
-            font-weight: 600; cursor: pointer; display: flex; align-items: center;
-            justify-content: center; gap: 8px; margin-bottom: 8px;
-        }
-        .btn-primary { background: var(--primary); color: #282a36; } /* Text hitam biar kontras */
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
-        .btn-secondary:hover { border-color: var(--text-main); }
-        .btn-success { background: var(--secondary); color: #282a36; }
+/* Action Buttons Container */
+.action-area {
+    padding: 15px;
+    border-top: 1px solid var(--border);
+    background: var(--bg-panel);
+    flex-shrink: 0; 
+    z-index: 10;
+    display: flex;
+    flex-direction: column;
+    gap: 10px; /* Jarak antar baris */
+}
+
+/* Wrapper untuk tombol sejajar (Grid 50:50) */
+.action-row {
+    display: flex;
+    gap: 10px; 
+    width: 100%;
+}
+
+/* Style Tombol Umum */
+.btn {
+    width: 100%;
+    padding: 12px;
+    border: none;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    margin: 0;
+}
+
+/* Paksa tombol dalam row bagi dua rata */
+.action-row .btn {
+    flex: 1; 
+}
+
+/* WARNA TOMBOL */
+.btn-primary { background: var(--primary); color: #282a36; border: 1.5px solid #9776c7; }
+.btn-primary:hover { background: var(--primary-hover); border: 1.5px solid var(--primary); }
+
+.btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1.5px solid var(--border); }
+.btn-secondary:hover { border-color: var(--primary); background: #44475a; }
+
+.btn-success { background: var(--secondary); color: #282a36; border: 2px solid #5cc977; }
+.btn-success:hover { background: #5cc977; border: 1.5px solid var(--secondary); }
+
+/* Tombol Merah (Clear) */
+.btn-danger { background: #ff6d6d; color: #282a36; border: 1.5px solid #ff5555; } /* Dracula Red */
+.btn-danger:hover { background: #ff5555; border: 1.5px solid #ff6d6d; }
 
         .badge-pro {
             background: var(--primary-hover);
             color: #282a36;
-            font-size: 0.6rem; padding: 1px 4px; border-radius: 2px; font-weight: bold; margin-left: 5px;
+            font-size: 0.6rem;
+            padding: 1px 4px;
+            border-radius: 2px;
+            font-weight: bold;
+            margin-left: 5px;
         }
 
-        /* MEDIA QUERY */
         @media (max-width: 1024px) {
-            .container { grid-template-columns: 1fr; height: auto; display: flex; flex-direction: column; gap: 20px; }
-            .panel { height: 600px; min-height: 500px; }
-            .editor-wrapper { height: 500px; } /* Paksa tinggi editor di HP */
-            .controls-content { overflow-y: auto; flex: 1; }
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
+
+            .panel {
+                /* Tinggi manual untuk HP */
+                height: 600px; 
+                min-height: 500px;
+            }
+            
+            /* Paksa wrapper editor punya tinggi di HP */
+            .editor-wrapper {
+                height: 500px;
+            }
+            
+            .controls-content {
+                overflow-y: auto; 
+                flex: 1; 
+            }
         }
     </style>
 </head>
@@ -204,7 +285,7 @@
 
 <div class="container">
     <header>
-        <div class="brand">SHIELD GEN 6.0 <span>Dracula Edition</span></div>
+        <div class="brand">SHIELD GEN 6.0 <span>VS Code Edition</span></div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">
             Status: <span style="color: var(--secondary)">● System Ready</span>
         </div>
@@ -213,10 +294,10 @@
     <div class="panel">
         <div class="panel-header">
             JavaScript Source
-            <span id="inputStats" style="color: var(--text-main); opacity: 0.5;">Empty</span>
+            <span id="inputStats" style="color: var(--text-muted)">Empty</span>
         </div>
         <div class="editor-wrapper">
-            <textarea id="inputCode" name="inputCode">// Paste Code Here...
+            <textarea id="inputCode">// Paste Code Here...
 const secretKey = 'WAYANG-123';
 const wallet = { balance: 5000, type: 'ETH' };
 
@@ -229,6 +310,18 @@ function sendTransaction() {
     <div class="panel">
         <div class="panel-header">Configuration</div>
         <div class="controls-content">
+
+            <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--primary);">
+    <span class="section-label" style="color: var(--primary);">0. Engine Mode</span>
+    <select id="engineMode" onchange="changeEngineMode()">
+        <option value="js">JavaScript (Obfuscator)</option>
+        <option value="html">HTML (Minifier)</option>
+        <option value="css">CSS (Minifier)</option>
+    </select>
+</div>
+
+<div id="jsOptionsWrapper"> 
+</div>
             
             <div>
                 <span class="section-label">1. Quick Presets</span>
@@ -307,34 +400,34 @@ function sendTransaction() {
             <span id="outputStats" style="color: var(--secondary)">0 KB</span>
         </div>
         <div class="editor-wrapper">
-            <textarea id="outputCode" name="outputCode"></textarea>
+            <textarea id="outputCode"></textarea>
         </div>
     </div>
 </div>
 
 <script>
-    // --- INIT CODEMIRROR (MAGIC HAPPENS HERE) ---
-    // Mengubah Textarea menjadi Code Editor canggih
-    
-    // 1. Input Editor
+    // --- INIT CODEMIRROR (THE MAGIC) ---
+    // 1. Setup Editor Input
     var editorIn = CodeMirror.fromTextArea(document.getElementById("inputCode"), {
         mode: "javascript",
         theme: "dracula",
         lineNumbers: true,
         smartIndent: true,
-        matchBrackets: true
+        matchBrackets: true,
+        lineWrapping: true
     });
 
-    // 2. Output Editor (Read Only)
+    // 2. Setup Editor Output (Read Only)
     var editorOut = CodeMirror.fromTextArea(document.getElementById("outputCode"), {
         mode: "javascript",
         theme: "dracula",
         lineNumbers: true,
-        readOnly: true, // Tidak bisa diketik manual
-        lineWrapping: true // Agar kode panjang turun ke bawah
+        readOnly: true, // Tidak bisa diedit manual
+        lineWrapping: true,
+        matchBrackets: true
     });
 
-    // Karena CodeMirror merender ulang DOM, kita perlu handle Resize
+    // Fix Render issue saat resize window
     function refreshEditors() {
         setTimeout(() => {
             editorIn.refresh();
@@ -415,8 +508,8 @@ function sendTransaction() {
 
     // --- CORE ENGINE ---
     function obfuscateNow() {
-        // PERUBAHAN PENTING: Ambil value dari CodeMirror, bukan Textarea biasa
-        const input = editorIn.getValue(); 
+        // AMBIL VALUE DARI CODEMIRROR, BUKAN TEXTAREA
+        const input = editorIn.getValue();
         
         if(!input.trim()) { alert("Input code is empty!"); return; }
 
@@ -446,6 +539,7 @@ function sendTransaction() {
         if(options.stringArrayEncoding[0] === 'none') {
             options.stringArrayEncoding = [];
         }
+
         if (domainLockInput.trim() !== "") {
             options.domainLock = domainLockInput.split(',').map(d => d.trim());
         }
@@ -453,9 +547,11 @@ function sendTransaction() {
         try {
             const startTime = performance.now();
             const result = JavaScriptObfuscator.obfuscate(input, options);
+            const endTime = performance.now();
+
             const output = result.getObfuscatedCode();
             
-            // SET HASIL KE CODEMIRROR OUTPUT
+            // SET VALUE KE CODEMIRROR OUTPUT
             editorOut.setValue(output);
 
             const inSize = new Blob([input]).size;
@@ -471,6 +567,7 @@ function sendTransaction() {
         }
     }
 
+    // --- ACTIONS ---
     function copyCode() {
         // Copy dari CodeMirror
         const content = editorOut.getValue();
@@ -480,14 +577,16 @@ function sendTransaction() {
     }
 
     function downloadCode() {
+        // Download dari CodeMirror
         const text = editorOut.getValue();
         const blob = new Blob([text], {type: "text/javascript"});
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "shield-protected.js";
+        a.download = "protected-script.js";
         a.click();
     }
 
+    // Init
     applyPreset();
 </script>
 
