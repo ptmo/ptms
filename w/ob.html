@@ -255,6 +255,116 @@
             margin-left: 5px;
         }
 
+        /* --- PREMIUM TOAST NOTIFICATIONS --- */
+#toast-container {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 99999;
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+}
+
+.toast {
+    min-width: 300px;
+    max-width: 400px;
+    background: rgba(40, 42, 54, 0.95); /* Gelap transparan */
+    backdrop-filter: blur(10px);        /* Efek blur premium */
+    border-left: 5px solid;
+    border-radius: 8px;
+    padding: 15px 20px 15px 15px;       /* Padding kanan lebih besar utk tombol close */
+    box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    position: relative;
+    overflow: hidden;
+    transform: translateX(120%);
+    transition: transform 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+    font-family: 'Inter', sans-serif;
+}
+
+.toast.show {
+    transform: translateX(0);
+}
+
+/* Icon Section */
+.toast-icon {
+    font-size: 1.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Text Section */
+.toast-content {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.toast-title {
+    font-weight: 800;
+    font-size: 0.95rem;
+    color: var(--text-main);
+    margin-bottom: 2px;
+}
+
+.toast-message {
+    font-size: 0.85rem;
+    color: var(--text-muted);
+    line-height: 1.4;
+}
+
+/* Close Button (Merah di Pojok Kanan Atas) */
+.toast-close {
+    position: absolute;
+    top: 8px;
+    right: 10px;
+    color: #ff5555; /* Merah Dracula */
+    cursor: pointer;
+    font-size: 1rem;
+    opacity: 0.7;
+    transition: opacity 0.2s;
+}
+
+.toast-close:hover {
+    opacity: 1;
+    transform: scale(1.1);
+}
+
+/* --- VARIAN WARNA --- */
+/* SUCCESS */
+.toast-success { border-left-color: #50fa7b; }
+.toast-success .toast-icon { color: #50fa7b; }
+
+/* ERROR */
+.toast-error { border-left-color: #ff5555; }
+.toast-error .toast-icon { color: #ff5555; }
+
+/* WARNING */
+.toast-warning { border-left-color: #ffb86c; }
+.toast-warning .toast-icon { color: #ffb86c; }
+
+/* INFO */
+.toast-info { border-left-color: #8be9fd; }
+.toast-info .toast-icon { color: #8be9fd; }
+
+/* LOADING */
+.toast-loading { border-left-color: #bd93f9; }
+.toast-loading .toast-icon { color: #bd93f9; }
+
+/* Progress Bar (Optional Animation) */
+.toast-progress {
+    position: absolute;
+    bottom: 0;
+    left: 0;
+    height: 3px;
+    background: rgba(255,255,255,0.2);
+    width: 100%;
+}
+
         @media (max-width: 1024px) {
             .container {
                 grid-template-columns: 1fr;
@@ -524,8 +634,10 @@ function sendTransaction() {
 function obfuscateNow() {
     // 1. AMBIL VALUE & CEK INPUT (Lakukan di awal)
     const input = editorIn.getValue();
-    if(!input.trim()) { alert("Input code is empty!"); return; }
-
+    if(!input.trim()) { 
+        Toast.fire({ type: 'warning', message: 'Please enter some code first!' });
+        return; 
+    }
     // 2. UI LOADING STATE (Ubah Tombol jadi Loading)
     const btn = document.getElementById('btnExec');
     const originalText = btn.innerHTML; // Simpan teks asli "⚡ EXECUTE"
@@ -534,6 +646,8 @@ function obfuscateNow() {
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
     btn.disabled = true; // Matikan tombol sementara
     btn.style.opacity = '0.7';
+
+    const loadingToast = Toast.fire({ type: 'loading', message: 'Optimizing your code...' });
 
     // 3. EKSEKUSI DENGAN DELAY (Agar UI sempat update icon loading)
     setTimeout(() => {
@@ -623,14 +737,14 @@ function obfuscateNow() {
                 `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
 
         } catch (err) {
-            alert("Error Processing: " + err.message);
+            loadingToast.close();
+            Toast.fire({ type: 'error', message: err.message });
         } finally {
-            // 4. KEMBALIKAN TOMBOL KE SEMULA (SELESAI)
             btn.innerHTML = originalText;
             btn.disabled = false;
             btn.style.opacity = '1';
         }
-    }, 100); // Delay 100ms agar animasi loading terlihat
+    }, 500); // Delay 500ms agar toast loading sempat terlihat
 }
     
 // --- FIX MINIFIER HTML (FINAL) ---
@@ -706,7 +820,7 @@ function copyCode() {
 
     // Cek jika output kosong
     if (!content) { 
-        alert("Nothing to copy!"); 
+        Toast.fire({ type: 'warning', message: 'Nothing to copy. Output is empty.' });
         return; 
     }
     
@@ -721,6 +835,8 @@ function copyCode() {
         // Ubah icon jadi Centang (fa-check) dengan warna Hijau (#50fa7b)
         btn.innerHTML = '<i class="fas fa-check" style="color: #50fa7b;"></i> Copied!';
         
+        Toast.fire({ type: 'success', title: 'Copied', message: 'Code copied to clipboard!' });
+        
         // Timer: Kembalikan tombol ke semula setelah 2 detik (2000ms)
         setTimeout(() => {
             btn.innerHTML = originalContent;
@@ -728,11 +844,9 @@ function copyCode() {
         }, 2000);
 
     }).catch(err => {
-        // --- ERROR ---
-        console.error("Copy failed:", err);
         btn.innerHTML = '<i class="fas fa-times"></i> Error';
-        alert("Failed to copy to clipboard!");
-        btn.disabled = false;
+        Toast.fire({ type: 'error', message: 'Failed to copy code.' });
+        setTimeout(() => { btn.innerHTML = originalContent; btn.disabled = false; }, 2000);
     });
 }
 
@@ -746,9 +860,9 @@ function downloadCode() {
     
     // Cek isi editor
     const text = editorOut.getValue();
-    if (!text.trim()) {
-        alert("Output is empty! Nothing to download.");
-        return;
+    if (!text.trim()) { 
+        Toast.fire({ type: 'warning', message: 'Output is empty! Process code first.' });
+        return; 
     }
 
     // 2. UI LOADING STATE
@@ -756,6 +870,8 @@ function downloadCode() {
         btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing...';
         btn.disabled = true;
     }
+
+    const dlToast = Toast.fire({ type: 'loading', message: 'Preparing download...' });
 
     setTimeout(() => {
         try {
@@ -787,11 +903,13 @@ function downloadCode() {
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
+        dlToast.close();
+            Toast.fire({ type: 'success', title: 'Downloaded', message: `File protected-result.${ext} saved!` });
+
         } catch (err) {
-            alert("Download Error: " + err.message);
+            dlToast.close();
+            Toast.fire({ type: 'error', message: err.message });
         } finally {
-            // 5. KEMBALIKAN KE LABEL DINAMIS SEBELUMNYA
-            // Jika tadi tulisannya "Download .html", dia akan kembali ke "Download .html"
             if (btn) {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
@@ -813,36 +931,106 @@ function clearCode() {
         btn.disabled = true; // Matikan tombol sementara
     }
 
-    // Gunakan setTimeout agar animasi loading terlihat sejenak
     setTimeout(() => {
-        // 2. LOGIKA PEMBERSIHAN (Fitur Lama)
-        // Kosongkan kedua editor CodeMirror
         editorIn.setValue('');
         editorOut.setValue('');
-        
-        // Reset Stats
         document.getElementById('inputStats').innerText = 'Empty';
         document.getElementById('outputStats').innerText = '0 KB';
         
-        // Reset Mode ke default JS placeholder
         const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
-        
-        // Logika placeholder sesuai mode (Opsional: ditambahkan agar tidak kosong melompong)
-        if(mode === 'js') {
-            editorIn.setValue("// Paste Code Here...");
-        } else if (mode === 'html') {
-            editorIn.setValue("");
-        } else if (mode === 'css') {
-            editorIn.setValue("/* Paste CSS Here */");
-        }
+        if(mode === 'js') editorIn.setValue("// Paste Code Here...");
+        else if (mode === 'html') editorIn.setValue("");
+        else if (mode === 'css') editorIn.setValue("/* Paste CSS Here */");
 
-        // 3. KEMBALIKAN TOMBOL KE SEMULA
         if (btn) {
             btn.innerHTML = originalContent;
             btn.disabled = false;
         }
-    }, 500); // Delay 0.5 detik
+
+        Toast.fire({ type: 'info', title: 'Cleaned', message: 'Workspace has been reset.' });
+    }, 500);
 }
+        
+
+    // --- TOAST SYSTEM (PREMIUM) ---
+const Toast = {
+    container: null,
+
+    init() {
+        if (!this.container) {
+            this.container = document.createElement('div');
+            this.container.id = 'toast-container';
+            document.body.appendChild(this.container);
+        }
+    },
+
+    fire({ type = 'info', title, message, duration = 3000 }) {
+        this.init();
+
+        // 1. Tentukan Icon & Style
+        let iconClass = 'fa-info-circle';
+        let toastClass = 'toast-info';
+
+        if (type === 'success') {
+            iconClass = 'fa-check-circle';
+            toastClass = 'toast-success';
+            if (!title) title = 'Success';
+        } else if (type === 'error') {
+            iconClass = 'fa-times-circle';
+            toastClass = 'toast-error';
+            if (!title) title = 'Error';
+        } else if (type === 'warning') {
+            iconClass = 'fa-exclamation-triangle';
+            toastClass = 'toast-warning';
+            if (!title) title = 'Warning';
+        } else if (type === 'loading') {
+            iconClass = 'fa-circle-notch fa-spin';
+            toastClass = 'toast-loading';
+            if (!title) title = 'Processing';
+            duration = 0; // Loading tidak hilang otomatis
+        }
+
+        // 2. Buat Elemen HTML
+        const toast = document.createElement('div');
+        toast.className = `toast ${toastClass}`;
+        toast.innerHTML = `
+            <div class="toast-icon">
+                <i class="fas ${iconClass}"></i>
+            </div>
+            <div class="toast-content">
+                <div class="toast-title">${title}</div>
+                <div class="toast-message">${message}</div>
+            </div>
+            <div class="toast-close" onclick="this.parentElement.remove()">
+                <i class="fas fa-times"></i>
+            </div>
+        `;
+
+        // 3. Masukkan ke Container
+        this.container.appendChild(toast);
+
+        // 4. Trigger Animasi Masuk
+        requestAnimationFrame(() => {
+            toast.classList.add('show');
+        });
+
+        // 5. Auto Close Logic (Kecuali Loading)
+        if (duration > 0) {
+            setTimeout(() => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }, duration);
+        }
+
+        // 6. Return Element (Agar bisa diclose manual, misal utk loading)
+        return {
+            close: () => {
+                toast.style.opacity = '0';
+                setTimeout(() => toast.remove(), 300);
+            }
+        };
+    }
+};
 
     // Init
     applyPreset();
