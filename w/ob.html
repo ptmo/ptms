@@ -360,7 +360,7 @@
 
 <div class="container">
     <header>
-        <div class="brand">SHIELD GEN 6.0 <span>Code Edition</span></div>
+        <div class="brand">SHIELD GEN 6.0 <span>Vs Code Edition</span></div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">
             Status: <span style="color: var(--secondary)">● System Ready</span>
         </div>
@@ -503,7 +503,7 @@ function sendTransaction() {
             </div>
         </div>
     </div>
-          </div>  
+          </div>
 
             <div>
                 <span class="section-label">4. Data Transformation</span>
@@ -1016,56 +1016,60 @@ function clearCode() {
     }, 500); // Delay 0.5 detik
 }
 
-// --- 1. Fungsi Buka/Tutup Dropdown (Versi Aman & Stabil) ---
+// --- 1. Fungsi Buka/Tutup Dropdown (FIXED) ---
 function toggleDropdown(dropdownId) {
-    // SAFETY CHECK 1: Pastikan ID dikirim
-    if (!dropdownId) {
-        console.error("Error: toggleDropdown dipanggil tanpa ID!");
+    // A. SAFETY CHECK
+    if (!dropdownId) return;
+    const dropdown = document.getElementById(dropdownId);
+    if (!dropdown) {
+        console.error(`ID '${dropdownId}' tidak ditemukan! Periksa HTML.`);
         return;
     }
 
-    const dropdown = document.getElementById(dropdownId);
-    
-    // SAFETY CHECK 2: Pastikan elemen HTML dengan ID tersebut BENAR-BENAR ADA
-    // Jika ID di HTML onclick beda dengan ID div, ini akan mencegah error fatal
-    if (!dropdown) {
-        console.error(`Error: Element dengan ID '${dropdownId}' tidak ditemukan. Cek ejaan ID di HTML Anda.`);
-        return;
-    }
-    
-    // A. LOGIKA TUTUP YANG LAIN (Agar tidak tumpuk-menumpuk)
+    // B. TUTUP DROPDOWN LAIN (Reset semua)
     document.querySelectorAll('.custom-options').forEach(el => {
-        // Jika element ini BUKAN yang sedang diklik, tutup dia
         if (el.id !== dropdownId) {
-            el.classList.remove('open');
-            
-            // Reset icon panah dropdown lain ke 0 derajat
-            const otherWrapper = el.closest('.custom-select-wrapper');
-            if (otherWrapper) {
-                const otherIcon = otherWrapper.querySelector('.fa-chevron-down');
-                if (otherIcon) otherIcon.style.transform = 'rotate(0deg)';
+            el.classList.remove('open'); // Tutup
+            // Reset Icon Lain
+            const wrapper = el.closest('.custom-select-wrapper');
+            if(wrapper) {
+                const icon = wrapper.querySelector('.fa-chevron-down');
+                if(icon) icon.style.transform = 'rotate(0deg)';
             }
         }
     });
 
-    // B. LOGIKA UTAMA (Buka/Tutup Target)
+    // C. TOGGLE TARGET (Buka/Tutup yang diklik)
     dropdown.classList.toggle('open');
     
-    // C. ROTASI ICON PANAH (Target)
+    // D. PUTAR ICON TARGET
     const wrapper = dropdown.closest('.custom-select-wrapper');
     if (wrapper) {
         const icon = wrapper.querySelector('.fa-chevron-down');
         if (icon) {
-            if (dropdown.classList.contains('open')) {
-                // Jika terbuka, putar ke atas
-                icon.style.transform = 'rotate(180deg)';
-            } else {
-                // Jika tertutup, reset ke bawah
-                icon.style.transform = 'rotate(0deg)';
-            }
+            // Jika class 'open' ada, putar 180 derajat. Jika tidak, reset 0.
+            const isOpen = dropdown.classList.contains('open');
+            icon.style.transform = isOpen ? 'rotate(180deg)' : 'rotate(0deg)';
         }
     }
 }
+
+// --- 2. Window Listener (Klik di luar = Tutup Semua) ---
+window.addEventListener('click', function(e) {
+    // Jika yang diklik BUKAN bagian dari custom-select-wrapper
+    if (!e.target.closest('.custom-select-wrapper')) {
+        document.querySelectorAll('.custom-options').forEach(el => {
+            el.classList.remove('open');
+            
+            // Reset Icon
+            const wrapper = el.closest('.custom-select-wrapper');
+            if(wrapper) {
+                const icon = wrapper.querySelector('.fa-chevron-down');
+                if(icon) icon.style.transform = 'rotate(0deg)';
+            }
+        });
+    }
+});
 
 // 2. Fungsi Saat Opsi Dipilih
 function selectOption(value, text) {
@@ -1085,17 +1089,6 @@ function selectOption(value, text) {
     // Cara termudah: Logic di HTML onclick parent sudah handle toggle.
     // Kita hanya perlu memastikan value terupdate.
 }
-
-// 3. Tutup dropdown jika klik di luar area
-window.addEventListener('click', function(e) {
-    const wrapper = document.querySelector('.custom-select-wrapper');
-    const options = document.getElementById('customOptions');
-    if (!wrapper.contains(e.target)) {
-        options.classList.remove('open');
-        const icon = document.querySelector('#customSelectLabel i');
-        if(icon) icon.style.transform = 'rotate(0deg)';
-    }
-});
 
 // 4. Update Tampilan saat Preset Berubah (Integrasi ke fungsi applyPreset Anda)
 // Tambahkan baris ini di dalam fungsi applyPreset() Anda yang lama:
