@@ -630,43 +630,37 @@ function sendTransaction() {
         }
     }
 
-// --- UPDATE FUNGSI OBFUSCATE (Loading Effect + Fitur Lama) ---
+// --- UPDATE FUNGSI OBFUSCATE (Fixed Toast & Timing) ---
 function obfuscateNow() {
-    // 1. AMBIL VALUE & CEK INPUT (Lakukan di awal)
+    // 1. AMBIL VALUE & CEK INPUT
+    // Cek di awal. Jika kosong, munculkan Warning Toast & Stop (Return).
     const input = editorIn.getValue();
     if(!input.trim()) { 
-        Toast.fire({ type: 'warning', message: 'Please enter some code first!' });
+        Toast.fire({ type: 'warning', title: 'Input Empty', message: 'Please enter some code first!' });
         return; 
     }
+
     // 2. UI LOADING STATE (Ubah Tombol jadi Loading)
     const btn = document.getElementById('btnExec');
-    const originalText = btn.innerHTML; // Simpan teks asli "⚡ EXECUTE"
+    const originalText = btn.innerHTML;
     
-    // Ganti icon jadi spinner muter
     btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
-    btn.disabled = true; // Matikan tombol sementara
+    btn.disabled = true;
     btn.style.opacity = '0.7';
 
+    // Nyalakan Toast Loading (Simpan ke variabel agar bisa dimatikan nanti)
     const loadingToast = Toast.fire({ type: 'loading', message: 'Optimizing your code...' });
 
-    // 3. EKSEKUSI DENGAN DELAY (Agar UI sempat update icon loading)
+    // 3. EKSEKUSI DENGAN DELAY 1 DETIK (1000ms)
     setTimeout(() => {
         try {
-            // ===============================================
-            // LOGIKA UTAMA (SAMA PERSIS SEPERTI SEBELUMNYA)
-            // ===============================================
-            
-            // Cek Mode
+            // --- LOGIKA UTAMA ---
             const modeEl = document.getElementById('engineMode');
             const mode = modeEl ? modeEl.value : 'js';
-
             let output = "";
-            const startTime = performance.now();
 
-            // --- LOGIKA CABANG ---
             if (mode === 'js') {
                 const domainLockInput = document.getElementById('domainLock').value;
-                
                 let options = {
                     compact: true,
                     identifierNamesGenerator: document.getElementById('renameStrategy').value,
@@ -688,43 +682,27 @@ function obfuscateNow() {
                     selfDefending: isActive('opt_selfDefending')
                 };
 
-                if(options.stringArrayEncoding[0] === 'none') {
-                    options.stringArrayEncoding = [];
-                }
+                if(options.stringArrayEncoding[0] === 'none') options.stringArrayEncoding = [];
+                if (domainLockInput.trim() !== "") options.domainLock = domainLockInput.split(',').map(d => d.trim());
 
-                if (domainLockInput.trim() !== "") {
-                    options.domainLock = domainLockInput.split(',').map(d => d.trim());
-                }
-
-                // Eksekusi JS Obfuscator
                 const result = JavaScriptObfuscator.obfuscate(input, options);
                 output = result.getObfuscatedCode();
                 
             } else if (mode === 'html') {
-                // Eksekusi HTML Minifier
                 output = minifyHTML(input);
-
             } else if (mode === 'css') {
-                // Eksekusi CSS Minifier
                 output = minifyCSS(input);
             }
 
-            const endTime = performance.now();
-
-            // SET VALUE KE CODEMIRROR OUTPUT
             editorOut.setValue(output);
 
-            // HITUNG STATS
+            // Hitung Stats
             const inSize = new Blob([input]).size;
             const outSize = new Blob([output]).size;
-            
-            // Hitung persentase
             let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
             
-            // Styling
             let colorStyle = 'opacity:0.7'; 
             let sign = '+';
-            
             if (parseInt(growth) < 0) {
                 sign = ''; 
                 colorStyle = 'color: var(--secondary); font-weight:bold;'; 
@@ -736,15 +714,23 @@ function obfuscateNow() {
             document.getElementById('outputStats').innerHTML = 
                 `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
 
+            // 4. SUKSES: MATIKAN LOADING TOAST
+            loadingToast.close(); 
+            // Munculkan Toast Sukses
+            Toast.fire({ type: 'success', title: 'Completed', message: 'Code processed successfully!' });
+
         } catch (err) {
+            // 5. ERROR: MATIKAN LOADING TOAST
             loadingToast.close();
-            Toast.fire({ type: 'error', message: err.message });
+            // Munculkan Toast Error
+            Toast.fire({ type: 'error', title: 'Failed', message: err.message });
         } finally {
+            // 6. RESET TOMBOL
             btn.innerHTML = originalText;
             btn.disabled = false;
             btn.style.opacity = '1';
         }
-    }, 500); // Delay 500ms agar toast loading sempat terlihat
+    }, 500); // <-- DELAY DIGANTI JADI 1000ms (1 Detik)
 }
     
 // --- FIX MINIFIER HTML (FINAL) ---
