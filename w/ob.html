@@ -736,14 +736,15 @@ function copyCode() {
     });
 }
 
-    // --- UPDATE FUNGSI DOWNLOAD (Support JS/HTML/CSS + Loading Animation) ---
+    // --- UPDATE FUNGSI DOWNLOAD (Dinamis Label) ---
 function downloadCode() {
     const btn = document.getElementById('btnDownload');
-    // Simpan konten asli tombol (Icon Download + Teks) untuk dikembalikan nanti
-    // Jika btn null (karena belum ada di HTML), fallback string kosong
+    
+    // 1. SIMPAN LABEL DINAMIS SAAT INI
+    // (Misal: saat ini tulisannya "Download .html", maka variable ini akan menyimpan "Download .html")
     const originalContent = btn ? btn.innerHTML : 'Download'; 
     
-    // 1. Cek isi editor
+    // Cek isi editor
     const text = editorOut.getValue();
     if (!text.trim()) {
         alert("Output is empty! Nothing to download.");
@@ -756,12 +757,11 @@ function downloadCode() {
         btn.disabled = true;
     }
 
-    // Gunakan setTimeout agar user sempat melihat animasi loading (UX Experience)
     setTimeout(() => {
         try {
             // 3. Tentukan Ekstensi File Berdasarkan Mode
             const modeEl = document.getElementById('engineMode');
-            const mode = modeEl ? modeEl.value : 'js'; // Default ke JS jika elemen tidak ketemu
+            const mode = modeEl ? modeEl.value : 'js'; 
             
             let ext = 'js';
             let mimeType = 'text/javascript';
@@ -774,33 +774,30 @@ function downloadCode() {
                 mimeType = 'text/css';
             }
 
-            // 4. Proses Pembuatan File (Blob)
+            // 4. Proses Download
             const blob = new Blob([text], {type: mimeType});
             const url = URL.createObjectURL(blob);
             const a = document.createElement("a");
             
             a.href = url;
-            // Nama file dinamis: protected-result.js / .html / .css
             a.download = `protected-result.${ext}`; 
             
-            // Tambahkan ke body (wajib untuk Firefox), klik, lalu hapus
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
-            
-            // Bersihkan memori URL
             URL.revokeObjectURL(url);
 
         } catch (err) {
             alert("Download Error: " + err.message);
         } finally {
-            // 5. Reset Tombol ke Semula
+            // 5. KEMBALIKAN KE LABEL DINAMIS SEBELUMNYA
+            // Jika tadi tulisannya "Download .html", dia akan kembali ke "Download .html"
             if (btn) {
                 btn.innerHTML = originalContent;
                 btn.disabled = false;
             }
         }
-    }, 500); // Delay 0.5 detik biar terlihat 'mikir' sedikit
+    }, 500);
 }
 
     // --- UPDATE FUNGSI CLEAR (Dengan Animasi Loading) ---
