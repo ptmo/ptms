@@ -255,6 +255,80 @@
             margin-left: 5px;
         }
 
+        /* --- CUSTOM DROPDOWN DRACULA --- */
+.custom-select-wrapper {
+    position: relative;
+    user-select: none;
+    width: 100%;
+}
+
+/* Kotak Utama (Trigger) */
+.custom-select-trigger {
+    background: var(--bg-input);
+    color: var(--text-main);
+    padding: 10px;
+    border: 1px solid var(--border);
+    border-radius: 4px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* Efek Hover pada Kotak Utama */
+.custom-select-trigger:hover {
+    border-color: var(--primary);
+    background: #44475a; /* Sedikit lebih terang */
+    box-shadow: 0 0 8px rgba(189, 147, 249, 0.2); /* Glow Ungu Tipis */
+}
+
+/* Daftar Opsi (Dropdown List) */
+.custom-options {
+    position: absolute;
+    top: 110%; /* Muncul sedikit di bawah trigger */
+    left: 0;
+    right: 0;
+    background: var(--bg-dark);
+    border: 1px solid var(--primary);
+    border-radius: 4px;
+    z-index: 100;
+    
+    /* Animasi Buka Tutup */
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(-10px);
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.5);
+}
+
+/* Saat Dropdown Aktif (Class ini ditambahkan via JS) */
+.custom-options.open {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+/* Item Opsi */
+.custom-option {
+    padding: 10px;
+    cursor: pointer;
+    color: var(--text-muted);
+    transition: all 0.2s;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+
+.custom-option:last-child { border-bottom: none; }
+
+/* Efek Hover pada Item Opsi (Dracula Style) */
+.custom-option:hover {
+    background: var(--primary); /* Ungu */
+    color: #282a36; /* Teks jadi gelap biar kontras */
+    font-weight: 600;
+    padding-left: 15px; /* Efek geser sedikit */
+}
+
         @media (max-width: 1024px) {
             .container {
                 grid-template-columns: 1fr;
@@ -349,13 +423,32 @@ function sendTransaction() {
                     <div id="opt_stringArray" class="toggle-btn active" onclick="toggleBtn(this)">String Array</div>
                     <div id="opt_rotateString" class="toggle-btn active" onclick="toggleBtn(this)">Rotate</div>
                 </div>
-                <div style="margin-top:8px;">
-                    <span class="section-label" style="font-size: 0.7rem;">Algorithm</span>
-                    <select id="stringEncoding">
-                        <option value="none">None (Plain)</option>
-                        <option value="base64">Base64 (Standard)</option>
-                        <option value="rc4">RC4 (Strong Encryption)</option>
-                    </select>
+                <div style="margin-top:8px; position: relative;">
+    <span class="section-label" style="font-size: 0.7rem;">Algorithm</span>
+    
+    <select id="stringEncoding" style="display: none;">
+        <option value="none">None (Plain)</option>
+        <option value="base64">Base64 (Standard)</option>
+        <option value="rc4">RC4 (Strong Encryption)</option>
+    </select>
+
+    <div class="custom-select-wrapper" onclick="toggleDropdown()">
+        <div id="customSelectLabel" class="custom-select-trigger">
+            None (Plain) <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>
+        </div>
+        
+        <div id="customOptions" class="custom-options">
+            <div class="custom-option" onclick="selectOption('none', 'None (Plain)')">
+                None (Plain)
+            </div>
+            <div class="custom-option" onclick="selectOption('base64', 'Base64 (Standard)')">
+                Base64 (Standard)
+            </div>
+            <div class="custom-option" onclick="selectOption('rc4', 'RC4 (Strong Encryption)')">
+                RC4 (Strong Encryption)
+            </div>
+        </div>
+    </div>
                 </div>
             </div>
 
@@ -381,7 +474,7 @@ function sendTransaction() {
 
             <div>
                 <span class="section-label">6. Domain Lock</span>
-                <input type="text" id="domainLock" placeholder="e.g. wayang-nusantara.com">
+                <input type="text" id="domainLock" placeholder="e.g. your-site.com">
             </div>
 
         </div>
@@ -471,55 +564,75 @@ function sendTransaction() {
         const i = Math.floor(Math.log(bytes) / 1024);
         return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
     }
-
-    // --- PRESET LOGIC ---
-    function applyPreset() {
-        const p = document.getElementById('preset').value;
-        
-        if (p === 'basic') {
-            document.getElementById('renameStrategy').value = 'mangled';
-            document.getElementById('stringEncoding').value = 'none';
-            setActive('opt_stringArray', false);
-            setActive('opt_rotateString', false);
-            setActive('opt_unicode', false);
-            setActive('opt_numbers', false);
-            setActive('opt_splitStrings', false);
-            setActive('opt_transformObj', false);
-            setActive('opt_deadCode', false);
-            setActive('opt_controlFlow', false);
-            setActive('opt_debug', false);
-            setActive('opt_selfDefending', false);
-        }
-        else if (p === 'standard') {
-            document.getElementById('renameStrategy').value = 'hexadecimal';
-            document.getElementById('stringEncoding').value = 'base64';
-            setActive('opt_stringArray', true);
-            setActive('opt_rotateString', true);
-            setActive('opt_unicode', false);
-            setActive('opt_numbers', false);
-            setActive('opt_splitStrings', true);
-            setActive('opt_transformObj', false);
-            setActive('opt_deadCode', false);
-            setActive('opt_controlFlow', true);
-            setActive('opt_debug', false);
-            setActive('opt_selfDefending', false);
-        }
-        else if (p === 'paranoid') {
-            document.getElementById('renameStrategy').value = 'mangled-shuffled';
-            document.getElementById('stringEncoding').value = 'rc4';
-            setActive('opt_stringArray', true);
-            setActive('opt_rotateString', true);
-            setActive('opt_unicode', true);
-            setActive('opt_numbers', true);
-            setActive('opt_splitStrings', true);
-            setActive('opt_transformObj', true);
-            setActive('opt_deadCode', true);
-            setActive('opt_controlFlow', true);
-            setActive('opt_debug', true);
-            setActive('opt_selfDefending', true);
-        }
+    
+// --- PRESET LOGIC (UPDATED) ---
+function applyPreset() {
+    const p = document.getElementById('preset').value;
+    
+    // ==========================================
+    // 1. LOGIKA LAMA (TIDAK ADA YANG DIKURANGI)
+    // ==========================================
+    if (p === 'basic') {
+        document.getElementById('renameStrategy').value = 'mangled';
+        document.getElementById('stringEncoding').value = 'none';
+        setActive('opt_stringArray', false);
+        setActive('opt_rotateString', false);
+        setActive('opt_unicode', false);
+        setActive('opt_numbers', false);
+        setActive('opt_splitStrings', false);
+        setActive('opt_transformObj', false);
+        setActive('opt_deadCode', false);
+        setActive('opt_controlFlow', false);
+        setActive('opt_debug', false);
+        setActive('opt_selfDefending', false);
+    }
+    else if (p === 'standard') {
+        document.getElementById('renameStrategy').value = 'hexadecimal';
+        document.getElementById('stringEncoding').value = 'base64';
+        setActive('opt_stringArray', true);
+        setActive('opt_rotateString', true);
+        setActive('opt_unicode', false);
+        setActive('opt_numbers', false);
+        setActive('opt_splitStrings', true);
+        setActive('opt_transformObj', false);
+        setActive('opt_deadCode', false);
+        setActive('opt_controlFlow', true);
+        setActive('opt_debug', false);
+        setActive('opt_selfDefending', false);
+    }
+    else if (p === 'paranoid') {
+        document.getElementById('renameStrategy').value = 'mangled-shuffled';
+        document.getElementById('stringEncoding').value = 'rc4';
+        setActive('opt_stringArray', true);
+        setActive('opt_rotateString', true);
+        setActive('opt_unicode', true);
+        setActive('opt_numbers', true);
+        setActive('opt_splitStrings', true);
+        setActive('opt_transformObj', true);
+        setActive('opt_deadCode', true);
+        setActive('opt_controlFlow', true);
+        setActive('opt_debug', true);
+        setActive('opt_selfDefending', true);
     }
 
+    // ==========================================
+    // 2. LOGIKA BARU: SINKRONISASI TAMPILAN
+    // ==========================================
+    // Ini wajib ada agar Custom Dropdown berubah teksnya mengikuti preset
+    
+    // Ambil value mesin yang baru saja di-set (none/base64/rc4)
+    const encodingVal = document.getElementById('stringEncoding').value;
+    
+    // Cari elemen option yang sesuai untuk mengambil teks labelnya
+    const optionEl = document.querySelector(`#stringEncoding option[value="${encodingVal}"]`);
+    
+    if (optionEl) {
+        // Update tampilan kotak Custom Dropdown
+        document.getElementById('customSelectLabel').innerHTML = 
+            `${optionEl.text} <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>`;
+    }
+}
+    
 // --- FIX MINIFIER HTML (FINAL) ---
 function minifyHTML(code) {
     return code
@@ -843,6 +956,61 @@ function clearCode() {
         }
     }, 500); // Delay 0.5 detik
 }
+
+    // --- LOGIC CUSTOM DROPDOWN ---
+
+// 1. Fungsi Buka/Tutup
+function toggleDropdown() {
+    const options = document.getElementById('customOptions');
+    const trigger = document.getElementById('customSelectLabel');
+    
+    options.classList.toggle('open');
+    
+    // Rotasi Icon Panah (Opsional visual)
+    const icon = trigger.querySelector('i');
+    if (options.classList.contains('open')) {
+        icon.style.transform = 'rotate(180deg)';
+    } else {
+        icon.style.transform = 'rotate(0deg)';
+    }
+}
+
+// 2. Fungsi Saat Opsi Dipilih
+function selectOption(value, text) {
+    // A. Update Tampilan Label
+    document.getElementById('customSelectLabel').innerHTML = 
+        `${text} <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>`;
+    
+    // B. Update Select Asli (Hidden) agar Logic JS lama tetap jalan
+    document.getElementById('stringEncoding').value = value;
+    
+    // C. Update CSS Preset Logic (Opsional: Jika logika preset Anda mengubah dropdown)
+    // Kita panggil toggleDropdown lagi untuk menutup list
+    // (Panggil fungsi toggleDropdown() tidak perlu argumen di sini karena dia baca ID lgsg)
+    // Tapi karena onclick di parent div akan memicu toggle lagi, 
+    // kita stop propagation event click (teknik advanced) atau biarkan CSS handle hover.
+    
+    // Cara termudah: Logic di HTML onclick parent sudah handle toggle.
+    // Kita hanya perlu memastikan value terupdate.
+}
+
+// 3. Tutup dropdown jika klik di luar area
+window.addEventListener('click', function(e) {
+    const wrapper = document.querySelector('.custom-select-wrapper');
+    const options = document.getElementById('customOptions');
+    if (!wrapper.contains(e.target)) {
+        options.classList.remove('open');
+        const icon = document.querySelector('#customSelectLabel i');
+        if(icon) icon.style.transform = 'rotate(0deg)';
+    }
+});
+
+// 4. Update Tampilan saat Preset Berubah (Integrasi ke fungsi applyPreset Anda)
+// Tambahkan baris ini di dalam fungsi applyPreset() Anda yang lama:
+const encodingVal = document.getElementById('stringEncoding').value;
+   const encodingText = document.querySelector(`#stringEncoding option[value="${encodingVal}"]`).text;
+   document.getElementById('customSelectLabel').innerHTML = 
+        `${encodingText} <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>`;
 
     // Init
     applyPreset();
