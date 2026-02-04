@@ -109,12 +109,25 @@
             z-index: 5; /* Di atas editor */
         }
 
-        /* EDITORS WRAPPER */
-        .editor-wrapper { 
-            flex-grow: 1; 
-            position: relative; 
-            overflow: hidden; /* Mencegah editor keluar panel */
-        }
+        /* --- TAMBAHKAN/TIMPA CSS INI --- */
+
+/* Paksa CodeMirror mengisi 100% tinggi induknya */
+.editor-wrapper .CodeMirror {
+    height: 100% !important;
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    border-radius: 0 0 8px 8px;
+}
+
+/* Pastikan wrapper relatif agar absolute child-nya pas */
+.editor-wrapper { 
+    flex-grow: 1; 
+    position: relative; 
+    overflow: hidden; 
+    min-height: 200px; /* Mencegah collapse */
+}
         
         /* CONTROLS (MIDDLE PANEL) */
         .controls-content {
@@ -275,81 +288,78 @@ function sendTransaction() {
     <div class="panel">
         <div class="panel-header">Configuration</div>
         <div class="controls-content">
+    
+    <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; border: 1px solid var(--primary);">
+        <span class="section-label" style="color: var(--primary); margin-bottom: 5px;">0. Engine Mode</span>
+        <select id="engineMode" onchange="changeEngineMode()">
+            <option value="js">JavaScript (Obfuscator)</option>
+            <option value="html">HTML (Minifier)</option>
+            <option value="css">CSS (Minifier)</option>
+        </select>
+    </div>
 
-            <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--primary);">
-    <span class="section-label" style="color: var(--primary);">0. Engine Mode</span>
-    <select id="engineMode" onchange="changeEngineMode()">
-        <option value="js">JavaScript (Obfuscator)</option>
-        <option value="html">HTML (Minifier)</option>
-        <option value="css">CSS (Minifier)</option>
-    </select>
-</div>
-
-<div id="jsOptionsWrapper"> 
-</div>
-            
-            <div>
-                <span class="section-label">1. Quick Presets</span>
-                <select id="preset" onchange="applyPreset()">
-                    <option value="custom">Custom (Manual)</option>
-                    <option value="basic">Level 1: Basic (Minify Only)</option>
-                    <option value="standard" selected>Level 2: Standard (Obfuscated)</option>
-                    <option value="paranoid">Level 3: Paranoid (Banking Grade)</option>
-                </select>
-            </div>
-
-            <div>
-                <span class="section-label">2. Identifier Renaming (Variables)</span>
-                <select id="renameStrategy">
-                    <option value="mangled">Mangled (Short: a, b, c)</option>
-                    <option value="mangled-shuffled">Mangled Shuffled (Mixed)</option>
-                    <option value="hexadecimal">Hexadecimal (_0x2f4a...)</option>
-                </select>
-            </div>
-
-            <div>
-                <span class="section-label">3. String Encryption (Values)</span>
-                <div class="toggle-grid">
-                    <div id="opt_stringArray" class="toggle-btn active" onclick="toggleBtn(this)">String Array</div>
-                    <div id="opt_rotateString" class="toggle-btn active" onclick="toggleBtn(this)">Rotate</div>
-                </div>
-                <div style="margin-top:8px;">
-                    <span class="section-label" style="font-size: 0.7rem;">Algorithm</span>
-                    <select id="stringEncoding">
-                        <option value="none">None (Plain)</option>
-                        <option value="base64">Base64 (Standard)</option>
-                        <option value="rc4">RC4 (Strong Encryption)</option>
-                    </select>
-                </div>
-            </div>
-
-            <div>
-                <span class="section-label">4. Data Transformation</span>
-                <div class="toggle-grid">
-                    <div id="opt_unicode" class="toggle-btn" onclick="toggleBtn(this)" title="Convert string to \u00...">Unicode Escape</div>
-                    <div id="opt_numbers" class="toggle-btn" onclick="toggleBtn(this)" title="123 -> 0x1 + 0x2...">Numbers to Expr</div>
-                    <div id="opt_splitStrings" class="toggle-btn" onclick="toggleBtn(this)">Split Strings</div>
-                    <div id="opt_transformObj" class="toggle-btn" onclick="toggleBtn(this)">Obj Keys Transform</div>
-                </div>
-            </div>
-
-            <div>
-                <span class="section-label">5. Integrity & Protection <span class="badge-pro">PRO</span></span>
-                <div class="toggle-grid">
-                    <div id="opt_deadCode" class="toggle-btn" onclick="toggleBtn(this)">Dead Code Inj</div>
-                    <div id="opt_controlFlow" class="toggle-btn active" onclick="toggleBtn(this)">Control Flow</div>
-                    <div id="opt_debug" class="toggle-btn" onclick="toggleBtn(this)">Anti-Debug</div>
-                    <div id="opt_selfDefending" class="toggle-btn" onclick="toggleBtn(this)">Self Defending</div>
-                </div>
-            </div>
-
-            <div>
-                <span class="section-label">6. Domain Lock</span>
-                <input type="text" id="domainLock" placeholder="e.g. wayang-nusantara.com">
-            </div>
-
+    <div id="jsOptionsWrapper">
+        
+        <div>
+            <span class="section-label">1. Quick Presets</span>
+            <select id="preset" onchange="applyPreset()">
+                <option value="custom">Custom (Manual)</option>
+                <option value="basic">Level 1: Basic (Minify Only)</option>
+                <option value="standard" selected>Level 2: Standard (Obfuscated)</option>
+                <option value="paranoid">Level 3: Paranoid (Banking Grade)</option>
+            </select>
         </div>
 
+        <div style="margin-top: 15px;">
+            <span class="section-label">2. Identifier Renaming</span>
+            <select id="renameStrategy">
+                <option value="mangled">Mangled (Short: a, b, c)</option>
+                <option value="mangled-shuffled">Mangled Shuffled (Mixed)</option>
+                <option value="hexadecimal">Hexadecimal (_0x2f4a...)</option>
+            </select>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <span class="section-label">3. String Encryption</span>
+            <div class="toggle-grid">
+                <div id="opt_stringArray" class="toggle-btn active" onclick="toggleBtn(this)">String Array</div>
+                <div id="opt_rotateString" class="toggle-btn active" onclick="toggleBtn(this)">Rotate</div>
+            </div>
+            <div style="margin-top:8px;">
+                <select id="stringEncoding">
+                    <option value="none">None (Plain)</option>
+                    <option value="base64">Base64 (Standard)</option>
+                    <option value="rc4">RC4 (Strong Encryption)</option>
+                </select>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <span class="section-label">4. Data Transformation</span>
+            <div class="toggle-grid">
+                <div id="opt_unicode" class="toggle-btn" onclick="toggleBtn(this)" title="Convert string to \u00...">Unicode Escape</div>
+                <div id="opt_numbers" class="toggle-btn" onclick="toggleBtn(this)" title="123 -> 0x1 + 0x2...">Numbers to Expr</div>
+                <div id="opt_splitStrings" class="toggle-btn" onclick="toggleBtn(this)">Split Strings</div>
+                <div id="opt_transformObj" class="toggle-btn" onclick="toggleBtn(this)">Obj Keys Transform</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <span class="section-label">5. Integrity & Protection <span class="badge-pro">PRO</span></span>
+            <div class="toggle-grid">
+                <div id="opt_deadCode" class="toggle-btn" onclick="toggleBtn(this)">Dead Code Inj</div>
+                <div id="opt_controlFlow" class="toggle-btn active" onclick="toggleBtn(this)">Control Flow</div>
+                <div id="opt_debug" class="toggle-btn" onclick="toggleBtn(this)">Anti-Debug</div>
+                <div id="opt_selfDefending" class="toggle-btn" onclick="toggleBtn(this)">Self Defending</div>
+            </div>
+        </div>
+
+        <div style="margin-top: 15px;">
+            <span class="section-label">6. Domain Lock</span>
+            <input type="text" id="domainLock" placeholder="e.g. wayang-nusantara.com">
+        </div>
+    </div> </div>
+        
         <div class="action-area">
             <button class="btn btn-primary" onclick="obfuscateNow()">
                 <span>⚡ EXECUTE OBFUSCATION</span>
@@ -471,58 +481,55 @@ function sendTransaction() {
         }
     }
 
-    // --- HELPER FUNCTIONS (Minifier Engine) ---
+    // --- HELPER FUNCTIONS (Minifier Engine Fixed) ---
 function minifyHTML(code) {
     return code
-        .replace(/\/g, "") // Hapus Komentar HTML
-        .replace(/\>\s+\</g, "><")         // Hapus spasi antar tag
-        .replace(/\s{2,}/g, " ")           // Hapus spasi ganda jadi satu
-        .replace(/\n/g, "");               // Hapus enter/baris baru
+        .replace(//g, "") // FIX: Regex Komentar HTML yang benar
+        .replace(/>\s+</g, "><")         // Hapus spasi antar tag
+        .replace(/\s{2,}/g, " ")         // Hapus spasi ganda
+        .replace(/\n/g, "");             // Hapus enter
 }
 
 function minifyCSS(code) {
     return code
         .replace(/\/\*[\s\S]*?\*\//g, "")  // Hapus Komentar CSS
-        .replace(/\s+/g, " ")              // Padatkan spasi berlebih
-        .replace(/\s*([\{:;,])\s*/g, "$1") // Hapus spasi di sekitar { : ; ,
-        .replace(/;\}/g, "}")              // Hapus titik koma terakhir sebelum tutup kurawal
+        .replace(/\s+/g, " ")              // Padatkan spasi
+        .replace(/\s*([\{:;,])\s*/g, "$1") // Hapus spasi simbol
+        .replace(/;\}/g, "}")              // Hapus titik koma akhir
         .trim();
 }
 
-// --- FUNGSI GANTI MODE ---
+// --- FUNGSI GANTI MODE (Layout Fix) ---
 function changeEngineMode() {
     const mode = document.getElementById('engineMode').value;
     const jsWrapper = document.getElementById('jsOptionsWrapper');
     
+    // Reset wrapper display
     if (mode === 'js') {
-        // Tampilkan Opsi JS
         jsWrapper.style.display = 'block';
         editorIn.setOption("mode", "javascript");
         editorOut.setOption("mode", "javascript");
-        editorIn.setValue("// Paste JavaScript Code Here...\nfunction test() { console.log('Hello'); }");
+        // Update placeholder jika kosong
+        if(editorIn.getValue().includes("HTML") || editorIn.getValue().includes("CSS")) {
+             editorIn.setValue("// Paste JavaScript Code Here...");
+        }
     } else if (mode === 'html') {
-        // Sembunyikan Opsi JS (Minifier tidak butuh config rumit)
         jsWrapper.style.display = 'none';
-        editorIn.setOption("mode", "htmlmixed");
+        editorIn.setOption("mode", "htmlmixed"); // Pastikan library xml/htmlmixed diload
         editorOut.setOption("mode", "htmlmixed");
-        editorIn.setValue("\n<div class='box'>\n    <h1>Hello World</h1>\n</div>");
+        editorIn.setValue("\n<div>\n  <h1>Hello</h1>\n</div>");
     } else if (mode === 'css') {
         jsWrapper.style.display = 'none';
-        editorIn.setOption("mode", "css");
+        editorIn.setOption("mode", "css"); // Pastikan library css diload
         editorOut.setOption("mode", "css");
-        editorIn.setValue("/* Paste CSS Here */\nbody {\n    background-color: #000;\n    color: #fff;\n}");
+        editorIn.setValue("/* Paste CSS Here */\nbody {\n  color: red;\n}");
     }
 }
 
 // --- CORE ENGINE UPDATE ---
 function obfuscateNow() {
-    // 1. Cek Mode (JS / HTML / CSS)
-    // Pastikan Anda sudah menambahkan <select id="engineMode"> di HTML seperti instruksi sebelumnya
-    // Jika belum ada elementnya, default ke 'js' agar tidak error
     const modeEl = document.getElementById('engineMode');
     const mode = modeEl ? modeEl.value : 'js';
-
-    // 2. AMBIL VALUE DARI CODEMIRROR
     const input = editorIn.getValue();
     
     if(!input.trim()) { alert("Input code is empty!"); return; }
@@ -530,15 +537,9 @@ function obfuscateNow() {
     let output = "";
     
     try {
-        const startTime = performance.now();
-
-        // --- LOGIKA CABANG ---
         if (mode === 'js') {
-            // ===============================================
-            // LOGIKA LAMA ANDA (DIPERTAHANKAN 100%)
-            // ===============================================
+            // --- LOGIKA JS LAMA ---
             const domainLockInput = document.getElementById('domainLock').value;
-            
             let options = {
                 compact: true,
                 identifierNamesGenerator: document.getElementById('renameStrategy').value,
@@ -560,49 +561,35 @@ function obfuscateNow() {
                 selfDefending: isActive('opt_selfDefending')
             };
 
-            if(options.stringArrayEncoding[0] === 'none') {
-                options.stringArrayEncoding = [];
-            }
+            if(options.stringArrayEncoding[0] === 'none') options.stringArrayEncoding = [];
+            if (domainLockInput.trim() !== "") options.domainLock = domainLockInput.split(',').map(d => d.trim());
 
-            if (domainLockInput.trim() !== "") {
-                options.domainLock = domainLockInput.split(',').map(d => d.trim());
-            }
-
-            // Eksekusi JS Obfuscator
             const result = JavaScriptObfuscator.obfuscate(input, options);
             output = result.getObfuscatedCode();
-            // ===============================================
             
         } else if (mode === 'html') {
-            // Eksekusi HTML Minifier
             output = minifyHTML(input);
-
         } else if (mode === 'css') {
-            // Eksekusi CSS Minifier
             output = minifyCSS(input);
         }
 
-        const endTime = performance.now();
-
-        // 3. SET VALUE KE CODEMIRROR OUTPUT
+        // Output Result
         editorOut.setValue(output);
 
-        // 4. HITUNG STATS (Support Minus/Reduksi untuk Minifier)
+        // Stats Calculation
         const inSize = new Blob([input]).size;
         const outSize = new Blob([output]).size;
         
-        // Hitung persentase
         let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
-        
-        // Styling: Jika growth positif (Obfuscate) warna merah/ungu, jika negatif (Minify) warna hijau
-        let colorStyle = 'opacity:0.7'; // Default
+        let colorStyle = 'color: #ff79c6;'; // Default Pink (Naik)
         let sign = '+';
         
-        if (parseInt(growth) < 0) {
-            sign = ''; // Minus sudah ada di angkanya
-            colorStyle = 'color: var(--secondary); font-weight:bold;'; // Hijau (Bagus)
-        } else {
-            colorStyle = 'color: #ff79c6;'; // Pink/Merah (Bengkak wajar)
+        // Jika file mengecil (Minify), warna jadi Hijau
+        if (outSize < inSize) {
+            sign = ''; 
+            growth = ((inSize - outSize) / inSize * 100).toFixed(0); // Hitung persen hemat
+            colorStyle = 'color: var(--secondary); font-weight:bold;';
+            growth = "-" + growth;
         }
 
         document.getElementById('inputStats').innerText = formatBytes(inSize);
@@ -612,7 +599,7 @@ function obfuscateNow() {
     } catch (err) {
         alert("Error Processing: " + err.message);
     }
-        }
+}
     
     // --- ACTIONS ---
     function copyCode() {
