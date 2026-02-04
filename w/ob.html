@@ -14,250 +14,184 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
-
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
-    
-    <style>
-        :root {
-            /* Palette Tema DRACULA (Standar Industri) */
-            --bg-dark: #282a36;      /* Background Utama */
-            --bg-panel: #44475a;     /* Panel Background */
-            --bg-input: #6272a4;     /* Input/Border */
-            --primary: #bd93f9;      /* Ungu Dracula */
-            --primary-hover: #ff79c6;/* Pink Dracula */
-            --secondary: #50fa7b;    /* Hijau Dracula */
-            --text-main: #f8f8f2;    /* Putih Tulang */
-            --text-muted: #6272a4;
-            --border: #6272a4;
-        }
 
-        * { box-sizing: border-box; }
+<style>
+    :root {
+        --bg-dark: #282a36;
+        --bg-panel: #44475a;
+        --primary: #bd93f9;
+        --secondary: #50fa7b;
+        --text-main: #f8f8f2;
+        --text-muted: #6272a4;
+        --border: #6272a4;
+    }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
+    * { box-sizing: border-box; }
 
-        /* --- CodeMirror Customization (PENTING) --- */
-        /* Memaksa editor memenuhi panel */
-        .CodeMirror {
-            height: 100%; 
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            background-color: #282a36 !important; /* Paksa warna Dracula */
-            color: #f8f8f2;
-        }
-        
-        /* Agar scrollbar CodeMirror rapi & tidak nabrak */
-        .CodeMirror-scroll {
-            padding-bottom: 30px;
-        }
+    body {
+        font-family: 'Inter', sans-serif;
+        background-color: var(--bg-dark);
+        color: var(--text-main);
+        margin: 0;
+        padding: 20px;
+        min-height: 100vh;
+    }
 
-        /* --- LAYOUT GRID --- */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 350px 1fr;
-            gap: 20px;
-            height: 90vh;
-        }
+    /* --- CODEMIRROR FIX (HILANGKAN KOTAK PUTIH) --- */
+    .editor-wrapper { 
+        flex-grow: 1; 
+        position: relative; 
+        overflow: hidden; 
+        min-height: 200px;
+        background-color: #282a36; /* Background cadangan */
+    }
 
-        /* HEADER */
-        header {
-            grid-column: 1 / -1;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 1px solid var(--border);
-            padding-bottom: 15px;
-            margin-bottom: 10px;
-        }
+    .editor-wrapper .CodeMirror {
+        height: 100% !important;
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        background-color: #282a36 !important; /* Paksa Hitam */
+        color: #f8f8f2 !important;
+        border-radius: 0 0 8px 8px;
+    }
 
-        .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
-        .brand span { color: var(--text-main); font-weight: 400; font-size: 1rem; margin-left: 10px; }
+    /* Fix area nomor baris agar tidak putih */
+    .CodeMirror-gutters {
+        background-color: #282a36 !important;
+        border-right: 1px solid #44475a;
+    }
 
-        /* PANELS */
-        .panel {
-            background: var(--bg-panel);
-            border-radius: 8px;
-            border: 1px solid var(--border);
-            /* Flexbox Wajib */
-            display: flex;
-            flex-direction: column; 
-            /* Penting: Height harus terdefinisi agar overflow bekerja */
-            height: 100%; 
-            overflow: hidden; 
-            position: relative;
-        }
+    .CodeMirror-scroll { padding-bottom: 30px; }
 
-        .panel-header {
-            padding: 12px 15px;
-            background: rgba(0,0,0,0.2); /* Gelapkan header sedikit */
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--primary); /* Ganti ungu biar matching */
-            display: flex;
-            justify-content: space-between;
-            z-index: 5; /* Di atas editor */
-        }
+    /* --- LAYOUT UTAMA --- */
+    .container {
+        max-width: 1400px;
+        margin: 0 auto;
+        display: grid;
+        grid-template-columns: 1fr 350px 1fr;
+        gap: 20px;
+        height: 90vh;
+    }
 
-        /* --- TAMBAHKAN/TIMPA CSS INI --- */
+    header {
+        grid-column: 1 / -1;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        border-bottom: 1px solid var(--border);
+        padding-bottom: 15px;
+        margin-bottom: 10px;
+    }
 
-/* Paksa CodeMirror mengisi 100% tinggi induknya */
-.editor-wrapper .CodeMirror {
-    height: 100% !important;
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100%;
-    border-radius: 0 0 8px 8px;
-}
+    .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+    .brand span { color: var(--text-main); font-weight: 400; font-size: 1rem; margin-left: 10px; }
 
-/* Pastikan wrapper relatif agar absolute child-nya pas */
-.editor-wrapper { 
-    flex-grow: 1; 
-    position: relative; 
-    overflow: hidden; 
-    min-height: 200px; /* Mencegah collapse */
-}
-        
-        /* CONTROLS (MIDDLE PANEL) */
-        .controls-content {
-            padding: 15px;
-            /* Mengisi ruang kosong yang tersisa */
-            flex: 1; 
-            /* Aktifkan Scroll Vertikal */
-            overflow-y: auto; 
-            /* Mencegah overflow keluar container */
-            min-height: 0; 
-            display: flex;
-            flex-direction: column;
-            gap: 15px;
-        }
+    .panel {
+        background: var(--bg-panel);
+        border-radius: 8px;
+        border: 1px solid var(--border);
+        display: flex;
+        flex-direction: column; 
+        height: 100%; 
+        overflow: hidden; 
+        position: relative;
+    }
 
-        .section-label {
-            font-size: 0.75rem;
-            color: var(--text-main); /* Ubah jadi terang dikit */
-            opacity: 0.7;
-            text-transform: uppercase;
-            font-weight: 700;
-            margin-bottom: 8px;
-            display: block;
-        }
+    .panel-header {
+        padding: 12px 15px;
+        background: rgba(0,0,0,0.2);
+        border-bottom: 1px solid var(--border);
+        font-size: 0.8rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+        color: var(--primary);
+        display: flex;
+        justify-content: space-between;
+        z-index: 5;
+    }
 
-        /* Form Elements */
-        select, input[type="text"] {
-            width: 100%;
-            padding: 10px;
-            background: var(--bg-dark); /* Lebih gelap dari panel */
-            border: 1px solid var(--border);
-            color: white;
-            border-radius: 4px;
-            font-family: 'Inter', sans-serif;
-            font-size: 0.9rem;
-        }
-        select:focus, input:focus { border-color: var(--primary); outline: none; }
+    /* CONTROLS */
+    .controls-content {
+        padding: 15px;
+        flex: 1; 
+        overflow-y: auto; 
+        min-height: 0; 
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+    }
 
-        /* Custom Toggles Grid */
-        .toggle-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 10px;
-        }
+    .section-label {
+        font-size: 0.75rem;
+        color: var(--text-main);
+        opacity: 0.7;
+        text-transform: uppercase;
+        font-weight: 700;
+        margin-bottom: 8px;
+        display: block;
+    }
 
-        .toggle-btn {
-            background: var(--bg-dark);
-            border: 1px solid var(--border);
-            color: var(--text-muted);
-            padding: 8px;
-            border-radius: 4px;
-            cursor: pointer;
-            font-size: 0.8rem;
-            text-align: center;
-            transition: all 0.2s;
-        }
-        
-        .toggle-btn.active {
-            background: rgba(189, 147, 249, 0.2); /* Tint Ungu */
-            border-color: var(--primary);
-            color: var(--primary);
-            font-weight: 600;
-        }
+    select, input[type="text"] {
+        width: 100%;
+        padding: 10px;
+        background: var(--bg-dark);
+        border: 1px solid var(--border);
+        color: white;
+        border-radius: 4px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+    }
+    select:focus, input:focus { border-color: var(--primary); outline: none; }
 
-        .toggle-btn:hover { background: rgba(255,255,255,0.05); }
+    .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .toggle-btn {
+        background: var(--bg-dark);
+        border: 1px solid var(--border);
+        color: var(--text-muted);
+        padding: 8px;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.8rem;
+        text-align: center;
+        transition: all 0.2s;
+    }
+    .toggle-btn.active {
+        background: rgba(189, 147, 249, 0.2);
+        border-color: var(--primary);
+        color: var(--primary);
+        font-weight: 600;
+    }
+    .toggle-btn:hover { background: rgba(255,255,255,0.05); }
 
-        /* Action Buttons */
-        .action-area {
-            padding: 15px;
-            border-top: 1px solid var(--border);
-            background: var(--bg-panel);
-            flex-shrink: 0; 
-            z-index: 10;
-        }
+    .action-area {
+        padding: 15px;
+        border-top: 1px solid var(--border);
+        background: var(--bg-panel);
+        flex-shrink: 0; 
+        z-index: 10;
+    }
 
-        .btn {
-            width: 100%;
-            padding: 12px;
-            border: none;
-            border-radius: 4px;
-            font-weight: 600;
-            cursor: pointer;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 8px;
-        }
+    .btn {
+        width: 100%; padding: 12px; border: none; border-radius: 4px;
+        font-weight: 600; cursor: pointer; display: flex; align-items: center;
+        justify-content: center; gap: 8px;
+    }
+    .btn-primary { background: var(--primary); color: #282a36; }
+    .btn-primary:hover { background: #ff79c6; }
+    .btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
+    .btn-success { background: var(--secondary); color: #282a36; }
+    .badge-pro { background: #ff79c6; color: #282a36; font-size: 0.6rem; padding: 1px 4px; border-radius: 2px; font-weight: bold; margin-left: 5px; }
 
-        .btn-primary { background: var(--primary); color: #282a36; } /* Text hitam biar kontras */
-        .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
-        .btn-secondary:hover { border-color: var(--text-main); }
-        .btn-success { background: var(--secondary); color: #282a36; }
-
-        .badge-pro {
-            background: var(--primary-hover);
-            color: #282a36;
-            font-size: 0.6rem;
-            padding: 1px 4px;
-            border-radius: 2px;
-            font-weight: bold;
-            margin-left: 5px;
-        }
-
-        @media (max-width: 1024px) {
-            .container {
-                grid-template-columns: 1fr;
-                height: auto;
-                display: flex;
-                flex-direction: column;
-                gap: 20px;
-            }
-
-            .panel {
-                /* Tinggi manual untuk HP */
-                height: 600px; 
-                min-height: 500px;
-            }
-            
-            /* Paksa wrapper editor punya tinggi di HP */
-            .editor-wrapper {
-                height: 500px;
-            }
-            
-            .controls-content {
-                overflow-y: auto; 
-                flex: 1; 
-            }
-        }
-    </style>
+    @media (max-width: 1024px) {
+        .container { grid-template-columns: 1fr; height: auto; display: flex; flex-direction: column; gap: 20px; }
+        .panel { height: 600px; min-height: 500px; }
+        .editor-wrapper { height: 500px; }
+    }
+        </style>
 </head>
 <body>
 
@@ -381,8 +315,7 @@ function sendTransaction() {
 </div>
 
 <script>
-    // --- INIT CODEMIRROR (THE MAGIC) ---
-    // 1. Setup Editor Input
+    // --- INIT CODEMIRROR ---
     var editorIn = CodeMirror.fromTextArea(document.getElementById("inputCode"), {
         mode: "javascript",
         theme: "dracula",
@@ -392,17 +325,16 @@ function sendTransaction() {
         lineWrapping: true
     });
 
-    // 2. Setup Editor Output (Read Only)
     var editorOut = CodeMirror.fromTextArea(document.getElementById("outputCode"), {
         mode: "javascript",
         theme: "dracula",
         lineNumbers: true,
-        readOnly: true, // Tidak bisa diedit manual
+        readOnly: true,
         lineWrapping: true,
         matchBrackets: true
     });
 
-    // Fix Render issue saat resize window
+    // Fix Render issue
     function refreshEditors() {
         setTimeout(() => {
             editorIn.refresh();
@@ -410,22 +342,19 @@ function sendTransaction() {
         }, 100);
     }
     window.addEventListener('resize', refreshEditors);
+    // PENTING: Refresh saat load agar kotak putih hilang
+    window.addEventListener('load', refreshEditors); 
 
     // --- UTILS ---
     function toggleBtn(el) {
         el.classList.toggle('active');
         document.getElementById('preset').value = 'custom';
     }
-
-    function isActive(id) {
-        return document.getElementById(id).classList.contains('active');
-    }
-
+    function isActive(id) { return document.getElementById(id).classList.contains('active'); }
     function setActive(id, status) {
         const el = document.getElementById(id);
         if(status) el.classList.add('active'); else el.classList.remove('active');
     }
-
     function formatBytes(bytes) {
         if (!+bytes) return '0 B';
         const sizes = ['B', 'KB', 'MB'];
@@ -433,190 +362,154 @@ function sendTransaction() {
         return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
     }
 
-    // --- PRESET LOGIC ---
+    // --- PRESETS ---
     function applyPreset() {
         const p = document.getElementById('preset').value;
-        
         if (p === 'basic') {
             document.getElementById('renameStrategy').value = 'mangled';
             document.getElementById('stringEncoding').value = 'none';
-            setActive('opt_stringArray', false);
-            setActive('opt_rotateString', false);
-            setActive('opt_unicode', false);
-            setActive('opt_numbers', false);
-            setActive('opt_splitStrings', false);
-            setActive('opt_transformObj', false);
-            setActive('opt_deadCode', false);
-            setActive('opt_controlFlow', false);
-            setActive('opt_debug', false);
-            setActive('opt_selfDefending', false);
-        }
-        else if (p === 'standard') {
+            setActive('opt_stringArray', false); setActive('opt_rotateString', false);
+            setActive('opt_unicode', false); setActive('opt_numbers', false);
+            setActive('opt_splitStrings', false); setActive('opt_transformObj', false);
+            setActive('opt_deadCode', false); setActive('opt_controlFlow', false);
+            setActive('opt_debug', false); setActive('opt_selfDefending', false);
+        } else if (p === 'standard') {
             document.getElementById('renameStrategy').value = 'hexadecimal';
             document.getElementById('stringEncoding').value = 'base64';
-            setActive('opt_stringArray', true);
-            setActive('opt_rotateString', true);
-            setActive('opt_unicode', false);
-            setActive('opt_numbers', false);
-            setActive('opt_splitStrings', true);
-            setActive('opt_transformObj', false);
-            setActive('opt_deadCode', false);
-            setActive('opt_controlFlow', true);
-            setActive('opt_debug', false);
-            setActive('opt_selfDefending', false);
-        }
-        else if (p === 'paranoid') {
+            setActive('opt_stringArray', true); setActive('opt_rotateString', true);
+            setActive('opt_unicode', false); setActive('opt_numbers', false);
+            setActive('opt_splitStrings', true); setActive('opt_transformObj', false);
+            setActive('opt_deadCode', false); setActive('opt_controlFlow', true);
+            setActive('opt_debug', false); setActive('opt_selfDefending', false);
+        } else if (p === 'paranoid') {
             document.getElementById('renameStrategy').value = 'mangled-shuffled';
             document.getElementById('stringEncoding').value = 'rc4';
-            setActive('opt_stringArray', true);
-            setActive('opt_rotateString', true);
-            setActive('opt_unicode', true);
-            setActive('opt_numbers', true);
-            setActive('opt_splitStrings', true);
-            setActive('opt_transformObj', true);
-            setActive('opt_deadCode', true);
-            setActive('opt_controlFlow', true);
-            setActive('opt_debug', true);
-            setActive('opt_selfDefending', true);
+            setActive('opt_stringArray', true); setActive('opt_rotateString', true);
+            setActive('opt_unicode', true); setActive('opt_numbers', true);
+            setActive('opt_splitStrings', true); setActive('opt_transformObj', true);
+            setActive('opt_deadCode', true); setActive('opt_controlFlow', true);
+            setActive('opt_debug', true); setActive('opt_selfDefending', true);
         }
     }
 
-    // --- HELPER FUNCTIONS (Minifier Engine Fixed) ---
-function minifyHTML(code) {
-    return code
-        .replace(//g, "") // FIX: Regex Komentar HTML yang benar
-        .replace(/>\s+</g, "><")         // Hapus spasi antar tag
-        .replace(/\s{2,}/g, " ")         // Hapus spasi ganda
-        .replace(/\n/g, "");             // Hapus enter
-}
-
-function minifyCSS(code) {
-    return code
-        .replace(/\/\*[\s\S]*?\*\//g, "")  // Hapus Komentar CSS
-        .replace(/\s+/g, " ")              // Padatkan spasi
-        .replace(/\s*([\{:;,])\s*/g, "$1") // Hapus spasi simbol
-        .replace(/;\}/g, "}")              // Hapus titik koma akhir
-        .trim();
-}
-
-// --- FUNGSI GANTI MODE (Layout Fix) ---
-function changeEngineMode() {
-    const mode = document.getElementById('engineMode').value;
-    const jsWrapper = document.getElementById('jsOptionsWrapper');
-    
-    // Reset wrapper display
-    if (mode === 'js') {
-        jsWrapper.style.display = 'block';
-        editorIn.setOption("mode", "javascript");
-        editorOut.setOption("mode", "javascript");
-        // Update placeholder jika kosong
-        if(editorIn.getValue().includes("HTML") || editorIn.getValue().includes("CSS")) {
-             editorIn.setValue("// Paste JavaScript Code Here...");
-        }
-    } else if (mode === 'html') {
-        jsWrapper.style.display = 'none';
-        editorIn.setOption("mode", "htmlmixed"); // Pastikan library xml/htmlmixed diload
-        editorOut.setOption("mode", "htmlmixed");
-        editorIn.setValue("\n<div>\n  <h1>Hello</h1>\n</div>");
-    } else if (mode === 'css') {
-        jsWrapper.style.display = 'none';
-        editorIn.setOption("mode", "css"); // Pastikan library css diload
-        editorOut.setOption("mode", "css");
-        editorIn.setValue("/* Paste CSS Here */\nbody {\n  color: red;\n}");
+    // --- MINIFIER ENGINE (FIXED REGEX) ---
+    function minifyHTML(code) {
+        return code
+            .replace(//g, "") // Fix: Regex Komentar HTML Benar
+            .replace(/>\s+</g, "><")         // Hapus spasi antar tag
+            .replace(/\s{2,}/g, " ")         // Hapus spasi ganda
+            .replace(/\n/g, "");             // Hapus enter
     }
-}
 
-// --- CORE ENGINE UPDATE ---
-function obfuscateNow() {
-    const modeEl = document.getElementById('engineMode');
-    const mode = modeEl ? modeEl.value : 'js';
-    const input = editorIn.getValue();
-    
-    if(!input.trim()) { alert("Input code is empty!"); return; }
+    function minifyCSS(code) {
+        return code
+            .replace(/\/\*[\s\S]*?\*\//g, "")
+            .replace(/\s+/g, " ")
+            .replace(/\s*([\{:;,])\s*/g, "$1")
+            .replace(/;\}/g, "}")
+            .trim();
+    }
 
-    let output = "";
-    
-    try {
+    // --- CHANGE MODE ---
+    function changeEngineMode() {
+        const mode = document.getElementById('engineMode').value;
+        const jsWrapper = document.getElementById('jsOptionsWrapper');
+        
         if (mode === 'js') {
-            // --- LOGIKA JS LAMA ---
-            const domainLockInput = document.getElementById('domainLock').value;
-            let options = {
-                compact: true,
-                identifierNamesGenerator: document.getElementById('renameStrategy').value,
-                stringArray: isActive('opt_stringArray'),
-                stringArrayRotate: isActive('opt_rotateString'),
-                stringArrayEncoding: [document.getElementById('stringEncoding').value], 
-                unicodeEscapeSequence: isActive('opt_unicode'),
-                numbersToExpressions: isActive('opt_numbers'),
-                splitStrings: isActive('opt_splitStrings'),
-                splitStringsChunkLength: 5,
-                transformObjectKeys: isActive('opt_transformObj'),
-                deadCodeInjection: isActive('opt_deadCode'),
-                deadCodeInjectionThreshold: 0.4,
-                controlFlowFlattening: isActive('opt_controlFlow'),
-                controlFlowFlatteningThreshold: 0.75,
-                debugProtection: isActive('opt_debug'),
-                debugProtectionInterval: 3000,
-                disableConsoleOutput: isActive('opt_debug'),
-                selfDefending: isActive('opt_selfDefending')
-            };
-
-            if(options.stringArrayEncoding[0] === 'none') options.stringArrayEncoding = [];
-            if (domainLockInput.trim() !== "") options.domainLock = domainLockInput.split(',').map(d => d.trim());
-
-            const result = JavaScriptObfuscator.obfuscate(input, options);
-            output = result.getObfuscatedCode();
-            
-        } else if (mode === 'html') {
-            output = minifyHTML(input);
+            jsWrapper.style.display = 'block';
+            editorIn.setOption("mode", "javascript");
+            editorOut.setOption("mode", "javascript");
+            if(editorIn.getValue().includes("\n<div>\n  <h1>Hello</h1>\n</div>");
         } else if (mode === 'css') {
-            output = minifyCSS(input);
+            jsWrapper.style.display = 'none';
+            editorIn.setOption("mode", "css");
+            editorOut.setOption("mode", "css");
+            editorIn.setValue("/* Paste CSS Here */\nbody {\n  color: red;\n}");
         }
-
-        // Output Result
-        editorOut.setValue(output);
-
-        // Stats Calculation
-        const inSize = new Blob([input]).size;
-        const outSize = new Blob([output]).size;
-        
-        let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
-        let colorStyle = 'color: #ff79c6;'; // Default Pink (Naik)
-        let sign = '+';
-        
-        // Jika file mengecil (Minify), warna jadi Hijau
-        if (outSize < inSize) {
-            sign = ''; 
-            growth = ((inSize - outSize) / inSize * 100).toFixed(0); // Hitung persen hemat
-            colorStyle = 'color: var(--secondary); font-weight:bold;';
-            growth = "-" + growth;
-        }
-
-        document.getElementById('inputStats').innerText = formatBytes(inSize);
-        document.getElementById('outputStats').innerHTML = 
-            `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
-
-    } catch (err) {
-        alert("Error Processing: " + err.message);
     }
-}
-    
+
+    // --- EXECUTE ---
+    function obfuscateNow() {
+        const modeEl = document.getElementById('engineMode');
+        const mode = modeEl ? modeEl.value : 'js';
+        const input = editorIn.getValue();
+        
+        if(!input.trim()) { alert("Input code is empty!"); return; }
+
+        let output = "";
+        try {
+            if (mode === 'js') {
+                const domainLockInput = document.getElementById('domainLock').value;
+                let options = {
+                    compact: true,
+                    identifierNamesGenerator: document.getElementById('renameStrategy').value,
+                    stringArray: isActive('opt_stringArray'),
+                    stringArrayRotate: isActive('opt_rotateString'),
+                    stringArrayEncoding: [document.getElementById('stringEncoding').value], 
+                    unicodeEscapeSequence: isActive('opt_unicode'),
+                    numbersToExpressions: isActive('opt_numbers'),
+                    splitStrings: isActive('opt_splitStrings'),
+                    splitStringsChunkLength: 5,
+                    transformObjectKeys: isActive('opt_transformObj'),
+                    deadCodeInjection: isActive('opt_deadCode'),
+                    deadCodeInjectionThreshold: 0.4,
+                    controlFlowFlattening: isActive('opt_controlFlow'),
+                    controlFlowFlatteningThreshold: 0.75,
+                    debugProtection: isActive('opt_debug'),
+                    debugProtectionInterval: 3000,
+                    disableConsoleOutput: isActive('opt_debug'),
+                    selfDefending: isActive('opt_selfDefending')
+                };
+
+                if(options.stringArrayEncoding[0] === 'none') options.stringArrayEncoding = [];
+                if (domainLockInput.trim() !== "") options.domainLock = domainLockInput.split(',').map(d => d.trim());
+
+                const result = JavaScriptObfuscator.obfuscate(input, options);
+                output = result.getObfuscatedCode();
+                
+            } else if (mode === 'html') {
+                output = minifyHTML(input);
+            } else if (mode === 'css') {
+                output = minifyCSS(input);
+            }
+
+            editorOut.setValue(output);
+
+            const inSize = new Blob([input]).size;
+            const outSize = new Blob([output]).size;
+            let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
+            let colorStyle = 'color: #ff79c6;'; 
+            let sign = '+';
+            
+            if (outSize < inSize) {
+                sign = ''; 
+                growth = ((inSize - outSize) / inSize * 100).toFixed(0); 
+                colorStyle = 'color: var(--secondary); font-weight:bold;';
+                growth = "-" + growth;
+            }
+
+            document.getElementById('inputStats').innerText = formatBytes(inSize);
+            document.getElementById('outputStats').innerHTML = 
+                `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
+
+        } catch (err) {
+            alert("Error Processing: " + err.message);
+        }
+    }
+
     // --- ACTIONS ---
     function copyCode() {
-        // Copy dari CodeMirror
         const content = editorOut.getValue();
-        navigator.clipboard.writeText(content).then(() => {
-            alert("Copied to clipboard!");
-        });
+        navigator.clipboard.writeText(content).then(() => { alert("Copied!"); });
     }
-
     function downloadCode() {
-        // Download dari CodeMirror
         const text = editorOut.getValue();
-        const blob = new Blob([text], {type: "text/javascript"});
+        const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
+        const ext = mode === 'js' ? 'js' : (mode === 'css' ? 'css' : 'html');
+        const blob = new Blob([text], {type: "text/plain"});
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
-        a.download = "protected-script.js";
+        a.download = `result.${ext}`;
         a.click();
     }
 
