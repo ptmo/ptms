@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Wayang Shield Gen 6 | VS Code Edition</title>
+    
+    <script src="https://cdn.jsdelivr.net/npm/javascript-obfuscator/dist/index.browser.js"></script>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    
+    <style>
+        :root {
+            /* Tema disesuaikan dengan DRACULA Theme */
+            --bg-dark: #282a36;      /* Dracula Background */
+            --bg-panel: #44475a;     /* Dracula Current Line */
+            --bg-input: #6272a4;     /* Dracula Comment */
+            --primary: #bd93f9;      /* Dracula Purple */
+            --primary-hover: #ff79c6;/* Dracula Pink */
+            --secondary: #50fa7b;    /* Dracula Green */
+            --text-main: #f8f8f2;    /* Dracula Foreground */
+            --text-muted: #6272a4;
+            --border: #6272a4;
+        }
+
+        * { box-sizing: border-box; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        /* --- CodeMirror Customization (PENTING) --- */
+        .CodeMirror {
+            height: 100%; /* Agar full panel */
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            border-radius: 0 0 8px 8px; /* Rounded bawah mengikuti panel */
+            background-color: #282a36 !important; 
+        }
+        
+        /* Agar scrollbar CodeMirror rapi */
+        .CodeMirror-scrollbar-filler, .CodeMirror-gutter-filler {
+            background-color: transparent;
+        }
+
+        /* --- LAYOUT GRID --- */
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: 1fr 350px 1fr;
+            gap: 20px;
+            height: 90vh;
+        }
+
+        /* HEADER */
+        header {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid var(--border);
+            padding-bottom: 15px;
+            margin-bottom: 10px;
+        }
+
+        .brand { font-size: 1.5rem; font-weight: 800; color: var(--primary); letter-spacing: -0.5px; }
+        .brand span { color: var(--text-main); font-weight: 400; font-size: 1rem; margin-left: 10px; }
+
+        /* PANELS */
+        .panel {
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+            height: 100%;
+            position: relative;
+        }
+
+        .panel-header {
+            padding: 12px 15px;
+            background: rgba(0,0,0,0.2);
+            border-bottom: 1px solid var(--border);
+            font-size: 0.8rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            color: var(--primary); /* Ganti jadi ungu */
+            display: flex;
+            justify-content: space-between;
+            z-index: 5;
+        }
+
+        /* Editor Wrapper (Tempat CodeMirror) */
+        .editor-wrapper { 
+            flex-grow: 1; 
+            position: relative; 
+            overflow: hidden; 
+        }
+
+        /* CONTROLS (MIDDLE PANEL) */
+        .controls-content {
+            padding: 15px;
+            flex: 1;
+            overflow-y: auto; 
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .section-label {
+            font-size: 0.75rem;
+            color: var(--text-main);
+            opacity: 0.7;
+            text-transform: uppercase;
+            font-weight: 700;
+            margin-bottom: 8px;
+            display: block;
+        }
+
+        /* Form Elements */
+        select, input[type="text"] {
+            width: 100%;
+            padding: 10px;
+            background: var(--bg-dark); /* Lebih gelap */
+            border: 1px solid var(--border);
+            color: white;
+            border-radius: 4px;
+            font-family: 'Inter', sans-serif;
+            font-size: 0.9rem;
+        }
+        select:focus, input:focus { border-color: var(--primary); outline: none; }
+
+        /* Toggles */
+        .toggle-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+        .toggle-btn {
+            background: var(--bg-dark);
+            border: 1px solid var(--border);
+            color: var(--text-muted);
+            padding: 8px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 0.8rem;
+            text-align: center;
+            transition: all 0.2s;
+        }
+        .toggle-btn.active {
+            background: rgba(189, 147, 249, 0.2); /* Purple tint */
+            border-color: var(--primary);
+            color: var(--primary);
+            font-weight: 600;
+        }
+        .toggle-btn:hover { background: rgba(255,255,255,0.05); }
+
+        /* Buttons */
+        .action-area {
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-panel);
+            flex-shrink: 0;
+            z-index: 10;
+        }
+
+        .btn {
+            width: 100%; padding: 12px; border: none; border-radius: 4px;
+            font-weight: 600; cursor: pointer; display: flex; align-items: center;
+            justify-content: center; gap: 8px; margin-bottom: 8px;
+        }
+        .btn-primary { background: var(--primary); color: #282a36; } /* Text hitam biar kontras */
+        .btn-primary:hover { background: var(--primary-hover); }
+        .btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--text-main); }
+        .btn-success { background: var(--secondary); color: #282a36; }
+
+        .badge-pro {
+            background: var(--primary-hover);
+            color: #282a36;
+            font-size: 0.6rem; padding: 1px 4px; border-radius: 2px; font-weight: bold; margin-left: 5px;
+        }
+
+        /* MEDIA QUERY */
+        @media (max-width: 1024px) {
+            .container { grid-template-columns: 1fr; height: auto; display: flex; flex-direction: column; gap: 20px; }
+            .panel { height: 600px; min-height: 500px; }
+            .editor-wrapper { height: 500px; } /* Paksa tinggi editor di HP */
+            .controls-content { overflow-y: auto; flex: 1; }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <div class="brand">SHIELD GEN 6.0 <span>Dracula Edition</span></div>
+        <div style="font-size: 0.8rem; color: var(--text-muted);">
+            Status: <span style="color: var(--secondary)">● System Ready</span>
+        </div>
+    </header>
+
+    <div class="panel">
+        <div class="panel-header">
+            JavaScript Source
+            <span id="inputStats" style="color: var(--text-main); opacity: 0.5;">Empty</span>
+        </div>
+        <div class="editor-wrapper">
+            <textarea id="inputCode" name="inputCode">// Paste Code Here...
+const secretKey = 'WAYANG-123';
+const wallet = { balance: 5000, type: 'ETH' };
+
+function sendTransaction() {
+    console.log('Sending ' + wallet.balance + ' to ' + secretKey);
+}</textarea>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">Configuration</div>
+        <div class="controls-content">
+            
+            <div>
+                <span class="section-label">1. Quick Presets</span>
+                <select id="preset" onchange="applyPreset()">
+                    <option value="custom">Custom (Manual)</option>
+                    <option value="basic">Level 1: Basic (Minify Only)</option>
+                    <option value="standard" selected>Level 2: Standard (Obfuscated)</option>
+                    <option value="paranoid">Level 3: Paranoid (Banking Grade)</option>
+                </select>
+            </div>
+
+            <div>
+                <span class="section-label">2. Identifier Renaming (Variables)</span>
+                <select id="renameStrategy">
+                    <option value="mangled">Mangled (Short: a, b, c)</option>
+                    <option value="mangled-shuffled">Mangled Shuffled (Mixed)</option>
+                    <option value="hexadecimal">Hexadecimal (_0x2f4a...)</option>
+                </select>
+            </div>
+
+            <div>
+                <span class="section-label">3. String Encryption (Values)</span>
+                <div class="toggle-grid">
+                    <div id="opt_stringArray" class="toggle-btn active" onclick="toggleBtn(this)">String Array</div>
+                    <div id="opt_rotateString" class="toggle-btn active" onclick="toggleBtn(this)">Rotate</div>
+                </div>
+                <div style="margin-top:8px;">
+                    <span class="section-label" style="font-size: 0.7rem;">Algorithm</span>
+                    <select id="stringEncoding">
+                        <option value="none">None (Plain)</option>
+                        <option value="base64">Base64 (Standard)</option>
+                        <option value="rc4">RC4 (Strong Encryption)</option>
+                    </select>
+                </div>
+            </div>
+
+            <div>
+                <span class="section-label">4. Data Transformation</span>
+                <div class="toggle-grid">
+                    <div id="opt_unicode" class="toggle-btn" onclick="toggleBtn(this)" title="Convert string to \u00...">Unicode Escape</div>
+                    <div id="opt_numbers" class="toggle-btn" onclick="toggleBtn(this)" title="123 -> 0x1 + 0x2...">Numbers to Expr</div>
+                    <div id="opt_splitStrings" class="toggle-btn" onclick="toggleBtn(this)">Split Strings</div>
+                    <div id="opt_transformObj" class="toggle-btn" onclick="toggleBtn(this)">Obj Keys Transform</div>
+                </div>
+            </div>
+
+            <div>
+                <span class="section-label">5. Integrity & Protection <span class="badge-pro">PRO</span></span>
+                <div class="toggle-grid">
+                    <div id="opt_deadCode" class="toggle-btn" onclick="toggleBtn(this)">Dead Code Inj</div>
+                    <div id="opt_controlFlow" class="toggle-btn active" onclick="toggleBtn(this)">Control Flow</div>
+                    <div id="opt_debug" class="toggle-btn" onclick="toggleBtn(this)">Anti-Debug</div>
+                    <div id="opt_selfDefending" class="toggle-btn" onclick="toggleBtn(this)">Self Defending</div>
+                </div>
+            </div>
+
+            <div>
+                <span class="section-label">6. Domain Lock</span>
+                <input type="text" id="domainLock" placeholder="e.g. wayang-nusantara.com">
+            </div>
+
+        </div>
+
+        <div class="action-area">
+            <button class="btn btn-primary" onclick="obfuscateNow()">
+                <span>⚡ EXECUTE OBFUSCATION</span>
+            </button>
+            <button class="btn btn-secondary" onclick="copyCode()">Copy Result</button>
+            <button class="btn btn-success" onclick="downloadCode()">Download .js</button>
+        </div>
+    </div>
+
+    <div class="panel">
+        <div class="panel-header">
+            Obfuscated Result
+            <span id="outputStats" style="color: var(--secondary)">0 KB</span>
+        </div>
+        <div class="editor-wrapper">
+            <textarea id="outputCode" name="outputCode"></textarea>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- INIT CODEMIRROR (MAGIC HAPPENS HERE) ---
+    // Mengubah Textarea menjadi Code Editor canggih
+    
+    // 1. Input Editor
+    var editorIn = CodeMirror.fromTextArea(document.getElementById("inputCode"), {
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true,
+        smartIndent: true,
+        matchBrackets: true
+    });
+
+    // 2. Output Editor (Read Only)
+    var editorOut = CodeMirror.fromTextArea(document.getElementById("outputCode"), {
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true,
+        readOnly: true, // Tidak bisa diketik manual
+        lineWrapping: true // Agar kode panjang turun ke bawah
+    });
+
+    // Karena CodeMirror merender ulang DOM, kita perlu handle Resize
+    function refreshEditors() {
+        setTimeout(() => {
+            editorIn.refresh();
+            editorOut.refresh();
+        }, 100);
+    }
+    window.addEventListener('resize', refreshEditors);
+
+    // --- UTILS ---
+    function toggleBtn(el) {
+        el.classList.toggle('active');
+        document.getElementById('preset').value = 'custom';
+    }
+
+    function isActive(id) {
+        return document.getElementById(id).classList.contains('active');
+    }
+
+    function setActive(id, status) {
+        const el = document.getElementById(id);
+        if(status) el.classList.add('active'); else el.classList.remove('active');
+    }
+
+    function formatBytes(bytes) {
+        if (!+bytes) return '0 B';
+        const sizes = ['B', 'KB', 'MB'];
+        const i = Math.floor(Math.log(bytes) / 1024);
+        return `${(bytes / Math.pow(1024, i)).toFixed(2)} ${sizes[i]}`;
+    }
+
+    // --- PRESET LOGIC ---
+    function applyPreset() {
+        const p = document.getElementById('preset').value;
+        
+        if (p === 'basic') {
+            document.getElementById('renameStrategy').value = 'mangled';
+            document.getElementById('stringEncoding').value = 'none';
+            setActive('opt_stringArray', false);
+            setActive('opt_rotateString', false);
+            setActive('opt_unicode', false);
+            setActive('opt_numbers', false);
+            setActive('opt_splitStrings', false);
+            setActive('opt_transformObj', false);
+            setActive('opt_deadCode', false);
+            setActive('opt_controlFlow', false);
+            setActive('opt_debug', false);
+            setActive('opt_selfDefending', false);
+        }
+        else if (p === 'standard') {
+            document.getElementById('renameStrategy').value = 'hexadecimal';
+            document.getElementById('stringEncoding').value = 'base64';
+            setActive('opt_stringArray', true);
+            setActive('opt_rotateString', true);
+            setActive('opt_unicode', false);
+            setActive('opt_numbers', false);
+            setActive('opt_splitStrings', true);
+            setActive('opt_transformObj', false);
+            setActive('opt_deadCode', false);
+            setActive('opt_controlFlow', true);
+            setActive('opt_debug', false);
+            setActive('opt_selfDefending', false);
+        }
+        else if (p === 'paranoid') {
+            document.getElementById('renameStrategy').value = 'mangled-shuffled';
+            document.getElementById('stringEncoding').value = 'rc4';
+            setActive('opt_stringArray', true);
+            setActive('opt_rotateString', true);
+            setActive('opt_unicode', true);
+            setActive('opt_numbers', true);
+            setActive('opt_splitStrings', true);
+            setActive('opt_transformObj', true);
+            setActive('opt_deadCode', true);
+            setActive('opt_controlFlow', true);
+            setActive('opt_debug', true);
+            setActive('opt_selfDefending', true);
+        }
+    }
+
+    // --- CORE ENGINE ---
+    function obfuscateNow() {
+        // PERUBAHAN PENTING: Ambil value dari CodeMirror, bukan Textarea biasa
+        const input = editorIn.getValue(); 
+        
+        if(!input.trim()) { alert("Input code is empty!"); return; }
+
+        const domainLockInput = document.getElementById('domainLock').value;
+        
+        let options = {
+            compact: true,
+            identifierNamesGenerator: document.getElementById('renameStrategy').value,
+            stringArray: isActive('opt_stringArray'),
+            stringArrayRotate: isActive('opt_rotateString'),
+            stringArrayEncoding: [document.getElementById('stringEncoding').value], 
+            unicodeEscapeSequence: isActive('opt_unicode'),
+            numbersToExpressions: isActive('opt_numbers'),
+            splitStrings: isActive('opt_splitStrings'),
+            splitStringsChunkLength: 5,
+            transformObjectKeys: isActive('opt_transformObj'),
+            deadCodeInjection: isActive('opt_deadCode'),
+            deadCodeInjectionThreshold: 0.4,
+            controlFlowFlattening: isActive('opt_controlFlow'),
+            controlFlowFlatteningThreshold: 0.75,
+            debugProtection: isActive('opt_debug'),
+            debugProtectionInterval: 3000,
+            disableConsoleOutput: isActive('opt_debug'),
+            selfDefending: isActive('opt_selfDefending')
+        };
+
+        if(options.stringArrayEncoding[0] === 'none') {
+            options.stringArrayEncoding = [];
+        }
+        if (domainLockInput.trim() !== "") {
+            options.domainLock = domainLockInput.split(',').map(d => d.trim());
+        }
+
+        try {
+            const startTime = performance.now();
+            const result = JavaScriptObfuscator.obfuscate(input, options);
+            const output = result.getObfuscatedCode();
+            
+            // SET HASIL KE CODEMIRROR OUTPUT
+            editorOut.setValue(output);
+
+            const inSize = new Blob([input]).size;
+            const outSize = new Blob([output]).size;
+            const growth = ((outSize - inSize) / inSize * 100).toFixed(0);
+
+            document.getElementById('inputStats').innerText = formatBytes(inSize);
+            document.getElementById('outputStats').innerHTML = 
+                `${formatBytes(outSize)} <span style="font-size:0.7em; opacity:0.7">(+${growth}%)</span>`;
+
+        } catch (err) {
+            alert("Error Obfuscating: " + err.message);
+        }
+    }
+
+    function copyCode() {
+        // Copy dari CodeMirror
+        const content = editorOut.getValue();
+        navigator.clipboard.writeText(content).then(() => {
+            alert("Copied to clipboard!");
+        });
+    }
+
+    function downloadCode() {
+        const text = editorOut.getValue();
+        const blob = new Blob([text], {type: "text/javascript"});
+        const a = document.createElement("a");
+        a.href = URL.createObjectURL(blob);
+        a.download = "shield-protected.js";
+        a.click();
+    }
+
+    applyPreset();
+</script>
+
+</body>
+</html>
