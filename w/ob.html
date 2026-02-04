@@ -788,19 +788,48 @@ function downloadCode() {
     }, 500); // Delay 0.5 detik biar terlihat 'mikir' sedikit
 }
 
-    // --- FUNGSI CLEAR ---
+    // --- UPDATE FUNGSI CLEAR (Dengan Animasi Loading) ---
 function clearCode() {
-    // Kosongkan kedua editor CodeMirror
-    editorIn.setValue('');
-    editorOut.setValue('');
-    
-    // Reset Stats
-    document.getElementById('inputStats').innerText = 'Empty';
-    document.getElementById('outputStats').innerText = '0 KB';
-    
-    // Reset Mode ke default JS placeholder
-    const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
-    if(mode === 'js') editorIn.setValue("// Paste Code Here...");
+    const btn = document.getElementById('btnClear');
+    // Simpan konten asli tombol (Icon Sampah + Teks)
+    const originalContent = btn ? btn.innerHTML : '<span>🗑️ CLEAR</span>';
+
+    // 1. UI LOADING STATE
+    if (btn) {
+        // Ubah jadi icon loading muter
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Cleaning...';
+        btn.disabled = true; // Matikan tombol sementara
+    }
+
+    // Gunakan setTimeout agar animasi loading terlihat sejenak
+    setTimeout(() => {
+        // 2. LOGIKA PEMBERSIHAN (Fitur Lama)
+        // Kosongkan kedua editor CodeMirror
+        editorIn.setValue('');
+        editorOut.setValue('');
+        
+        // Reset Stats
+        document.getElementById('inputStats').innerText = 'Empty';
+        document.getElementById('outputStats').innerText = '0 KB';
+        
+        // Reset Mode ke default JS placeholder
+        const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
+        
+        // Logika placeholder sesuai mode (Opsional: ditambahkan agar tidak kosong melompong)
+        if(mode === 'js') {
+            editorIn.setValue("// Paste Code Here...");
+        } else if (mode === 'html') {
+            editorIn.setValue("");
+        } else if (mode === 'css') {
+            editorIn.setValue("/* Paste CSS Here */");
+        }
+
+        // 3. KEMBALIKAN TOMBOL KE SEMULA
+        if (btn) {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }
+    }, 500); // Delay 0.5 detik
 }
 
     // Init
