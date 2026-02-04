@@ -32,14 +32,33 @@
 
         * { box-sizing: border-box; }
 
-        body {
-            font-family: 'Inter', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            min-height: 100vh;
-        }
+        /* Update BODY agar footer selalu di bawah */
+body {
+    font-family: 'Inter', sans-serif;
+    background-color: var(--bg-dark);
+    color: var(--text-main);
+    margin: 0;
+    padding: 20px; /* Padding asli body tetap ada */
+    min-height: 100vh; /* Tinggi minimal seukuran layar */
+    
+    /* Flexbox Layout untuk Body */
+    display: flex;
+    flex-direction: column; 
+}
+
+/* Update CONTAINER agar mengisi ruang kosong */
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    display: grid;
+    grid-template-columns: 1fr 350px 1fr;
+    gap: 20px;
+    /* Ubah height jadi flex-grow agar mendorong footer ke bawah */
+    flex: 1; 
+    width: 100%;
+    /* Hapus height: 90vh; jika ada, ganti dengan min-height atau auto */
+    height: auto; 
+}
 
         /* --- CodeMirror Customization (PENTING) --- */
         /* Memaksa editor memenuhi panel */
@@ -54,16 +73,6 @@
         /* Agar scrollbar CodeMirror rapi & tidak nabrak */
         .CodeMirror-scroll {
             padding-bottom: 30px;
-        }
-
-        /* --- LAYOUT GRID --- */
-        .container {
-            max-width: 1400px;
-            margin: 0 auto;
-            display: grid;
-            grid-template-columns: 1fr 350px 1fr;
-            gap: 20px;
-            height: 90vh;
         }
 
         /* HEADER */
@@ -396,95 +405,92 @@ header {
 .toast-loading { border-color: #6272a4; }
 .toast-loading .toast-icon { color: #6272a4; }
 
-        /* --- COMPACT & HORIZONTAL FOOTER --- */
+        /* --- FOOTER FINAL (MENTOK LAYAR & STICKY) --- */
 .app-footer {
-    width: 100%;
-    border-top: 1px solid rgba(98, 114, 164, 0.3);
-    background: linear-gradient(to bottom, transparent, rgba(0,0,0,0.2));
+    /* Trik agar footer menabrak batas padding body */
+    width: calc(100% + 40px);       /* Lebarkan selebar padding body (20px kiri + 20px kanan) */
+    margin-left: -20px;             /* Tarik ke kiri */
+    margin-right: -20px;            /* Tarik ke kanan */
+    margin-bottom: -20px;           /* Tarik ke bawah mentok */
+    margin-top: auto;               /* PENTING: Dorong footer ke paling bawah jika konten sedikit */
     
-    /* Center container footer */
+    padding: 20px 30px;             /* Padding dalam footer */
+    border-top: 1px solid rgba(98, 114, 164, 0.3);
+    background: linear-gradient(to bottom, rgba(40, 42, 54, 0.9), rgba(0,0,0,0.4)); /* Sedikit lebih gelap */
+    backdrop-filter: blur(5px);     /* Efek blur sedikit agar menyatu */
+    
     display: flex;
     justify-content: center;
     align-items: center;
 }
 
 .footer-content {
-    /* Agar layout melebar horizontal (Kiri - Kanan) */
     width: 100%;
-    max-width: 1400px; /* Samakan dengan lebar container utama Anda */
+    /* Hapus max-width agar konten benar-benar menyebar ke ujung */
+    max-width: none; 
+    padding: 0 10px; /* Jarak aman agar teks tidak nempel bezel monitor */
+    
     display: flex;
-    flex-direction: row; /* PENTING: Baris, bukan Kolom */
-    justify-content: space-between; /* Teks di Kiri, Sosmed di Kanan */
+    flex-direction: row;
+    justify-content: space-between; /* Mentok Kiri dan Kanan */
     align-items: center;
 }
 
 /* Typography */
 .copyright-text {
-    font-size: 0.85rem; /* Sedikit diperkecil agar compact */
+    font-size: 0.85rem;
     color: var(--text-muted);
     margin: 0;
-    letter-spacing: 0.5px;
-    font-weight: 400;
 }
 
 .copyright-text strong {
     color: var(--text-main);
-    font-weight: 600;
 }
 
 .brand-link {
     color: var(--primary);
     text-decoration: none;
     font-weight: 700;
-    transition: all 0.3s ease;
 }
 
-.brand-link:hover {
-    color: var(--primary-hover);
-    text-shadow: 0 0 10px rgba(189, 147, 249, 0.4);
-}
-
-/* Social Icons Wrapper */
+/* Social Icons */
 .social-icons {
     display: flex;
-    gap: 10px; /* Jarak antar icon sedikit dirapatkan */
+    gap: 15px;
 }
 
-/* Tombol Sosmed (Style Lama Anda - Dipertahankan) */
 .social-btn {
-    width: 35px;  /* Diperkecil sedikit dari 40px biar lebih imut/compact */
+    width: 35px;
     height: 35px;
     border-radius: 50%;
-    background: rgba(255, 255, 255, 0.03);
+    background: rgba(255, 255, 255, 0.05);
     border: 1px solid rgba(255, 255, 255, 0.05);
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--text-muted);
     text-decoration: none;
-    font-size: 0.95rem; /* Ukuran icon disesuaikan */
-    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    transition: all 0.3s ease;
 }
 
-/* Efek Hover Premium */
 .social-btn:hover {
     background: var(--bg-panel);
     border-color: var(--primary);
     color: #fff;
-    transform: translateY(-3px) scale(1.1);
-    box-shadow: 0 5px 15px rgba(189, 147, 249, 0.3);
+    transform: translateY(-3px);
+    box-shadow: 0 5px 15px rgba(189, 147, 249, 0.2);
 }
 
-/* Responsif HP: Kembali menumpuk agar rapi di layar kecil */
+/* RESPONSIF HP */
 @media (max-width: 768px) {
     .footer-content {
-        flex-direction: column;
+        flex-direction: column; /* Tumpuk vertikal di HP */
         gap: 15px;
-        padding-bottom: 20px;
+        text-align: center;
     }
     
     .app-footer {
-        padding: 20px 0;
+        padding: 25px 20px; /* Sesuaikan padding di HP */
     }
 }
 
