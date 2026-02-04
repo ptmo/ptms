@@ -1022,54 +1022,71 @@ function clearCode() {
     }, 500); // Delay 0.5 detik
 }
 
-    // --- LOGIC CUSTOM DROPDOWN ---
-
-// 1. Fungsi Buka/Tutup (UNIVERSAL)
-// Parameter 'dropdownId' diisi ID dropdown target (misal: 'dd_engine' atau 'dd_preset')
+// --- 1. Fungsi Buka/Tutup Dropdown (Versi Aman & Stabil) ---
 function toggleDropdown(dropdownId) {
+    // SAFETY CHECK 1: Pastikan ID dikirim
+    if (!dropdownId) {
+        console.error("Error: toggleDropdown dipanggil tanpa ID!");
+        return;
+    }
+
     const dropdown = document.getElementById(dropdownId);
     
-    // A. LOGIKA BARU: Tutup dropdown lain yang sedang terbuka
-    // Agar saat buka 'Engine Mode', dropdown 'Presets' tertutup otomatis
+    // SAFETY CHECK 2: Pastikan elemen HTML dengan ID tersebut BENAR-BENAR ADA
+    // Jika ID di HTML onclick beda dengan ID div, ini akan mencegah error fatal
+    if (!dropdown) {
+        console.error(`Error: Element dengan ID '${dropdownId}' tidak ditemukan. Cek ejaan ID di HTML Anda.`);
+        return;
+    }
+    
+    // A. LOGIKA TUTUP YANG LAIN (Agar tidak tumpuk-menumpuk)
     document.querySelectorAll('.custom-options').forEach(el => {
+        // Jika element ini BUKAN yang sedang diklik, tutup dia
         if (el.id !== dropdownId) {
             el.classList.remove('open');
             
-            // Reset icon dropdown lain ke posisi awal (0 derajat)
+            // Reset icon panah dropdown lain ke 0 derajat
             const otherWrapper = el.closest('.custom-select-wrapper');
-            if(otherWrapper) {
+            if (otherWrapper) {
                 const otherIcon = otherWrapper.querySelector('.fa-chevron-down');
-                if(otherIcon) otherIcon.style.transform = 'rotate(0deg)';
+                if (otherIcon) otherIcon.style.transform = 'rotate(0deg)';
             }
         }
     });
 
-    // B. TOGGLE CLASS OPEN (Logika Utama)
+    // B. LOGIKA UTAMA (Buka/Tutup Target)
     dropdown.classList.toggle('open');
     
-    // C. ROTASI ICON PANAH (Fitur Lama Dipertahankan)
-    // Kita cari wrapper pembungkusnya untuk menemukan icon yang tepat
+    // C. ROTASI ICON PANAH (Target)
     const wrapper = dropdown.closest('.custom-select-wrapper');
-    const icon = wrapper.querySelector('.fa-chevron-down');
-    
-    if (dropdown.classList.contains('open')) {
-        // Jika terbuka, putar 180 derajat (menghadap atas)
-        if(icon) icon.style.transform = 'rotate(180deg)';
-    } else {
-        // Jika tertutup, putar balik ke 0 derajat
-        if(icon) icon.style.transform = 'rotate(0deg)';
+    if (wrapper) {
+        const icon = wrapper.querySelector('.fa-chevron-down');
+        if (icon) {
+            if (dropdown.classList.contains('open')) {
+                // Jika terbuka, putar ke atas
+                icon.style.transform = 'rotate(180deg)';
+            } else {
+                // Jika tertutup, reset ke bawah
+                icon.style.transform = 'rotate(0deg)';
+            }
+        }
     }
 }
 
-// TAMBAHAN PENTING: Tutup dropdown jika klik di luar area (biar rapi)
+// --- 2. Tutup Dropdown Jika Klik Di Luar Area (Window Listener) ---
 window.addEventListener('click', function(e) {
+    // Cek apakah yang diklik BUKAN bagian dari custom-select-wrapper
     if (!e.target.closest('.custom-select-wrapper')) {
         document.querySelectorAll('.custom-options').forEach(el => {
+            // Tutup semua dropdown
             el.classList.remove('open');
-            // Reset semua icon
+            
+            // Reset semua icon panah
             const wrapper = el.closest('.custom-select-wrapper');
-            const icon = wrapper.querySelector('.fa-chevron-down');
-            if(icon) icon.style.transform = 'rotate(0deg)';
+            if (wrapper) {
+                const icon = wrapper.querySelector('.fa-chevron-down');
+                if (icon) icon.style.transform = 'rotate(0deg)';
+            }
         });
     }
 });
