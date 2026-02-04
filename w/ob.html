@@ -387,13 +387,26 @@ function sendTransaction() {
         </div>
 
         <div class="action-area">
-            <button class="btn btn-primary" onclick="obfuscateNow()">
-                <span>⚡ EXECUTE OBFUSCATION</span>
-            </button>
-            <button class="btn btn-secondary" onclick="copyCode()">Copy Result</button>
-            <button class="btn btn-success" onclick="downloadCode()">Download .js</button>
-        </div>
+    <div class="action-row">
+        <button id="btnExec" class="btn btn-primary" onclick="obfuscateNow()">
+    <i class="fas fa-bolt"></i> EXECUTE
+</button>
+
+<button id="btnClear" class="btn btn-danger" onclick="clearCode()">
+    <i class="fas fa-trash"></i> CLEAR
+</button>
     </div>
+
+    <div class="action-row">
+        <button id="btnCopy" class="btn btn-secondary" onclick="copyCode()">
+            <i class="fas fa-copy"></i> Copy Result
+        </button>
+        <button id="btnDownload" class="btn btn-success" onclick="downloadCode()">
+            <i class="fas fa-download"></i> Download .js
+        </button>
+    </div>
+    </div>
+ </div>
 
     <div class="panel">
         <div class="panel-header">
@@ -507,66 +520,118 @@ function sendTransaction() {
         }
     }
 
-    // --- CORE ENGINE ---
-    function obfuscateNow() {
-        // AMBIL VALUE DARI CODEMIRROR, BUKAN TEXTAREA
-        const input = editorIn.getValue();
-        
-        if(!input.trim()) { alert("Input code is empty!"); return; }
+// --- UPDATE FUNGSI OBFUSCATE (Loading Effect + Fitur Lama) ---
+function obfuscateNow() {
+    // 1. AMBIL VALUE & CEK INPUT (Lakukan di awal)
+    const input = editorIn.getValue();
+    if(!input.trim()) { alert("Input code is empty!"); return; }
 
-        const domainLockInput = document.getElementById('domainLock').value;
-        
-        let options = {
-            compact: true,
-            identifierNamesGenerator: document.getElementById('renameStrategy').value,
-            stringArray: isActive('opt_stringArray'),
-            stringArrayRotate: isActive('opt_rotateString'),
-            stringArrayEncoding: [document.getElementById('stringEncoding').value], 
-            unicodeEscapeSequence: isActive('opt_unicode'),
-            numbersToExpressions: isActive('opt_numbers'),
-            splitStrings: isActive('opt_splitStrings'),
-            splitStringsChunkLength: 5,
-            transformObjectKeys: isActive('opt_transformObj'),
-            deadCodeInjection: isActive('opt_deadCode'),
-            deadCodeInjectionThreshold: 0.4,
-            controlFlowFlattening: isActive('opt_controlFlow'),
-            controlFlowFlatteningThreshold: 0.75,
-            debugProtection: isActive('opt_debug'),
-            debugProtectionInterval: 3000,
-            disableConsoleOutput: isActive('opt_debug'),
-            selfDefending: isActive('opt_selfDefending')
-        };
+    // 2. UI LOADING STATE (Ubah Tombol jadi Loading)
+    const btn = document.getElementById('btnExec');
+    const originalText = btn.innerHTML; // Simpan teks asli "⚡ EXECUTE"
+    
+    // Ganti icon jadi spinner muter
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> PROCESSING...';
+    btn.disabled = true; // Matikan tombol sementara
+    btn.style.opacity = '0.7';
 
-        if(options.stringArrayEncoding[0] === 'none') {
-            options.stringArrayEncoding = [];
-        }
-
-        if (domainLockInput.trim() !== "") {
-            options.domainLock = domainLockInput.split(',').map(d => d.trim());
-        }
-
+    // 3. EKSEKUSI DENGAN DELAY (Agar UI sempat update icon loading)
+    setTimeout(() => {
         try {
+            // ===============================================
+            // LOGIKA UTAMA (SAMA PERSIS SEPERTI SEBELUMNYA)
+            // ===============================================
+            
+            // Cek Mode
+            const modeEl = document.getElementById('engineMode');
+            const mode = modeEl ? modeEl.value : 'js';
+
+            let output = "";
             const startTime = performance.now();
-            const result = JavaScriptObfuscator.obfuscate(input, options);
+
+            // --- LOGIKA CABANG ---
+            if (mode === 'js') {
+                const domainLockInput = document.getElementById('domainLock').value;
+                
+                let options = {
+                    compact: true,
+                    identifierNamesGenerator: document.getElementById('renameStrategy').value,
+                    stringArray: isActive('opt_stringArray'),
+                    stringArrayRotate: isActive('opt_rotateString'),
+                    stringArrayEncoding: [document.getElementById('stringEncoding').value], 
+                    unicodeEscapeSequence: isActive('opt_unicode'),
+                    numbersToExpressions: isActive('opt_numbers'),
+                    splitStrings: isActive('opt_splitStrings'),
+                    splitStringsChunkLength: 5,
+                    transformObjectKeys: isActive('opt_transformObj'),
+                    deadCodeInjection: isActive('opt_deadCode'),
+                    deadCodeInjectionThreshold: 0.4,
+                    controlFlowFlattening: isActive('opt_controlFlow'),
+                    controlFlowFlatteningThreshold: 0.75,
+                    debugProtection: isActive('opt_debug'),
+                    debugProtectionInterval: 3000,
+                    disableConsoleOutput: isActive('opt_debug'),
+                    selfDefending: isActive('opt_selfDefending')
+                };
+
+                if(options.stringArrayEncoding[0] === 'none') {
+                    options.stringArrayEncoding = [];
+                }
+
+                if (domainLockInput.trim() !== "") {
+                    options.domainLock = domainLockInput.split(',').map(d => d.trim());
+                }
+
+                // Eksekusi JS Obfuscator
+                const result = JavaScriptObfuscator.obfuscate(input, options);
+                output = result.getObfuscatedCode();
+                
+            } else if (mode === 'html') {
+                // Eksekusi HTML Minifier
+                output = minifyHTML(input);
+
+            } else if (mode === 'css') {
+                // Eksekusi CSS Minifier
+                output = minifyCSS(input);
+            }
+
             const endTime = performance.now();
 
-            const output = result.getObfuscatedCode();
-            
             // SET VALUE KE CODEMIRROR OUTPUT
             editorOut.setValue(output);
 
+            // HITUNG STATS
             const inSize = new Blob([input]).size;
             const outSize = new Blob([output]).size;
-            const growth = ((outSize - inSize) / inSize * 100).toFixed(0);
+            
+            // Hitung persentase
+            let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
+            
+            // Styling
+            let colorStyle = 'opacity:0.7'; 
+            let sign = '+';
+            
+            if (parseInt(growth) < 0) {
+                sign = ''; 
+                colorStyle = 'color: var(--secondary); font-weight:bold;'; 
+            } else {
+                colorStyle = 'color: #ff79c6;'; 
+            }
 
             document.getElementById('inputStats').innerText = formatBytes(inSize);
             document.getElementById('outputStats').innerHTML = 
-                `${formatBytes(outSize)} <span style="font-size:0.7em; opacity:0.7">(+${growth}%)</span>`;
+                `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
 
         } catch (err) {
-            alert("Error Obfuscating: " + err.message);
+            alert("Error Processing: " + err.message);
+        } finally {
+            // 4. KEMBALIKAN TOMBOL KE SEMULA (SELESAI)
+            btn.innerHTML = originalText;
+            btn.disabled = false;
+            btn.style.opacity = '1';
         }
-    }
+    }, 100); // Delay 100ms agar animasi loading terlihat
+}
     
 // --- FIX MINIFIER HTML (FINAL) ---
 function minifyHTML(code) {
@@ -629,24 +694,158 @@ function changeEngineMode() {
     }
 }
 
-// --- ACTIONS ---
-    function copyCode() {
-        // Copy dari CodeMirror
-        const content = editorOut.getValue();
-        navigator.clipboard.writeText(content).then(() => {
-            alert("Copied to clipboard!");
-        });
+// --- UPDATE FUNGSI COPY (Dengan Animasi & Icon) ---
+function copyCode() {
+    // 1. Definisi Elemen
+    const btn = document.getElementById('btnCopy');
+    const content = editorOut.getValue();
+    
+    // Pastikan tombol HTML sudah ada ID="btnCopy" sesuai instruksi sebelumnya
+    // Simpan teks asli tombol agar bisa dikembalikan nanti
+    const originalContent = '<i class="fas fa-copy"></i> Copy Result'; 
+
+    // Cek jika output kosong
+    if (!content) { 
+        alert("Nothing to copy!"); 
+        return; 
+    }
+    
+    // 2. UI LOADING STATE (Ubah tombol jadi "Copying...")
+    // Menggunakan icon fa-spin untuk efek putar
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Copying...';
+    btn.disabled = true; // Matikan tombol agar tidak di-spam klik
+
+    // 3. EKSEKUSI COPY
+    navigator.clipboard.writeText(content).then(() => {
+        // --- SUKSES ---
+        // Ubah icon jadi Centang (fa-check) dengan warna Hijau (#50fa7b)
+        btn.innerHTML = '<i class="fas fa-check" style="color: #50fa7b;"></i> Copied!';
+        
+        // Timer: Kembalikan tombol ke semula setelah 2 detik (2000ms)
+        setTimeout(() => {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }, 2000);
+
+    }).catch(err => {
+        // --- ERROR ---
+        console.error("Copy failed:", err);
+        btn.innerHTML = '<i class="fas fa-times"></i> Error';
+        alert("Failed to copy to clipboard!");
+        btn.disabled = false;
+    });
+}
+
+    // --- UPDATE FUNGSI DOWNLOAD (Support JS/HTML/CSS + Loading Animation) ---
+function downloadCode() {
+    const btn = document.getElementById('btnDownload');
+    // Simpan konten asli tombol (Icon Download + Teks) untuk dikembalikan nanti
+    // Jika btn null (karena belum ada di HTML), fallback string kosong
+    const originalContent = btn ? btn.innerHTML : 'Download'; 
+    
+    // 1. Cek isi editor
+    const text = editorOut.getValue();
+    if (!text.trim()) {
+        alert("Output is empty! Nothing to download.");
+        return;
     }
 
-    function downloadCode() {
-        // Download dari CodeMirror
-        const text = editorOut.getValue();
-        const blob = new Blob([text], {type: "text/javascript"});
-        const a = document.createElement("a");
-        a.href = URL.createObjectURL(blob);
-        a.download = "protected-script.js";
-        a.click();
+    // 2. UI LOADING STATE
+    if (btn) {
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing...';
+        btn.disabled = true;
     }
+
+    // Gunakan setTimeout agar user sempat melihat animasi loading (UX Experience)
+    setTimeout(() => {
+        try {
+            // 3. Tentukan Ekstensi File Berdasarkan Mode
+            const modeEl = document.getElementById('engineMode');
+            const mode = modeEl ? modeEl.value : 'js'; // Default ke JS jika elemen tidak ketemu
+            
+            let ext = 'js';
+            let mimeType = 'text/javascript';
+
+            if (mode === 'html') {
+                ext = 'html';
+                mimeType = 'text/html';
+            } else if (mode === 'css') {
+                ext = 'css';
+                mimeType = 'text/css';
+            }
+
+            // 4. Proses Pembuatan File (Blob)
+            const blob = new Blob([text], {type: mimeType});
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement("a");
+            
+            a.href = url;
+            // Nama file dinamis: protected-result.js / .html / .css
+            a.download = `protected-result.${ext}`; 
+            
+            // Tambahkan ke body (wajib untuk Firefox), klik, lalu hapus
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            
+            // Bersihkan memori URL
+            URL.revokeObjectURL(url);
+
+        } catch (err) {
+            alert("Download Error: " + err.message);
+        } finally {
+            // 5. Reset Tombol ke Semula
+            if (btn) {
+                btn.innerHTML = originalContent;
+                btn.disabled = false;
+            }
+        }
+    }, 500); // Delay 0.5 detik biar terlihat 'mikir' sedikit
+}
+
+    // --- UPDATE FUNGSI CLEAR (Dengan Animasi Loading) ---
+function clearCode() {
+    const btn = document.getElementById('btnClear');
+    // Simpan konten asli tombol (Icon Sampah + Teks)
+    const originalContent = btn ? btn.innerHTML : '<span>🗑️ CLEAR</span>';
+
+    // 1. UI LOADING STATE
+    if (btn) {
+        // Ubah jadi icon loading muter
+        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Cleaning...';
+        btn.disabled = true; // Matikan tombol sementara
+    }
+
+    // Gunakan setTimeout agar animasi loading terlihat sejenak
+    setTimeout(() => {
+        // 2. LOGIKA PEMBERSIHAN (Fitur Lama)
+        // Kosongkan kedua editor CodeMirror
+        editorIn.setValue('');
+        editorOut.setValue('');
+        
+        // Reset Stats
+        document.getElementById('inputStats').innerText = 'Empty';
+        document.getElementById('outputStats').innerText = '0 KB';
+        
+        // Reset Mode ke default JS placeholder
+        const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
+        
+        // Logika placeholder sesuai mode (Opsional: ditambahkan agar tidak kosong melompong)
+        if(mode === 'js') {
+            editorIn.setValue("// Paste Code Here...");
+        } else if (mode === 'html') {
+            editorIn.setValue("");
+        } else if (mode === 'css') {
+            editorIn.setValue("/* Paste CSS Here */");
+        }
+
+        // 3. KEMBALIKAN TOMBOL KE SEMULA
+        if (btn) {
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
+        }
+    }, 500); // Delay 0.5 detik
+}
 
     // Init
     applyPreset();
