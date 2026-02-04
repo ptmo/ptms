@@ -3,22 +3,29 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Wayang Shield Gen 5 | Architect Edition</title>
+    <title>Wayang Shield Gen 6 | VS Code Edition</title>
+    
     <script src="https://cdn.jsdelivr.net/npm/javascript-obfuscator/dist/index.browser.js"></script>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
     
     <style>
         :root {
-            --bg-dark: #09090b;
-            --bg-panel: #18181b;
-            --bg-input: #27272a;
-            --primary: #8b5cf6; /* Violet */
-            --primary-hover: #7c3aed;
-            --secondary: #10b981; /* Emerald */
-            --danger: #ef4444;
-            --text-main: #e4e4e7;
-            --text-muted: #a1a1aa;
-            --border: #3f3f46;
+            /* Palette Tema DRACULA (Standar Industri) */
+            --bg-dark: #282a36;      /* Background Utama */
+            --bg-panel: #44475a;     /* Panel Background */
+            --bg-input: #6272a4;     /* Input/Border */
+            --primary: #bd93f9;      /* Ungu Dracula */
+            --primary-hover: #ff79c6;/* Pink Dracula */
+            --secondary: #50fa7b;    /* Hijau Dracula */
+            --text-main: #f8f8f2;    /* Putih Tulang */
+            --text-muted: #6272a4;
+            --border: #6272a4;
         }
 
         * { box-sizing: border-box; }
@@ -32,6 +39,22 @@
             min-height: 100vh;
         }
 
+        /* --- CodeMirror Customization (PENTING) --- */
+        /* Memaksa editor memenuhi panel */
+        .CodeMirror {
+            height: 100%; 
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 13px;
+            background-color: #282a36 !important; /* Paksa warna Dracula */
+            color: #f8f8f2;
+        }
+        
+        /* Agar scrollbar CodeMirror rapi & tidak nabrak */
+        .CodeMirror-scroll {
+            padding-bottom: 30px;
+        }
+
+        /* --- LAYOUT GRID --- */
         .container {
             max-width: 1400px;
             margin: 0 auto;
@@ -57,70 +80,57 @@
 
         /* PANELS */
         .panel {
-    background: var(--bg-panel);
-    border-radius: 8px;
-    border: 1px solid var(--border);
-    
-    /* Flexbox Wajib */
-    display: flex;
-    flex-direction: column; 
-    
-    /* Penting: Height harus terdefinisi agar overflow bekerja */
-    height: 100%; 
-    overflow: hidden; 
-    position: relative;
+            background: var(--bg-panel);
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            /* Flexbox Wajib */
+            display: flex;
+            flex-direction: column; 
+            /* Penting: Height harus terdefinisi agar overflow bekerja */
+            height: 100%; 
+            overflow: hidden; 
+            position: relative;
         }
 
         .panel-header {
             padding: 12px 15px;
-            background: rgba(255,255,255,0.03);
+            background: rgba(0,0,0,0.2); /* Gelapkan header sedikit */
             border-bottom: 1px solid var(--border);
             font-size: 0.8rem;
             font-weight: 700;
             text-transform: uppercase;
             letter-spacing: 1px;
-            color: var(--text-muted);
+            color: var(--primary); /* Ganti ungu biar matching */
             display: flex;
             justify-content: space-between;
+            z-index: 5; /* Di atas editor */
         }
 
-        /* EDITORS */
-        .editor-wrapper { flex-grow: 1; position: relative; }
-        textarea {
-            width: 100%;
-            height: 100%;
-            background: var(--bg-dark);
-            border: none;
-            color: #a5b4fc;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 13px;
-            padding: 15px;
-            resize: none;
-            outline: none;
-            line-height: 1.5;
+        /* EDITORS WRAPPER */
+        .editor-wrapper { 
+            flex-grow: 1; 
+            position: relative; 
+            overflow: hidden; /* Mencegah editor keluar panel */
         }
         
         /* CONTROLS (MIDDLE PANEL) */
         .controls-content {
-    padding: 15px;
-    
-    /* Mengisi ruang kosong yang tersisa */
-    flex: 1; 
-    
-    /* Aktifkan Scroll Vertikal */
-    overflow-y: auto; 
-    
-    /* Mencegah overflow keluar container */
-    min-height: 0; 
-    
-    display: flex;
-    flex-direction: column;
-    gap: 15px;
+            padding: 15px;
+            /* Mengisi ruang kosong yang tersisa */
+            flex: 1; 
+            /* Aktifkan Scroll Vertikal */
+            overflow-y: auto; 
+            /* Mencegah overflow keluar container */
+            min-height: 0; 
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
         }
 
         .section-label {
             font-size: 0.75rem;
-            color: var(--text-muted);
+            color: var(--text-main); /* Ubah jadi terang dikit */
+            opacity: 0.7;
             text-transform: uppercase;
             font-weight: 700;
             margin-bottom: 8px;
@@ -131,7 +141,7 @@
         select, input[type="text"] {
             width: 100%;
             padding: 10px;
-            background: var(--bg-input);
+            background: var(--bg-dark); /* Lebih gelap dari panel */
             border: 1px solid var(--border);
             color: white;
             border-radius: 4px;
@@ -148,7 +158,7 @@
         }
 
         .toggle-btn {
-            background: var(--bg-input);
+            background: var(--bg-dark);
             border: 1px solid var(--border);
             color: var(--text-muted);
             padding: 8px;
@@ -160,7 +170,7 @@
         }
         
         .toggle-btn.active {
-            background: rgba(139, 92, 246, 0.2);
+            background: rgba(189, 147, 249, 0.2); /* Tint Ungu */
             border-color: var(--primary);
             color: var(--primary);
             font-weight: 600;
@@ -170,13 +180,11 @@
 
         /* Action Buttons */
         .action-area {
-    padding: 15px;
-    border-top: 1px solid var(--border);
-    background: var(--bg-panel); /* Background solid agar tidak transparan */
-    
-    /* Mencegah tombol tergencet */
-    flex-shrink: 0; 
-    z-index: 10;
+            padding: 15px;
+            border-top: 1px solid var(--border);
+            background: var(--bg-panel);
+            flex-shrink: 0; 
+            z-index: 10;
         }
 
         .btn {
@@ -192,15 +200,15 @@
             gap: 8px;
         }
 
-        .btn-primary { background: var(--primary); color: white; }
+        .btn-primary { background: var(--primary); color: #282a36; } /* Text hitam biar kontras */
         .btn-primary:hover { background: var(--primary-hover); }
-        .btn-secondary { background: var(--bg-input); color: var(--text-main); border: 1px solid var(--border); }
-        .btn-secondary:hover { background: var(--border); }
-        .btn-success { background: var(--secondary); color: white; }
+        .btn-secondary { background: var(--bg-dark); color: var(--text-main); border: 1px solid var(--border); }
+        .btn-secondary:hover { border-color: var(--text-main); }
+        .btn-success { background: var(--secondary); color: #282a36; }
 
         .badge-pro {
-            background: linear-gradient(45deg, #f59e0b, #d97706);
-            color: black;
+            background: var(--primary-hover);
+            color: #282a36;
             font-size: 0.6rem;
             padding: 1px 4px;
             border-radius: 2px;
@@ -209,38 +217,39 @@
         }
 
         @media (max-width: 1024px) {
-    .container {
-        grid-template-columns: 1fr;
-        height: auto;
-        display: flex;
-        flex-direction: column;
-        gap: 20px;
-    }
+            .container {
+                grid-template-columns: 1fr;
+                height: auto;
+                display: flex;
+                flex-direction: column;
+                gap: 20px;
+            }
 
-    /* Di HP, kita beri tinggi fix pada panel Configuration */
-    /* Agar area scrollnya berfungsi */
-    .panel {
-        /* Tinggi manual, sesuaikan selera (misal 600px atau 70vh) */
-        height: 65vh; 
-        min-height: 500px;
-    }
-    
-    /* Reset agar content tetap flex-1 (mengisi ruang height di atas) */
-    .controls-content {
-        overflow-y: auto; 
-        flex: 1; 
-    }
+            .panel {
+                /* Tinggi manual untuk HP */
+                height: 600px; 
+                min-height: 500px;
+            }
+            
+            /* Paksa wrapper editor punya tinggi di HP */
+            .editor-wrapper {
+                height: 500px;
+            }
+            
+            .controls-content {
+                overflow-y: auto; 
+                flex: 1; 
+            }
         }
-        
     </style>
 </head>
 <body>
 
 <div class="container">
     <header>
-        <div class="brand">SHIELD GEN 5.0 <span>Architect Edition</span></div>
+        <div class="brand">SHIELD GEN 6.0 <span>VS Code Edition</span></div>
         <div style="font-size: 0.8rem; color: var(--text-muted);">
-            Status: <span style="color: var(--secondary)">● Ready</span>
+            Status: <span style="color: var(--secondary)">● System Ready</span>
         </div>
     </header>
 
@@ -250,13 +259,13 @@
             <span id="inputStats" style="color: var(--text-muted)">Empty</span>
         </div>
         <div class="editor-wrapper">
-            <textarea id="inputCode" placeholder="// Paste Code Here...
+            <textarea id="inputCode">// Paste Code Here...
 const secretKey = 'WAYANG-123';
 const wallet = { balance: 5000, type: 'ETH' };
 
 function sendTransaction() {
     console.log('Sending ' + wallet.balance + ' to ' + secretKey);
-}"></textarea>
+}</textarea>
         </div>
     </div>
 
@@ -330,7 +339,7 @@ function sendTransaction() {
             <button class="btn btn-primary" onclick="obfuscateNow()">
                 <span>⚡ EXECUTE OBFUSCATION</span>
             </button>
-            <button class="btn btn-secondary" onclick="copyCode()">Copy</button>
+            <button class="btn btn-secondary" onclick="copyCode()">Copy Result</button>
             <button class="btn btn-success" onclick="downloadCode()">Download .js</button>
         </div>
     </div>
@@ -341,16 +350,45 @@ function sendTransaction() {
             <span id="outputStats" style="color: var(--secondary)">0 KB</span>
         </div>
         <div class="editor-wrapper">
-            <textarea id="outputCode" readonly placeholder="Result will appear here..."></textarea>
+            <textarea id="outputCode"></textarea>
         </div>
     </div>
 </div>
 
 <script>
+    // --- INIT CODEMIRROR (THE MAGIC) ---
+    // 1. Setup Editor Input
+    var editorIn = CodeMirror.fromTextArea(document.getElementById("inputCode"), {
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true,
+        smartIndent: true,
+        matchBrackets: true,
+        lineWrapping: true
+    });
+
+    // 2. Setup Editor Output (Read Only)
+    var editorOut = CodeMirror.fromTextArea(document.getElementById("outputCode"), {
+        mode: "javascript",
+        theme: "dracula",
+        lineNumbers: true,
+        readOnly: true, // Tidak bisa diedit manual
+        lineWrapping: true,
+        matchBrackets: true
+    });
+
+    // Fix Render issue saat resize window
+    function refreshEditors() {
+        setTimeout(() => {
+            editorIn.refresh();
+            editorOut.refresh();
+        }, 100);
+    }
+    window.addEventListener('resize', refreshEditors);
+
     // --- UTILS ---
     function toggleBtn(el) {
         el.classList.toggle('active');
-        // Jika user klik manual, ubah preset ke Custom
         document.getElementById('preset').value = 'custom';
     }
 
@@ -420,48 +458,38 @@ function sendTransaction() {
 
     // --- CORE ENGINE ---
     function obfuscateNow() {
-        const input = document.getElementById('inputCode').value;
+        // AMBIL VALUE DARI CODEMIRROR, BUKAN TEXTAREA
+        const input = editorIn.getValue();
+        
         if(!input.trim()) { alert("Input code is empty!"); return; }
 
         const domainLockInput = document.getElementById('domainLock').value;
         
-        // Membangun Config Object berdasarkan UI
         let options = {
             compact: true,
-            // 1. Renaming
             identifierNamesGenerator: document.getElementById('renameStrategy').value,
-            
-            // 2. String Array & Encoding
             stringArray: isActive('opt_stringArray'),
             stringArrayRotate: isActive('opt_rotateString'),
-            stringArrayEncoding: [document.getElementById('stringEncoding').value], // 'none', 'base64', 'rc4'
-            
-            // 3. Transformation
-            unicodeEscapeSequence: isActive('opt_unicode'), // Hex String representation
-            numbersToExpressions: isActive('opt_numbers'), // Hex/Math expression for numbers
+            stringArrayEncoding: [document.getElementById('stringEncoding').value], 
+            unicodeEscapeSequence: isActive('opt_unicode'),
+            numbersToExpressions: isActive('opt_numbers'),
             splitStrings: isActive('opt_splitStrings'),
             splitStringsChunkLength: 5,
             transformObjectKeys: isActive('opt_transformObj'),
-            
-            // 4. Logic Protection
             deadCodeInjection: isActive('opt_deadCode'),
             deadCodeInjectionThreshold: 0.4,
             controlFlowFlattening: isActive('opt_controlFlow'),
             controlFlowFlatteningThreshold: 0.75,
-            
-            // 5. Integrity
             debugProtection: isActive('opt_debug'),
             debugProtectionInterval: 3000,
-            disableConsoleOutput: isActive('opt_debug'), // Usually paired
+            disableConsoleOutput: isActive('opt_debug'),
             selfDefending: isActive('opt_selfDefending')
         };
 
-        // Handle 'none' logic for string array
         if(options.stringArrayEncoding[0] === 'none') {
             options.stringArrayEncoding = [];
         }
 
-        // Domain Lock
         if (domainLockInput.trim() !== "") {
             options.domainLock = domainLockInput.split(',').map(d => d.trim());
         }
@@ -472,9 +500,10 @@ function sendTransaction() {
             const endTime = performance.now();
 
             const output = result.getObfuscatedCode();
-            document.getElementById('outputCode').value = output;
+            
+            // SET VALUE KE CODEMIRROR OUTPUT
+            editorOut.setValue(output);
 
-            // Update Stats
             const inSize = new Blob([input]).size;
             const outSize = new Blob([output]).size;
             const growth = ((outSize - inSize) / inSize * 100).toFixed(0);
@@ -490,12 +519,16 @@ function sendTransaction() {
 
     // --- ACTIONS ---
     function copyCode() {
-        document.getElementById('outputCode').select();
-        document.execCommand('copy');
+        // Copy dari CodeMirror
+        const content = editorOut.getValue();
+        navigator.clipboard.writeText(content).then(() => {
+            alert("Copied to clipboard!");
+        });
     }
 
     function downloadCode() {
-        const text = document.getElementById('outputCode').value;
+        // Download dari CodeMirror
+        const text = editorOut.getValue();
         const blob = new Blob([text], {type: "text/javascript"});
         const a = document.createElement("a");
         a.href = URL.createObjectURL(blob);
