@@ -501,66 +501,130 @@ function minifyCSS(code) {
         .trim();
 }
 
-    // --- CORE ENGINE ---
-    function obfuscateNow() {
-        // AMBIL VALUE DARI CODEMIRROR, BUKAN TEXTAREA
-        const input = editorIn.getValue();
-        
-        if(!input.trim()) { alert("Input code is empty!"); return; }
-
-        const domainLockInput = document.getElementById('domainLock').value;
-        
-        let options = {
-            compact: true,
-            identifierNamesGenerator: document.getElementById('renameStrategy').value,
-            stringArray: isActive('opt_stringArray'),
-            stringArrayRotate: isActive('opt_rotateString'),
-            stringArrayEncoding: [document.getElementById('stringEncoding').value], 
-            unicodeEscapeSequence: isActive('opt_unicode'),
-            numbersToExpressions: isActive('opt_numbers'),
-            splitStrings: isActive('opt_splitStrings'),
-            splitStringsChunkLength: 5,
-            transformObjectKeys: isActive('opt_transformObj'),
-            deadCodeInjection: isActive('opt_deadCode'),
-            deadCodeInjectionThreshold: 0.4,
-            controlFlowFlattening: isActive('opt_controlFlow'),
-            controlFlowFlatteningThreshold: 0.75,
-            debugProtection: isActive('opt_debug'),
-            debugProtectionInterval: 3000,
-            disableConsoleOutput: isActive('opt_debug'),
-            selfDefending: isActive('opt_selfDefending')
-        };
-
-        if(options.stringArrayEncoding[0] === 'none') {
-            options.stringArrayEncoding = [];
-        }
-
-        if (domainLockInput.trim() !== "") {
-            options.domainLock = domainLockInput.split(',').map(d => d.trim());
-        }
-
-        try {
-            const startTime = performance.now();
-            const result = JavaScriptObfuscator.obfuscate(input, options);
-            const endTime = performance.now();
-
-            const output = result.getObfuscatedCode();
-            
-            // SET VALUE KE CODEMIRROR OUTPUT
-            editorOut.setValue(output);
-
-            const inSize = new Blob([input]).size;
-            const outSize = new Blob([output]).size;
-            const growth = ((outSize - inSize) / inSize * 100).toFixed(0);
-
-            document.getElementById('inputStats').innerText = formatBytes(inSize);
-            document.getElementById('outputStats').innerHTML = 
-                `${formatBytes(outSize)} <span style="font-size:0.7em; opacity:0.7">(+${growth}%)</span>`;
-
-        } catch (err) {
-            alert("Error Obfuscating: " + err.message);
-        }
+    // --- FUNGSI GANTI MODE ---
+function changeEngineMode() {
+    const mode = document.getElementById('engineMode').value;
+    const jsWrapper = document.getElementById('jsOptionsWrapper');
+    
+    if (mode === 'js') {
+        // Tampilkan Opsi JS
+        jsWrapper.style.display = 'block';
+        editorIn.setOption("mode", "javascript");
+        editorOut.setOption("mode", "javascript");
+        editorIn.setValue("// Paste JavaScript Code Here...\nfunction test() { console.log('Hello'); }");
+    } else if (mode === 'html') {
+        // Sembunyikan Opsi JS (Minifier tidak butuh config rumit)
+        jsWrapper.style.display = 'none';
+        editorIn.setOption("mode", "htmlmixed");
+        editorOut.setOption("mode", "htmlmixed");
+        editorIn.setValue("\n<div class='box'>\n    <h1>Hello World</h1>\n</div>");
+    } else if (mode === 'css') {
+        jsWrapper.style.display = 'none';
+        editorIn.setOption("mode", "css");
+        editorOut.setOption("mode", "css");
+        editorIn.setValue("/* Paste CSS Here */\nbody {\n    background-color: #000;\n    color: #fff;\n}");
     }
+}
+
+// --- CORE ENGINE UPDATE ---
+function obfuscateNow() {
+    // 1. Cek Mode (JS / HTML / CSS)
+    // Pastikan Anda sudah menambahkan <select id="engineMode"> di HTML seperti instruksi sebelumnya
+    // Jika belum ada elementnya, default ke 'js' agar tidak error
+    const modeEl = document.getElementById('engineMode');
+    const mode = modeEl ? modeEl.value : 'js';
+
+    // 2. AMBIL VALUE DARI CODEMIRROR
+    const input = editorIn.getValue();
+    
+    if(!input.trim()) { alert("Input code is empty!"); return; }
+
+    let output = "";
+    
+    try {
+        const startTime = performance.now();
+
+        // --- LOGIKA CABANG ---
+        if (mode === 'js') {
+            // ===============================================
+            // LOGIKA LAMA ANDA (DIPERTAHANKAN 100%)
+            // ===============================================
+            const domainLockInput = document.getElementById('domainLock').value;
+            
+            let options = {
+                compact: true,
+                identifierNamesGenerator: document.getElementById('renameStrategy').value,
+                stringArray: isActive('opt_stringArray'),
+                stringArrayRotate: isActive('opt_rotateString'),
+                stringArrayEncoding: [document.getElementById('stringEncoding').value], 
+                unicodeEscapeSequence: isActive('opt_unicode'),
+                numbersToExpressions: isActive('opt_numbers'),
+                splitStrings: isActive('opt_splitStrings'),
+                splitStringsChunkLength: 5,
+                transformObjectKeys: isActive('opt_transformObj'),
+                deadCodeInjection: isActive('opt_deadCode'),
+                deadCodeInjectionThreshold: 0.4,
+                controlFlowFlattening: isActive('opt_controlFlow'),
+                controlFlowFlatteningThreshold: 0.75,
+                debugProtection: isActive('opt_debug'),
+                debugProtectionInterval: 3000,
+                disableConsoleOutput: isActive('opt_debug'),
+                selfDefending: isActive('opt_selfDefending')
+            };
+
+            if(options.stringArrayEncoding[0] === 'none') {
+                options.stringArrayEncoding = [];
+            }
+
+            if (domainLockInput.trim() !== "") {
+                options.domainLock = domainLockInput.split(',').map(d => d.trim());
+            }
+
+            // Eksekusi JS Obfuscator
+            const result = JavaScriptObfuscator.obfuscate(input, options);
+            output = result.getObfuscatedCode();
+            // ===============================================
+            
+        } else if (mode === 'html') {
+            // Eksekusi HTML Minifier
+            output = minifyHTML(input);
+
+        } else if (mode === 'css') {
+            // Eksekusi CSS Minifier
+            output = minifyCSS(input);
+        }
+
+        const endTime = performance.now();
+
+        // 3. SET VALUE KE CODEMIRROR OUTPUT
+        editorOut.setValue(output);
+
+        // 4. HITUNG STATS (Support Minus/Reduksi untuk Minifier)
+        const inSize = new Blob([input]).size;
+        const outSize = new Blob([output]).size;
+        
+        // Hitung persentase
+        let growth = ((outSize - inSize) / inSize * 100).toFixed(0);
+        
+        // Styling: Jika growth positif (Obfuscate) warna merah/ungu, jika negatif (Minify) warna hijau
+        let colorStyle = 'opacity:0.7'; // Default
+        let sign = '+';
+        
+        if (parseInt(growth) < 0) {
+            sign = ''; // Minus sudah ada di angkanya
+            colorStyle = 'color: var(--secondary); font-weight:bold;'; // Hijau (Bagus)
+        } else {
+            colorStyle = 'color: #ff79c6;'; // Pink/Merah (Bengkak wajar)
+        }
+
+        document.getElementById('inputStats').innerText = formatBytes(inSize);
+        document.getElementById('outputStats').innerHTML = 
+            `${formatBytes(outSize)} <span style="font-size:0.7em; ${colorStyle}">(${sign}${growth}%)</span>`;
+
+    } catch (err) {
+        alert("Error Processing: " + err.message);
+    }
+}
 
     // --- ACTIONS ---
     function copyCode() {
