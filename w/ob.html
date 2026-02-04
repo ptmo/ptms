@@ -494,6 +494,118 @@ header {
     }
 }
 
+        /* --- DOWNLOAD MODAL (PREMIUM) --- */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6); /* Gelap Transparan */
+    backdrop-filter: blur(5px);      /* Blur Background */
+    z-index: 100000;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    
+    /* Hidden by default */
+    opacity: 0;
+    visibility: hidden;
+    transition: all 0.3s ease;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.modal-box {
+    background: #282a36;
+    border: 1px solid var(--primary);
+    border-radius: 12px;
+    padding: 30px;
+    width: 90%;
+    max-width: 400px;
+    text-align: center;
+    box-shadow: 0 15px 50px rgba(0,0,0,0.5);
+    transform: scale(0.8);
+    transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.modal-overlay.active .modal-box {
+    transform: scale(1);
+}
+
+.modal-icon {
+    font-size: 3rem;
+    color: var(--primary);
+    margin-bottom: 15px;
+    animation: bounce 2s infinite;
+}
+
+@keyframes bounce {
+    0%, 20%, 50%, 80%, 100% {transform: translateY(0);}
+    40% {transform: translateY(-10px);}
+    60% {transform: translateY(-5px);}
+}
+
+.modal-title {
+    color: #f8f8f2;
+    margin: 0 0 10px 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.modal-filename {
+    background: rgba(98, 114, 164, 0.2);
+    color: var(--secondary); /* Hijau */
+    padding: 8px 15px;
+    border-radius: 6px;
+    font-family: 'JetBrains Mono', monospace;
+    font-size: 0.9rem;
+    display: inline-block;
+    margin-bottom: 25px;
+    border: 1px dashed var(--secondary);
+}
+
+.modal-actions {
+    display: flex;
+    gap: 15px;
+    justify-content: center;
+}
+
+.btn-modal {
+    padding: 10px 20px;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    font-size: 0.9rem;
+}
+
+.btn-cancel {
+    background: #44475a;
+    color: #f8f8f2;
+    border: 1px solid #6272a4;
+}
+.btn-cancel:hover { background: #6272a4; }
+
+.btn-confirm {
+    background: var(--secondary); /* Hijau */
+    color: #282a36;
+    border: 1px solid #50fa7b;
+}
+.btn-confirm:hover { 
+    background: #50fa7b; 
+    box-shadow: 0 0 15px rgba(80, 250, 123, 0.4);
+}
+
         @media (max-width: 1024px) {
             .container {
                 grid-template-columns: 1fr;
@@ -686,6 +798,28 @@ function sendTransaction() {
         </div>
     </div>
 </footer>
+
+    <div id="downloadModal" class="modal-overlay">
+    <div class="modal-box">
+        <div class="modal-icon">
+            <i class="fas fa-cloud-download-alt"></i>
+        </div>
+        
+        <h3 class="modal-title">You want to download?</h3>
+        
+        <p class="modal-filename" id="dlFileName">protected-result.js</p>
+        
+        <div class="modal-actions">
+            <button class="btn-modal btn-cancel" onclick="closeDownloadModal()">
+                <i class="fas fa-times"></i> Cancel
+            </button>
+            
+            <button id="btnConfirmDl" class="btn-modal btn-confirm" onclick="executeDownload()">
+                <i class="fas fa-check"></i> Yes, Download
+            </button>
+        </div>
+    </div>
+    </div>
 
 <script>
 // --- INIT CODEMIRROR (THE MAGIC) ---
@@ -994,72 +1128,92 @@ function copyCode() {
     });
 }
 
-    // --- UPDATE FUNGSI DOWNLOAD (Dinamis Label) ---
+    // --- VARIABLES UNTUK DOWNLOAD ---
+let currentDownloadExt = 'js';
+let currentMimeType = 'text/javascript';
+
+// 1. FUNGSI MEMBUKA MODAL (TRIGGER)
 function downloadCode() {
-    const btn = document.getElementById('btnDownload');
-    
-    // 1. SIMPAN LABEL DINAMIS SAAT INI
-    // (Misal: saat ini tulisannya "Download .html", maka variable ini akan menyimpan "Download .html")
-    const originalContent = btn ? btn.innerHTML : 'Download'; 
-    
-    // Cek isi editor
+    // A. Cek isi editor dulu
     const text = editorOut.getValue();
-    if (!text.trim()) { 
+    if (!text.trim()) {
         Toast.fire({ type: 'warning', message: 'Output is empty! Process code first.' });
-        return; 
+        return;
     }
 
-    // 2. UI LOADING STATE
-    if (btn) {
-        btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Preparing...';
-        btn.disabled = true;
+    // B. Tentukan Mode & Nama File
+    const modeEl = document.getElementById('engineMode');
+    const mode = modeEl ? modeEl.value : 'js';
+    
+    if (mode === 'html') {
+        currentDownloadExt = 'html';
+        currentMimeType = 'text/html';
+    } else if (mode === 'css') {
+        currentDownloadExt = 'css';
+        currentMimeType = 'text/css';
+    } else {
+        currentDownloadExt = 'js';
+        currentMimeType = 'text/javascript';
     }
 
+    // C. Update Teks di Modal
+    document.getElementById('dlFileName').innerText = `protected-result.${currentDownloadExt}`;
+
+    // D. Tampilkan Modal
+    document.getElementById('downloadModal').classList.add('active');
+}
+
+// 2. FUNGSI MENUTUP MODAL
+function closeDownloadModal() {
+    document.getElementById('downloadModal').classList.remove('active');
+}
+
+// 3. EKSEKUSI DOWNLOAD (SAAT KLIK YES)
+function executeDownload() {
+    const btn = document.getElementById('btnConfirmDl');
+    const originalContent = btn.innerHTML; // Simpan teks "Yes"
+
+    // A. Ubah Tombol Modal jadi Loading
+    btn.innerHTML = '<i class="fas fa-circle-notch fa-spin"></i> Processing...';
+    btn.disabled = true;
+
+    // B. Toast Loading
     const dlToast = Toast.fire({ type: 'loading', message: 'Preparing download...' });
 
+    // C. Proses dengan Delay (Simulasi)
     setTimeout(() => {
         try {
-            // 3. Tentukan Ekstensi File Berdasarkan Mode
-            const modeEl = document.getElementById('engineMode');
-            const mode = modeEl ? modeEl.value : 'js'; 
+            const text = editorOut.getValue();
             
-            let ext = 'js';
-            let mimeType = 'text/javascript';
-
-            if (mode === 'html') {
-                ext = 'html';
-                mimeType = 'text/html';
-            } else if (mode === 'css') {
-                ext = 'css';
-                mimeType = 'text/css';
-            }
-
-            // 4. Proses Download
-            const blob = new Blob([text], {type: mimeType});
+            // Buat Blob
+            const blob = new Blob([text], {type: currentMimeType});
             const url = URL.createObjectURL(blob);
+            
+            // Trigger Download Link
             const a = document.createElement("a");
-            
             a.href = url;
-            a.download = `protected-result.${ext}`; 
-            
+            a.download = `protected-result.${currentDownloadExt}`;
             document.body.appendChild(a);
             a.click();
             document.body.removeChild(a);
             URL.revokeObjectURL(url);
 
-        dlToast.close();
-            Toast.fire({ type: 'success', title: 'Downloaded', message: `File protected-result.${ext} saved!` });
+            // D. Sukses
+            dlToast.close();
+            Toast.fire({ type: 'success', title: 'Downloaded', message: `File saved successfully!` });
+            
+            // Tutup Modal
+            closeDownloadModal();
 
         } catch (err) {
             dlToast.close();
             Toast.fire({ type: 'error', message: err.message });
         } finally {
-            if (btn) {
-                btn.innerHTML = originalContent;
-                btn.disabled = false;
-            }
+            // E. Reset Tombol Modal
+            btn.innerHTML = originalContent;
+            btn.disabled = false;
         }
-    }, 1000);
+    }, 1000); // Delay 1 Detik
 }
 
     // --- UPDATE FUNGSI CLEAR (Dengan Animasi Loading) ---
