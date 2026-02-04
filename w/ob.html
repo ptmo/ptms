@@ -388,34 +388,93 @@ function sendTransaction() {
 
         <div style="background: rgba(0,0,0,0.2); padding: 10px; border-radius: 4px; margin-bottom: 10px; border: 1px solid var(--primary);">
     <span class="section-label" style="color: var(--primary);">0. Engine Mode</span>
-    <select id="engineMode" onchange="changeEngineMode()">
+    
+    <select id="engineMode" style="display: none;">
         <option value="js">JavaScript (Obfuscator)</option>
         <option value="html">HTML (Minifier)</option>
         <option value="css">CSS (Minifier)</option>
     </select>
+
+    <div class="custom-select-wrapper" onclick="toggleDropdown('dd_engine')">
+        <div id="lbl_engine" class="custom-select-trigger">
+            JavaScript (Obfuscator)
+            <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>
+        </div>
+        <div id="dd_engine" class="custom-options">
+            <div class="custom-option" onclick="selectItem('engineMode', 'lbl_engine', 'js', 'JavaScript (Obfuscator)'); changeEngineMode()">
+                JavaScript (Obfuscator)
+            </div>
+            <div class="custom-option" onclick="selectItem('engineMode', 'lbl_engine', 'html', 'HTML (Minifier)'); changeEngineMode()">
+                HTML (Minifier)
+            </div>
+            <div class="custom-option" onclick="selectItem('engineMode', 'lbl_engine', 'css', 'CSS (Minifier)'); changeEngineMode()">
+                CSS (Minifier)
+            </div>
+        </div>
+    </div>
 </div>
 
 <div id="jsOptionsWrapper"> 
 </div>
             
             <div>
-                <span class="section-label">1. Quick Presets</span>
-                <select id="preset" onchange="applyPreset()">
-                    <option value="custom">Custom (Manual)</option>
-                    <option value="basic">Level 1: Basic (Minify Only)</option>
-                    <option value="standard" selected>Level 2: Standard (Obfuscated)</option>
-                    <option value="paranoid">Level 3: Paranoid (Banking Grade)</option>
-                </select>
-            </div>
+    <span class="section-label">1. Quick Presets</span>
+    
+    <select id="preset" style="display: none;">
+        <option value="custom">Custom (Manual)</option>
+        <option value="basic">Level 1: Basic (Minify Only)</option>
+        <option value="standard" selected>Level 2: Standard (Obfuscated)</option>
+        <option value="paranoid">Level 3: Paranoid (Banking Grade)</option>
+    </select>
 
-            <div>
-                <span class="section-label">2. Identifier Renaming (Variables)</span>
-                <select id="renameStrategy">
-                    <option value="mangled">Mangled (Short: a, b, c)</option>
-                    <option value="mangled-shuffled">Mangled Shuffled (Mixed)</option>
-                    <option value="hexadecimal">Hexadecimal (_0x2f4a...)</option>
-                </select>
+    <div class="custom-select-wrapper" onclick="toggleDropdown('dd_preset')">
+        <div id="lbl_preset" class="custom-select-trigger">
+            Level 2: Standard (Obfuscated)
+            <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>
+        </div>
+        <div id="dd_preset" class="custom-options">
+            <div class="custom-option" onclick="selectItem('preset', 'lbl_preset', 'custom', 'Custom (Manual)'); applyPreset()">
+                Custom (Manual)
             </div>
+            <div class="custom-option" onclick="selectItem('preset', 'lbl_preset', 'basic', 'Level 1: Basic (Minify Only)'); applyPreset()">
+                Level 1: Basic (Minify Only)
+            </div>
+            <div class="custom-option" onclick="selectItem('preset', 'lbl_preset', 'standard', 'Level 2: Standard (Obfuscated)'); applyPreset()">
+                Level 2: Standard (Obfuscated)
+            </div>
+            <div class="custom-option" onclick="selectItem('preset', 'lbl_preset', 'paranoid', 'Level 3: Paranoid (Banking Grade)'); applyPreset()">
+                Level 3: Paranoid (Banking Grade)
+            </div>
+        </div>
+    </div>
+</div>
+
+            <div style="margin-top: 15px;"> <span class="section-label">2. Identifier Renaming (Variables)</span>
+    
+    <select id="renameStrategy" style="display: none;">
+        <option value="mangled">Mangled (Short: a, b, c)</option>
+        <option value="mangled-shuffled">Mangled Shuffled (Mixed)</option>
+        <option value="hexadecimal">Hexadecimal (_0x2f4a...)</option>
+    </select>
+
+    <div class="custom-select-wrapper" onclick="toggleDropdown('dd_rename')">
+        <div id="lbl_rename" class="custom-select-trigger">
+            Hexadecimal (_0x2f4a...)
+            <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>
+        </div>
+        <div id="dd_rename" class="custom-options">
+            <div class="custom-option" onclick="selectItem('renameStrategy', 'lbl_rename', 'mangled', 'Mangled (Short: a, b, c)')">
+                Mangled (Short: a, b, c)
+            </div>
+            <div class="custom-option" onclick="selectItem('renameStrategy', 'lbl_rename', 'mangled-shuffled', 'Mangled Shuffled (Mixed)')">
+                Mangled Shuffled (Mixed)
+            </div>
+            <div class="custom-option" onclick="selectItem('renameStrategy', 'lbl_rename', 'hexadecimal', 'Hexadecimal (_0x2f4a...)')">
+                Hexadecimal (_0x2f4a...)
+            </div>
+        </div>
+    </div>
+</div>
 
             <div>
                 <span class="section-label">3. String Encryption (Values)</span>
@@ -621,16 +680,22 @@ function applyPreset() {
     // Ini wajib ada agar Custom Dropdown berubah teksnya mengikuti preset
     
     // Ambil value mesin yang baru saja di-set (none/base64/rc4)
-    const encodingVal = document.getElementById('stringEncoding').value;
-    
-    // Cari elemen option yang sesuai untuk mengambil teks labelnya
-    const optionEl = document.querySelector(`#stringEncoding option[value="${encodingVal}"]`);
-    
-    if (optionEl) {
-        // Update tampilan kotak Custom Dropdown
-        document.getElementById('customSelectLabel').innerHTML = 
-            `${optionEl.text} <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>`;
+    function syncUI(selectId, labelId) {
+        const val = document.getElementById(selectId).value;
+        const opt = document.querySelector(`#${selectId} option[value="${val}"]`);
+        if(opt) {
+            document.getElementById(labelId).innerHTML = 
+                `${opt.text} <i class="fas fa-chevron-down" style="float: right; font-size: 0.8em; margin-top: 4px;"></i>`;
+        }
     }
+
+    // A. Update Tampilan Dropdown 'Renaming' 
+    // (Karena preset mengubah value renameStrategy, labelnya harus ikut berubah)
+    syncUI('renameStrategy', 'lbl_rename');
+
+    // B. Update Tampilan Dropdown 'Algorithm' 
+    // (ID label sesuai kode Anda sebelumnya: customSelectLabel)
+    syncUI('stringEncoding', 'customSelectLabel');
 }
     
 // --- FIX MINIFIER HTML (FINAL) ---
@@ -959,21 +1024,55 @@ function clearCode() {
 
     // --- LOGIC CUSTOM DROPDOWN ---
 
-// 1. Fungsi Buka/Tutup
-function toggleDropdown() {
-    const options = document.getElementById('customOptions');
-    const trigger = document.getElementById('customSelectLabel');
+// 1. Fungsi Buka/Tutup (UNIVERSAL)
+// Parameter 'dropdownId' diisi ID dropdown target (misal: 'dd_engine' atau 'dd_preset')
+function toggleDropdown(dropdownId) {
+    const dropdown = document.getElementById(dropdownId);
     
-    options.classList.toggle('open');
+    // A. LOGIKA BARU: Tutup dropdown lain yang sedang terbuka
+    // Agar saat buka 'Engine Mode', dropdown 'Presets' tertutup otomatis
+    document.querySelectorAll('.custom-options').forEach(el => {
+        if (el.id !== dropdownId) {
+            el.classList.remove('open');
+            
+            // Reset icon dropdown lain ke posisi awal (0 derajat)
+            const otherWrapper = el.closest('.custom-select-wrapper');
+            if(otherWrapper) {
+                const otherIcon = otherWrapper.querySelector('.fa-chevron-down');
+                if(otherIcon) otherIcon.style.transform = 'rotate(0deg)';
+            }
+        }
+    });
+
+    // B. TOGGLE CLASS OPEN (Logika Utama)
+    dropdown.classList.toggle('open');
     
-    // Rotasi Icon Panah (Opsional visual)
-    const icon = trigger.querySelector('i');
-    if (options.classList.contains('open')) {
-        icon.style.transform = 'rotate(180deg)';
+    // C. ROTASI ICON PANAH (Fitur Lama Dipertahankan)
+    // Kita cari wrapper pembungkusnya untuk menemukan icon yang tepat
+    const wrapper = dropdown.closest('.custom-select-wrapper');
+    const icon = wrapper.querySelector('.fa-chevron-down');
+    
+    if (dropdown.classList.contains('open')) {
+        // Jika terbuka, putar 180 derajat (menghadap atas)
+        if(icon) icon.style.transform = 'rotate(180deg)';
     } else {
-        icon.style.transform = 'rotate(0deg)';
+        // Jika tertutup, putar balik ke 0 derajat
+        if(icon) icon.style.transform = 'rotate(0deg)';
     }
 }
+
+// TAMBAHAN PENTING: Tutup dropdown jika klik di luar area (biar rapi)
+window.addEventListener('click', function(e) {
+    if (!e.target.closest('.custom-select-wrapper')) {
+        document.querySelectorAll('.custom-options').forEach(el => {
+            el.classList.remove('open');
+            // Reset semua icon
+            const wrapper = el.closest('.custom-select-wrapper');
+            const icon = wrapper.querySelector('.fa-chevron-down');
+            if(icon) icon.style.transform = 'rotate(0deg)';
+        });
+    }
+});
 
 // 2. Fungsi Saat Opsi Dipilih
 function selectOption(value, text) {
