@@ -190,30 +190,30 @@
 
         .toggle-btn:hover { background: rgba(255,255,255,0.05); }
 
-        /* Action Buttons Container */
+        /* --- CSS UPDATE --- */
+
+/* Action Buttons Container */
 .action-area {
     padding: 15px;
     border-top: 1px solid var(--border);
     background: var(--bg-panel);
     flex-shrink: 0; 
     z-index: 10;
-    
-    /* Gunakan Flex Column agar tombol Exec ada di atas */
     display: flex;
     flex-direction: column;
-    gap: 10px; /* Jarak vertikal antara Exec dan tombol bawah */
+    gap: 10px; /* Jarak antar baris */
 }
 
-/* Wrapper untuk tombol yang sejajar (Copy & Download) */
+/* Wrapper untuk tombol sejajar (Grid 50:50) */
 .action-row {
     display: flex;
-    gap: 10px; /* Jarak horizontal antara Copy dan Download */
+    gap: 10px; 
     width: 100%;
 }
 
 /* Style Tombol Umum */
 .btn {
-    width: 100%; /* Default full width */
+    width: 100%;
     padding: 12px;
     border: none;
     border-radius: 4px;
@@ -223,15 +223,15 @@
     align-items: center;
     justify-content: center;
     gap: 8px;
-    margin: 0; /* Reset margin biar rapi */
+    margin: 0;
 }
 
-/* Khusus tombol di dalam row, paksa bagi dua (50:50) */
+/* Paksa tombol dalam row bagi dua rata */
 .action-row .btn {
     flex: 1; 
 }
 
-/* Warna-warni Tombol */
+/* WARNA TOMBOL */
 .btn-primary { background: var(--primary); color: #282a36; }
 .btn-primary:hover { background: var(--primary-hover); }
 
@@ -240,6 +240,10 @@
 
 .btn-success { background: var(--secondary); color: #282a36; }
 .btn-success:hover { filter: brightness(1.1); }
+
+/* Tombol Merah (Clear) */
+.btn-danger { background: #ff5555; color: #282a36; } /* Dracula Red */
+.btn-danger:hover { background: #ff6e6e; }
 
         .badge-pro {
             background: var(--primary-hover);
@@ -381,28 +385,22 @@ function sendTransaction() {
             </div>
 
         </div>
-
-        <div class="action-area">
-    <button class="btn btn-primary" onclick="obfuscateNow()">
-        <span>⚡ EXECUTE OBFUSCATION</span>
-    </button>
+<div class="action-area">
+    <div class="action-row">
+        <button class="btn btn-primary" onclick="obfuscateNow()">
+            <span>⚡ EXECUTE</span>
+        </button>
+        <button class="btn btn-success" onclick="downloadCode()">Download .js</button>
+    </div>
 
     <div class="action-row">
         <button class="btn btn-secondary" onclick="copyCode()">Copy Result</button>
-        <button class="btn btn-success" onclick="downloadCode()">Download .js</button>
+        <button class="btn btn-danger" onclick="clearCode()">
+            <span>🗑️ CLEAR</span>
+        </button>
     </div>
-        </div>
-    </div>
-
-    <div class="panel">
-        <div class="panel-header">
-            Obfuscated Result
-            <span id="outputStats" style="color: var(--secondary)">0 KB</span>
-        </div>
-        <div class="editor-wrapper">
-            <textarea id="outputCode"></textarea>
-        </div>
-    </div>
+</div>
+        
 </div>
 
 <script>
@@ -670,6 +668,21 @@ function obfuscateNow() {
         a.download = "protected-script.js";
         a.click();
     }
+
+    // --- FUNGSI CLEAR ---
+function clearCode() {
+    // Kosongkan kedua editor CodeMirror
+    editorIn.setValue('');
+    editorOut.setValue('');
+    
+    // Reset Stats
+    document.getElementById('inputStats').innerText = 'Empty';
+    document.getElementById('outputStats').innerText = '0 KB';
+    
+    // Reset Mode ke default JS placeholder
+    const mode = document.getElementById('engineMode') ? document.getElementById('engineMode').value : 'js';
+    if(mode === 'js') editorIn.setValue("// Paste Code Here...");
+}
 
     // Init
     applyPreset();
