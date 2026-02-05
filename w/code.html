@@ -3,415 +3,304 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Pocket IDE | Mobile Code Playground</title>
+    <title>Obusion Cloud IDE</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchtags.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/matchbrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
 
-    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Inter:wght@400;600;800&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-dark: #282a36;
-            --bg-darker: #1e1f29;
-            --header-bg: #44475a;
-            --primary: #bd93f9;
-            --secondary: #50fa7b;
-            --text: #f8f8f2;
-            --border: #6272a4;
+            --bg-sidebar: #1e1f29;
+            --bg-editor: #282a36;
+            --bg-header: #191a21;
+            --accent: #bd93f9;
+            --text-main: #f8f8f2;
+            --text-muted: #6272a4;
+            --border: #44475a;
+            --folder: #f1fa8c;
+            --html: #ffb86c;
+            --css: #8be9fd;
+            --js: #f1fa8c;
         }
 
-        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { margin: 0; background: var(--bg-editor); color: var(--text-main); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
-        body {
-            margin: 0; padding: 0;
-            background-color: var(--bg-dark);
-            color: var(--text);
-            font-family: 'Inter', sans-serif;
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            overflow: hidden; /* App-like feel */
+        /* HEADER */
+        .ide-header {
+            height: 45px; background: var(--bg-header); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; flex-shrink: 0;
         }
-
-        /* --- 1. HEADER --- */
-        header {
-            height: 55px;
-            background: var(--bg-darker);
-            border-bottom: 1px solid var(--border);
-            display: flex;
-            align-items: center;
-            justify-content: space-between;
-            padding: 0 15px;
-            flex-shrink: 0;
-        }
-
-        .brand {
-            font-weight: 800;
-            font-size: 1.1rem;
-            color: var(--primary);
-            display: flex; align-items: center; gap: 8px;
-        }
-        .brand span { color: var(--text); font-weight: 400; }
-
-        .actions { display: flex; gap: 10px; }
+        .brand { font-weight: 700; font-size: 0.9rem; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
+        .brand i { color: var(--accent); }
         
-        .btn-icon {
-            background: transparent;
-            border: 1px solid var(--border);
-            color: var(--text);
-            width: 36px; height: 36px;
-            border-radius: 6px;
-            cursor: pointer;
-            display: flex; align-items: center; justify-content: center;
-            transition: all 0.2s;
-        }
-        .btn-icon:hover { background: var(--header-bg); }
-        .btn-run {
-            background: var(--secondary);
-            color: #282a36;
-            border: none;
-            font-weight: bold;
-            padding: 0 15px;
-            width: auto;
+        .header-actions button {
+            background: var(--accent); color: #282a36; border: none;
+            padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem;
+            cursor: pointer; display: flex; align-items: center; gap: 6px;
         }
 
-        /* --- 2. TABS (HTML/CSS/JS) --- */
-        .tabs {
-            display: flex;
-            background: var(--bg-dark);
-            border-bottom: 1px solid var(--border);
-            flex-shrink: 0;
+        /* LAYOUT UTAMA */
+        .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+
+        /* SIDEBAR (File Explorer) */
+        .sidebar {
+            width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; transition: transform 0.3s ease;
+            position: absolute; z-index: 10; height: 100%; top: 0; left: 0;
+            /* Di HP default hidden (slide out) */
+            transform: translateX(-100%); 
+        }
+        
+        /* Sidebar Toggle untuk Mobile */
+        .sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+        
+        /* Tampilan Desktop: Sidebar selalu muncul */
+        @media (min-width: 768px) {
+            .sidebar { position: relative; transform: translateX(0); width: 220px; box-shadow: none; }
+            .mobile-toggle { display: none; }
         }
 
-        .tab {
-            flex: 1;
-            padding: 12px 0;
-            text-align: center;
-            background: transparent;
-            border: none;
-            border-bottom: 2px solid transparent;
-            color: #6272a4;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.2s;
+        .sidebar-header {
+            padding: 10px 15px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
+            text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
         }
+        .sidebar-actions i { cursor: pointer; margin-left: 10px; transition: color 0.2s; }
+        .sidebar-actions i:hover { color: var(--text-main); }
 
-        .tab.active {
-            color: var(--secondary);
-            border-bottom-color: var(--secondary);
-            background: rgba(80, 250, 123, 0.05);
+        .file-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .file-item {
+            padding: 8px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            font-size: 0.85rem; color: #dcdcdc; border-left: 2px solid transparent;
+            transition: background 0.1s;
         }
+        .file-item:hover { background: rgba(255,255,255,0.05); }
+        .file-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
+        
+        .file-icon { width: 16px; text-align: center; }
+        .fa-html5 { color: var(--html); }
+        .fa-css3-alt { color: var(--css); }
+        .fa-js { color: var(--js); }
+        .fa-folder { color: var(--folder); }
 
-        /* --- 3. EDITOR WORKSPACE --- */
-        .workspace {
-            flex: 1;
-            position: relative;
-            background: var(--bg-dark);
+        /* EDITOR AREA */
+        .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-editor); min-width: 0; }
+        
+        .tab-bar {
+            height: 35px; background: var(--bg-sidebar); display: flex; align-items: center;
+            border-bottom: 1px solid var(--border); overflow-x: auto;
         }
+        .file-tab {
+            padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px;
+            font-size: 0.8rem; color: var(--text-muted); border-right: 1px solid var(--border);
+            cursor: pointer; background: var(--bg-sidebar); min-width: 100px;
+        }
+        .file-tab.active { background: var(--bg-editor); color: var(--text-main); border-top: 2px solid var(--accent); }
+        .file-tab i { font-size: 0.7rem; }
 
-        .editor-container {
-            position: absolute;
-            top: 0; left: 0; width: 100%; height: 100%;
-            display: none; /* Hidden by default */
-        }
-        .editor-container.active { display: block; }
+        /* CodeMirror Full Height */
+        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; font-size: 14px; background: transparent !important; }
+        .CodeMirror-gutters { background: var(--bg-editor) !important; border-right: 1px solid var(--border); }
 
-        /* CodeMirror Customization */
-        .CodeMirror {
-            height: 100%;
-            font-family: 'JetBrains Mono', monospace;
-            font-size: 14px; /* Lebih besar dikit buat HP */
-            background-color: var(--bg-dark) !important;
+        /* Mobile Sidebar Toggle Button */
+        .mobile-toggle {
+            font-size: 1.2rem; color: var(--text-muted); cursor: pointer; margin-right: 15px;
         }
-
-        /* --- 4. PREVIEW MODAL --- */
-        .modal-overlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: var(--bg-darker);
-            z-index: 9999;
-            display: flex; flex-direction: column;
-            transform: translateY(100%); /* Slide dari bawah */
-            transition: transform 0.3s cubic-bezier(0.25, 1, 0.5, 1);
-        }
-        .modal-overlay.open { transform: translateY(0); }
-
-        .modal-header {
-            padding: 10px 15px;
-            background: var(--header-bg);
-            border-bottom: 1px solid var(--border);
-            display: flex; justify-content: space-between; align-items: center;
-        }
-        .modal-title { font-weight: bold; font-size: 0.9rem; display: flex; gap: 8px; align-items: center;}
-        .btn-close {
-            background: #ff5555; color: white; border: none;
-            padding: 6px 12px; border-radius: 4px; font-weight: bold; cursor: pointer;
-        }
-
-        .preview-frame {
-            flex: 1;
-            border: none;
-            background: white;
-            width: 100%;
-        }
-
-        .console-panel {
-            height: 150px; /* Tinggi Console */
-            background: #0f111a;
-            border-top: 1px solid var(--border);
-            display: flex; flex-direction: column;
-        }
-        .console-header {
-            padding: 5px 10px; background: #1e1f29; font-size: 0.75rem; color: #6272a4;
-            display: flex; justify-content: space-between; border-bottom: 1px solid #333;
-        }
-        .console-logs {
-            flex: 1; overflow-y: auto; padding: 10px;
-            font-family: 'JetBrains Mono', monospace; font-size: 0.8rem;
-        }
-        .log-line { margin-bottom: 4px; border-bottom: 1px solid rgba(255,255,255,0.05); padding-bottom: 2px;}
-        .log-line.error { color: #ff5555; }
-        .log-line.log { color: #f8f8f2; }
     </style>
 </head>
 <body>
 
-    <header>
-        <div class="brand">
-            <i class="fas fa-layer-group"></i> POCKET <span>IDE</span>
+    <header class="ide-header">
+        <div style="display:flex; align-items:center;">
+            <i class="fas fa-bars mobile-toggle" onclick="toggleSidebar()"></i>
+            <div class="brand"><i class="fas fa-cloud"></i> OBUSION <span>CLOUD</span></div>
         </div>
-        <div class="actions">
-            <button class="btn-icon" onclick="saveProject()" title="Save / Share URL"><i class="fas fa-share-alt"></i></button>
-            <button class="btn-icon btn-run" onclick="runProject()">
-                <i class="fas fa-play"></i> &nbsp;RUN
-            </button>
+        <div class="header-actions">
+            <button onclick="runProject()"><i class="fas fa-play"></i> <span style="margin-left:5px; display:none; @media(min-width:768px){display:inline;}">Run Live</span></button>
         </div>
     </header>
 
-    <div class="tabs">
-        <button class="tab active" onclick="switchTab('html')"><i class="fab fa-html5"></i> HTML</button>
-        <button class="tab" onclick="switchTab('css')"><i class="fab fa-css3-alt"></i> CSS</button>
-        <button class="tab" onclick="switchTab('js')"><i class="fab fa-js"></i> JS</button>
-    </div>
-
-    <div class="workspace">
-        <div id="area-html" class="editor-container active">
-            <textarea id="code-html"><div class="container">
-    <h1>Hello World!</h1>
-    <p>Coding di HP itu menyenangkan.</p>
-    <button onclick="testFunction()">Klik Saya</button>
-</div></textarea>
-        </div>
-
-        <div id="area-css" class="editor-container">
-            <textarea id="code-css">body {
-    font-family: sans-serif;
-    background: #f0f2f5;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    height: 100vh;
-    margin: 0;
-}
-
-.container {
-    background: white;
-    padding: 30px;
-    border-radius: 12px;
-    box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-    text-align: center;
-}
-
-h1 { color: #333; }
-button {
-    background: #007bff;
-    color: white;
-    border: none;
-    padding: 10px 20px;
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-}</textarea>
-        </div>
-
-        <div id="area-js" class="editor-container">
-            <textarea id="code-js">function testFunction() {
-    console.log("Tombol berhasil diklik!");
-    alert("Javascript Berjalan Sempurna!");
-    
-    // Test Console Log Loop
-    for(let i=1; i<=3; i++) {
-        console.log("Loop ke-" + i);
-    }
-}</textarea>
-        </div>
-    </div>
-
-    <div id="runModal" class="modal-overlay">
-        <div class="modal-header">
-            <div class="modal-title">
-                <i class="fas fa-globe"></i> Result Preview
-            </div>
-            <button class="btn-close" onclick="closeModal()">Close</button>
-        </div>
+    <div class="ide-body">
         
-        <iframe id="previewFrame" class="preview-frame" sandbox="allow-scripts allow-modals allow-forms allow-popups"></iframe>
-        
-        <div class="console-panel">
-            <div class="console-header">
-                <span>Console Output</span>
-                <span style="cursor:pointer" onclick="document.getElementById('consoleLogs').innerHTML=''">Clear</span>
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span>Explorer</span>
+                <div class="sidebar-actions">
+                    <i class="fas fa-file-circle-plus" onclick="createNewFile()" title="New File"></i>
+                    <i class="fas fa-folder-plus" title="New Folder"></i>
+                </div>
             </div>
-            <div id="consoleLogs" class="console-logs"></div>
-        </div>
+            <ul class="file-list" id="fileList">
+                </ul>
+        </aside>
+
+        <main class="editor-area">
+            <div class="tab-bar">
+                <div class="file-tab active">
+                    <i class="fab fa-html5" style="color:var(--html)"></i> 
+                    <span id="activeFileName">index.html</span>
+                </div>
+            </div>
+            
+            <textarea id="codeEditor"></textarea>
+        </main>
     </div>
 
     <script>
-        // --- 1. SETUP CODEMIRROR ---
-        const commonConfig = {
+        // --- 1. DATA STRUKTUR (SIMULASI FIREBASE) ---
+        // Nanti ini diganti dengan data dari Firebase Firestore
+        let files = [
+            { id: '1', name: 'index.html', type: 'html', content: '<h1>Hello World</h1>\n<script src="script.js"><\/script>\n<link rel="stylesheet" href="style.css">' },
+            { id: '2', name: 'style.css', type: 'css', content: 'body { background: #282a36; color: white; font-family: sans-serif; }' },
+            { id: '3', name: 'script.js', type: 'js', content: 'console.log("System Ready");\nalert("Welcome to Cloud IDE");' }
+        ];
+
+        let activeFileId = '1';
+
+        // --- 2. INIT EDITOR ---
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
             theme: 'dracula',
             lineNumbers: true,
             lineWrapping: true,
             autoCloseTags: true,
             autoCloseBrackets: true,
-            matchTags: {bothTags: true},
-            matchBrackets: true
-        };
-
-        const editorHTML = CodeMirror.fromTextArea(document.getElementById('code-html'), {...commonConfig, mode: 'xml'});
-        const editorCSS = CodeMirror.fromTextArea(document.getElementById('code-css'), {...commonConfig, mode: 'css'});
-        const editorJS = CodeMirror.fromTextArea(document.getElementById('code-js'), {...commonConfig, mode: 'javascript'});
-
-        // --- 2. TAB LOGIC ---
-        function switchTab(type) {
-            // UI Update
-            document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
-            event.currentTarget.classList.add('active');
-
-            // Show/Hide Container
-            document.querySelectorAll('.editor-container').forEach(c => c.classList.remove('active'));
-            document.getElementById(`area-${type}`).classList.add('active');
-
-            // Refresh Editor (PENTING: Agar tidak blank saat pindah tab)
-            setTimeout(() => {
-                if(type === 'html') editorHTML.refresh();
-                if(type === 'css') editorCSS.refresh();
-                if(type === 'js') editorJS.refresh();
-            }, 10);
-        }
-
-        // --- 3. RUN ENGINE (COMPILER) ---
-        function runProject() {
-            const html = editorHTML.getValue();
-            const css = editorCSS.getValue();
-            const js = editorJS.getValue();
-
-            // Script Bajak Console (Spy)
-            const consoleSpy = `
-                <script>
-                    (function(){
-                        var oldLog = console.log;
-                        var oldErr = console.error;
-                        function send(type, msg) { 
-                            window.parent.postMessage({source:'pocket-ide', type:type, msg:msg}, '*'); 
-                        }
-                        console.log = function(...args){ 
-                            send('log', args.join(' ')); oldLog.apply(console, args); 
-                        };
-                        console.error = function(...args){ 
-                            send('error', args.join(' ')); oldErr.apply(console, args); 
-                        };
-                        window.onerror = function(m){ send('error', m); };
-                    })();
-                <\/script>
-            `;
-
-            // Gabungkan Kode
-            const finalSource = `
-                <!DOCTYPE html>
-                <html>
-                <head>
-                    <style>${css}</style>
-                    ${consoleSpy}
-                </head>
-                <body>
-                    ${html}
-                    <script>${js}<\/script>
-                </body>
-                </html>
-            `;
-
-            // Render ke Iframe via Blob
-            const blob = new Blob([finalSource], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            document.getElementById('previewFrame').src = url;
-
-            // Buka Modal
-            document.getElementById('runModal').classList.add('open');
-            document.getElementById('consoleLogs').innerHTML = '<div class="log-line log" style="color:#6272a4">System Ready...</div>';
-        }
-
-        function closeModal() {
-            document.getElementById('runModal').classList.remove('open');
-            document.getElementById('previewFrame').src = 'about:blank'; // Hemat Memori
-        }
-
-        // --- 4. CONSOLE LISTENER ---
-        window.addEventListener('message', e => {
-            if(e.data.source === 'pocket-ide') {
-                const log = document.createElement('div');
-                log.className = `log-line ${e.data.type}`;
-                log.innerText = `> ${e.data.msg}`;
-                const container = document.getElementById('consoleLogs');
-                container.appendChild(log);
-                container.scrollTop = container.scrollHeight;
-            }
+            styleActiveLine: true,
+            mode: 'htmlmixed' // Default mode
         });
 
-        // --- 5. SHARE / SAVE (URL HASH) ---
-        function saveProject() {
-            const data = {
-                h: editorHTML.getValue(),
-                c: editorCSS.getValue(),
-                j: editorJS.getValue()
-            };
-            const str = JSON.stringify(data);
-            const encoded = btoa(str); // Base64
-            
-            window.location.hash = encoded;
-            
-            // Copy URL
-            navigator.clipboard.writeText(window.location.href).then(() => {
-                alert("URL Project disalin! Kirim link ini ke teman/device lain untuk membuka kode yang sama.");
+        // Event: Saat ngetik, simpan ke variable 'files' (Memory)
+        editor.on('change', () => {
+            const currentFile = files.find(f => f.id === activeFileId);
+            if(currentFile) currentFile.content = editor.getValue();
+            // Nanti di sini tambahkan: saveToFirebase(currentFile);
+        });
+
+        // --- 3. RENDER FILE EXPLORER ---
+        function renderExplorer() {
+            const list = document.getElementById('fileList');
+            list.innerHTML = '';
+
+            files.forEach(file => {
+                const li = document.createElement('li');
+                li.className = `file-item ${file.id === activeFileId ? 'active' : ''}`;
+                li.onclick = () => openFile(file.id);
+                
+                // Icon Logic
+                let iconClass = 'fa-file';
+                if(file.type === 'html') iconClass = 'fab fa-html5';
+                else if(file.type === 'css') iconClass = 'fab fa-css3-alt';
+                else if(file.type === 'js') iconClass = 'fab fa-js';
+
+                li.innerHTML = `
+                    <div class="file-icon"><i class="${iconClass}"></i></div>
+                    <span>${file.name}</span>
+                `;
+                list.appendChild(li);
             });
         }
 
-        // Load dari URL Hash (jika ada)
-        window.onload = function() {
-            if(window.location.hash) {
-                try {
-                    const encoded = window.location.hash.substring(1);
-                    const decoded = atob(encoded);
-                    const data = JSON.parse(decoded);
-                    
-                    editorHTML.setValue(data.h);
-                    editorCSS.setValue(data.c);
-                    editorJS.setValue(data.j);
-                } catch(e) { console.error("Load error", e); }
-            }
+        // --- 4. OPEN FILE LOGIC (INTI SISTEM) ---
+        function openFile(id) {
+            activeFileId = id;
+            const file = files.find(f => f.id === id);
+            
+            // Update Tab Name
+            document.getElementById('activeFileName').innerText = file.name;
+
+            // Ganti Mode Editor (Syntax Highlight)
+            if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+            else if(file.type === 'css') editor.setOption('mode', 'css');
+            else if(file.type === 'js') editor.setOption('mode', 'javascript');
+
+            // Isi Editor dengan konten file
+            editor.setValue(file.content);
+
+            // Refresh UI Sidebar
+            renderExplorer();
+            
+            // Tutup Sidebar di Mobile setelah pilih file
+            if(window.innerWidth < 768) toggleSidebar();
         }
+
+        // --- 5. CREATE NEW FILE ---
+        function createNewFile() {
+            const name = prompt("Enter file name (e.g., about.html):");
+            if(!name) return;
+
+            const ext = name.split('.').pop();
+            let type = 'html';
+            if(ext === 'css') type = 'css';
+            else if(ext === 'js') type = 'js';
+
+            const newFile = {
+                id: Date.now().toString(), // ID unik sementara
+                name: name,
+                type: type,
+                content: ''
+            };
+            
+            files.push(newFile);
+            renderExplorer();
+            openFile(newFile.id);
+            // Nanti di sini: createInFirebase(newFile);
+        }
+
+        // --- 6. RUN PROJECT (BUNDLE LOGIC) ---
+        function runProject() {
+            // Kita harus menggabungkan file-file ini secara manual karena tidak ada server
+            const htmlFile = files.find(f => f.name === 'index.html');
+            const cssFile = files.find(f => f.name === 'style.css');
+            const jsFile = files.find(f => f.name === 'script.js');
+
+            if(!htmlFile) { alert("Error: index.html not found!"); return; }
+
+            let finalHTML = htmlFile.content;
+
+            // Inject CSS (Gantikan <link> dengan <style>)
+            if(cssFile) {
+                finalHTML = finalHTML.replace(
+                    /<link rel="stylesheet" href="style.css">/, 
+                    `<style>${cssFile.content}</style>`
+                );
+            }
+
+            // Inject JS (Gantikan <script src> dengan <script inline>)
+            if(jsFile) {
+                finalHTML = finalHTML.replace(
+                    /<script src="script.js"><\/script>/, 
+                    `<script>${jsFile.content}<\/script>`
+                );
+            }
+
+            // Buka di Tab Baru / Iframe
+            const blob = new Blob([finalHTML], {type: 'text/html'});
+            const url = URL.createObjectURL(blob);
+            window.open(url, '_blank');
+        }
+
+        // Sidebar Toggle Mobile
+        function toggleSidebar() {
+            document.getElementById('sidebar').classList.toggle('open');
+        }
+
+        // --- INIT ---
+        // Buka file pertama saat load
+        openFile('1');
+
     </script>
 </body>
 </html>
