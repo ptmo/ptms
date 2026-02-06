@@ -238,17 +238,21 @@
         <div class="sidebar-header">
             <span>EXPLORER</span>
             <div class="sidebar-actions">
-                <i class="fas fa-file-circle-plus" onclick="window.createNewFile('')" title="New File (Root)"></i>
-                <i class="fas fa-folder-plus" onclick="window.createNewFolder('')" title="New Folder (Root)"></i>
+                <i class="fas fa-file-circle-plus" onclick="window.createNewFile('')" title="New File"></i>
+                <i class="fas fa-folder-plus" onclick="window.createNewFolder('')" title="New Folder"></i>
+                
+                <i class="fas fa-file-import" onclick="document.getElementById('fileImporter').click()" title="Import File"></i>
+                <i class="fas fa-folder-open" onclick="document.getElementById('folderImporter').click()" title="Import Folder"></i>
+                
                 <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="window.deleteProject()" title="Format Workspace"></i>
             </div>
         </div>
         
         <div id="fileTreeRoot" class="file-list" onclick="window.hideContextMenu()"></div>
 
-        <input type="file" id="fileImporter" multiple onchange="window.processFileImport(this.files)">
-        <input type="file" id="folderImporter" webkitdirectory directory onchange="window.processFolderImport(this.files)">
-    </aside>
+        <input type="file" id="fileImporter" multiple onchange="window.processFileImport(this.files)" style="display:none">
+        <input type="file" id="folderImporter" webkitdirectory directory onchange="window.processFolderImport(this.files)" style="display:none">
+        </aside>
 
     <div id="contextMenu">
         <div class="ctx-item" onclick="window.ctxAction('newFile')"><i class="fas fa-file-plus"></i> New File Here</div>
@@ -520,40 +524,80 @@
 
     // --- IMPORT LOGIC (SEPARATED) ---
 
-    // 1. IMPORT FILE (Targeted)
+    // --- 1. IMPORT FILE LOGIC (Bisa Banyak File Sekaligus) ---
     window.processFileImport = async (fileList) => {
-        const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
+        // Cek apakah import ini dipanggil dari Context Menu (klik kanan folder) atau tombol Root
+        const targetFolder = document.getElementById('fileImporter').getAttribute('data-target') || '';
+        
+        if (!fileList.length) return;
+        
+        const batch = writeBatch(db); // Pakai Batch agar cepat
+        let count = 0;
+
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            // Jika ada target folder, masukkan ke sana. Jika tidak, taruh di root.
+            const fullPath = targetFolder ? `${targetFolder}/${file.name}` : file.name;
+            
+            const content = await readFile(file);
+            const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
+            
+            // Deteksi Tipe File Sederhana
+            let type = 'txt';
+            const ext = file.name.split('.').pop();
+            if(['html','htm'].includes(ext)) type = 'html';
+            else if(['css'].includes(ext)) type = 'css';
+            else if(['js','ts'].includes(ext)) type = 'js';
+
+            batch.set(ref, { 
+                name: fullPath, 
+                type: type, 
+                content: content, 
+                createdAt: serverTimestamp() 
+            });
+            count++;
+        }
+        
+        await batch.commit();
+        alert(`Berhasil mengimpor ${count} file!`);
+        document.getElementById('fileImporter').value = ''; // Reset input agar bisa dipakai lagi
+        document.getElementById('fileImporter').removeAttribute('data-target'); // Reset target
+    };
+
+    // --- 2. IMPORT FOLDER LOGIC (Menjaga Struktur Asli) ---
+    window.processFolderImport = async (fileList) => {
         if (!fileList.length) return;
         
         const batch = writeBatch(db);
-        for (let i = 0; i < fileList.length; i++) {
-            const file = fileList[i];
-            const fullPath = target ? `${target}/${file.name}` : file.name;
-            const content = await readFile(file);
-            const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
-            batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
-        }
-        await batch.commit();
-        alert("File Import Selesai!");
-        document.getElementById('fileImporter').value = '';
-    };
-
-    // 2. IMPORT FOLDER (Full Structure)
-    window.processFolderImport = async (fileList) => {
-        if (!fileList.length) return;
-        const batch = writeBatch(db);
         let count = 0;
+        
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
-            if (file.name.startsWith('.')) continue;
+            if (file.name.startsWith('.')) continue; // Skip file hidden sistem (.DS_Store, dll)
+            
+            // webkitRelativePath berisi path lengkap dari folder asalnya (misal: "MyProject/src/style.css")
             const fullPath = file.webkitRelativePath || file.name;
+            
             const content = await readFile(file);
             const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
-            batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+            
+            let type = 'txt';
+            const ext = file.name.split('.').pop();
+            if(['html','htm'].includes(ext)) type = 'html';
+            else if(['css'].includes(ext)) type = 'css';
+            else if(['js','ts'].includes(ext)) type = 'js';
+
+            batch.set(ref, { 
+                name: fullPath, 
+                type: type, 
+                content: content, 
+                createdAt: serverTimestamp() 
+            });
             count++;
         }
+        
         await batch.commit();
-        alert(`Berhasil import ${count} file!`);
+        alert(`Berhasil mengimpor folder berisi ${count} file!`);
         document.getElementById('folderImporter').value = '';
     };
 
@@ -678,13 +722,15 @@
 
     window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
 
+    // Helper untuk membaca isi file menjadi teks
     function readFile(file) {
-        return new Promise(r => {
+        return new Promise(resolve => {
             const reader = new FileReader();
-            reader.onload = e => r(e.target.result);
+            reader.onload = e => resolve(e.target.result);
             reader.readAsText(file);
         });
     }
+      
     </script>
 </body>
 </html>
