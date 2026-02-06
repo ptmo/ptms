@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Obusion Cloud IDE | Pro</title>
+    <title>Obusion Cloud IDE | Secure Login</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -16,470 +16,881 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-sidebar: #1e1f29; --bg-editor: #282a36; --bg-header: #191a21;
-            --accent: #bd93f9; --text-main: #f8f8f2; --text-muted: #6272a4; --border: #44475a;
+            --bg-sidebar: #1e1f29;
+            --bg-editor: #282a36;
+            --bg-header: #191a21;
+            --accent: #bd93f9;
+            --text-main: #f8f8f2;
+            --text-muted: #6272a4;
+            --border: #44475a;
         }
 
-        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
-        body { margin: 0; background: var(--bg-editor); color: var(--text-main); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
-        /* HEADER */
+body { 
+    margin: 0; 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    font-family: 'Inter', sans-serif; 
+    
+    /* GANTI INI: Pakai dvh (Dynamic Viewport Height) agar pas di HP */
+    height: 100vh; /* Fallback */
+    height: 100dvh; 
+    
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; /* Mencegah body ikut ke-scroll */
+}
+        
+        /* --- LOGIN OVERLAY (GERBANG UTAMA) --- */
+        #loginScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-editor); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        #loginScreen.hidden { opacity: 0; pointer-events: none; }
+        
+        .login-box {
+            background: var(--bg-sidebar); padding: 40px; border-radius: 12px;
+            text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 400px; width: 90%;
+        }
+        .login-btn {
+            background: white; color: #333; border: none;
+            padding: 12px 24px; border-radius: 50px; font-weight: bold; font-size: 1rem;
+            cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 20px auto 0;
+            transition: transform 0.2s;
+        }
+        .login-btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(255,255,255,0.2); }
+        .login-btn img { width: 20px; }
+
+        /* HEADER & USER PROFILE */
         .ide-header {
             height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border);
             display: flex; align-items: center; justify-content: space-between; padding: 0 15px; flex-shrink: 0;
         }
-        .brand { font-weight: 700; color: var(--accent); display: flex; gap: 10px; align-items: center; }
-        .user-profile { display: flex; gap: 10px; align-items: center; }
-        .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accent); display: none; }
-
-        /* BODY LAYOUT */
-        .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
-
-        /* SIDEBAR */
-        .sidebar {
-            width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; user-select: none;
-            position: absolute; z-index: 10; height: 100%; top: 0; left: 0; transform: translateX(-100%); transition: transform 0.3s;
-        }
-        .sidebar.open { transform: translateX(0); }
-        @media (min-width: 768px) { .sidebar { position: relative; transform: translateX(0); width: 240px; } }
-
-        .sidebar-header {
-            padding: 15px; font-size: 0.8rem; font-weight: bold; color: var(--text-muted);
-            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
-        }
-        .sidebar-actions i { cursor: pointer; margin-left: 8px; transition: 0.2s; }
-        .sidebar-actions i:hover { color: white; }
-
-        /* TREE VIEW */
-        .file-list { flex: 1; overflow-y: auto; padding-bottom: 20px; }
-        .file-tree, .folder-content { list-style: none; padding: 0; margin: 0; }
+        .brand { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; color: var(--accent);}
         
+        .user-profile {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); }
+        .btn-logout {
+            background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+            padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;
+        }
+        .btn-logout:hover { background: #ff5555; color: white; border-color: #ff5555; }
+
+        /* LAYOUT AREA (Sama seperti sebelumnya) */
+        .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+        
+        /* --- SIDEBAR LAYOUT (Responsive) --- */
+        .sidebar {
+            width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; transition: transform 0.3s ease;
+            position: absolute; z-index: 10; height: 100%; top: 0; left: 0; transform: translateX(-100%); 
+            
+            /* PENTING: Agar teks tidak terblok saat klik folder berulang kali */
+            user-select: none; 
+        }
+        .sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+        
+        @media (min-width: 768px) {
+            .sidebar { position: relative; transform: translateX(0); width: 220px; box-shadow: none; }
+        }
+
+        .sidebar-header { 
+            padding: 15px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;
+            color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--bg-header);
+        }
+        
+        .sidebar-actions { display: flex; gap: 10px; }
+        .sidebar-actions i { 
+            cursor: pointer; font-size: 0.9rem; transition: all 0.2s; opacity: 0.7; 
+        }
+        .sidebar-actions i:hover { color: white; opacity: 1; transform: scale(1.1); }
+
+        /* --- PREMIUM TREE VIEW (VS Code Style) --- */
+        
+        /* Container Utama */
+        .file-list { 
+            flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; 
+        }
+
+        /* Reset UL untuk anak folder */
+        .file-tree, .folder-content {
+            list-style: none; padding: 0; margin: 0;
+        }
+
+        /* Baris Item (File atau Folder) */
         .tree-item {
-            padding: 6px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
-            font-size: 0.85rem; color: #dcdcdc; border-left: 2px solid transparent;
+            padding: 5px 15px; /* Lebih rapat agar muat banyak file */
+            cursor: pointer; 
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.85rem; color: #dcdcdc; 
+            border-left: 2px solid transparent; /* Marker aktif */
+            transition: background 0.1s;
+            
+            /* Mencegah teks panjang merusak layout */
             white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .tree-item:hover { background: rgba(255,255,255,0.05); color: white; }
-        .tree-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
 
-        /* FOLDER LOGIC */
-        .folder-content { display: none; }
-        .folder-open > .folder-content { display: block; }
-        .folder-arrow { font-size: 0.7rem; transition: 0.2s; width: 12px; text-align: center; }
-        .folder-open > .tree-item > .folder-arrow { transform: rotate(90deg); color: var(--text-main); }
-
-        /* KEBAB MENU (TITIK TIGA) */
-        .kebab-btn { margin-left: auto; padding: 2px 5px; opacity: 0; transition: 0.2s; color: var(--text-muted); }
-        .tree-item:hover .kebab-btn { opacity: 1; }
-        .kebab-btn:hover { color: white; background: rgba(255,255,255,0.1); border-radius: 4px; }
-
-        /* CONTEXT MENU DROPDOWN */
-        #contextMenu {
-            position: fixed; z-index: 9999; background: #282a36; border: 1px solid var(--border);
-            border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: none; flex-direction: column;
-            min-width: 160px;
+        /* Hover Effect */
+        .tree-item:hover { 
+            background: rgba(255,255,255,0.04); 
+            color: #fff;
         }
-        #contextMenu.visible { display: flex; }
+
+        /* Active File Effect */
+        .tree-item.active { 
+            background: rgba(189, 147, 249, 0.1); 
+            border-left-color: var(--accent); 
+            color: #fff; 
+        }
+
+        /* --- LOGIKA FOLDER --- */
+        
+        /* Kontainer anak folder (Default: Tersembunyi) */
+        .folder-content { display: none; }
+        
+        /* Jika parent punya class 'folder-open', tampilkan anaknya */
+        .folder-open > .folder-content { display: block; }
+
+        /* Panah Folder */
+        .folder-arrow { 
+            font-size: 0.7rem; 
+            color: var(--text-muted); 
+            transition: transform 0.2s ease; 
+            display: inline-block;
+            width: 12px; text-align: center;
+        }
+
+        /* Putar panah saat folder terbuka */
+        .folder-open > .tree-item > .folder-arrow { 
+            transform: rotate(90deg); 
+            color: var(--text-main);
+        }
+
+        /* --- STYLE TAMBAHAN: CONTEXT MENU (TITIK TIGA) --- */
+        .kebab-menu-btn {
+            margin-left: auto; padding: 2px 6px; border-radius: 4px;
+            color: var(--text-muted); transition: all 0.2s; opacity: 0;
+        }
+        .tree-item:hover .kebab-menu-btn { opacity: 1; }
+        .kebab-menu-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        /* --- UPDATE CSS MENU --- */
+        /* Kita gabungkan selectornya agar style berlaku untuk kedua menu */
+        #contextMenu, #fileContextMenu {
+            position: fixed; z-index: 9999;
+            background: #282a36; border: 1px solid var(--border);
+            border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: none; flex-direction: column; min-width: 160px;
+        }
+        
+        /* Tambahkan class .visible agar menu muncul */
+        #contextMenu.visible, #fileContextMenu.visible { display: flex; }
+
         .ctx-item {
             padding: 10px 15px; font-size: 0.85rem; cursor: pointer; display: flex; gap: 10px; align-items: center;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.05); color: #f8f8f2;
         }
         .ctx-item:hover { background: var(--accent); color: #282a36; }
-        .ctx-item:last-child { color: #ff5555; }
+        
+        /* Item Delete selalu merah saat hover */
+        .ctx-item.delete-item:hover { background: #ff5555; color: white; }
+        .ctx-item:last-child { border-bottom: none; color: #ff5555; }
         .ctx-item:last-child:hover { background: #ff5555; color: white; }
 
-        /* EDITOR */
-        .editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
-        .tab-bar { height: 35px; background: var(--bg-sidebar); display: flex; align-items: center; border-bottom: 1px solid var(--border); }
-        .file-tab { padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; background: var(--bg-editor); border-top: 2px solid var(--accent); }
-        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; background: transparent !important; }
-        
-        /* LOGIN */
-        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-editor); z-index: 9999; display: flex; align-items: center; justify-content: center; }
-        #loginScreen.hidden { display: none; }
-        .login-btn { padding: 10px 20px; background: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; display: flex; gap: 10px; align-items: center; }
-        
-        /* UTILS */
-        #fileImporter, #folderImporter { display: none; }
+/* --- UTILS --- */
+#fileImporter, #folderImporter { display: none; }
+
+/* 2. EDITOR AREA (Wadah Utama) */
+.editor-area { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    background: var(--bg-editor); 
+    min-width: 0;
+    
+    /* PENTING: Pastikan overflow di-handle di sini */
+    overflow: hidden; 
+    position: relative;
+}
+
+/* 3. TAB BAR */
+.tab-bar { 
+    height: 35px; 
+    background: var(--bg-sidebar); 
+    display: flex; 
+    align-items: center; 
+    border-bottom: 1px solid var(--border); 
+    overflow-x: auto;
+    flex-shrink: 0; /* Agar header tab tidak tergencet */
+}
+
+.file-tab { 
+    padding: 0 15px; 
+    height: 100%; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 0.8rem; 
+    color: var(--text-muted); 
+    border-right: 1px solid var(--border); 
+    background: var(--bg-sidebar); 
+    white-space: nowrap;
+}
+
+.file-tab.active { 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    border-top: 2px solid var(--accent); 
+}
+
+/* 4. CODEMIRROR (Inti Editor) */
+.CodeMirror { 
+    /* Paksa tinggi mengikuti sisa ruang */
+    height: 100% !important; 
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 14px; 
+    background: transparent !important; 
+}
+
+.CodeMirror-gutters { 
+    background: var(--bg-editor) !important; 
+    border-right: 1px solid var(--border); 
+}
+
+/* 5. SOLUSI MENTOK (Padding Bawah) */
+/* Ini memberikan ruang kosong ekstra di paling bawah editor */
+.CodeMirror-scroll {
+    padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
+}
+
+        /* --- PREMIUM INLINE INPUT STYLE --- */
+    .creation-box {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 10px;
+        background: #282a36; 
+        border: 1px solid var(--accent); /* Border Ungu */
+        border-radius: 4px;
+        margin: 2px 10px; /* Sedikit jarak kiri-kanan */
+        animation: slideDown 0.2s ease-out forwards;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    
+    .creation-input {
+        background: transparent; border: none; outline: none;
+        color: white; font-family: 'Inter', sans-serif;
+        font-size: 0.85rem; 
+        flex: 1; /* Input mengisi sisa ruang */
+        min-width: 0;
+    }
+    
+    .creation-input::placeholder { color: rgba(255,255,255,0.4); font-style: italic; }
+
+    /* Tombol Save (Ceklis) */
+    .creation-save-btn {
+        color: #50fa7b; /* Hijau Neon */
+        cursor: pointer; 
+        padding: 4px;
+        font-size: 0.9rem;
+        transition: 0.2s;
+    }
+    .creation-save-btn:hover { 
+        background: rgba(80, 250, 123, 0.2); 
+        border-radius: 4px;
+        transform: scale(1.1);
+    }
+
+    /* Animasi Halus */
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
     </style>
 </head>
 <body>
 
     <div id="loginScreen">
-        <div style="text-align:center;">
-            <h2 style="color:var(--accent)">Obusion Cloud</h2>
+        <div class="login-box">
+            <h1 style="color:var(--accent); margin:0;">Obusion Code</h1>
+            <p style="color:var(--text-muted);">Secure Cloud Workspac</p>
+            <div style="margin: 30px 0;">
+                <i class="fas fa-lock" style="font-size: 3rem; color: var(--border);"></i>
+            </div>
             <button class="login-btn" onclick="window.loginGoogle()">
-                <i class="fab fa-google"></i> Sign in with Google
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+                Sign in with Google
             </button>
         </div>
     </div>
 
     <header class="ide-header">
-        <div class="brand">
-            <i class="fas fa-bars" onclick="toggleSidebar()" style="cursor:pointer; @media(min-width:768px){display:none;}"></i>
-            <i class="fas fa-code"></i> OBUSION
+        <div style="display:flex; align-items:center;">
+            <i class="fas fa-bars" style="margin-right:15px; cursor:pointer; @media(min-width:768px){display:none;}" onclick="toggleSidebar()"></i>
+            <div class="brand"><i class="fas fa-code-branch"></i> OBUSION <span>CLOUD</span></div>
         </div>
+        
         <div class="user-profile">
-            <img id="userAvatar" class="user-avatar">
-            <button onclick="window.logoutGoogle()" style="background:none; border:1px solid var(--border); color:white; padding:5px 10px; cursor:pointer; border-radius:4px;">Logout</button>
-            <button onclick="window.runProject()" style="background:var(--accent); border:none; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-play"></i></button>
+            <img id="userAvatar" src="" class="user-avatar" style="display:none;">
+            <button class="btn-logout" onclick="window.logoutGoogle()">Logout</button>
+            <button onclick="runProject()" style="margin-left:10px; background:var(--accent); border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-play"></i></button>
         </div>
     </header>
 
     <div class="ide-body">
-        
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <span>EXPLORER</span>
-                <div class="sidebar-actions">
-                    <i class="fas fa-file-circle-plus" onclick="window.createNewFile('')" title="New File (Root)"></i>
-                    <i class="fas fa-folder-plus" onclick="window.createNewFolder('')" title="New Folder (Root)"></i>
-                    <i class="fas fa-trash-alt" style="color:#ff5555" onclick="window.deleteProject()" title="Delete All"></i>
-                </div>
+        <div class="sidebar-header">
+            <span>EXPLORER</span>
+            <div class="sidebar-actions">
+                <i class="fas fa-file-circle-plus" onclick="window.createNewFile('')" title="New File"></i>
+                <i class="fas fa-folder-plus" onclick="window.createNewFolder('')" title="New Folder"></i>
+                
+                <i class="fas fa-file-import" onclick="document.getElementById('fileImporter').click()" title="Import File"></i>
+                <i class="fas fa-folder-open" onclick="document.getElementById('folderImporter').click()" title="Import Folder"></i>
+                
+                <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="window.deleteProject()" title="Format Workspace"></i>
             </div>
+        </div>
+        
+        <div id="fileTreeRoot" class="file-list" onclick="window.hideContextMenu()"></div>
 
-            <div id="fileTreeRoot" class="file-list" onclick="window.hideContextMenu()"></div>
-
-            <input type="file" id="fileImporter" multiple onchange="window.processFileImport(this.files)">
-            <input type="file" id="folderImporter" webkitdirectory directory onchange="window.processFolderImport(this.files)">
+        <input type="file" id="fileImporter" multiple onchange="window.processFileImport(this.files)" style="display:none">
+        <input type="file" id="folderImporter" webkitdirectory directory onchange="window.processFolderImport(this.files)" style="display:none">
         </aside>
+
+    <div id="contextMenu">
+        <div class="ctx-item" onclick="window.ctxAction('newFile')"><i class="fas fa-file-plus"></i> New File Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('newFolder')"><i class="fas fa-folder-plus"></i> New Folder Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('importFile')"><i class="fas fa-file-import"></i> Import File Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('download')"><i class="fas fa-download"></i> Download Folder</div>
+        <div class="ctx-item delete-item" onclick="window.ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
+    </div>
+
+    <div id="fileContextMenu">
+        <div class="ctx-item" onclick="window.ctxAction('renameFile')"><i class="fas fa-edit"></i> Rename</div>
+        <div class="ctx-item delete-item" onclick="window.ctxAction('deleteFile')"><i class="fas fa-trash"></i> Delete</div>
+    </div>
 
         <main class="editor-area">
             <div class="tab-bar">
-                <div class="file-tab">
-                    <span id="activeFileName">No File</span>
+                <div class="file-tab active">
+                    <span id="activeFileName">No File Selected</span>
                 </div>
             </div>
             <textarea id="codeEditor"></textarea>
         </main>
     </div>
 
-    <div id="contextMenu">
-        <div class="ctx-item" onclick="window.ctxAction('newFile')"><i class="fas fa-file-plus"></i> New File Here</div>
-        <div class="ctx-item" onclick="window.ctxAction('newFolder')"><i class="fas fa-folder-plus"></i> New Folder Here</div>
-        <div class="ctx-item" onclick="window.ctxAction('importFile')"><i class="fas fa-file-import"></i> Import File Here</div>
-        <div class="ctx-item" onclick="window.ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
-    </div>
+  <script type="module">
+    // 1. IMPORT FIREBASE & LIBS
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import JSZip from "https://esm.run/jszip";
 
-    <script type="module">
-        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    // 2. CONFIG
+    const firebaseConfig = {
+        apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
+        authDomain: "obusioncode.firebaseapp.com",
+        projectId: "obusioncode",
+        storageBucket: "obusioncode.firebasestorage.app",
+        messagingSenderId: "299520822295",
+        appId: "1:299520822295:web:f222448979129ae6c2a052",
+        measurementId: "G-B0CYQSNM7R"
+    };
 
-        // --- CONFIG ---
-        const firebaseConfig = {
-            apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
-            authDomain: "obusioncode.firebaseapp.com",
-            projectId: "obusioncode",
-            storageBucket: "obusioncode.firebasestorage.app",
-            messagingSenderId: "299520822295",
-            appId: "1:299520822295:web:f222448979129ae6c2a052",
-            measurementId: "G-B0CYQSNM7R"
-        };
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
 
-        const app = initializeApp(firebaseConfig);
-        const auth = getAuth(app);
-        const db = getFirestore(app);
-        const provider = new GoogleAuthProvider();
-        const PROJECT_ID = "global_workspace"; 
+    // 3. GLOBAL VARIABLES
+    let currentUserId = null; // KUNCI UTAMA (Wajib ada)
+    let files = [];
+    let activeFileId = null;
+    let isTyping = false;
+    let unsubscribeFirestore = null;
+    let expandedPaths = new Set();
+    
+    // Variables Context Menu
+    let currentCtxPath = ''; 
+    let currentFileId = null;   
+    let currentFilePath = null;
 
-        // --- VARIABLES ---
-        let files = [];
-        let activeFileId = null;
-        let isTyping = false;
-        let expandedPaths = new Set();
-        let currentCtxPath = ''; // Path folder yg lagi diklik kanan
+    // 4. EDITOR SETUP
+    const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+        theme: 'dracula', lineNumbers: true, mode: 'htmlmixed',
+        autoCloseTags: true, autoCloseBrackets: true, lineWrapping: true
+    });
 
-        // --- EDITOR ---
-        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
-            theme: 'dracula', lineNumbers: true, mode: 'htmlmixed',
-            autoCloseTags: true, autoCloseBrackets: true, lineWrapping: true
-        });
+    // --- AUTHENTICATION ---
+    window.loginGoogle = async () => {
+        try { await signInWithPopup(auth, provider); } 
+        catch (e) { alert("Login Error: " + e.message); }
+    };
 
-        // --- AUTH SYSTEM ---
-        onAuthStateChanged(auth, (user) => {
-            const screen = document.getElementById('loginScreen');
-            if(user) {
-                screen.classList.add('hidden');
-                document.getElementById('userAvatar').src = user.photoURL;
-                document.getElementById('userAvatar').style.display = 'block';
-                startListener();
-            } else {
-                screen.classList.remove('hidden');
-            }
-        });
+    window.logoutGoogle = async () => {
+        if(confirm("Logout?")) await signOut(auth);
+    };
 
-        // Bind Window Functions (Agar bisa dipanggil HTML)
-        window.loginGoogle = () => signInWithPopup(auth, provider);
-        window.logoutGoogle = () => signOut(auth);
-        window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
+    onAuthStateChanged(auth, (user) => {
+        const loginScreen = document.getElementById('loginScreen');
+        const userAvatar = document.getElementById('userAvatar');
 
-        // --- CORE: TREE LISTENER ---
-        function startListener() {
-            const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("name"));
-            onSnapshot(q, (snapshot) => {
-                files = [];
-                snapshot.forEach(doc => files.push({id: doc.id, ...doc.data()}));
-                renderTree();
-            });
+        if (user) {
+            currentUserId = user.uid; // SIMPAN UID
+            console.log("User:", currentUserId);
+
+            loginScreen.classList.add('hidden');
+            userAvatar.src = user.photoURL;
+            userAvatar.style.display = 'block';
+            startFirestoreListener(); 
+        } else {
+            currentUserId = null; // RESET UID
+            loginScreen.classList.remove('hidden');
+            userAvatar.style.display = 'none';
+            document.getElementById('fileTreeRoot').innerHTML = ""; 
+            editor.setValue("");
+            if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
         }
+    });
 
-        // --- RENDERER (POHON FILE) ---
-        function renderTree() {
-            const container = document.getElementById('fileTreeRoot');
-            container.innerHTML = '';
-            
-            // 1. Build Object Tree
-            const tree = {};
-            files.forEach(file => {
-                const parts = file.name.split('/');
-                let current = tree;
-                parts.forEach((part, i) => {
-                    if (!current[part]) current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
-                    current = current[part].__children;
-                });
+    // --- CORE LOGIC: LISTENER (PRIVATE) ---
+    function startFirestoreListener() {
+        if (!currentUserId) return;
+        
+        // QUERY KE FOLDER PRIVATE USER
+        const q = query(collection(db, "projects", currentUserId, "files"), orderBy("name"));
+        
+        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+            files = [];
+            snapshot.forEach((docSnap) => {
+                files.push({ id: docSnap.id, ...docSnap.data() });
+            });
+            renderTree(); 
+        });
+    }
+
+    // --- RENDER TREE (UI) ---
+    function renderTree() {
+        const rootContainer = document.getElementById('fileTreeRoot');
+        rootContainer.innerHTML = '';
+
+        const tree = {};
+        files.forEach(file => {
+            const parts = file.name.split('/'); 
+            let current = tree;
+            parts.forEach((part, i) => {
+                if (!current[part]) {
+                    current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
+                }
+                current = current[part].__children;
+            });
+        });
+
+        function buildHTML(node, container, pathPrefix = '', depth = 0) {
+            const keys = Object.keys(node).sort((a, b) => {
+                const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
+                const isFolderB = Object.keys(node[b].__children).length > 0 || node[b].__data?.type === 'folder';
+                if (isFolderA && !isFolderB) return -1;
+                if (!isFolderA && isFolderB) return 1;
+                return a.localeCompare(b);
             });
 
-            // 2. Build HTML
-            function buildHTML(node, parentEl, pathPrefix = '', depth = 0) {
-                // Sort: Folder First
-                const keys = Object.keys(node).sort((a,b) => {
-                    const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
-                    const isFolderB = Object.keys(node[b].__children).length > 0 || node[b].__data?.type === 'folder';
-                    if(isFolderA && !isFolderB) return -1;
-                    if(!isFolderA && isFolderB) return 1;
-                    return a.localeCompare(b);
-                });
+            keys.forEach(key => {
+                if (key === '__data' || key === '__children') return;
 
-                keys.forEach(key => {
-                    if(key === '__data' || key === '__children') return;
-                    
-                    const item = node[key];
-                    const fileData = item.__data || {};
-                    const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
-                    const isFolder = Object.keys(item.__children).length > 0 || fileData.type === 'folder';
+                const item = node[key];
+                const fileData = item.__data || {};
+                const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
+                const isFolder = Object.keys(item.__children).length > 0 || fileData.type === 'folder';
+                
+                const li = document.createElement('li');
+                if (isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
 
-                    const li = document.createElement('li');
-                    if(isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
+                let iconClass = 'fas fa-file';
+                let colorStyle = '';
+                
+                if (isFolder) {
+                    iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c;'; 
+                } else {
+                    if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c;'; }
+                    else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd;'; }
+                    else if (fileData.type === 'js') { iconClass = 'fab fa-js'; colorStyle = 'color: #f1fa8c;'; }
+                }
 
-                    // Icon Setup
-                    let icon = isFolder ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' : '<i class="fas fa-file" style="color:#8be9fd"></i>';
-                    if(!isFolder) {
-                        if(fileData.type === 'html') icon = '<i class="fab fa-html5" style="color:#ffb86c"></i>';
-                        else if(fileData.type === 'css') icon = '<i class="fab fa-css3-alt" style="color:#8be9fd"></i>';
-                        else if(fileData.type === 'js') icon = '<i class="fab fa-js" style="color:#f1fa8c"></i>';
-                    }
+                const padding = 15 + (depth * 12);
+                const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:10px; display:inline-block"></span>`;
+                
+                // Context Menu Button
+                let actionBtn = '';
+                if (isFolder) {
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
+                } else {
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
+                }
 
-                    const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:12px"></span>`;
-                    
-                    // ACTIONS (Titik Tiga untuk Folder, Sampah untuk File)
-                    let actionBtn = '';
-                    if(isFolder) {
-                        actionBtn = `<i class="fas fa-ellipsis-v kebab-btn" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
-                    } else {
-                        actionBtn = `<i class="fas fa-trash kebab-btn" style="color:#ff5555" onclick="window.deleteItem('${fileData.id}', event)"></i>`;
-                    }
+                const divItem = document.createElement('div');
+                divItem.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
+                divItem.style.paddingLeft = `${padding}px`;
+                divItem.innerHTML = `${arrow} <i class="${iconClass}" style="${colorStyle}"></i> <span>${key}</span> ${actionBtn}`;
+                
+                divItem.onmouseenter = () => { if(divItem.querySelector('.kebab-menu-btn')) divItem.querySelector('.kebab-menu-btn').style.opacity = '1'; }
+                divItem.onmouseleave = () => { if(divItem.querySelector('.kebab-menu-btn')) divItem.querySelector('.kebab-menu-btn').style.opacity = '0'; }
 
-                    const div = document.createElement('div');
-                    div.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
-                    div.style.paddingLeft = `${10 + (depth * 12)}px`;
-                    div.innerHTML = `${arrow} ${icon} <span style="margin-left:5px">${key}</span> ${actionBtn}`;
-
-                    div.onclick = (e) => {
-                        e.stopPropagation(); window.hideContextMenu();
-                        if(isFolder) {
-                            li.classList.toggle('folder-open');
-                            if(li.classList.contains('folder-open')) expandedPaths.add(currentPath); else expandedPaths.delete(currentPath);
+                divItem.onclick = (e) => {
+                    e.stopPropagation();
+                    window.hideContextMenu();
+                    if (isFolder) {
+                        if (li.classList.contains('folder-open')) {
+                            li.classList.remove('folder-open');
+                            expandedPaths.delete(currentPath);
                         } else {
-                            window.switchFile(fileData.id);
+                            li.classList.add('folder-open');
+                            expandedPaths.add(currentPath);
                         }
-                    };
-
-                    li.appendChild(div);
-
-                    if(isFolder) {
-                        const ul = document.createElement('ul');
-                        ul.className = 'folder-content';
-                        buildHTML(item.__children, ul, currentPath, depth + 1);
-                        li.appendChild(ul);
+                    } else {
+                        window.switchFile(fileData.id);
                     }
-                    parentEl.appendChild(li);
-                });
-            }
-            const rootUl = document.createElement('ul');
-            rootUl.className = 'file-tree';
-            buildHTML(tree, rootUl);
-            container.appendChild(rootUl);
+                };
+
+                li.appendChild(divItem);
+
+                if (isFolder) {
+                    const ulChild = document.createElement('ul');
+                    ulChild.className = 'folder-content';
+                    buildHTML(item.__children, ulChild, currentPath, depth + 1);
+                    li.appendChild(ulChild);
+                }
+                container.appendChild(li);
+            });
         }
 
-        // --- CONTEXT MENU LOGIC ---
-        window.showContextMenu = (e, path) => {
-            e.stopPropagation();
-            currentCtxPath = path;
-            const menu = document.getElementById('contextMenu');
-            menu.style.top = e.clientY + 'px';
-            menu.style.left = (e.clientX - 120) + 'px';
-            menu.classList.add('visible');
-        };
+        const rootUl = document.createElement('ul');
+        rootUl.className = 'file-tree';
+        buildHTML(tree, rootUl);
+        rootContainer.appendChild(rootUl);
+    }
 
-        window.hideContextMenu = () => document.getElementById('contextMenu').classList.remove('visible');
-
-        window.ctxAction = (action) => {
-            window.hideContextMenu();
-            if(action === 'newFile') window.createNewFile(currentCtxPath);
-            if(action === 'newFolder') window.createNewFolder(currentCtxPath);
-            if(action === 'importFile') {
-                const input = document.getElementById('fileImporter');
-                input.setAttribute('data-target', currentCtxPath); // Simpan target folder
-                input.click();
-            }
-            if(action === 'delete') window.deleteFolder(currentCtxPath);
-        };
-
-        // --- SMART CREATE (PATH AWARE) ---
-        window.createNewFile = async (basePath = '') => {
-            const fileName = prompt(`Buat file baru di "${basePath || 'Root'}":\n(Contoh: index.html)`);
-            if(!fileName) return;
-            const fullPath = basePath ? `${basePath}/${fileName}` : fileName;
-            const ext = fileName.split('.').pop();
+    // --- CREATE LOGIC (INLINE PREMIUM) ---
+    
+    // 1. Create File Trigger
+    window.createNewFile = (basePath = '') => {
+        if (!currentUserId) return alert("Silahkan login terlebih dahulu!");
+        spawnInput('file', basePath, async (name, fullPath) => {
+            const ext = name.split('.').pop();
             let type = 'txt';
             if(['html','htm'].includes(ext)) type = 'html';
             else if(['css'].includes(ext)) type = 'css';
             else if(['js','ts'].includes(ext)) type = 'js';
 
-            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-                name: fullPath, type: type, content: '// ' + fileName, createdAt: serverTimestamp()
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
+                name: fullPath, type: type, content: '// ' + name, createdAt: serverTimestamp()
             });
-        };
+        });
+    };
 
-        window.createNewFolder = async (basePath = '') => {
-            const name = prompt(`Buat folder baru di "${basePath || 'Root'}":`);
-            if(!name) return;
-            const fullPath = basePath ? `${basePath}/${name}` : name;
-            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+    // 2. Create Folder Trigger
+    window.createNewFolder = (basePath = '') => {
+        if (!currentUserId) return alert("Silahkan login terlebih dahulu!");
+        spawnInput('folder', basePath, async (name, fullPath) => {
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
                 name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
             });
-        };
+        });
+    };
 
-        // --- IMPORT LOGIC (SEPARATE) ---
-        // 1. IMPORT FILE (Targeted to Folder)
-        window.processFileImport = async (fileList) => {
-            const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
-            if(!fileList.length) return;
-            const batch = writeBatch(db);
-            for(let i=0; i<fileList.length; i++) {
-                const file = fileList[i];
-                const fullPath = target ? `${target}/${file.name}` : file.name;
-                const content = await readFile(file);
-                const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
-                batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+    // --- SPAWN INPUT HELPER (FIXED) ---
+    function spawnInput(type, basePath, callback) {
+        const existing = document.getElementById('tempCreationBox');
+        if(existing) existing.remove();
+
+        const container = document.getElementById('fileTreeRoot');
+        if(!container) return;
+
+        const div = document.createElement('div');
+        div.id = 'tempCreationBox';
+        div.className = 'creation-box';
+        
+        const icon = type === 'folder' 
+            ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' 
+            : '<i class="fas fa-file" style="color:#6272a4"></i>';
+
+        div.innerHTML = `
+            ${icon}
+            <input type="text" class="creation-input" placeholder="Name..." spellcheck="false" autocomplete="off">
+            <i class="fas fa-check creation-save-btn" title="Simpan"></i>
+        `;
+
+        container.insertBefore(div, container.firstChild);
+
+        const input = div.querySelector('input');
+        const saveBtn = div.querySelector('.creation-save-btn');
+        
+        setTimeout(() => input.focus(), 50);
+
+        const executeSave = async () => {
+            const val = input.value.trim();
+            if (!val) return; 
+
+            input.disabled = true;
+            saveBtn.className = "fas fa-circle-notch fa-spin creation-save-btn"; 
+            
+            try {
+                const fullPath = basePath ? `${basePath}/${val}` : val;
+                await callback(val, fullPath);
+                div.remove();
+            } catch (e) {
+                alert("Gagal menyimpan: " + e.message);
+                input.disabled = false;
+                input.focus();
+                saveBtn.className = "fas fa-check creation-save-btn";
             }
-            await batch.commit();
-            alert("File Import Selesai!");
-            document.getElementById('fileImporter').value = '';
         };
 
-        // 2. IMPORT FOLDER (Full Structure)
-        window.processFolderImport = async (fileList) => {
-            if(!fileList.length) return;
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') executeSave();
+            if (e.key === 'Escape') div.remove();
+        });
+
+        saveBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault(); 
+            e.stopPropagation();
+            executeSave();
+        });
+
+        input.addEventListener('blur', () => {
+            setTimeout(() => { if(document.body.contains(div)) div.remove(); }, 200);
+        });
+    }
+
+    // --- CONTEXT MENU HANDLERS ---
+    
+    // Folder Menu
+    window.showContextMenu = (e, path) => {
+        e.stopPropagation();
+        window.hideContextMenu();
+        currentCtxPath = path;
+        
+        const menu = document.getElementById('contextMenu');
+        menu.style.top = e.clientY + 'px';
+        menu.style.left = (e.clientX - 100) + 'px';
+        menu.classList.add('visible');
+        setTimeout(() => document.addEventListener('click', window.hideContextMenu, {once:true}), 10);
+    };
+
+    // File Menu
+    window.showFileContextMenu = (e, id, path) => {
+        e.stopPropagation();
+        window.hideContextMenu();
+        currentFileId = id;
+        currentFilePath = path;
+        
+        const menu = document.getElementById('fileContextMenu');
+        menu.style.top = e.clientY + 'px';
+        menu.style.left = (e.clientX - 100) + 'px';
+        menu.classList.add('visible');
+        setTimeout(() => document.addEventListener('click', window.hideContextMenu, {once:true}), 10);
+    };
+
+    window.hideContextMenu = () => {
+        const m1 = document.getElementById('contextMenu');
+        const m2 = document.getElementById('fileContextMenu');
+        if(m1) m1.classList.remove('visible');
+        if(m2) m2.classList.remove('visible');
+    };
+
+    // --- ACTIONS ---
+    window.ctxAction = (action) => {
+        window.hideContextMenu();
+        
+        // Folder Actions
+        if (action === 'newFile') window.createNewFile(currentCtxPath);
+        if (action === 'newFolder') window.createNewFolder(currentCtxPath);
+        if (action === 'importFile') {
+            const input = document.getElementById('fileImporter');
+            input.setAttribute('data-target', currentCtxPath);
+            input.click();
+        }
+        if (action === 'download') window.downloadFolder(currentCtxPath);
+        if (action === 'delete') window.deleteFolder(currentCtxPath);
+
+        // File Actions
+        if (action === 'renameFile') window.performRenameFile();
+        if (action === 'deleteFile') window.performDeleteFile();
+    };
+
+    // --- CRUD FUNCTIONS (SECURED) ---
+
+    // Rename
+    window.performRenameFile = async () => {
+        if (!currentFileId || !currentFilePath) return;
+        const oldName = currentFilePath.split('/').pop();
+        const parentPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+        
+        const newName = prompt("Nama baru:", oldName);
+        if (!newName || newName === oldName) return;
+
+        const newFullPath = parentPath ? `${parentPath}/${newName}` : newName;
+        try {
+            const fileRef = doc(db, "projects", currentUserId, "files", currentFileId);
+            await updateDoc(fileRef, { name: newFullPath });
+        } catch (e) { alert("Gagal rename: " + e.message); }
+    };
+
+    // Delete File
+    window.performDeleteFile = async () => {
+        if (!currentUserId) return;
+        if(confirm("Yakin hapus file ini?")) {
+            await deleteDoc(doc(db, "projects", currentUserId, "files", currentFileId));
+            if(activeFileId === currentFileId) {
+                editor.setValue(""); activeFileId = null;
+                document.getElementById('activeFileName').innerText = "No File";
+            }
+        }
+    };
+
+    // Delete Folder
+    window.deleteFolder = async (pathName) => {
+        if (!currentUserId) return;
+        if(confirm(`HAPUS FOLDER "${pathName}"?`)) {
             const batch = writeBatch(db);
-            let count = 0;
-            for(let i=0; i<fileList.length; i++) {
-                const file = fileList[i];
-                if(file.name.startsWith('.')) continue;
-                const fullPath = file.webkitRelativePath || file.name;
-                const content = await readFile(file);
-                const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
-                batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+            files.forEach(f => {
+                if(f.name.startsWith(pathName + '/') || f.name === pathName) {
+                    batch.delete(doc(db, "projects", currentUserId, "files", f.id));
+                }
+            });
+            await batch.commit();
+        }
+    };
+
+    // Reset
+    window.deleteProject = async () => {
+        if (!currentUserId || files.length === 0) return;
+        if(prompt("Ketik 'HAPUS' untuk Reset:") === 'HAPUS') {
+            const batch = writeBatch(db);
+            files.forEach(f => batch.delete(doc(db, "projects", currentUserId, "files", f.id)));
+            await batch.commit();
+            editor.setValue(""); activeFileId = null;
+        }
+    };
+
+    // --- IMPORT & DOWNLOAD ---
+    window.processFileImport = async (fileList) => {
+        if (!currentUserId || !fileList.length) return;
+        const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
+        
+        const batch = writeBatch(db);
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            const fullPath = target ? `${target}/${file.name}` : file.name;
+            const content = await readFile(file);
+            const ref = doc(collection(db, "projects", currentUserId, "files"));
+            batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+        }
+        await batch.commit();
+        alert("Import Selesai!");
+        document.getElementById('fileImporter').value = '';
+    };
+
+    window.processFolderImport = async (fileList) => {
+        if (!currentUserId || !fileList.length) return;
+        const batch = writeBatch(db);
+        let count = 0;
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            if (file.name.startsWith('.')) continue;
+            const fullPath = file.webkitRelativePath || file.name;
+            const content = await readFile(file);
+            const ref = doc(collection(db, "projects", currentUserId, "files"));
+            batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+            count++;
+        }
+        await batch.commit();
+        alert(`Berhasil import ${count} file!`);
+        document.getElementById('folderImporter').value = '';
+    };
+
+    window.downloadFolder = async (pathName) => {
+        const zip = new JSZip();
+        let count = 0;
+        files.forEach(f => {
+            if (f.name.startsWith(pathName + '/') && f.type !== 'folder') {
+                const relativePath = f.name.substring(pathName.length + 1); 
+                zip.file(relativePath, f.content);
                 count++;
             }
-            await batch.commit();
-            alert(`Berhasil import ${count} file dari folder!`);
-            document.getElementById('folderImporter').value = '';
-        };
-
-        // --- DELETE LOGIC ---
-        window.deleteItem = async (id, e) => {
-            e.stopPropagation();
-            if(confirm("Hapus File ini?")) deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
-        };
-
-        window.deleteFolder = async (pathName) => {
-            if(confirm(`HAPUS FOLDER "${pathName}" dan semua isinya?`)) {
-                const batch = writeBatch(db);
-                files.forEach(f => {
-                    if(f.name.startsWith(pathName + '/') || f.name === pathName) {
-                        batch.delete(doc(db, "projects", PROJECT_ID, "files", f.id));
-                    }
-                });
-                await batch.commit();
-            }
-        };
-
-        window.deleteProject = async () => {
-            if(files.length === 0) return;
-            if(prompt("Ketik 'HAPUS' untuk Reset Project:") === 'HAPUS') {
-                const batch = writeBatch(db);
-                const snap = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
-                snap.forEach(d => batch.delete(d.ref));
-                await batch.commit();
-            }
-        };
-
-        // --- HELPER ---
-        window.switchFile = (id) => {
-            activeFileId = id;
-            const file = files.find(f => f.id === id);
-            if(file) {
-                editor.setValue(file.content);
-                document.getElementById('activeFileName').innerText = file.name;
-                if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
-                else if(file.type === 'css') editor.setOption('mode', 'css');
-                else if(file.type === 'js') editor.setOption('mode', 'javascript');
-                
-                isTyping = true; setTimeout(() => isTyping = false, 100);
-                renderTree(); // refresh active class
-                if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
-            }
-        };
-
-        window.runProject = () => {
-            const html = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
-            if(!html) return alert("Butuh setidaknya satu file HTML!");
-            
-            // Basic Bundle Logic (Bisa dikembangkan lagi)
-            let content = html.content;
-            const css = files.filter(f => f.type === 'css').map(f => f.content).join('\n');
-            const js = files.filter(f => f.type === 'js').map(f => f.content).join('\n');
-            
-            content += `<style>${css}</style><script>${js}<\/script>`;
-            const win = window.open();
-            win.document.write(content);
-        };
-
-        function readFile(file) {
-            return new Promise(r => {
-                const reader = new FileReader();
-                reader.onload = e => r(e.target.result);
-                reader.readAsText(file);
-            });
-        }
-
-        // Auto Save
-        let saveTimeout;
-        editor.on('change', () => {
-            if(isTyping) return;
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(() => {
-                if(activeFileId) updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: editor.getValue() });
-            }, 1000);
         });
-    </script>
+        if (count === 0) return alert("Folder kosong.");
+        try {
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = `${pathName.split('/').pop()}.zip`;
+            link.click();
+        } catch (e) { alert("Zip Error: " + e.message); }
+    };
+
+    // --- EDITOR UTILS ---
+    window.switchFile = function(id) {
+        activeFileId = id;
+        const file = files.find(f => f.id === id);
+        if (!file) return;
+        isTyping = true;
+        editor.setValue(file.content);
+        isTyping = false;
+        document.getElementById('activeFileName').innerText = file.name;
+        if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+        else if(file.type === 'css') editor.setOption('mode', 'css');
+        else if(file.type === 'js') editor.setOption('mode', 'javascript');
+        if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+    };
+
+    let saveTimeout;
+    editor.on('change', () => {
+        if(isTyping || !activeFileId || !currentUserId) return;
+        clearTimeout(saveTimeout);
+        saveTimeout = setTimeout(async () => {
+            try {
+                await updateDoc(doc(db, "projects", currentUserId, "files", activeFileId), { content: editor.getValue() });
+            } catch(e) {}
+        }, 1000);
+    });
+
+    window.runProject = function() {
+        const htmlFile = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
+        if(!htmlFile) { alert("Butuh file HTML!"); return; }
+        let finalHTML = htmlFile.content;
+        const cssFiles = files.filter(f => f.type === 'css');
+        cssFiles.forEach(c => finalHTML += `<style>${c.content}</style>`);
+        const jsFiles = files.filter(f => f.type === 'js');
+        jsFiles.forEach(j => finalHTML += `<script>${j.content}<\/script>`);
+        window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
+    };
+
+    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
+
+    function readFile(file) {
+        return new Promise(r => {
+            const reader = new FileReader();
+            reader.onload = e => r(e.target.result);
+            reader.readAsText(file);
+        });
+    }
+</script>
 </body>
 </html>
