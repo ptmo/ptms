@@ -350,6 +350,63 @@ body {
         from { opacity: 0; transform: translateY(-10px); }
         to { opacity: 1; transform: translateY(0); }
     }
+
+    /* --- MULTI TAB BAR STYLE --- */
+.tab-bar { 
+    height: 35px; 
+    background: var(--bg-header); /* Sedikit lebih gelap biar kontras */
+    display: flex; 
+    align-items: center; 
+    border-bottom: 1px solid var(--border); 
+    overflow-x: auto;
+    flex-shrink: 0;
+}
+
+/* Scrollbar tipis untuk tab jika banyak */
+.tab-bar::-webkit-scrollbar { height: 3px; }
+.tab-bar::-webkit-scrollbar-thumb { background: var(--accent); }
+
+.file-tab { 
+    padding: 0 10px 0 15px; 
+    height: 100%; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 0.8rem; 
+    color: var(--text-muted); 
+    border-right: 1px solid var(--border); 
+    background: var(--bg-sidebar); 
+    white-space: nowrap;
+    cursor: pointer;
+    transition: background 0.2s;
+    max-width: 150px; /* Batasi lebar tab */
+}
+
+.file-tab:hover { background: #2f3242; }
+
+.file-tab.active { 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    border-top: 2px solid var(--accent); 
+}
+
+.file-tab span {
+    overflow: hidden; text-overflow: ellipsis; /* Nama file panjang dipotong ... */
+}
+
+/* Tombol Close (x) */
+.close-tab-btn {
+    padding: 2px 5px;
+    border-radius: 3px;
+    font-size: 0.7rem;
+    color: var(--text-muted);
+    opacity: 0.7;
+}
+.close-tab-btn:hover {
+    background: #ff5555;
+    color: white;
+    opacity: 1;
+}
     </style>
 </head>
 <body>
@@ -429,7 +486,7 @@ body {
     // 1. IMPORT FIREBASE & LIBS
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
     import JSZip from "https://esm.run/jszip";
 
     // 2. CONFIG
@@ -460,6 +517,7 @@ body {
     let currentCtxPath = ''; 
     let currentFileId = null;   
     let currentFilePath = null;
+    let openTabs = [];
 
     // 4. EDITOR SETUP (UPDATE INI)
     const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
@@ -510,11 +568,10 @@ body {
         }
     });
 
-    // --- CORE LOGIC: LISTENER (PRIVATE) ---
+    // --- 1. UPDATE LISTENER (Load Session setelah File siap) ---
     function startFirestoreListener() {
         if (!currentUserId) return;
         
-        // QUERY KE FOLDER PRIVATE USER
         const q = query(collection(db, "projects", currentUserId, "files"), orderBy("name"));
         
         unsubscribeFirestore = onSnapshot(q, (snapshot) => {
@@ -523,8 +580,143 @@ body {
                 files.push({ id: docSnap.id, ...docSnap.data() });
             });
             renderTree(); 
+
+            // SETELAH DATA FILE MASUK, BARU KITA LOAD SESSION TAB DARI FIREBASE
+            restoreSession();
         });
     }
+
+    // --- 2. RESTORE SESSION (Dari Firebase) ---
+    async function restoreSession() {
+        if (!currentUserId) return;
+        try {
+            // Ambil config workspace user
+            const docRef = doc(db, "projects", currentUserId, "config", "workspace");
+            const docSnap = await getDoc(docRef);
+
+            if (docSnap.exists()) {
+                const data = docSnap.data();
+                // Validasi: Hanya masukkan tab jika filenya masih ada (belum dihapus)
+                openTabs = (data.openTabs || []).filter(id => files.find(f => f.id === id));
+                
+                // Render Tab UI
+                renderTabs();
+
+                // Buka file terakhir yang aktif
+                if (data.activeFileId && files.find(f => f.id === data.activeFileId)) {
+                    switchFile(data.activeFileId, false); // false = jangan save lagi biar gak looping
+                } else if (openTabs.length > 0) {
+                    switchFile(openTabs[0], false);
+                }
+            }
+        } catch (e) { console.error("Session load error:", e); }
+    }
+
+    // --- 3. SAVE SESSION (Ke Firebase) ---
+    async function saveSession() {
+        if (!currentUserId) return;
+        try {
+            // Simpan array ID tab dan ID file yang aktif
+            await setDoc(doc(db, "projects", currentUserId, "config", "workspace"), {
+                openTabs: openTabs,
+                activeFileId: activeFileId
+            });
+        } catch (e) { console.error("Save session failed", e); }
+    }
+
+    // --- 4. RENDER TABS UI ---
+    function renderTabs() {
+        const tabBar = document.querySelector('.tab-bar');
+        tabBar.innerHTML = ''; // Reset UI
+
+        openTabs.forEach(id => {
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+
+            const div = document.createElement('div');
+            div.className = `file-tab ${id === activeFileId ? 'active' : ''}`;
+            div.title = file.name;
+            
+            // Nama File (Pendek saja)
+            const shortName = file.name.split('/').pop();
+            
+            div.innerHTML = `
+                <i class="fas fa-file-code" style="font-size:0.7rem"></i>
+                <span>${shortName}</span>
+                <i class="fas fa-times close-tab-btn"></i>
+            `;
+
+            // Klik Tab -> Switch File
+            div.onclick = (e) => {
+                // Jika klik tombol X, jangan switch
+                if (e.target.classList.contains('close-tab-btn')) {
+                    e.stopPropagation();
+                    closeTab(id);
+                } else {
+                    switchFile(id);
+                }
+            };
+
+            tabBar.appendChild(div);
+        });
+    }
+
+    // --- 5. SWITCH FILE LOGIC (Update Multi-Tab) ---
+    window.switchFile = function(id, shouldSave = true) {
+        const file = files.find(f => f.id === id);
+        if (!file) return;
+
+        // 1. Cek apakah file sudah ada di tab?
+        if (!openTabs.includes(id)) {
+            // Jika tab penuh (4), hapus yang paling awal (FIFO)
+            if (openTabs.length >= 4) {
+                openTabs.shift();
+            }
+            openTabs.push(id);
+        }
+
+        // 2. Set Active Logic
+        activeFileId = id;
+        isTyping = true;
+        editor.setValue(file.content);
+        isTyping = false;
+
+        // Mode Highlight CodeMirror
+        if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+        else if(file.type === 'css') editor.setOption('mode', 'css');
+        else if(file.type === 'js') editor.setOption('mode', 'javascript');
+
+        // 3. Render Ulang Tree & Tab
+        renderTree();
+        renderTabs();
+
+        // 4. Tutup Sidebar di Mobile
+        if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+
+        // 5. Simpan Session ke Firebase
+        if (shouldSave) saveSession();
+    };
+
+    // --- 6. CLOSE TAB LOGIC ---
+    window.closeTab = function(id) {
+        // Hapus dari array
+        openTabs = openTabs.filter(tabId => tabId !== id);
+
+        // Jika yang ditutup adalah file yang sedang aktif
+        if (activeFileId === id) {
+            editor.setValue("");
+            activeFileId = null;
+            
+            // Pindah ke tab terakhir jika masih ada sisa
+            if (openTabs.length > 0) {
+                const lastTab = openTabs[openTabs.length - 1];
+                switchFile(lastTab); 
+            }
+        }
+        
+        renderTabs();
+        saveSession(); // Simpan perubahan ke Firebase
+    };
 
     // --- UPDATE FUNGSI RENDER TREE ---
     function renderTree() {
