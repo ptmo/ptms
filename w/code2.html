@@ -78,27 +78,97 @@
         /* LAYOUT AREA (Sama seperti sebelumnya) */
         .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
         
+        /* --- SIDEBAR LAYOUT (Responsive) --- */
         .sidebar {
             width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
             display: flex; flex-direction: column; transition: transform 0.3s ease;
             position: absolute; z-index: 10; height: 100%; top: 0; left: 0; transform: translateX(-100%); 
+            
+            /* PENTING: Agar teks tidak terblok saat klik folder berulang kali */
+            user-select: none; 
         }
         .sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+        
         @media (min-width: 768px) {
             .sidebar { position: relative; transform: translateX(0); width: 220px; box-shadow: none; }
         }
 
-        .sidebar-header { padding: 15px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
-        .sidebar-actions i { cursor: pointer; margin-left: 10px; font-size: 1rem; transition: color 0.2s; }
-        .sidebar-actions i:hover { color: white; }
-
-        .file-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
-        .file-item {
-            padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
-            font-size: 0.9rem; color: #dcdcdc; border-left: 2px solid transparent;
+        .sidebar-header { 
+            padding: 15px; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.5px;
+            color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; 
+            border-bottom: 1px solid var(--border); 
+            background: var(--bg-header);
         }
-        .file-item:hover { background: rgba(255,255,255,0.05); }
-        .file-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
+        
+        .sidebar-actions { display: flex; gap: 10px; }
+        .sidebar-actions i { 
+            cursor: pointer; font-size: 0.9rem; transition: all 0.2s; opacity: 0.7; 
+        }
+        .sidebar-actions i:hover { color: white; opacity: 1; transform: scale(1.1); }
+
+        /* --- PREMIUM TREE VIEW (VS Code Style) --- */
+        
+        /* Container Utama */
+        .file-list { 
+            flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; 
+        }
+
+        /* Reset UL untuk anak folder */
+        .file-tree, .folder-content {
+            list-style: none; padding: 0; margin: 0;
+        }
+
+        /* Baris Item (File atau Folder) */
+        .tree-item {
+            padding: 5px 15px; /* Lebih rapat agar muat banyak file */
+            cursor: pointer; 
+            display: flex; align-items: center; gap: 6px;
+            font-size: 0.85rem; color: #dcdcdc; 
+            border-left: 2px solid transparent; /* Marker aktif */
+            transition: background 0.1s;
+            
+            /* Mencegah teks panjang merusak layout */
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+        }
+
+        /* Hover Effect */
+        .tree-item:hover { 
+            background: rgba(255,255,255,0.04); 
+            color: #fff;
+        }
+
+        /* Active File Effect */
+        .tree-item.active { 
+            background: rgba(189, 147, 249, 0.1); 
+            border-left-color: var(--accent); 
+            color: #fff; 
+        }
+
+        /* --- LOGIKA FOLDER --- */
+        
+        /* Kontainer anak folder (Default: Tersembunyi) */
+        .folder-content { display: none; }
+        
+        /* Jika parent punya class 'folder-open', tampilkan anaknya */
+        .folder-open > .folder-content { display: block; }
+
+        /* Panah Folder */
+        .folder-arrow { 
+            font-size: 0.7rem; 
+            color: var(--text-muted); 
+            transition: transform 0.2s ease; 
+            display: inline-block;
+            width: 12px; text-align: center;
+        }
+
+        /* Putar panah saat folder terbuka */
+        .folder-open > .tree-item > .folder-arrow { 
+            transform: rotate(90deg); 
+            color: var(--text-main);
+        }
+
+        /* --- UTILS --- */
+        #fileImporter, #folderImporter { display: none; }
         
         .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-editor); min-width: 0; }
         .tab-bar { height: 35px; background: var(--bg-sidebar); display: flex; align-items: center; border-bottom: 1px solid var(--border); overflow-x: auto; }
@@ -144,10 +214,16 @@
                 <span>EXPLORER</span>
                 <div class="sidebar-actions">
                     <i class="fas fa-file-circle-plus" onclick="createNewFile()" title="New File"></i>
-                    <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="deleteProject()" title="Delete All"></i>
+                    <i class="fas fa-folder-plus" onclick="createNewFolder()" title="New Folder"></i>
+                    <i class="fas fa-cloud-upload-alt" onclick="triggerImport()" title="Import File/Folder"></i>
+                    <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="deleteProject()" title="Format Workspace"></i>
                 </div>
             </div>
-            <ul class="file-list" id="fileList"></ul>
+            
+            <div id="fileTreeRoot" class="file-list"></div>
+
+            <input type="file" id="fileImporter" multiple onchange="handleImport(this.files)">
+            <input type="file" id="folderImporter" webkitdirectory directory onchange="handleImport(this.files)">
         </aside>
 
         <main class="editor-area">
@@ -188,6 +264,7 @@
         let activeFileId = null;
         let isTyping = false;
         let unsubscribeFirestore = null; // Untuk mematikan listener saat logout
+        let expandedPaths = new Set();
 
         // EDITOR SETUP
         const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
@@ -260,101 +337,233 @@
             }
         });
 
-        // --- 2. FIRESTORE LOGIC (CRUD) ---
-        
+        // ... (Config Firebase & Auth tetap sama) ...
+
+        // VARIABLES UPDATE
+         // Mengingat folder mana yang sedang dibuka
+
+        // --- CORE: FIRESTORE LISTENER (TREE SYSTEM) ---
         function startFirestoreListener() {
-            const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("createdAt"));
+            const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("name")); // Sort by Name
             
-            // Simpan unsubscribe function agar bisa dimatikan saat logout
             unsubscribeFirestore = onSnapshot(q, (snapshot) => {
                 files = [];
-                const list = document.getElementById('fileList');
-                list.innerHTML = '';
-
                 snapshot.forEach((docSnap) => {
-                    const data = docSnap.data();
-                    const fileObj = { id: docSnap.id, ...data };
-                    files.push(fileObj);
-
-                    const li = document.createElement('li');
-                    li.className = `file-item ${fileObj.id === activeFileId ? 'active' : ''}`;
-                    
-                    const delBtn = `<i class="fas fa-trash" style="margin-left:auto; font-size:0.7rem; color:#ff5555; opacity:0.5;" onclick="window.deleteFile('${fileObj.id}', event)"></i>`;
-                    
-                    let iconClass = 'fa-file';
-                    if(data.type === 'html') iconClass = 'fab fa-html5';
-                    else if(data.type === 'css') iconClass = 'fab fa-css3-alt';
-                    else if(data.type === 'js') iconClass = 'fab fa-js';
-
-                    li.innerHTML = `
-                        <div class="file-icon"><i class="${iconClass}"></i></div>
-                        <span onclick="window.switchFile('${fileObj.id}')" style="flex:1">${data.name}</span>
-                        ${delBtn}
-                    `;
-                    list.appendChild(li);
-
-                    // Sync Editor Realtime (Jika sedang tidak ngetik)
-                    if (activeFileId === fileObj.id && !isTyping) {
-                        const cursor = editor.getCursor();
-                        if(editor.getValue() !== data.content) {
-                            editor.setValue(data.content);
-                            editor.setCursor(cursor);
-                        }
-                    }
+                    files.push({ id: docSnap.id, ...docSnap.data() });
                 });
-
-                if (!activeFileId && files.length > 0) {
-                    window.switchFile(files[0].id);
-                }
-            }, (error) => {
-                console.error("Firestore Error:", error);
-                // Jika error permission (misal dipaksa akses tanpa login), force logout
-                if(error.code === 'permission-denied') {
-                    // signOut(auth); 
-                }
+                
+                // RENDER POHON FILE (REKURSIF)
+                renderTree();
             });
         }
 
-        // CREATE
-        window.createNewFile = async function() {
-            const name = prompt("Nama File (contoh: index.html):");
-            if (!name) return;
-            const ext = name.split('.').pop();
-            let type = 'html';
-            if (ext === 'css') type = 'css'; else if (ext === 'js') type = 'js';
+        // --- RENDERER: VIRTUAL TREE BUILDER ---
+        function renderTree() {
+            const rootContainer = document.getElementById('fileTreeRoot');
+            rootContainer.innerHTML = '';
 
-            try {
-                await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-                    name: name, type: type, content: "// " + name, createdAt: serverTimestamp()
+            // 1. Ubah Data Datar -> Struktur Object Bertingkat
+            const tree = {};
+            files.forEach(file => {
+                const parts = file.name.split('/'); // "src/utils/api.js" -> ["src", "utils", "api.js"]
+                let current = tree;
+                parts.forEach((part, i) => {
+                    if (!current[part]) {
+                        // Jika ini ujung path, simpan data file. Jika bukan, bikin object kosong (folder)
+                        current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
+                    }
+                    current = current[part].__children; // Masuk lebih dalam
                 });
-            } catch (e) { alert(e.message); }
+            });
+
+            // 2. Fungsi Rekursif Pembuat HTML
+            function buildHTML(node, container, pathPrefix = '', depth = 0) {
+                // Urutkan: Folder di atas, File di bawah
+                const keys = Object.keys(node).sort((a, b) => {
+                    const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
+                    const isFolderB = Object.keys(node[b].__children).length > 0 || node[b].__data?.type === 'folder';
+                    if (isFolderA && !isFolderB) return -1;
+                    if (!isFolderA && isFolderB) return 1;
+                    return a.localeCompare(b);
+                });
+
+                keys.forEach(key => {
+                    if (key === '__data' || key === '__children') return;
+
+                    const item = node[key];
+                    const fileData = item.__data || {};
+                    const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
+                    const isFolder = Object.keys(item.__children).length > 0 || fileData.type === 'folder';
+                    
+                    // Elemen List
+                    const li = document.createElement('li');
+                    if (isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
+
+                    // Icon Setup 
+                    let iconClass = 'fas fa-file';
+                    let colorStyle = '';
+                    
+                    if (isFolder) {
+                        iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c;'; // Kuning
+                    } else {
+                        if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c;'; }
+                        else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd;'; }
+                        else if (fileData.type === 'js') { iconClass = 'fab fa-js'; colorStyle = 'color: #f1fa8c;'; }
+                    }
+
+                    // DOM Structure
+                    const padding = 15 + (depth * 12);
+                    const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:10px; display:inline-block"></span>`;
+                    
+                    // Tombol Hapus (Muncul saat hover via CSS)
+                    const deleteBtn = fileData.id ? 
+                        `<i class="fas fa-trash" style="margin-left:auto; font-size:0.7rem; color:#ff5555; opacity:0; transition:opacity 0.2s;" onclick="deleteItem('${fileData.id}', '${isFolder}', '${currentPath}', event)"></i>` : '';
+
+                    const divItem = document.createElement('div');
+                    divItem.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
+                    divItem.style.paddingLeft = `${padding}px`;
+                    divItem.innerHTML = `${arrow} <i class="${iconClass}" style="${colorStyle}"></i> <span>${key}</span> ${deleteBtn}`;
+                    
+                    // Hover logic untuk tombol hapus
+                    divItem.onmouseenter = () => { if(divItem.querySelector('.fa-trash')) divItem.querySelector('.fa-trash').style.opacity = '1'; }
+                    divItem.onmouseleave = () => { if(divItem.querySelector('.fa-trash')) divItem.querySelector('.fa-trash').style.opacity = '0'; }
+
+                    // Click Action
+                    divItem.onclick = (e) => {
+                        e.stopPropagation();
+                        if (isFolder) {
+                            // Toggle Folder
+                            if (li.classList.contains('folder-open')) {
+                                li.classList.remove('folder-open');
+                                expandedPaths.delete(currentPath);
+                            } else {
+                                li.classList.add('folder-open');
+                                expandedPaths.add(currentPath);
+                            }
+                        } else {
+                            // Open File
+                            window.switchFile(fileData.id);
+                        }
+                    };
+
+                    li.appendChild(divItem);
+
+                    // Render Anak Folder (Recursion)
+                    if (isFolder) {
+                        const ulChild = document.createElement('ul');
+                        ulChild.className = 'folder-content';
+                        buildHTML(item.__children, ulChild, currentPath, depth + 1);
+                        li.appendChild(ulChild);
+                    }
+                    container.appendChild(li);
+                });
+            }
+
+            const rootUl = document.createElement('ul');
+            rootUl.className = 'file-tree';
+            buildHTML(tree, rootUl);
+            rootContainer.appendChild(rootUl);
+        }
+
+
+        // --- FEATURES: IMPORT & CREATE ---
+
+        // 1. Trigger Import Menu
+        window.triggerImport = function() {
+            const choice = prompt("Ketik '1' Import FILE\nKetik '2' Import FOLDER PROJECT:");
+            if(choice === '1') document.getElementById('fileImporter').click();
+            if(choice === '2') document.getElementById('folderImporter').click();
         };
 
-        // UPDATE (Auto Save)
-        let saveTimeout;
-        editor.on('change', (cm, change) => {
-            if (change.origin === 'setValue') return;
-            isTyping = true;
-            clearTimeout(saveTimeout);
-            saveTimeout = setTimeout(async () => {
-                if (activeFileId) {
-                    const content = editor.getValue();
-                    try {
-                        await updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: content });
-                    } catch(e) { console.error("Save failed", e); }
-                    isTyping = false;
-                }
-            }, 1000);
-        });
+        // 2. Handle Import (Batch Upload)
+        window.handleImport = async function(fileList) {
+            if (!fileList.length) return;
+            const batch = writeBatch(db); // Pakai Batch agar cepat & hemat request
+            let count = 0;
 
-        // DELETE SINGLE
-        window.deleteFile = async function(id, event) {
+            for (let i = 0; i < fileList.length; i++) {
+                const file = fileList[i];
+                if (file.name.startsWith('.')) continue; // Skip hidden files
+
+                // AMBIL PATH LENGKAP (Kunci Folder Structure)
+                const fullPath = file.webkitRelativePath || file.name;
+                
+                const ext = fullPath.split('.').pop();
+                let type = 'txt';
+                if(['html','htm'].includes(ext)) type = 'html';
+                else if(['css'].includes(ext)) type = 'css';
+                else if(['js','ts','json'].includes(ext)) type = 'js';
+
+                const content = await readFile(file);
+                const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
+                
+                batch.set(ref, {
+                    name: fullPath,
+                    type: type,
+                    content: content,
+                    createdAt: serverTimestamp()
+                });
+                count++;
+            }
+            await batch.commit(); // Kirim semua sekaligus
+            alert(`Berhasil import ${count} file!`);
+            document.getElementById('fileImporter').value = '';
+            document.getElementById('folderImporter').value = '';
+        };
+
+        // 3. Create Folder (Empty)
+        window.createNewFolder = async function() {
+            const name = prompt("Nama Folder Baru:");
+            if (!name) return;
+            // Simpan sebagai tipe 'folder' agar tree renderer tahu
+            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                name: name, type: 'folder', content: '', createdAt: serverTimestamp()
+            });
+        };
+
+        // 4. Create File (Support Path)
+        window.createNewFile = async function() {
+            const path = prompt("Nama File (Bisa pakai path: src/components/nav.js):");
+            if (!path) return;
+            const ext = path.split('.').pop();
+            let type = 'html';
+            if(ext === 'css') type = 'css'; else if(ext === 'js') type = 'js';
+
+            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                name: path, type: type, content: '// ' + path, createdAt: serverTimestamp()
+            });
+        };
+
+        // 5. Smart Delete (File or Folder)
+        window.deleteItem = async function(id, isFolder, pathName, event) {
             event.stopPropagation();
-            if(confirm("Hapus file ini?")) {
-                await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
-                if(activeFileId === id) { editor.setValue(""); activeFileId = null; }
+            if(confirm(`Hapus ${isFolder === 'true' ? 'FOLDER dan isinya' : 'file'} ini?`)) {
+                if(isFolder === 'true') {
+                    // Hapus Folder = Hapus Semua File yang path-nya diawali nama folder
+                    const batch = writeBatch(db);
+                    files.forEach(f => {
+                        if(f.name.startsWith(pathName + '/') || f.name === pathName) {
+                            batch.delete(doc(db, "projects", PROJECT_ID, "files", f.id));
+                        }
+                    });
+                    await batch.commit();
+                } else {
+                    await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
+                    if(activeFileId === id) { editor.setValue(""); activeFileId = null; }
+                }
             }
         };
+
+        // Helper Reader
+        function readFile(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = e => r(e.target.result);
+                reader.readAsText(file);
+            });
+        }
+
+        // ... (Sisa fungsi switchFile, deleteProject, dll tetap sama) ...
 
         // DELETE ALL (RESET)
         window.deleteProject = async function() {
