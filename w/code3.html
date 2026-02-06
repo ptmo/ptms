@@ -182,13 +182,25 @@ body {
         }
 
         /* --- STYLE TAMBAHAN: CONTEXT MENU (TITIK TIGA) --- */
+        /* --- UPDATE: TITIK TIGA STANDBY (MOBILE FRIENDLY) --- */
         .kebab-menu-btn {
-            margin-left: auto; padding: 2px 6px; border-radius: 4px;
-            color: var(--text-muted); transition: all 0.2s; opacity: 0;
+            margin-left: auto; 
+            padding: 5px 10px; /* Area sentuh diperbesar */
+            border-radius: 4px;
+            color: var(--text-muted); 
+            transition: all 0.2s; 
+            opacity: 1 !important; /* WAJIB: Agar selalu terlihat (Standby) */
+            cursor: pointer;
+            z-index: 50; /* Pastikan di atas layer lain */
+        }
+        
+        .kebab-menu-btn:hover, .kebab-menu-btn:active { 
+            background: rgba(255,255,255,0.1); 
+            color: white; 
+            transform: scale(1.1);
         }
         .tree-item:hover .kebab-menu-btn { opacity: 1; }
-        .kebab-menu-btn:hover { background: rgba(255,255,255,0.1); color: white; }
-
+        
         /* --- UPDATE CSS MENU --- */
         /* Kita gabungkan selectornya agar style berlaku untuk kedua menu */
         #contextMenu, #fileContextMenu {
@@ -485,11 +497,12 @@ body {
         });
     }
 
-    // --- RENDER TREE (UI) ---
+    // --- UPDATE FUNGSI RENDER TREE ---
     function renderTree() {
         const rootContainer = document.getElementById('fileTreeRoot');
         rootContainer.innerHTML = '';
 
+        // 1. Build Object Tree
         const tree = {};
         files.forEach(file => {
             const parts = file.name.split('/'); 
@@ -502,6 +515,7 @@ body {
             });
         });
 
+        // 2. Build HTML
         function buildHTML(node, container, pathPrefix = '', depth = 0) {
             const keys = Object.keys(node).sort((a, b) => {
                 const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
@@ -522,26 +536,25 @@ body {
                 const li = document.createElement('li');
                 if (isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
 
+                // Icon Logic
                 let iconClass = 'fas fa-file';
-                let colorStyle = '';
-                
-                if (isFolder) {
-                    iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c;'; 
-                } else {
-                    if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c;'; }
-                    else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd;'; }
-                    else if (fileData.type === 'js') { iconClass = 'fab fa-js'; colorStyle = 'color: #f1fa8c;'; }
-                }
+                let colorStyle = 'color:#dcdcdc'; // Default file color
+                if (isFolder) { iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c'; } 
+                else if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c'; }
+                else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd'; }
+                else if (fileData.type === 'js') { iconClass = 'fab fa-js'; colorStyle = 'color: #f1fa8c'; }
 
                 const padding = 15 + (depth * 12);
                 const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:10px; display:inline-block"></span>`;
                 
-                // Context Menu Button
+                // --- BAGIAN PENTING: TOMBOL TITIK TIGA ---
                 let actionBtn = '';
                 if (isFolder) {
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
+                    // Tombol Folder -> Panggil showContextMenu
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
                 } else {
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
+                    // Tombol File -> Panggil showFileContextMenu
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
                 }
 
                 const divItem = document.createElement('div');
@@ -549,19 +562,19 @@ body {
                 divItem.style.paddingLeft = `${padding}px`;
                 divItem.innerHTML = `${arrow} <i class="${iconClass}" style="${colorStyle}"></i> <span>${key}</span> ${actionBtn}`;
                 
-                divItem.onmouseenter = () => { if(divItem.querySelector('.kebab-menu-btn')) divItem.querySelector('.kebab-menu-btn').style.opacity = '1'; }
-                divItem.onmouseleave = () => { if(divItem.querySelector('.kebab-menu-btn')) divItem.querySelector('.kebab-menu-btn').style.opacity = '0'; }
-
+                // Klik Item (Buka Folder / File)
                 divItem.onclick = (e) => {
+                    // Cek: Jika yang diklik adalah tombol titik tiga, JANGAN jalankan logic buka file
+                    if (e.target.classList.contains('kebab-menu-btn')) return;
+
                     e.stopPropagation();
-                    window.hideContextMenu();
+                    window.hideContextMenu(); // Tutup menu jika user klik area kosong item
+                    
                     if (isFolder) {
                         if (li.classList.contains('folder-open')) {
-                            li.classList.remove('folder-open');
-                            expandedPaths.delete(currentPath);
+                            li.classList.remove('folder-open'); expandedPaths.delete(currentPath);
                         } else {
-                            li.classList.add('folder-open');
-                            expandedPaths.add(currentPath);
+                            li.classList.add('folder-open'); expandedPaths.add(currentPath);
                         }
                     } else {
                         window.switchFile(fileData.id);
@@ -678,40 +691,57 @@ body {
         });
     }
 
-    // --- CONTEXT MENU HANDLERS ---
+    // --- UPDATE: MENU HANDLERS (ANTI BENTROK) ---
     
-    // Folder Menu
+    // 1. Menu untuk Folder
     window.showContextMenu = (e, path) => {
-        e.stopPropagation();
-        window.hideContextMenu();
+        e.preventDefault();
+        e.stopPropagation(); // Stop agar tidak membuka folder
+        window.hideContextMenu(); // Tutup menu lain yang mungkin terbuka
+        
         currentCtxPath = path;
         
         const menu = document.getElementById('contextMenu');
         menu.style.top = e.clientY + 'px';
-        menu.style.left = (e.clientX - 100) + 'px';
+        
+        // Logic agar menu tidak keluar layar kanan
+        if (e.clientX + 160 > window.innerWidth) {
+            menu.style.left = (e.clientX - 160) + 'px';
+        } else {
+            menu.style.left = e.clientX + 'px';
+        }
+        
         menu.classList.add('visible');
+        
+        // Auto close saat klik di tempat lain
         setTimeout(() => document.addEventListener('click', window.hideContextMenu, {once:true}), 10);
     };
 
-    // File Menu
+    // 2. Menu untuk File
     window.showFileContextMenu = (e, id, path) => {
-        e.stopPropagation();
-        window.hideContextMenu();
+        e.preventDefault();
+        e.stopPropagation(); // Stop agar tidak membuka file
+        window.hideContextMenu(); // Tutup menu lain
+        
         currentFileId = id;
         currentFilePath = path;
         
         const menu = document.getElementById('fileContextMenu');
         menu.style.top = e.clientY + 'px';
-        menu.style.left = (e.clientX - 100) + 'px';
+        
+        if (e.clientX + 160 > window.innerWidth) {
+            menu.style.left = (e.clientX - 160) + 'px';
+        } else {
+            menu.style.left = e.clientX + 'px';
+        }
+
         menu.classList.add('visible');
         setTimeout(() => document.addEventListener('click', window.hideContextMenu, {once:true}), 10);
     };
 
+    // 3. Fungsi Tutup Semua Menu
     window.hideContextMenu = () => {
-        const m1 = document.getElementById('contextMenu');
-        const m2 = document.getElementById('fileContextMenu');
-        if(m1) m1.classList.remove('visible');
-        if(m2) m2.classList.remove('visible');
+        document.querySelectorAll('.visible').forEach(el => el.classList.remove('visible'));
     };
 
     // --- ACTIONS ---
