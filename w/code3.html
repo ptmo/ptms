@@ -1030,41 +1030,26 @@ body {
         }
     };
 
-    // --- 12. RUN PROJECT (PREVIEW) ---
     window.runProject = function() {
-        // Cari file HTML (Prioritas index.html, atau file html apa saja)
-        const htmlFile = files.find(f => f.name === 'index.html' || f.name.endsWith('.html'));
-        
-        if (!htmlFile) {
-            alert("Error: Tidak ditemukan file HTML (index.html) untuk dijalankan.");
-            return;
-        }
-
+        const htmlFile = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
+        if(!htmlFile) { alert("Butuh file HTML!"); return; }
         let finalHTML = htmlFile.content;
-
-        // Bundling Sederhana: Inject CSS & JS ke dalam HTML
-        // 1. Inject CSS
         const cssFiles = files.filter(f => f.type === 'css');
-        cssFiles.forEach(c => {
-            finalHTML = finalHTML.replace('</head>', `<style>/* ${c.name} */\n${c.content}</style></head>`);
-        });
-
-        // 2. Inject JS
+        cssFiles.forEach(c => finalHTML += `<style>${c.content}</style>`);
         const jsFiles = files.filter(f => f.type === 'js');
-        jsFiles.forEach(j => {
-            finalHTML = finalHTML.replace('</body>', `<script>/* ${j.name} */\n${j.content}<\/script></body>`);
-        });
-
-        // 3. Buka di Tab Baru
-        const blob = new Blob([finalHTML], { type: 'text/html' });
-        const url = URL.createObjectURL(blob);
-        window.open(url, '_blank');
+        jsFiles.forEach(j => finalHTML += `<script>${j.content}<\/script>`);
+        window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
     };
 
-    window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
-    window.runProject = () => { /* Run Logic */ };
-    function readFile(file) { return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsText(file); }); }
-    
+    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
+
+    function readFile(file) {
+        return new Promise(r => {
+            const reader = new FileReader();
+            reader.onload = e => r(e.target.result);
+            reader.readAsText(file);
+        });
+        
     window.processFileImport = async (fileList) => {
         if (!currentUserId) return;
         const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
