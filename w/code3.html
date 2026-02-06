@@ -32,8 +32,22 @@
         }
 
         * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
-        body { margin: 0; background: var(--bg-editor); color: var(--text-main); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
+body { 
+    margin: 0; 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    font-family: 'Inter', sans-serif; 
+    
+    /* GANTI INI: Pakai dvh (Dynamic Viewport Height) agar pas di HP */
+    height: 100vh; /* Fallback */
+    height: 100dvh; 
+    
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; /* Mencegah body ikut ke-scroll */
+}
+        
         /* --- LOGIN OVERLAY (GERBANG UTAMA) --- */
         #loginScreen {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
@@ -198,16 +212,90 @@
         .ctx-item:last-child { border-bottom: none; color: #ff5555; }
         .ctx-item:last-child:hover { background: #ff5555; color: white; }
 
-        /* --- UTILS --- */
-        #fileImporter, #folderImporter { display: none; }
-        
-        .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-editor); min-width: 0; }
-        .tab-bar { height: 35px; background: var(--bg-sidebar); display: flex; align-items: center; border-bottom: 1px solid var(--border); overflow-x: auto; }
-        .file-tab { padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); border-right: 1px solid var(--border); background: var(--bg-sidebar); }
-        .file-tab.active { background: var(--bg-editor); color: var(--text-main); border-top: 2px solid var(--accent); }
+        /* 1. PERBAIKAN BODY (Gunakan 100dvh) */
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
 
-        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; font-size: 14px; background: transparent !important; }
-        .CodeMirror-gutters { background: var(--bg-editor) !important; border-right: 1px solid var(--border); }
+body { 
+    margin: 0; 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    font-family: 'Inter', sans-serif; 
+    
+    /* GANTI INI: Pakai dvh (Dynamic Viewport Height) agar pas di HP */
+    height: 100vh; /* Fallback */
+    height: 100dvh; 
+    
+    display: flex; 
+    flex-direction: column; 
+    overflow: hidden; /* Mencegah body ikut ke-scroll */
+}
+
+/* --- UTILS --- */
+#fileImporter, #folderImporter { display: none; }
+
+/* 2. EDITOR AREA (Wadah Utama) */
+.editor-area { 
+    flex: 1; 
+    display: flex; 
+    flex-direction: column; 
+    background: var(--bg-editor); 
+    min-width: 0;
+    
+    /* PENTING: Pastikan overflow di-handle di sini */
+    overflow: hidden; 
+    position: relative;
+}
+
+/* 3. TAB BAR */
+.tab-bar { 
+    height: 35px; 
+    background: var(--bg-sidebar); 
+    display: flex; 
+    align-items: center; 
+    border-bottom: 1px solid var(--border); 
+    overflow-x: auto;
+    flex-shrink: 0; /* Agar header tab tidak tergencet */
+}
+
+.file-tab { 
+    padding: 0 15px; 
+    height: 100%; 
+    display: flex; 
+    align-items: center; 
+    gap: 8px; 
+    font-size: 0.8rem; 
+    color: var(--text-muted); 
+    border-right: 1px solid var(--border); 
+    background: var(--bg-sidebar); 
+    white-space: nowrap;
+}
+
+.file-tab.active { 
+    background: var(--bg-editor); 
+    color: var(--text-main); 
+    border-top: 2px solid var(--accent); 
+}
+
+/* 4. CODEMIRROR (Inti Editor) */
+.CodeMirror { 
+    /* Paksa tinggi mengikuti sisa ruang */
+    height: 100% !important; 
+    flex: 1;
+    font-family: 'JetBrains Mono', monospace; 
+    font-size: 14px; 
+    background: transparent !important; 
+}
+
+.CodeMirror-gutters { 
+    background: var(--bg-editor) !important; 
+    border-right: 1px solid var(--border); 
+}
+
+/* 5. SOLUSI MENTOK (Padding Bawah) */
+/* Ini memberikan ruang kosong ekstra di paling bawah editor */
+.CodeMirror-scroll {
+    padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
+}
     </style>
 </head>
 <body>
