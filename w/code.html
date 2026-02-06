@@ -3,134 +3,132 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Obusion Cloud IDE</title>
+    <title>Obusion Cloud IDE | Pro</title>
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
-
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
 
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
 
     <style>
         :root {
-            --bg-sidebar: #1e1f29;
-            --bg-editor: #282a36;
-            --bg-header: #191a21;
-            --accent: #bd93f9;
-            --text-main: #f8f8f2;
-            --text-muted: #6272a4;
-            --border: #44475a;
-            --folder: #f1fa8c;
-            --html: #ffb86c;
-            --css: #8be9fd;
-            --js: #f1fa8c;
+            --bg-sidebar: #1e1f29; --bg-editor: #282a36; --bg-header: #191a21;
+            --accent: #bd93f9; --text-main: #f8f8f2; --text-muted: #6272a4; --border: #44475a;
         }
 
-        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        * { box-sizing: border-box; outline: none; -webkit-tap-highlight-color: transparent; }
         body { margin: 0; background: var(--bg-editor); color: var(--text-main); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
 
         /* HEADER */
         .ide-header {
-            height: 45px; background: var(--bg-header); border-bottom: 1px solid var(--border);
+            height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border);
             display: flex; align-items: center; justify-content: space-between; padding: 0 15px; flex-shrink: 0;
         }
-        .brand { font-weight: 700; font-size: 0.9rem; letter-spacing: 0.5px; display: flex; align-items: center; gap: 8px;}
-        .brand i { color: var(--accent); }
-        
-        .header-actions button {
-            background: var(--accent); color: #282a36; border: none;
-            padding: 5px 12px; border-radius: 4px; font-weight: 600; font-size: 0.8rem;
-            cursor: pointer; display: flex; align-items: center; gap: 6px;
-        }
+        .brand { font-weight: 700; color: var(--accent); display: flex; gap: 10px; align-items: center; }
+        .user-profile { display: flex; gap: 10px; align-items: center; }
+        .user-avatar { width: 30px; height: 30px; border-radius: 50%; border: 2px solid var(--accent); display: none; }
 
-        /* LAYOUT UTAMA */
+        /* BODY LAYOUT */
         .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
 
-        /* SIDEBAR (File Explorer) */
+        /* SIDEBAR */
         .sidebar {
-            width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
-            display: flex; flex-direction: column; transition: transform 0.3s ease;
-            position: absolute; z-index: 10; height: 100%; top: 0; left: 0;
-            /* Di HP default hidden (slide out) */
-            transform: translateX(-100%); 
+            width: 250px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; user-select: none;
+            position: absolute; z-index: 10; height: 100%; top: 0; left: 0; transform: translateX(-100%); transition: transform 0.3s;
         }
-        
-        /* Sidebar Toggle untuk Mobile */
-        .sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
-        
-        /* Tampilan Desktop: Sidebar selalu muncul */
-        @media (min-width: 768px) {
-            .sidebar { position: relative; transform: translateX(0); width: 220px; box-shadow: none; }
-            .mobile-toggle { display: none; }
-        }
+        .sidebar.open { transform: translateX(0); }
+        @media (min-width: 768px) { .sidebar { position: relative; transform: translateX(0); width: 240px; } }
 
         .sidebar-header {
-            padding: 10px 15px; font-size: 0.75rem; font-weight: 700; color: var(--text-muted);
-            text-transform: uppercase; display: flex; justify-content: space-between; align-items: center;
+            padding: 15px; font-size: 0.8rem; font-weight: bold; color: var(--text-muted);
+            display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border);
         }
-        .sidebar-actions i { cursor: pointer; margin-left: 10px; transition: color 0.2s; }
-        .sidebar-actions i:hover { color: var(--text-main); }
+        .sidebar-actions i { cursor: pointer; margin-left: 8px; transition: 0.2s; }
+        .sidebar-actions i:hover { color: white; }
 
-        .file-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
-        .file-item {
-            padding: 8px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+        /* TREE VIEW */
+        .file-list { flex: 1; overflow-y: auto; padding-bottom: 20px; }
+        .file-tree, .folder-content { list-style: none; padding: 0; margin: 0; }
+        
+        .tree-item {
+            padding: 6px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
             font-size: 0.85rem; color: #dcdcdc; border-left: 2px solid transparent;
-            transition: background 0.1s;
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
         }
-        .file-item:hover { background: rgba(255,255,255,0.05); }
-        .file-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
+        .tree-item:hover { background: rgba(255,255,255,0.05); color: white; }
+        .tree-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
+
+        /* FOLDER LOGIC */
+        .folder-content { display: none; }
+        .folder-open > .folder-content { display: block; }
+        .folder-arrow { font-size: 0.7rem; transition: 0.2s; width: 12px; text-align: center; }
+        .folder-open > .tree-item > .folder-arrow { transform: rotate(90deg); color: var(--text-main); }
+
+        /* KEBAB MENU (TITIK TIGA) */
+        .kebab-btn { margin-left: auto; padding: 2px 5px; opacity: 0; transition: 0.2s; color: var(--text-muted); }
+        .tree-item:hover .kebab-btn { opacity: 1; }
+        .kebab-btn:hover { color: white; background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+        /* CONTEXT MENU DROPDOWN */
+        #contextMenu {
+            position: fixed; z-index: 9999; background: #282a36; border: 1px solid var(--border);
+            border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.5); display: none; flex-direction: column;
+            min-width: 160px;
+        }
+        #contextMenu.visible { display: flex; }
+        .ctx-item {
+            padding: 10px 15px; font-size: 0.85rem; cursor: pointer; display: flex; gap: 10px; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .ctx-item:hover { background: var(--accent); color: #282a36; }
+        .ctx-item:last-child { color: #ff5555; }
+        .ctx-item:last-child:hover { background: #ff5555; color: white; }
+
+        /* EDITOR */
+        .editor-area { flex: 1; display: flex; flex-direction: column; min-width: 0; }
+        .tab-bar { height: 35px; background: var(--bg-sidebar); display: flex; align-items: center; border-bottom: 1px solid var(--border); }
+        .file-tab { padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; background: var(--bg-editor); border-top: 2px solid var(--accent); }
+        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; background: transparent !important; }
         
-        .file-icon { width: 16px; text-align: center; }
-        .fa-html5 { color: var(--html); }
-        .fa-css3-alt { color: var(--css); }
-        .fa-js { color: var(--js); }
-        .fa-folder { color: var(--folder); }
-
-        /* EDITOR AREA */
-        .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-editor); min-width: 0; }
+        /* LOGIN */
+        #loginScreen { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: var(--bg-editor); z-index: 9999; display: flex; align-items: center; justify-content: center; }
+        #loginScreen.hidden { display: none; }
+        .login-btn { padding: 10px 20px; background: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; display: flex; gap: 10px; align-items: center; }
         
-        .tab-bar {
-            height: 35px; background: var(--bg-sidebar); display: flex; align-items: center;
-            border-bottom: 1px solid var(--border); overflow-x: auto;
-        }
-        .file-tab {
-            padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px;
-            font-size: 0.8rem; color: var(--text-muted); border-right: 1px solid var(--border);
-            cursor: pointer; background: var(--bg-sidebar); min-width: 100px;
-        }
-        .file-tab.active { background: var(--bg-editor); color: var(--text-main); border-top: 2px solid var(--accent); }
-        .file-tab i { font-size: 0.7rem; }
-
-        /* CodeMirror Full Height */
-        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; font-size: 14px; background: transparent !important; }
-        .CodeMirror-gutters { background: var(--bg-editor) !important; border-right: 1px solid var(--border); }
-
-        /* Mobile Sidebar Toggle Button */
-        .mobile-toggle {
-            font-size: 1.2rem; color: var(--text-muted); cursor: pointer; margin-right: 15px;
-        }
+        /* UTILS */
+        #fileImporter, #folderImporter { display: none; }
     </style>
 </head>
 <body>
 
-    <header class="ide-header">
-        <div style="display:flex; align-items:center;">
-            <i class="fas fa-bars mobile-toggle" onclick="toggleSidebar()"></i>
-            <div class="brand"><i class="fas fa-cloud"></i> OBUSION <span>CLOUD</span></div>
+    <div id="loginScreen">
+        <div style="text-align:center;">
+            <h2 style="color:var(--accent)">Obusion Cloud</h2>
+            <button class="login-btn" onclick="window.loginGoogle()">
+                <i class="fab fa-google"></i> Sign in with Google
+            </button>
         </div>
-        <div class="header-actions">
-            <button onclick="runProject()"><i class="fas fa-play"></i> <span style="margin-left:5px; display:none; @media(min-width:768px){display:inline;}">Run Live</span></button>
+    </div>
+
+    <header class="ide-header">
+        <div class="brand">
+            <i class="fas fa-bars" onclick="toggleSidebar()" style="cursor:pointer; @media(min-width:768px){display:none;}"></i>
+            <i class="fas fa-code"></i> OBUSION
+        </div>
+        <div class="user-profile">
+            <img id="userAvatar" class="user-avatar">
+            <button onclick="window.logoutGoogle()" style="background:none; border:1px solid var(--border); color:white; padding:5px 10px; cursor:pointer; border-radius:4px;">Logout</button>
+            <button onclick="window.runProject()" style="background:var(--accent); border:none; padding:5px 15px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-play"></i></button>
         </div>
     </header>
 
@@ -138,396 +136,350 @@
         
         <aside class="sidebar" id="sidebar">
             <div class="sidebar-header">
-                <span>Explorer</span>
+                <span>EXPLORER</span>
                 <div class="sidebar-actions">
-                    <i class="fas fa-file-circle-plus" onclick="createNewFile()" title="New File"></i>
-                    <i class="fas fa-folder-plus" title="New Folder"></i>
+                    <i class="fas fa-file-circle-plus" onclick="window.createNewFile('')" title="New File (Root)"></i>
+                    <i class="fas fa-folder-plus" onclick="window.createNewFolder('')" title="New Folder (Root)"></i>
+                    <i class="fas fa-trash-alt" style="color:#ff5555" onclick="window.deleteProject()" title="Delete All"></i>
                 </div>
             </div>
-            <ul class="file-list" id="fileList">
-                </ul>
+
+            <div id="fileTreeRoot" class="file-list" onclick="window.hideContextMenu()"></div>
+
+            <input type="file" id="fileImporter" multiple onchange="window.processFileImport(this.files)">
+            <input type="file" id="folderImporter" webkitdirectory directory onchange="window.processFolderImport(this.files)">
         </aside>
 
         <main class="editor-area">
             <div class="tab-bar">
-                <div class="file-tab active">
-                    <i class="fab fa-html5" style="color:var(--html)"></i> 
-                    <span id="activeFileName">index.html</span>
+                <div class="file-tab">
+                    <span id="activeFileName">No File</span>
                 </div>
             </div>
-            
             <textarea id="codeEditor"></textarea>
         </main>
     </div>
 
+    <div id="contextMenu">
+        <div class="ctx-item" onclick="window.ctxAction('newFile')"><i class="fas fa-file-plus"></i> New File Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('newFolder')"><i class="fas fa-folder-plus"></i> New Folder Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('importFile')"><i class="fas fa-file-import"></i> Import File Here</div>
+        <div class="ctx-item" onclick="window.ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
+    </div>
+
     <script type="module">
-    // 1. IMPORT FIREBASE (Tambah writeBatch dan getDocs)
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
-    import { 
-        getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs 
-    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 2. CONFIG ANDA
-    const firebaseConfig = {
-        apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
-        authDomain: "obusioncode.firebaseapp.com",
-        projectId: "obusioncode",
-        storageBucket: "obusioncode.firebasestorage.app",
-        messagingSenderId: "299520822295",
-        appId: "1:299520822295:web:f222448979129ae6c2a052",
-        measurementId: "G-B0CYQSNM7R"
-    };
+        // --- CONFIG ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
+            authDomain: "obusioncode.firebaseapp.com",
+            projectId: "obusioncode",
+            storageBucket: "obusioncode.firebasestorage.app",
+            messagingSenderId: "299520822295",
+            appId: "1:299520822295:web:f222448979129ae6c2a052",
+            measurementId: "G-B0CYQSNM7R"
+        };
 
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
-    const PROJECT_ID = "global_workspace"; 
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        const PROJECT_ID = "global_workspace"; 
 
-    // --- VARIABLES ---
-    let files = [];
-    let activeFileId = null;
-    let isTyping = false;
+        // --- VARIABLES ---
+        let files = [];
+        let activeFileId = null;
+        let isTyping = false;
+        let expandedPaths = new Set();
+        let currentCtxPath = ''; // Path folder yg lagi diklik kanan
 
-    // --- SETUP EDITOR ---
-    const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
-        theme: 'dracula',
-        lineNumbers: true,
-        lineWrapping: true,
-        autoCloseTags: true,
-        autoCloseBrackets: true,
-        styleActiveLine: true,
-        mode: 'htmlmixed'
-    });
+        // --- EDITOR ---
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+            theme: 'dracula', lineNumbers: true, mode: 'htmlmixed',
+            autoCloseTags: true, autoCloseBrackets: true, lineWrapping: true
+        });
 
-    // --- 3. FUNGSI CRUD FIREBASE ---
-
-    // A. READ (REALTIME LISTENER)
-    const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("createdAt"));
-    
-    onSnapshot(q, (snapshot) => {
-        files = [];
-        const list = document.getElementById('fileList');
-        list.innerHTML = '';
-
-        snapshot.forEach((docSnap) => {
-            const data = docSnap.data();
-            const fileObj = { id: docSnap.id, ...data };
-            files.push(fileObj);
-
-            const li = document.createElement('li');
-            li.className = `file-item ${fileObj.id === activeFileId ? 'active' : ''}`;
-            
-            // LOGIC DELETE FILE (Menghapus Satu File)
-            const delBtn = `<i class="fas fa-trash" title="Hapus File Ini" style="margin-left:auto; font-size:0.7rem; color:#ff5555; cursor:pointer;" onclick="window.deleteFile('${fileObj.id}', event)"></i>`;
-            
-            let iconClass = 'fa-file';
-            if(data.type === 'html') iconClass = 'fab fa-html5';
-            else if(data.type === 'css') iconClass = 'fab fa-css3-alt';
-            else if(data.type === 'js') iconClass = 'fab fa-js';
-
-            li.innerHTML = `
-                <div class="file-icon"><i class="${iconClass}"></i></div>
-                <span onclick="window.switchFile('${fileObj.id}')" style="flex:1">${data.name}</span>
-                ${delBtn}
-            `;
-            list.appendChild(li);
-
-            if (activeFileId === fileObj.id && !isTyping) {
-                const cursor = editor.getCursor();
-                if(editor.getValue() !== data.content) {
-                    editor.setValue(data.content);
-                    editor.setCursor(cursor);
-                }
+        // --- AUTH SYSTEM ---
+        onAuthStateChanged(auth, (user) => {
+            const screen = document.getElementById('loginScreen');
+            if(user) {
+                screen.classList.add('hidden');
+                document.getElementById('userAvatar').src = user.photoURL;
+                document.getElementById('userAvatar').style.display = 'block';
+                startListener();
+            } else {
+                screen.classList.remove('hidden');
             }
         });
 
-        // Update Header Sidebar (Tambahkan Tombol Hapus Folder/Project)
-        // Pastikan di HTML ada elemen dengan class .sidebar-actions
-        const sidebarActions = document.querySelector('.sidebar-actions');
-        if(sidebarActions) {
-            // Cek biar tombol tidak dobel
-            if(!document.getElementById('btnDeleteAll')) {
-                const btnDeleteAll = document.createElement('i');
-                btnDeleteAll.id = 'btnDeleteAll';
-                btnDeleteAll.className = 'fas fa-trash-alt';
-                btnDeleteAll.style.color = '#ff5555';
-                btnDeleteAll.style.marginLeft = '10px';
-                btnDeleteAll.title = 'Hapus SEMUA File (Format Database)';
-                btnDeleteAll.onclick = window.deleteProject; // Panggil fungsi delete semua
-                sidebarActions.appendChild(btnDeleteAll);
-            }
-        }
+        // Bind Window Functions (Agar bisa dipanggil HTML)
+        window.loginGoogle = () => signInWithPopup(auth, provider);
+        window.logoutGoogle = () => signOut(auth);
+        window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
 
-        if (!activeFileId && files.length > 0) {
-            window.switchFile(files[0].id);
-        } else if (files.length === 0) {
-            editor.setValue(""); // Kosongkan editor jika tidak ada file
-            activeFileId = null;
-        }
-    });
-
-    // B. CREATE (TAMBAH FILE)
-    window.createNewFile = async function() {
-        const name = prompt("Nama File (contoh: index.html):");
-        if (!name) return;
-
-        const ext = name.split('.').pop();
-        let type = 'html';
-        if (ext === 'css') type = 'css';
-        else if (ext === 'js') type = 'js';
-
-        try {
-            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-                name: name,
-                type: type,
-                content: "// New File: " + name,
-                createdAt: serverTimestamp()
+        // --- CORE: TREE LISTENER ---
+        function startListener() {
+            const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("name"));
+            onSnapshot(q, (snapshot) => {
+                files = [];
+                snapshot.forEach(doc => files.push({id: doc.id, ...doc.data()}));
+                renderTree();
             });
-        } catch (e) {
-            alert("Gagal membuat file: " + e.message);
         }
-    };
 
-    // C. UPDATE (AUTO SAVE)
-    let saveTimeout;
-    editor.on('change', (cm, change) => {
-        if (change.origin === 'setValue') return;
-        
-        isTyping = true;
-        clearTimeout(saveTimeout);
-        
-        saveTimeout = setTimeout(async () => {
-            if (activeFileId) {
-                const content = editor.getValue();
-                const fileRef = doc(db, "projects", PROJECT_ID, "files", activeFileId);
-                document.querySelector('.ide-header').style.borderBottomColor = '#f1fa8c';
-                await updateDoc(fileRef, { content: content });
-                document.querySelector('.ide-header').style.borderBottomColor = '#44475a';
-                isTyping = false;
-            }
-        }, 1000);
-    });
+        // --- RENDERER (POHON FILE) ---
+        function renderTree() {
+            const container = document.getElementById('fileTreeRoot');
+            container.innerHTML = '';
+            
+            // 1. Build Object Tree
+            const tree = {};
+            files.forEach(file => {
+                const parts = file.name.split('/');
+                let current = tree;
+                parts.forEach((part, i) => {
+                    if (!current[part]) current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
+                    current = current[part].__children;
+                });
+            });
 
-    // D. DELETE SINGLE FILE (Hapus 1 File)
-    window.deleteFile = async function(id, event) {
-        event.stopPropagation();
-        if(confirm("Yakin hapus file ini dari Database? Data hilang permanen.")) {
-            try {
-                // INI PERINTAH HAPUS DARI FIREBASE
-                await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
-                
-                // Jika file yang dibuka dihapus, kosongkan editor
-                if(activeFileId === id) {
-                    editor.setValue("");
-                    activeFileId = null;
-                }
-            } catch (e) {
-                alert("Error: " + e.message);
-            }
-        }
-    };
-
-    // E. DELETE PROJECT FOLDER (Hapus SEMUA File) - FITUR BARU
-    window.deleteProject = async function() {
-        if(files.length === 0) return alert("Folder sudah kosong.");
-        
-        const konfirmasi = prompt("KETIK 'HAPUS' untuk menghapus SEMUA file di database. Ini akan membersihkan folder project.");
-        
-        if(konfirmasi === 'HAPUS') {
-            try {
-                const batch = writeBatch(db); // Pakai Batch biar cepat
-                const allFiles = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
-                
-                allFiles.forEach((document) => {
-                    batch.delete(document.ref);
+            // 2. Build HTML
+            function buildHTML(node, parentEl, pathPrefix = '', depth = 0) {
+                // Sort: Folder First
+                const keys = Object.keys(node).sort((a,b) => {
+                    const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
+                    const isFolderB = Object.keys(node[b].__children).length > 0 || node[b].__data?.type === 'folder';
+                    if(isFolderA && !isFolderB) return -1;
+                    if(!isFolderA && isFolderB) return 1;
+                    return a.localeCompare(b);
                 });
 
-                await batch.commit(); // Eksekusi hapus massal
-                
-                editor.setValue("");
-                activeFileId = null;
-                alert("Folder Project berhasil dibersihkan!");
-            } catch (e) {
-                alert("Gagal reset project: " + e.message);
+                keys.forEach(key => {
+                    if(key === '__data' || key === '__children') return;
+                    
+                    const item = node[key];
+                    const fileData = item.__data || {};
+                    const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
+                    const isFolder = Object.keys(item.__children).length > 0 || fileData.type === 'folder';
+
+                    const li = document.createElement('li');
+                    if(isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
+
+                    // Icon Setup
+                    let icon = isFolder ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' : '<i class="fas fa-file" style="color:#8be9fd"></i>';
+                    if(!isFolder) {
+                        if(fileData.type === 'html') icon = '<i class="fab fa-html5" style="color:#ffb86c"></i>';
+                        else if(fileData.type === 'css') icon = '<i class="fab fa-css3-alt" style="color:#8be9fd"></i>';
+                        else if(fileData.type === 'js') icon = '<i class="fab fa-js" style="color:#f1fa8c"></i>';
+                    }
+
+                    const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:12px"></span>`;
+                    
+                    // ACTIONS (Titik Tiga untuk Folder, Sampah untuk File)
+                    let actionBtn = '';
+                    if(isFolder) {
+                        actionBtn = `<i class="fas fa-ellipsis-v kebab-btn" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
+                    } else {
+                        actionBtn = `<i class="fas fa-trash kebab-btn" style="color:#ff5555" onclick="window.deleteItem('${fileData.id}', event)"></i>`;
+                    }
+
+                    const div = document.createElement('div');
+                    div.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
+                    div.style.paddingLeft = `${10 + (depth * 12)}px`;
+                    div.innerHTML = `${arrow} ${icon} <span style="margin-left:5px">${key}</span> ${actionBtn}`;
+
+                    div.onclick = (e) => {
+                        e.stopPropagation(); window.hideContextMenu();
+                        if(isFolder) {
+                            li.classList.toggle('folder-open');
+                            if(li.classList.contains('folder-open')) expandedPaths.add(currentPath); else expandedPaths.delete(currentPath);
+                        } else {
+                            window.switchFile(fileData.id);
+                        }
+                    };
+
+                    li.appendChild(div);
+
+                    if(isFolder) {
+                        const ul = document.createElement('ul');
+                        ul.className = 'folder-content';
+                        buildHTML(item.__children, ul, currentPath, depth + 1);
+                        li.appendChild(ul);
+                    }
+                    parentEl.appendChild(li);
+                });
             }
+            const rootUl = document.createElement('ul');
+            rootUl.className = 'file-tree';
+            buildHTML(tree, rootUl);
+            container.appendChild(rootUl);
         }
-    };
 
-    // F. SWITCH FILE
-    window.switchFile = function(id) {
-        activeFileId = id;
-        const file = files.find(f => f.id === id);
-        if (!file) return;
+        // --- CONTEXT MENU LOGIC ---
+        window.showContextMenu = (e, path) => {
+            e.stopPropagation();
+            currentCtxPath = path;
+            const menu = document.getElementById('contextMenu');
+            menu.style.top = e.clientY + 'px';
+            menu.style.left = (e.clientX - 120) + 'px';
+            menu.classList.add('visible');
+        };
 
-        isTyping = true;
-        editor.setValue(file.content);
-        isTyping = false;
-        document.getElementById('activeFileName').innerText = file.name;
+        window.hideContextMenu = () => document.getElementById('contextMenu').classList.remove('visible');
 
-        if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
-        else if(file.type === 'css') editor.setOption('mode', 'css');
-        else if(file.type === 'js') editor.setOption('mode', 'javascript');
+        window.ctxAction = (action) => {
+            window.hideContextMenu();
+            if(action === 'newFile') window.createNewFile(currentCtxPath);
+            if(action === 'newFolder') window.createNewFolder(currentCtxPath);
+            if(action === 'importFile') {
+                const input = document.getElementById('fileImporter');
+                input.setAttribute('data-target', currentCtxPath); // Simpan target folder
+                input.click();
+            }
+            if(action === 'delete') window.deleteFolder(currentCtxPath);
+        };
 
-        const listItems = document.querySelectorAll('.file-item');
-        files.forEach((f, index) => {
-            if(f.id === id) listItems[index].classList.add('active');
-            else listItems[index].classList.remove('active');
-        });
+        // --- SMART CREATE (PATH AWARE) ---
+        window.createNewFile = async (basePath = '') => {
+            const fileName = prompt(`Buat file baru di "${basePath || 'Root'}":\n(Contoh: index.html)`);
+            if(!fileName) return;
+            const fullPath = basePath ? `${basePath}/${fileName}` : fileName;
+            const ext = fileName.split('.').pop();
+            let type = 'txt';
+            if(['html','htm'].includes(ext)) type = 'html';
+            else if(['css'].includes(ext)) type = 'css';
+            else if(['js','ts'].includes(ext)) type = 'js';
 
-        if(window.innerWidth < 768) {
-            document.getElementById('sidebar').classList.remove('open');
-        }
-    };
+            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                name: fullPath, type: type, content: '// ' + fileName, createdAt: serverTimestamp()
+            });
+        };
 
-    // RUN PROJECT
-    window.runProject = function() {
-        const htmlFile = files.find(f => f.type === 'html');
-        const cssFile = files.find(f => f.type === 'css');
-        const jsFile = files.find(f => f.type === 'js');
+        window.createNewFolder = async (basePath = '') => {
+            const name = prompt(`Buat folder baru di "${basePath || 'Root'}":`);
+            if(!name) return;
+            const fullPath = basePath ? `${basePath}/${name}` : name;
+            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
+            });
+        };
 
-        if(!htmlFile) { alert("Butuh setidaknya 1 file HTML"); return; }
+        // --- IMPORT LOGIC (SEPARATE) ---
+        // 1. IMPORT FILE (Targeted to Folder)
+        window.processFileImport = async (fileList) => {
+            const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
+            if(!fileList.length) return;
+            const batch = writeBatch(db);
+            for(let i=0; i<fileList.length; i++) {
+                const file = fileList[i];
+                const fullPath = target ? `${target}/${file.name}` : file.name;
+                const content = await readFile(file);
+                const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
+                batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+            }
+            await batch.commit();
+            alert("File Import Selesai!");
+            document.getElementById('fileImporter').value = '';
+        };
 
-        let finalHTML = htmlFile.content;
-        if(cssFile) finalHTML += `<style>${cssFile.content}</style>`;
-        if(jsFile) finalHTML += `<script>${jsFile.content}<\/script>`;
+        // 2. IMPORT FOLDER (Full Structure)
+        window.processFolderImport = async (fileList) => {
+            if(!fileList.length) return;
+            const batch = writeBatch(db);
+            let count = 0;
+            for(let i=0; i<fileList.length; i++) {
+                const file = fileList[i];
+                if(file.name.startsWith('.')) continue;
+                const fullPath = file.webkitRelativePath || file.name;
+                const content = await readFile(file);
+                const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
+                batch.set(ref, { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+                count++;
+            }
+            await batch.commit();
+            alert(`Berhasil import ${count} file dari folder!`);
+            document.getElementById('folderImporter').value = '';
+        };
 
-        const blob = new Blob([finalHTML], {type: 'text/html'});
-        window.open(URL.createObjectURL(blob), '_blank');
-    };
-        </script>
+        // --- DELETE LOGIC ---
+        window.deleteItem = async (id, e) => {
+            e.stopPropagation();
+            if(confirm("Hapus File ini?")) deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
+        };
 
-    <script>
-        
+        window.deleteFolder = async (pathName) => {
+            if(confirm(`HAPUS FOLDER "${pathName}" dan semua isinya?`)) {
+                const batch = writeBatch(db);
+                files.forEach(f => {
+                    if(f.name.startsWith(pathName + '/') || f.name === pathName) {
+                        batch.delete(doc(db, "projects", PROJECT_ID, "files", f.id));
+                    }
+                });
+                await batch.commit();
+            }
+        };
 
-        // --- 2. INIT EDITOR ---
-        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
-            theme: 'dracula',
-            lineNumbers: true,
-            lineWrapping: true,
-            autoCloseTags: true,
-            autoCloseBrackets: true,
-            styleActiveLine: true,
-            mode: 'htmlmixed' // Default mode
-        });
+        window.deleteProject = async () => {
+            if(files.length === 0) return;
+            if(prompt("Ketik 'HAPUS' untuk Reset Project:") === 'HAPUS') {
+                const batch = writeBatch(db);
+                const snap = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
+                snap.forEach(d => batch.delete(d.ref));
+                await batch.commit();
+            }
+        };
 
-        // Event: Saat ngetik, simpan ke variable 'files' (Memory)
-        editor.on('change', () => {
-            const currentFile = files.find(f => f.id === activeFileId);
-            if(currentFile) currentFile.content = editor.getValue();
-            // Nanti di sini tambahkan: saveToFirebase(currentFile);
-        });
-
-        // --- 3. RENDER FILE EXPLORER ---
-        function renderExplorer() {
-            const list = document.getElementById('fileList');
-            list.innerHTML = '';
-
-            files.forEach(file => {
-                const li = document.createElement('li');
-                li.className = `file-item ${file.id === activeFileId ? 'active' : ''}`;
-                li.onclick = () => openFile(file.id);
+        // --- HELPER ---
+        window.switchFile = (id) => {
+            activeFileId = id;
+            const file = files.find(f => f.id === id);
+            if(file) {
+                editor.setValue(file.content);
+                document.getElementById('activeFileName').innerText = file.name;
+                if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+                else if(file.type === 'css') editor.setOption('mode', 'css');
+                else if(file.type === 'js') editor.setOption('mode', 'javascript');
                 
-                // Icon Logic
-                let iconClass = 'fa-file';
-                if(file.type === 'html') iconClass = 'fab fa-html5';
-                else if(file.type === 'css') iconClass = 'fab fa-css3-alt';
-                else if(file.type === 'js') iconClass = 'fab fa-js';
+                isTyping = true; setTimeout(() => isTyping = false, 100);
+                renderTree(); // refresh active class
+                if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+            }
+        };
 
-                li.innerHTML = `
-                    <div class="file-icon"><i class="${iconClass}"></i></div>
-                    <span>${file.name}</span>
-                `;
-                list.appendChild(li);
+        window.runProject = () => {
+            const html = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
+            if(!html) return alert("Butuh setidaknya satu file HTML!");
+            
+            // Basic Bundle Logic (Bisa dikembangkan lagi)
+            let content = html.content;
+            const css = files.filter(f => f.type === 'css').map(f => f.content).join('\n');
+            const js = files.filter(f => f.type === 'js').map(f => f.content).join('\n');
+            
+            content += `<style>${css}</style><script>${js}<\/script>`;
+            const win = window.open();
+            win.document.write(content);
+        };
+
+        function readFile(file) {
+            return new Promise(r => {
+                const reader = new FileReader();
+                reader.onload = e => r(e.target.result);
+                reader.readAsText(file);
             });
         }
 
-        // --- 4. OPEN FILE LOGIC (INTI SISTEM) ---
-        function openFile(id) {
-            activeFileId = id;
-            const file = files.find(f => f.id === id);
-            
-            // Update Tab Name
-            document.getElementById('activeFileName').innerText = file.name;
-
-            // Ganti Mode Editor (Syntax Highlight)
-            if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
-            else if(file.type === 'css') editor.setOption('mode', 'css');
-            else if(file.type === 'js') editor.setOption('mode', 'javascript');
-
-            // Isi Editor dengan konten file
-            editor.setValue(file.content);
-
-            // Refresh UI Sidebar
-            renderExplorer();
-            
-            // Tutup Sidebar di Mobile setelah pilih file
-            if(window.innerWidth < 768) toggleSidebar();
-        }
-
-        // --- 5. CREATE NEW FILE ---
-        function createNewFile() {
-            const name = prompt("Enter file name (e.g., about.html):");
-            if(!name) return;
-
-            const ext = name.split('.').pop();
-            let type = 'html';
-            if(ext === 'css') type = 'css';
-            else if(ext === 'js') type = 'js';
-
-            const newFile = {
-                id: Date.now().toString(), // ID unik sementara
-                name: name,
-                type: type,
-                content: ''
-            };
-            
-            files.push(newFile);
-            renderExplorer();
-            openFile(newFile.id);
-            // Nanti di sini: createInFirebase(newFile);
-        }
-
-        // --- 6. RUN PROJECT (BUNDLE LOGIC) ---
-        function runProject() {
-            // Kita harus menggabungkan file-file ini secara manual karena tidak ada server
-            const htmlFile = files.find(f => f.name === 'index.html');
-            const cssFile = files.find(f => f.name === 'style.css');
-            const jsFile = files.find(f => f.name === 'script.js');
-
-            if(!htmlFile) { alert("Error: index.html not found!"); return; }
-
-            let finalHTML = htmlFile.content;
-
-            // Inject CSS (Gantikan <link> dengan <style>)
-            if(cssFile) {
-                finalHTML = finalHTML.replace(
-                    /<link rel="stylesheet" href="style.css">/, 
-                    `<style>${cssFile.content}</style>`
-                );
-            }
-
-            // Inject JS (Gantikan <script src> dengan <script inline>)
-            if(jsFile) {
-                finalHTML = finalHTML.replace(
-                    /<script src="script.js"><\/script>/, 
-                    `<script>${jsFile.content}<\/script>`
-                );
-            }
-
-            // Buka di Tab Baru / Iframe
-            const blob = new Blob([finalHTML], {type: 'text/html'});
-            const url = URL.createObjectURL(blob);
-            window.open(url, '_blank');
-        }
-
-        // Sidebar Toggle Mobile
-        function toggleSidebar() {
-            document.getElementById('sidebar').classList.toggle('open');
-        }
-
-        // --- INIT ---
-        // Buka file pertama saat load
-        openFile('1');
-
+        // Auto Save
+        let saveTimeout;
+        editor.on('change', () => {
+            if(isTyping) return;
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(() => {
+                if(activeFileId) updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: editor.getValue() });
+            }, 1000);
+        });
     </script>
 </body>
 </html>
