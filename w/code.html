@@ -160,16 +160,243 @@
         </main>
     </div>
 
-    <script>
-        // --- 1. DATA STRUKTUR (SIMULASI FIREBASE) ---
-        // Nanti ini diganti dengan data dari Firebase Firestore
-        let files = [
-            { id: '1', name: 'index.html', type: 'html', content: '<h1>Hello World</h1>\n<script src="script.js"><\/script>\n<link rel="stylesheet" href="style.css">' },
-            { id: '2', name: 'style.css', type: 'css', content: 'body { background: #282a36; color: white; font-family: sans-serif; }' },
-            { id: '3', name: 'script.js', type: 'js', content: 'console.log("System Ready");\nalert("Welcome to Cloud IDE");' }
-        ];
+    <script type="module">
+    // 1. IMPORT FIREBASE (Tambah writeBatch dan getDocs)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+    import { 
+        getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs 
+    } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-        let activeFileId = '1';
+    // 2. CONFIG ANDA
+    const firebaseConfig = {
+        apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
+        authDomain: "obusioncode.firebaseapp.com",
+        projectId: "obusioncode",
+        storageBucket: "obusioncode.firebasestorage.app",
+        messagingSenderId: "299520822295",
+        appId: "1:299520822295:web:f222448979129ae6c2a052",
+        measurementId: "G-B0CYQSNM7R"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+    const PROJECT_ID = "global_workspace"; 
+
+    // --- VARIABLES ---
+    let files = [];
+    let activeFileId = null;
+    let isTyping = false;
+
+    // --- SETUP EDITOR ---
+    const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+        theme: 'dracula',
+        lineNumbers: true,
+        lineWrapping: true,
+        autoCloseTags: true,
+        autoCloseBrackets: true,
+        styleActiveLine: true,
+        mode: 'htmlmixed'
+    });
+
+    // --- 3. FUNGSI CRUD FIREBASE ---
+
+    // A. READ (REALTIME LISTENER)
+    const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("createdAt"));
+    
+    onSnapshot(q, (snapshot) => {
+        files = [];
+        const list = document.getElementById('fileList');
+        list.innerHTML = '';
+
+        snapshot.forEach((docSnap) => {
+            const data = docSnap.data();
+            const fileObj = { id: docSnap.id, ...data };
+            files.push(fileObj);
+
+            const li = document.createElement('li');
+            li.className = `file-item ${fileObj.id === activeFileId ? 'active' : ''}`;
+            
+            // LOGIC DELETE FILE (Menghapus Satu File)
+            const delBtn = `<i class="fas fa-trash" title="Hapus File Ini" style="margin-left:auto; font-size:0.7rem; color:#ff5555; cursor:pointer;" onclick="window.deleteFile('${fileObj.id}', event)"></i>`;
+            
+            let iconClass = 'fa-file';
+            if(data.type === 'html') iconClass = 'fab fa-html5';
+            else if(data.type === 'css') iconClass = 'fab fa-css3-alt';
+            else if(data.type === 'js') iconClass = 'fab fa-js';
+
+            li.innerHTML = `
+                <div class="file-icon"><i class="${iconClass}"></i></div>
+                <span onclick="window.switchFile('${fileObj.id}')" style="flex:1">${data.name}</span>
+                ${delBtn}
+            `;
+            list.appendChild(li);
+
+            if (activeFileId === fileObj.id && !isTyping) {
+                const cursor = editor.getCursor();
+                if(editor.getValue() !== data.content) {
+                    editor.setValue(data.content);
+                    editor.setCursor(cursor);
+                }
+            }
+        });
+
+        // Update Header Sidebar (Tambahkan Tombol Hapus Folder/Project)
+        // Pastikan di HTML ada elemen dengan class .sidebar-actions
+        const sidebarActions = document.querySelector('.sidebar-actions');
+        if(sidebarActions) {
+            // Cek biar tombol tidak dobel
+            if(!document.getElementById('btnDeleteAll')) {
+                const btnDeleteAll = document.createElement('i');
+                btnDeleteAll.id = 'btnDeleteAll';
+                btnDeleteAll.className = 'fas fa-trash-alt';
+                btnDeleteAll.style.color = '#ff5555';
+                btnDeleteAll.style.marginLeft = '10px';
+                btnDeleteAll.title = 'Hapus SEMUA File (Format Database)';
+                btnDeleteAll.onclick = window.deleteProject; // Panggil fungsi delete semua
+                sidebarActions.appendChild(btnDeleteAll);
+            }
+        }
+
+        if (!activeFileId && files.length > 0) {
+            window.switchFile(files[0].id);
+        } else if (files.length === 0) {
+            editor.setValue(""); // Kosongkan editor jika tidak ada file
+            activeFileId = null;
+        }
+    });
+
+    // B. CREATE (TAMBAH FILE)
+    window.createNewFile = async function() {
+        const name = prompt("Nama File (contoh: index.html):");
+        if (!name) return;
+
+        const ext = name.split('.').pop();
+        let type = 'html';
+        if (ext === 'css') type = 'css';
+        else if (ext === 'js') type = 'js';
+
+        try {
+            await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                name: name,
+                type: type,
+                content: "// New File: " + name,
+                createdAt: serverTimestamp()
+            });
+        } catch (e) {
+            alert("Gagal membuat file: " + e.message);
+        }
+    };
+
+    // C. UPDATE (AUTO SAVE)
+    let saveTimeout;
+    editor.on('change', (cm, change) => {
+        if (change.origin === 'setValue') return;
+        
+        isTyping = true;
+        clearTimeout(saveTimeout);
+        
+        saveTimeout = setTimeout(async () => {
+            if (activeFileId) {
+                const content = editor.getValue();
+                const fileRef = doc(db, "projects", PROJECT_ID, "files", activeFileId);
+                document.querySelector('.ide-header').style.borderBottomColor = '#f1fa8c';
+                await updateDoc(fileRef, { content: content });
+                document.querySelector('.ide-header').style.borderBottomColor = '#44475a';
+                isTyping = false;
+            }
+        }, 1000);
+    });
+
+    // D. DELETE SINGLE FILE (Hapus 1 File)
+    window.deleteFile = async function(id, event) {
+        event.stopPropagation();
+        if(confirm("Yakin hapus file ini dari Database? Data hilang permanen.")) {
+            try {
+                // INI PERINTAH HAPUS DARI FIREBASE
+                await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
+                
+                // Jika file yang dibuka dihapus, kosongkan editor
+                if(activeFileId === id) {
+                    editor.setValue("");
+                    activeFileId = null;
+                }
+            } catch (e) {
+                alert("Error: " + e.message);
+            }
+        }
+    };
+
+    // E. DELETE PROJECT FOLDER (Hapus SEMUA File) - FITUR BARU
+    window.deleteProject = async function() {
+        if(files.length === 0) return alert("Folder sudah kosong.");
+        
+        const konfirmasi = prompt("KETIK 'HAPUS' untuk menghapus SEMUA file di database. Ini akan membersihkan folder project.");
+        
+        if(konfirmasi === 'HAPUS') {
+            try {
+                const batch = writeBatch(db); // Pakai Batch biar cepat
+                const allFiles = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
+                
+                allFiles.forEach((document) => {
+                    batch.delete(document.ref);
+                });
+
+                await batch.commit(); // Eksekusi hapus massal
+                
+                editor.setValue("");
+                activeFileId = null;
+                alert("Folder Project berhasil dibersihkan!");
+            } catch (e) {
+                alert("Gagal reset project: " + e.message);
+            }
+        }
+    };
+
+    // F. SWITCH FILE
+    window.switchFile = function(id) {
+        activeFileId = id;
+        const file = files.find(f => f.id === id);
+        if (!file) return;
+
+        isTyping = true;
+        editor.setValue(file.content);
+        isTyping = false;
+        document.getElementById('activeFileName').innerText = file.name;
+
+        if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+        else if(file.type === 'css') editor.setOption('mode', 'css');
+        else if(file.type === 'js') editor.setOption('mode', 'javascript');
+
+        const listItems = document.querySelectorAll('.file-item');
+        files.forEach((f, index) => {
+            if(f.id === id) listItems[index].classList.add('active');
+            else listItems[index].classList.remove('active');
+        });
+
+        if(window.innerWidth < 768) {
+            document.getElementById('sidebar').classList.remove('open');
+        }
+    };
+
+    // RUN PROJECT
+    window.runProject = function() {
+        const htmlFile = files.find(f => f.type === 'html');
+        const cssFile = files.find(f => f.type === 'css');
+        const jsFile = files.find(f => f.type === 'js');
+
+        if(!htmlFile) { alert("Butuh setidaknya 1 file HTML"); return; }
+
+        let finalHTML = htmlFile.content;
+        if(cssFile) finalHTML += `<style>${cssFile.content}</style>`;
+        if(jsFile) finalHTML += `<script>${jsFile.content}<\/script>`;
+
+        const blob = new Blob([finalHTML], {type: 'text/html'});
+        window.open(URL.createObjectURL(blob), '_blank');
+    };
+        </script>
+
+    <script>
+        
 
         // --- 2. INIT EDITOR ---
         const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
