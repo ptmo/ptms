@@ -687,11 +687,32 @@ body {
         }
     });
 
-    // --- LOGIC STATUS BAR ---
+    editor.on("inputRead", function(cm, change) {
+        // Hanya jalankan jika user benar-benar mengetik karakter baru
+        if (change.origin !== "+input") return;
+        
+        const text = change.text[0];
+
+        // Filter: Jangan munculkan popup jika user mengetik:
+        // Spasi, Titik koma, Kurung kurawal, atau Enter (baris baru)
+        if (text === " " || text === ";" || text === "{" || text === "}" || text === "") return;
+
+        // Tampilkan Hint (Saran)
+        // completeSingle: false -> PENTING! Agar tidak auto-select pilihan pertama 
+        // (Biar gak ganggu kalau user mau ngetik variabel sendiri)
+        cm.showHint({ 
+            completeSingle: false,
+            // Opsi tambahan biar popup pas di layar HP
+            alignWithWord: true 
+        });
+    });
+
+    // --- 2. LOGIC STATUS BAR (TETAP SAMA) ---
     editor.on('cursorActivity', () => {
         const pos = editor.getCursor();
-        // Update teks di status bar: Baris dan Kolom + 1 (biar mulai dari 1 bukan 0)
-        document.getElementById('cursorPos').innerText = `Ln ${pos.line + 1}, Col ${pos.ch + 1}`;
+        if(document.getElementById('cursorPos')) {
+            document.getElementById('cursorPos').innerText = `Ln ${pos.line + 1}, Col ${pos.ch + 1}`;
+        }
     });
 
     // --- LOGIC SETTINGS ---
