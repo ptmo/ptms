@@ -369,39 +369,42 @@ body {
         to { opacity: 1; transform: translateY(0); }
     }
 
-    /* --- MULTI TAB BAR STYLE --- */
+    /* --- MULTI TAB BAR STYLE (FIXED) --- */
 .tab-bar { 
-    height: 35px; 
+    height: 40px; /* Sedikit lebih tinggi agar lega */
     background: #191a21; 
     display: flex; 
     align-items: center; 
     border-bottom: 1px solid var(--border); 
     overflow-x: auto;
+    overflow-y: hidden;
     flex-shrink: 0;
+    padding-left: 5px;
 }
 
-/* Scrollbar tipis untuk tab */
+/* Scrollbar Style */
 .tab-bar::-webkit-scrollbar { height: 2px; }
 .tab-bar::-webkit-scrollbar-thumb { background: var(--accent); }
 
 .file-tab { 
-    padding: 0 8px 0 12px; 
     height: 100%; 
     display: flex; 
     align-items: center; 
     gap: 8px; 
-    font-size: 0.8rem; 
+    padding: 0 10px 0 15px; 
+    font-size: 0.85rem; 
     color: var(--text-muted); 
     border-right: 1px solid var(--border); 
     background: var(--bg-sidebar); 
-    white-space: nowrap;
     cursor: pointer;
-    min-width: 100px;
-    max-width: 180px;
+    min-width: 120px; /* Lebar minimum */
+    max-width: 200px;
+    position: relative;
     user-select: none;
+    transition: all 0.2s ease;
 }
 
-.file-tab:hover { background: #2f3242; }
+.file-tab:hover { background: #2f3242; color: #fff; }
 
 .file-tab.active { 
     background: var(--bg-editor); 
@@ -409,26 +412,33 @@ body {
     border-top: 2px solid var(--accent); 
 }
 
+/* Teks Nama File */
 .file-tab span {
     flex: 1;
+    white-space: nowrap;
     overflow: hidden; 
     text-overflow: ellipsis; 
 }
 
-/* Tombol Close (x) */
+/* Tombol Close (x) - FIXED */
 .close-tab-btn {
-    padding: 4px;
-    border-radius: 50%;
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    opacity: 0.6;
-    display: flex; align-items: center; justify-content: center;
     width: 20px; height: 20px;
+    display: flex; align-items: center; justify-content: center;
+    border-radius: 4px;
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    opacity: 0; /* Default sembunyi agar clean */
+    transition: all 0.2s;
 }
+
+/* Munculkan tombol close hanya saat hover tab */
+.file-tab:hover .close-tab-btn, .file-tab.active .close-tab-btn {
+    opacity: 1;
+}
+
 .close-tab-btn:hover {
     background: #ff5555;
     color: white;
-    opacity: 1;
 }
     </style>
 </head>
@@ -506,7 +516,7 @@ body {
     </div>
 
   <script type="module">
-    // 1. IMPORT FIREBASE & LIBS (Pastikan setDoc & getDoc ada)
+    // 1. IMPORT
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs, setDoc, getDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
@@ -536,10 +546,11 @@ body {
     let unsubscribeFirestore = null;
     let expandedPaths = new Set();
     
-    // VARIABLES SESSION & TAB
-    let openTabs = []; // Array ID file yang sedang dibuka
-    
-    // Variables Context Menu
+    // TAB SESSION VARIABLES
+    let openTabs = []; // Array ID
+    let isSessionLoaded = false; // Flag penanda session sudah load
+
+    // Context Menu Vars
     let currentCtxPath = ''; 
     let currentFileId = null;   
     let currentFilePath = null;
@@ -579,31 +590,40 @@ body {
             startFirestoreListener(); 
         } else {
             currentUserId = null;
-            openTabs = []; // Reset tab lokal
+            files = [];
+            openTabs = [];
+            isSessionLoaded = false;
             loginScreen.classList.remove('hidden');
             userAvatar.style.display = 'none';
             document.getElementById('fileTreeRoot').innerHTML = ""; 
-            document.querySelector('.tab-bar').innerHTML = ""; // Bersihkan tab
+            document.querySelector('.tab-bar').innerHTML = ""; 
             editor.setValue("");
             if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
         }
     });
 
-    // --- CORE: LISTENER & SESSION RESTORE ---
+    // --- CORE LOGIC ---
     function startFirestoreListener() {
         if (!currentUserId) return;
         
         const q = query(collection(db, "projects", currentUserId, "files"), orderBy("name"));
         
-        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        unsubscribeFirestore = onSnapshot(q, async (snapshot) => {
             files = [];
             snapshot.forEach((docSnap) => {
                 files.push({ id: docSnap.id, ...docSnap.data() });
             });
             renderTree(); 
             
-            // PENTING: Load session setelah file list siap
-            restoreSession();
+            // PENTING: Restore session hanya sekali saat data pertama kali siap
+            // Atau setiap ada perubahan file untuk memastikan sinkronisasi
+            if (!isSessionLoaded && files.length > 0) {
+                await restoreSession();
+                isSessionLoaded = true;
+            } else if (isSessionLoaded) {
+                // Refresh tab UI in case file renamed/deleted
+                renderTabs();
+            }
         });
     }
 
@@ -617,34 +637,36 @@ body {
             if (docSnap.exists()) {
                 const data = docSnap.data();
                 
-                // Filter tab: Pastikan file ID-nya masih ada di database (cegah error file terhapus)
-                openTabs = (data.openTabs || []).filter(id => files.find(f => f.id === id));
+                // 1. Validasi Tab (Hanya ID yang file-nya ada)
+                const savedTabs = data.openTabs || [];
+                openTabs = savedTabs.filter(id => files.find(f => f.id === id));
                 
-                renderTabs(); // Gambar ulang tab
+                // 2. Render Tab
+                renderTabs();
 
-                // Restore Active File
+                // 3. Restore Active File & Editor Content
                 const lastActiveId = data.activeFileId;
                 if (lastActiveId && files.find(f => f.id === lastActiveId)) {
-                    // switchFile(id, saveToDb = false) -> false biar gak looping save
                     switchFile(lastActiveId, false); 
                 } else if (openTabs.length > 0) {
                     switchFile(openTabs[0], false);
                 }
             }
-        } catch (e) { console.error("Restore session failed:", e); }
+        } catch (e) { console.error("Session Error:", e); }
     }
 
     async function saveSession() {
         if (!currentUserId) return;
         try {
+            // Simpan state ke Firebase
             await setDoc(doc(db, "projects", currentUserId, "config", "workspace"), {
                 openTabs: openTabs,
                 activeFileId: activeFileId
             });
-        } catch (e) { console.error("Save session error:", e); }
+        } catch (e) { console.error("Save Error:", e); }
     }
 
-    // --- TAB UI LOGIC ---
+    // --- TAB UI RENDERER (DOM ELEMENT APPROACH) ---
     function renderTabs() {
         const tabBar = document.querySelector('.tab-bar');
         tabBar.innerHTML = ''; 
@@ -653,93 +675,114 @@ body {
             const file = files.find(f => f.id === id);
             if (!file) return;
 
-            const div = document.createElement('div');
-            div.className = `file-tab ${id === activeFileId ? 'active' : ''}`;
-            div.title = file.name;
+            // Buat Element Tab
+            const tabDiv = document.createElement('div');
+            tabDiv.className = `file-tab ${id === activeFileId ? 'active' : ''}`;
+            tabDiv.title = file.name;
+
+            // Icon File
+            let iconClass = 'fas fa-file';
+            if(file.type === 'html') iconClass = 'fab fa-html5';
+            else if(file.type === 'css') iconClass = 'fab fa-css3-alt';
+            else if(file.type === 'js') iconClass = 'fab fa-js';
             
             const shortName = file.name.split('/').pop();
-            
-            // Tambahkan tombol close dengan event onclick inline
-            div.innerHTML = `
-                <i class="fas fa-file-code" style="font-size:0.7rem"></i>
+
+            // Isi HTML Tab
+            tabDiv.innerHTML = `
+                <i class="${iconClass}" style="font-size:0.8rem"></i>
                 <span>${shortName}</span>
-                <i class="fas fa-times close-tab-btn" onclick="window.closeTab('${id}', event)"></i>
             `;
 
-            // Klik Tab (Switch)
-            div.onclick = (e) => {
-                // Cegah switch jika yang diklik adalah tombol close
-                if (!e.target.classList.contains('close-tab-btn')) {
-                    switchFile(id);
-                }
+            // Buat Tombol Close Terpisah (Biar Event Listener Aman)
+            const closeBtn = document.createElement('i');
+            closeBtn.className = 'fas fa-times close-tab-btn';
+            
+            // Event Klik Close
+            closeBtn.onclick = (e) => {
+                e.stopPropagation(); // Stop agar tidak men-trigger switchFile
+                closeTab(id);
             };
 
-            tabBar.appendChild(div);
+            // Event Klik Tab (Switch)
+            tabDiv.onclick = () => switchFile(id);
+
+            // Gabungkan
+            tabDiv.appendChild(closeBtn);
+            tabBar.appendChild(tabDiv);
         });
     }
 
-    // --- SWITCH FILE LOGIC (MULTI TAB) ---
+    // --- SWITCH FILE (MULTI TASKING MAX 4) ---
     window.switchFile = function(id, shouldSave = true) {
         const file = files.find(f => f.id === id);
         if (!file) return;
 
-        // 1. Logic Tambah Tab
+        // 1. Manage Array Tab (Max 4)
         if (!openTabs.includes(id)) {
-            // Jika sudah 4, hapus yang pertama (paling kiri)
             if (openTabs.length >= 4) {
-                openTabs.shift();
+                openTabs.shift(); // Hapus yang paling lama (kiri)
             }
             openTabs.push(id);
         }
 
-        // 2. Set Active
+        // 2. Set Editor Content
         activeFileId = id;
         isTyping = true;
         editor.setValue(file.content);
         isTyping = false;
-        document.getElementById('activeFileName').innerText = file.name;
+        
+        // Update Nama di Header
+        const activeNameEl = document.getElementById('activeFileName');
+        if(activeNameEl) activeNameEl.innerText = file.name;
 
-        // Mode Editor
+        // Set Editor Mode
         if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
         else if(file.type === 'css') editor.setOption('mode', 'css');
         else if(file.type === 'js') editor.setOption('mode', 'javascript');
 
-        // 3. UI Update
+        // 3. Update UI
         renderTree();
         renderTabs();
-        
-        if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
 
-        // 4. Simpan Session
+        // 4. Save Session (Jika bukan dipanggil dari restore)
         if (shouldSave) saveSession();
+        
+        // Mobile UX
+        if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
     };
 
-    // --- CLOSE TAB LOGIC ---
-    window.closeTab = function(id, e) {
-        if(e) e.stopPropagation(); // Stop event bubbling
-        
-        // Hapus dari array
+    // --- CLOSE TAB ---
+    window.closeTab = function(id) {
+        // Hapus ID dari array
         openTabs = openTabs.filter(tabId => tabId !== id);
 
-        // Jika yang ditutup adalah file aktif
+        // Jika file yang ditutup sedang aktif
         if (activeFileId === id) {
             editor.setValue("");
             activeFileId = null;
-            document.getElementById('activeFileName').innerText = "No File";
+            const activeNameEl = document.getElementById('activeFileName');
+            if(activeNameEl) activeNameEl.innerText = "No File Selected";
 
-            // Pindah ke tab terakhir jika masih ada
+            // Otomatis pindah ke tab terakhir jika masih ada sisa
             if (openTabs.length > 0) {
-                const lastTabId = openTabs[openTabs.length - 1];
-                switchFile(lastTabId, false); // Pindah tanpa save session dulu (nanti disave di bawah)
+                const nextId = openTabs[openTabs.length - 1];
+                switchFile(nextId); // Ini otomatis save session
+            } else {
+                renderTabs();
+                saveSession();
             }
+        } else {
+            // Jika menutup tab yang tidak aktif, cukup render ulang & save
+            renderTabs();
+            saveSession();
         }
-        
-        renderTabs();
-        renderTree(); // Update highlight di sidebar
-        saveSession(); // Update database
     };
 
-    // --- FUNGSI RENDER TREE (TETAP SAMA) ---
+    // --- FUNGSI BAWAAN LAINNYA (Render Tree, Create, Menu, dll) ---
+    // (Masukkan logika Render Tree, Smart Create, Context Menu yang sudah ada sebelumnya di sini)
+    // Untuk mempersingkat, saya paste fungsi renderTree yang penting untuk highlight:
+
     function renderTree() {
         const rootContainer = document.getElementById('fileTreeRoot');
         rootContainer.innerHTML = '';
@@ -748,9 +791,7 @@ body {
             const parts = file.name.split('/'); 
             let current = tree;
             parts.forEach((part, i) => {
-                if (!current[part]) {
-                    current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
-                }
+                if (!current[part]) current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
                 current = current[part].__children;
             });
         });
@@ -774,8 +815,7 @@ body {
                 const li = document.createElement('li');
                 if (isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
 
-                let iconClass = 'fas fa-file';
-                let colorStyle = 'color:#dcdcdc'; 
+                let iconClass = 'fas fa-file'; let colorStyle = 'color:#dcdcdc'; 
                 if (isFolder) { iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c'; } 
                 else if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c'; }
                 else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd'; }
@@ -785,11 +825,8 @@ body {
                 const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:10px; display:inline-block"></span>`;
                 
                 let actionBtn = '';
-                if (isFolder) {
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
-                } else {
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
-                }
+                if (isFolder) actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
+                else actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
 
                 const divItem = document.createElement('div');
                 divItem.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
@@ -798,17 +835,11 @@ body {
                 
                 divItem.onclick = (e) => {
                     if (e.target.classList.contains('kebab-menu-btn')) return;
-                    e.stopPropagation();
-                    window.hideContextMenu(); 
+                    e.stopPropagation(); window.hideContextMenu(); 
                     if (isFolder) {
-                        if (li.classList.contains('folder-open')) {
-                            li.classList.remove('folder-open'); expandedPaths.delete(currentPath);
-                        } else {
-                            li.classList.add('folder-open'); expandedPaths.add(currentPath);
-                        }
-                    } else {
-                        switchFile(fileData.id);
-                    }
+                        if (li.classList.contains('folder-open')) { li.classList.remove('folder-open'); expandedPaths.delete(currentPath); } 
+                        else { li.classList.add('folder-open'); expandedPaths.add(currentPath); }
+                    } else { switchFile(fileData.id); }
                 };
                 li.appendChild(divItem);
                 if (isFolder) {
@@ -826,8 +857,9 @@ body {
         rootContainer.appendChild(rootUl);
     }
 
-    // --- CREATE & MENU (SAME AS BEFORE) ---
-    // (Masukkan logika createNewFile, createNewFolder, Menu Handler, dll yang sudah fix di sini)
+    // --- SISA FUNGSI CREATE & MENU (PASTE KEMBALI KODE SEBELUMNYA DI SINI) ---
+    // Pastikan kode CreateFile, CreateFolder, ContextMenu, Rename, Delete ada di bawah sini.
+    // ...
     
     // Create File
     window.createNewFile = (basePath = '') => {
@@ -921,32 +953,6 @@ body {
         if (action === 'deleteFile') window.performDeleteFile();
     };
 
-    // Other Actions
-    window.processFileImport = async (fileList) => {
-        if (!currentUserId) return;
-        const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
-        const batch = writeBatch(db);
-        for(let i=0; i<fileList.length; i++) {
-            const file = fileList[i];
-            const fullPath = target ? `${target}/${file.name}` : file.name;
-            const content = await readFile(file);
-            batch.set(doc(collection(db, "projects", currentUserId, "files")), { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
-        }
-        await batch.commit(); alert("Import Sukses!");
-    };
-
-    window.processFolderImport = async (fileList) => {
-        if (!currentUserId) return;
-        const batch = writeBatch(db);
-        for(let i=0; i<fileList.length; i++) {
-            const file = fileList[i];
-            if(file.name.startsWith('.')) continue;
-            const content = await readFile(file);
-            batch.set(doc(collection(db, "projects", currentUserId, "files")), { name: file.webkitRelativePath || file.name, type: 'txt', content: content, createdAt: serverTimestamp() });
-        }
-        await batch.commit(); alert("Import Folder Sukses!");
-    };
-
     window.deleteFolder = async (pathName) => {
         if(!confirm("Hapus folder?")) return;
         const batch = writeBatch(db);
@@ -966,10 +972,9 @@ body {
     window.performDeleteFile = async () => {
         if(!confirm("Hapus file?")) return;
         await deleteDoc(doc(db, "projects", currentUserId, "files", currentFileId));
-        // Jika file yang dihapus ada di tab, tutup tab-nya
         if(openTabs.includes(currentFileId)) window.closeTab(currentFileId);
     };
-
+    
     window.deleteProject = async () => {
         if(prompt("Ketik HAPUS untuk reset:") === 'HAPUS') {
             const batch = writeBatch(db);
@@ -989,8 +994,21 @@ body {
     });
 
     window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
-    window.runProject = () => { /* Logic run tetap sama */ };
+    window.runProject = () => { /* Run Logic */ };
     function readFile(file) { return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsText(file); }); }
-</script>
+    
+    window.processFileImport = async (fileList) => {
+        if (!currentUserId) return;
+        const target = document.getElementById('fileImporter').getAttribute('data-target') || '';
+        const batch = writeBatch(db);
+        for(let i=0; i<fileList.length; i++) {
+            const file = fileList[i];
+            const fullPath = target ? `${target}/${file.name}` : file.name;
+            const content = await readFile(file);
+            batch.set(doc(collection(db, "projects", currentUserId, "files")), { name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() });
+        }
+        await batch.commit(); alert("Import Sukses!");
+    };
+</script>   
 </body>
 </html>
