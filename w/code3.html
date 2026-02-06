@@ -279,39 +279,45 @@ body {
     padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
 }
 
-        /* --- PREMIUM INLINE INPUT (FIXED STYLE) --- */
+        /* --- PREMIUM INLINE INPUT STYLE --- */
     .creation-box {
         display: flex; align-items: center; gap: 8px;
         padding: 6px 10px;
         background: #282a36; 
-        border: 1px solid var(--accent);
+        border: 1px solid var(--accent); /* Border Ungu */
         border-radius: 4px;
-        margin: 2px 0;
-        animation: fadeIn 0.2s ease;
+        margin: 2px 10px; /* Sedikit jarak kiri-kanan */
+        animation: slideDown 0.2s ease-out forwards;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
     }
     
     .creation-input {
         background: transparent; border: none; outline: none;
         color: white; font-family: 'Inter', sans-serif;
         font-size: 0.85rem; 
-        flex: 1; min-width: 0;
+        flex: 1; /* Input mengisi sisa ruang */
+        min-width: 0;
     }
-    .creation-input::placeholder { color: rgba(255,255,255,0.3); }
+    
+    .creation-input::placeholder { color: rgba(255,255,255,0.4); font-style: italic; }
 
     /* Tombol Save (Ceklis) */
     .creation-save-btn {
         color: #50fa7b; /* Hijau Neon */
         cursor: pointer; 
-        padding: 6px;
-        font-size: 1rem;
-        display: flex; align-items: center; justify-content: center;
+        padding: 4px;
+        font-size: 0.9rem;
         transition: 0.2s;
-        z-index: 10; /* Pastikan tombol ada di atas */
     }
-    .creation-save-btn:hover { text-shadow: 0 0 5px #50fa7b; transform: scale(1.1); }
+    .creation-save-btn:hover { 
+        background: rgba(80, 250, 123, 0.2); 
+        border-radius: 4px;
+        transform: scale(1.1);
+    }
 
-    @keyframes fadeIn {
-        from { opacity: 0; transform: translateY(-5px); }
+    /* Animasi Halus */
+    @keyframes slideDown {
+        from { opacity: 0; transform: translateY(-10px); }
         to { opacity: 1; transform: translateY(0); }
     }
     </style>
@@ -614,22 +620,23 @@ body {
         if (action === 'delete') window.deleteFolder(currentCtxPath);
     };
 
-    // --- SMART INLINE CREATION (PREMIUM & ROBUST) ---
+    // --- SMART INLINE CREATION (VS CODE STYLE) ---
 
     // 1. Create File Trigger
     window.createNewFile = (basePath = '') => {
-        if (!currentUserId) return alert("Silahkan Login terlebih dahulu!");
-        
+        // Cek login (sesuaikan dengan variabel auth kamu, misal currentUserId)
+        // if (!currentUserId) return alert("Silahkan login dulu.");
+
         spawnInput('file', basePath, async (name, fullPath) => {
-            // Deteksi Tipe File
+            // Logic Simpan Firebase
             const ext = name.split('.').pop();
             let type = 'txt';
             if(['html','htm'].includes(ext)) type = 'html';
             else if(['css'].includes(ext)) type = 'css';
             else if(['js','ts'].includes(ext)) type = 'js';
 
-            // Simpan ke Firebase
-            await addDoc(collection(db, "projects", currentUserId, "files"), {
+            // Pastikan collection path sesuai dengan kode kamu sebelumnya (PROJECT_ID atau currentUserId)
+            await addDoc(collection(db, "projects", currentUserId || PROJECT_ID, "files"), {
                 name: fullPath, type: type, content: '// ' + name, createdAt: serverTimestamp()
             });
         });
@@ -637,26 +644,24 @@ body {
 
     // 2. Create Folder Trigger
     window.createNewFolder = (basePath = '') => {
-        if (!currentUserId) return alert("Silahkan Login terlebih dahulu!");
-
         spawnInput('folder', basePath, async (name, fullPath) => {
-            // Simpan Folder ke Firebase
-            await addDoc(collection(db, "projects", currentUserId, "files"), {
+            // Logic Simpan Firebase
+            await addDoc(collection(db, "projects", currentUserId || PROJECT_ID, "files"), {
                 name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
             });
         });
     };
 
-    // --- HELPER: SPAWN INPUT UI (LOGIC INTI) ---
+    // --- HELPER: SPAWN INPUT UI (LOGIC UTAMA) ---
     function spawnInput(type, basePath, callback) {
-        // 1. Bersihkan sisa input yang mungkin nyangkut
+        // 1. Hapus input lama jika ada (biar gak numpuk)
         const existing = document.getElementById('tempCreationBox');
         if(existing) existing.remove();
 
         const container = document.getElementById('fileTreeRoot');
-        if(!container) return console.error("Container Tree tidak ditemukan!");
-        
-        // 2. Buat Elemen Input Baru
+        if(!container) return; // Safety check
+
+        // 2. Buat Elemen HTML Input Baru
         const div = document.createElement('div');
         div.id = 'tempCreationBox';
         div.className = 'creation-box';
@@ -668,35 +673,37 @@ body {
         div.innerHTML = `
             ${icon}
             <input type="text" class="creation-input" placeholder="Name..." spellcheck="false" autocomplete="off">
-            <i class="fas fa-check creation-save-btn" title="Simpan"></i>
+            <i class="fas fa-check creation-save-btn" title="Simpan (Enter)"></i>
         `;
 
-        // Masukkan ke paling atas
+        // 3. Masukkan ke paling atas Sidebar
         container.insertBefore(div, container.firstChild);
 
         const input = div.querySelector('input');
         const saveBtn = div.querySelector('.creation-save-btn');
         
-        // Fokuskan kursor (Pakai timeout biar browser siap)
+        // Auto Focus (Delay sedikit agar transisi mulus)
         setTimeout(() => input.focus(), 50);
 
-        // --- CORE SAVE LOGIC (Disimpan di variabel biar rapi) ---
+        // --- CORE SAVE LOGIC ---
         const executeSave = async () => {
             const val = input.value.trim();
-            if (!val) return; // Jangan simpan kalau kosong
+            if (!val) return; // Jangan simpan jika kosong
 
-            // UI Loading (Feedback ke user)
+            // UI Feedback: Disable input & Show Spinner
             input.disabled = true;
-            saveBtn.className = "fas fa-spinner fa-spin creation-save-btn"; 
+            saveBtn.className = "fas fa-circle-notch fa-spin creation-save-btn"; 
             
             try {
-                // TUNGGU sampai Firebase selesai
+                // Proses Simpan ke Firebase (Await Callback)
                 const fullPath = basePath ? `${basePath}/${val}` : val;
                 await callback(val, fullPath);
-                div.remove(); // Sukses -> Tutup
+                
+                // Sukses: Tutup Box
+                div.remove();
             } catch (e) {
-                // Gagal -> Balikin UI
-                alert("Gagal: " + e.message);
+                // Gagal: Balikin UI, Tampilkan Error
+                alert("Gagal menyimpan: " + e.message);
                 input.disabled = false;
                 input.focus();
                 saveBtn.className = "fas fa-check creation-save-btn";
@@ -705,25 +712,24 @@ body {
 
         // --- EVENT HANDLERS ---
 
-        // 1. Enter untuk Save, Esc untuk Batal
+        // 1. Keyboard: Enter (Save) & Escape (Cancel)
         input.addEventListener('keydown', (e) => {
             if (e.key === 'Enter') executeSave();
             if (e.key === 'Escape') div.remove();
         });
 
-        // 2. KLIK TOMBOL SAVE (FIXED)
-        // Gunakan 'mousedown' + 'preventDefault' untuk mencegah input kehilangan fokus
+        // 2. Mouse: Klik Tombol Save
+        // PENTING: Pakai 'mousedown' + 'preventDefault' agar input tidak blur duluan
         saveBtn.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // KUNCI: Mencegah event blur
+            e.preventDefault(); 
             e.stopPropagation();
             executeSave();
         });
-        
-        // (Opsional) Hapus input jika klik sembarangan di luar
-        // Kita beri delay agar tidak bentrok dengan tombol save
+
+        // 3. Blur: Hapus box jika user klik di luar (Opsional, tapi rapi)
         input.addEventListener('blur', () => {
+            // Delay agar tidak bentrok jika user sebenarnya mau klik tombol save
             setTimeout(() => {
-                // Cek apakah div masih ada di DOM sebelum dihapus
                 if(document.body.contains(div)) div.remove();
             }, 200);
         });
