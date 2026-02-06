@@ -278,6 +278,29 @@ body {
 .CodeMirror-scroll {
     padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
 }
+
+        /* --- PREMIUM INLINE INPUT (VS Code Style) --- */
+        .creation-box {
+            display: flex; align-items: center; gap: 8px;
+            padding: 5px 15px;
+            background: #282a36; 
+            border: 1px solid var(--accent); /* Border ungu saat ngetik */
+            margin: 2px 0;
+            animation: fadeIn 0.2s ease;
+        }
+        
+        .creation-input {
+            background: transparent; border: none; outline: none;
+            color: white; font-family: 'Inter', sans-serif;
+            font-size: 0.85rem; width: 100%;
+        }
+        
+        .creation-input::placeholder { color: rgba(255,255,255,0.3); }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
     </style>
 </head>
 <body>
@@ -578,34 +601,82 @@ body {
         if (action === 'delete') window.deleteFolder(currentCtxPath);
     };
 
-    // --- SMART CREATE FUNCTIONS (UPDATED) ---
-    
-    // Create File (Bisa di Root atau di dalam Folder)
-    window.createNewFile = async (basePath = '') => {
-        const fileName = prompt(`Buat file baru di "${basePath || 'Root'}":\n(Contoh: index.html)`);
-        if (!fileName) return;
+    // --- SMART INLINE CREATION (NO PROMPT) ---
 
-        const fullPath = basePath ? `${basePath}/${fileName}` : fileName;
-        const ext = fileName.split('.').pop();
-        let type = 'txt';
-        if(['html','htm'].includes(ext)) type = 'html';
-        else if(['css'].includes(ext)) type = 'css';
-        else if(['js','ts'].includes(ext)) type = 'js';
+    // 1. Create File Trigger
+    window.createNewFile = (basePath = '') => {
+        spawnInput('file', basePath, async (name, fullPath) => {
+            const ext = name.split('.').pop();
+            let type = 'txt';
+            if(['html','htm'].includes(ext)) type = 'html';
+            else if(['css'].includes(ext)) type = 'css';
+            else if(['js','ts'].includes(ext)) type = 'js';
 
-        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-            name: fullPath, type: type, content: '// ' + fileName, createdAt: serverTimestamp()
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
+                name: fullPath, type: type, content: '// ' + name, createdAt: serverTimestamp()
+            });
         });
     };
 
-    // Create Folder
-    window.createNewFolder = async (basePath = '') => {
-        const name = prompt(`Buat folder baru di "${basePath || 'Root'}":`);
-        if (!name) return;
-        const fullPath = basePath ? `${basePath}/${name}` : name;
-        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-            name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
+    // 2. Create Folder Trigger
+    window.createNewFolder = (basePath = '') => {
+        spawnInput('folder', basePath, async (name, fullPath) => {
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
+                name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
+            });
         });
     };
+
+    // --- HELPER: SPAWN INPUT UI (The Magic) ---
+    function spawnInput(type, basePath, callback) {
+        // Hapus input lama jika ada (biar gak numpuk)
+        const existing = document.getElementById('tempCreationBox');
+        if(existing) existing.remove();
+
+        const container = document.getElementById('fileTreeRoot');
+        
+        // Buat Elemen Container
+        const div = document.createElement('div');
+        div.id = 'tempCreationBox';
+        div.className = 'creation-box';
+        
+        // Ikon sesuai tipe
+        const icon = type === 'folder' 
+            ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' 
+            : '<i class="fas fa-file" style="color:#6272a4"></i>';
+
+        div.innerHTML = `
+            ${icon}
+            <input type="text" class="creation-input" placeholder="Name..." spellcheck="false">
+        `;
+
+        // Masukkan input di paling atas list (Prepend)
+        // Agar terlihat user sedang membuat sesuatu baru
+        container.insertBefore(div, container.firstChild);
+
+        const input = div.querySelector('input');
+        input.focus(); // Langsung fokus kursor
+
+        // Event Listener: ENTER (Simpan) & ESC (Batal)
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') {
+                const val = input.value.trim();
+                if (val) {
+                    const fullPath = basePath ? `${basePath}/${val}` : val;
+                    callback(val, fullPath); // Jalankan fungsi simpan Firebase
+                }
+                div.remove(); // Hapus input setelah enter
+            } else if (e.key === 'Escape') {
+                div.remove(); // Batal
+            }
+        });
+
+        // Hapus jika user klik di luar (Blur) - Opsional, biar rapi
+        input.addEventListener('blur', () => {
+            // Delay sedikit agar tombol enter tidak bentrok
+            setTimeout(() => { if(div.parentElement) div.remove(); }, 200);
+        });
+      }
 
     // --- IMPORT LOGIC (SEPARATED) ---
 
