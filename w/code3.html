@@ -993,6 +993,74 @@ body {
         }, 1000);
     });
 
+    // --- 11. DOWNLOAD FOLDER (ZIP) ---
+    window.downloadFolder = async (pathName) => {
+        if (!files.length) return alert("Tidak ada file untuk didownload.");
+        
+        const zip = new JSZip();
+        let count = 0;
+        const folderName = pathName ? pathName.split('/').pop() : 'Project';
+
+        files.forEach(f => {
+            // Jika pathName ada, filter file di dalam folder itu. Jika kosong, download semua.
+            if (!pathName || (f.name.startsWith(pathName + '/') && f.type !== 'folder')) {
+                // Buat path relatif agar rapi di dalam ZIP
+                // Misal: "src/css/style.css" -> "css/style.css" (jika download folder src)
+                const relativePath = pathName ? f.name.substring(pathName.length + 1) : f.name;
+                
+                if (relativePath) {
+                    zip.file(relativePath, f.content);
+                    count++;
+                }
+            }
+        });
+
+        if (count === 0) return alert("Folder kosong.");
+
+        try {
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            link.download = `${folderName}.zip`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        } catch (e) {
+            alert("Gagal membuat zip: " + e.message);
+        }
+    };
+
+    // --- 12. RUN PROJECT (PREVIEW) ---
+    window.runProject = function() {
+        // Cari file HTML (Prioritas index.html, atau file html apa saja)
+        const htmlFile = files.find(f => f.name === 'index.html' || f.name.endsWith('.html'));
+        
+        if (!htmlFile) {
+            alert("Error: Tidak ditemukan file HTML (index.html) untuk dijalankan.");
+            return;
+        }
+
+        let finalHTML = htmlFile.content;
+
+        // Bundling Sederhana: Inject CSS & JS ke dalam HTML
+        // 1. Inject CSS
+        const cssFiles = files.filter(f => f.type === 'css');
+        cssFiles.forEach(c => {
+            finalHTML = finalHTML.replace('</head>', `<style>/* ${c.name} */\n${c.content}</style></head>`);
+        });
+
+        // 2. Inject JS
+        const jsFiles = files.filter(f => f.type === 'js');
+        jsFiles.forEach(j => {
+            finalHTML = finalHTML.replace('</body>', `<script>/* ${j.name} */\n${j.content}<\/script></body>`);
+        });
+
+        // 3. Buka di Tab Baru
+        const blob = new Blob([finalHTML], { type: 'text/html' });
+        const url = URL.createObjectURL(blob);
+        window.open(url, '_blank');
+    };
+
     window.toggleSidebar = () => document.getElementById('sidebar').classList.toggle('open');
     window.runProject = () => { /* Run Logic */ };
     function readFile(file) { return new Promise(r => { const reader = new FileReader(); reader.onload = e => r(e.target.result); reader.readAsText(file); }); }
