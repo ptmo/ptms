@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Obusion Cloud IDE | Secure Login</title>
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/theme/dracula.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/codemirror.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/xml/xml.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/javascript/javascript.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/css/css.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/mode/htmlmixed/htmlmixed.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closetag.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/edit/closebrackets.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.2/addon/selection/active-line.min.js"></script>
+
+    <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        :root {
+            --bg-sidebar: #1e1f29;
+            --bg-editor: #282a36;
+            --bg-header: #191a21;
+            --accent: #bd93f9;
+            --text-main: #f8f8f2;
+            --text-muted: #6272a4;
+            --border: #44475a;
+        }
+
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; outline: none; }
+        body { margin: 0; background: var(--bg-editor); color: var(--text-main); font-family: 'Inter', sans-serif; height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+        /* --- LOGIN OVERLAY (GERBANG UTAMA) --- */
+        #loginScreen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: var(--bg-editor); z-index: 9999;
+            display: flex; flex-direction: column; align-items: center; justify-content: center;
+            transition: opacity 0.5s ease;
+        }
+        #loginScreen.hidden { opacity: 0; pointer-events: none; }
+        
+        .login-box {
+            background: var(--bg-sidebar); padding: 40px; border-radius: 12px;
+            text-align: center; border: 1px solid var(--border);
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            max-width: 400px; width: 90%;
+        }
+        .login-btn {
+            background: white; color: #333; border: none;
+            padding: 12px 24px; border-radius: 50px; font-weight: bold; font-size: 1rem;
+            cursor: pointer; display: flex; align-items: center; gap: 10px; margin: 20px auto 0;
+            transition: transform 0.2s;
+        }
+        .login-btn:hover { transform: scale(1.05); box-shadow: 0 5px 15px rgba(255,255,255,0.2); }
+        .login-btn img { width: 20px; }
+
+        /* HEADER & USER PROFILE */
+        .ide-header {
+            height: 50px; background: var(--bg-header); border-bottom: 1px solid var(--border);
+            display: flex; align-items: center; justify-content: space-between; padding: 0 15px; flex-shrink: 0;
+        }
+        .brand { font-weight: 700; font-size: 1rem; display: flex; align-items: center; gap: 8px; color: var(--accent);}
+        
+        .user-profile {
+            display: flex; align-items: center; gap: 10px;
+        }
+        .user-avatar { width: 32px; height: 32px; border-radius: 50%; border: 2px solid var(--accent); }
+        .btn-logout {
+            background: transparent; border: 1px solid var(--border); color: var(--text-muted);
+            padding: 5px 10px; border-radius: 4px; font-size: 0.8rem; cursor: pointer;
+        }
+        .btn-logout:hover { background: #ff5555; color: white; border-color: #ff5555; }
+
+        /* LAYOUT AREA (Sama seperti sebelumnya) */
+        .ide-body { flex: 1; display: flex; overflow: hidden; position: relative; }
+        
+        .sidebar {
+            width: 240px; background: var(--bg-sidebar); border-right: 1px solid var(--border);
+            display: flex; flex-direction: column; transition: transform 0.3s ease;
+            position: absolute; z-index: 10; height: 100%; top: 0; left: 0; transform: translateX(-100%); 
+        }
+        .sidebar.open { transform: translateX(0); box-shadow: 5px 0 20px rgba(0,0,0,0.5); }
+        @media (min-width: 768px) {
+            .sidebar { position: relative; transform: translateX(0); width: 220px; box-shadow: none; }
+        }
+
+        .sidebar-header { padding: 15px; font-size: 0.8rem; font-weight: 700; color: var(--text-muted); display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid var(--border); }
+        .sidebar-actions i { cursor: pointer; margin-left: 10px; font-size: 1rem; transition: color 0.2s; }
+        .sidebar-actions i:hover { color: white; }
+
+        .file-list { flex: 1; overflow-y: auto; list-style: none; padding: 0; margin: 0; }
+        .file-item {
+            padding: 10px 15px; cursor: pointer; display: flex; align-items: center; gap: 8px;
+            font-size: 0.9rem; color: #dcdcdc; border-left: 2px solid transparent;
+        }
+        .file-item:hover { background: rgba(255,255,255,0.05); }
+        .file-item.active { background: rgba(189, 147, 249, 0.1); border-left-color: var(--accent); color: white; }
+        
+        .editor-area { flex: 1; display: flex; flex-direction: column; background: var(--bg-editor); min-width: 0; }
+        .tab-bar { height: 35px; background: var(--bg-sidebar); display: flex; align-items: center; border-bottom: 1px solid var(--border); overflow-x: auto; }
+        .file-tab { padding: 0 15px; height: 100%; display: flex; align-items: center; gap: 8px; font-size: 0.8rem; color: var(--text-muted); border-right: 1px solid var(--border); background: var(--bg-sidebar); }
+        .file-tab.active { background: var(--bg-editor); color: var(--text-main); border-top: 2px solid var(--accent); }
+
+        .CodeMirror { height: 100%; font-family: 'JetBrains Mono', monospace; font-size: 14px; background: transparent !important; }
+        .CodeMirror-gutters { background: var(--bg-editor) !important; border-right: 1px solid var(--border); }
+    </style>
+</head>
+<body>
+
+    <div id="loginScreen">
+        <div class="login-box">
+            <h1 style="color:var(--accent); margin:0;">Obusion Code</h1>
+            <p style="color:var(--text-muted);">Secure Cloud Workspace</p>
+            <div style="margin: 30px 0;">
+                <i class="fas fa-lock" style="font-size: 3rem; color: var(--border);"></i>
+            </div>
+            <button class="login-btn" onclick="window.loginGoogle()">
+                <img src="https://www.gstatic.com/firebasejs/ui/2.0.0/images/auth/google.svg" alt="G">
+                Sign in with Google
+            </button>
+        </div>
+    </div>
+
+    <header class="ide-header">
+        <div style="display:flex; align-items:center;">
+            <i class="fas fa-bars" style="margin-right:15px; cursor:pointer; @media(min-width:768px){display:none;}" onclick="toggleSidebar()"></i>
+            <div class="brand"><i class="fas fa-code-branch"></i> OBUSION <span>CLOUD</span></div>
+        </div>
+        
+        <div class="user-profile">
+            <img id="userAvatar" src="" class="user-avatar" style="display:none;">
+            <button class="btn-logout" onclick="window.logoutGoogle()">Logout</button>
+            <button onclick="runProject()" style="margin-left:10px; background:var(--accent); border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-play"></i></button>
+        </div>
+    </header>
+
+    <div class="ide-body">
+        <aside class="sidebar" id="sidebar">
+            <div class="sidebar-header">
+                <span>EXPLORER</span>
+                <div class="sidebar-actions">
+                    <i class="fas fa-file-circle-plus" onclick="createNewFile()" title="New File"></i>
+                    <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="deleteProject()" title="Delete All"></i>
+                </div>
+            </div>
+            <ul class="file-list" id="fileList"></ul>
+        </aside>
+
+        <main class="editor-area">
+            <div class="tab-bar">
+                <div class="file-tab active">
+                    <span id="activeFileName">No File Selected</span>
+                </div>
+            </div>
+            <textarea id="codeEditor"></textarea>
+        </main>
+    </div>
+
+    <script type="module">
+        // Import Firebase Auth & Firestore
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        const firebaseConfig = {
+            apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
+            authDomain: "obusioncode.firebaseapp.com",
+            projectId: "obusioncode",
+            storageBucket: "obusioncode.firebasestorage.app",
+            messagingSenderId: "299520822295",
+            appId: "1:299520822295:web:f222448979129ae6c2a052",
+            measurementId: "G-B0CYQSNM7R"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+        const provider = new GoogleAuthProvider();
+        
+        const PROJECT_ID = "global_workspace"; // Shared Workspace
+
+        // VARIABLES
+        let files = [];
+        let activeFileId = null;
+        let isTyping = false;
+        let unsubscribeFirestore = null; // Untuk mematikan listener saat logout
+
+        // EDITOR SETUP
+        const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
+            theme: 'dracula',
+            lineNumbers: true,
+            lineWrapping: true,
+            autoCloseTags: true,
+            autoCloseBrackets: true,
+            styleActiveLine: true,
+            mode: 'htmlmixed'
+        });
+
+        // --- 1. AUTHENTICATION LOGIC ---
+
+        // Login Function
+        window.loginGoogle = async () => {
+            try {
+                await signInWithPopup(auth, provider);
+                // Redirect/UI update ditangani oleh onAuthStateChanged
+            } catch (error) {
+                alert("Login Failed: " + error.message);
+            }
+        };
+
+        // Logout Function
+        window.logoutGoogle = async () => {
+            if(confirm("Logout from Cloud IDE?")) {
+                await signOut(auth);
+            }
+        };
+
+        // Auth State Listener (Satpam Pintu Gerbang)
+        onAuthStateChanged(auth, (user) => {
+            const loginScreen = document.getElementById('loginScreen');
+            const userAvatar = document.getElementById('userAvatar');
+
+            if (user) {
+                // USER LOGGED IN
+                console.log("Logged in as:", user.displayName);
+                
+                // 1. Hide Login Screen
+                loginScreen.classList.add('hidden');
+                
+                // 2. Show User Profile
+                userAvatar.src = user.photoURL;
+                userAvatar.style.display = 'block';
+                userAvatar.title = user.displayName;
+
+                // 3. Start Firestore Listener (Load Data)
+                startFirestoreListener();
+
+            } else {
+                // USER LOGGED OUT
+                console.log("User logged out");
+
+                // 1. Show Login Screen
+                loginScreen.classList.remove('hidden');
+                
+                // 2. Clear UI
+                userAvatar.src = "";
+                userAvatar.style.display = 'none';
+                document.getElementById('fileList').innerHTML = "";
+                editor.setValue("");
+                
+                // 3. Stop Firestore Listener (Security)
+                if (unsubscribeFirestore) {
+                    unsubscribeFirestore();
+                    unsubscribeFirestore = null;
+                }
+            }
+        });
+
+        // --- 2. FIRESTORE LOGIC (CRUD) ---
+        
+        function startFirestoreListener() {
+            const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("createdAt"));
+            
+            // Simpan unsubscribe function agar bisa dimatikan saat logout
+            unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+                files = [];
+                const list = document.getElementById('fileList');
+                list.innerHTML = '';
+
+                snapshot.forEach((docSnap) => {
+                    const data = docSnap.data();
+                    const fileObj = { id: docSnap.id, ...data };
+                    files.push(fileObj);
+
+                    const li = document.createElement('li');
+                    li.className = `file-item ${fileObj.id === activeFileId ? 'active' : ''}`;
+                    
+                    const delBtn = `<i class="fas fa-trash" style="margin-left:auto; font-size:0.7rem; color:#ff5555; opacity:0.5;" onclick="window.deleteFile('${fileObj.id}', event)"></i>`;
+                    
+                    let iconClass = 'fa-file';
+                    if(data.type === 'html') iconClass = 'fab fa-html5';
+                    else if(data.type === 'css') iconClass = 'fab fa-css3-alt';
+                    else if(data.type === 'js') iconClass = 'fab fa-js';
+
+                    li.innerHTML = `
+                        <div class="file-icon"><i class="${iconClass}"></i></div>
+                        <span onclick="window.switchFile('${fileObj.id}')" style="flex:1">${data.name}</span>
+                        ${delBtn}
+                    `;
+                    list.appendChild(li);
+
+                    // Sync Editor Realtime (Jika sedang tidak ngetik)
+                    if (activeFileId === fileObj.id && !isTyping) {
+                        const cursor = editor.getCursor();
+                        if(editor.getValue() !== data.content) {
+                            editor.setValue(data.content);
+                            editor.setCursor(cursor);
+                        }
+                    }
+                });
+
+                if (!activeFileId && files.length > 0) {
+                    window.switchFile(files[0].id);
+                }
+            }, (error) => {
+                console.error("Firestore Error:", error);
+                // Jika error permission (misal dipaksa akses tanpa login), force logout
+                if(error.code === 'permission-denied') {
+                    // signOut(auth); 
+                }
+            });
+        }
+
+        // CREATE
+        window.createNewFile = async function() {
+            const name = prompt("Nama File (contoh: index.html):");
+            if (!name) return;
+            const ext = name.split('.').pop();
+            let type = 'html';
+            if (ext === 'css') type = 'css'; else if (ext === 'js') type = 'js';
+
+            try {
+                await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+                    name: name, type: type, content: "// " + name, createdAt: serverTimestamp()
+                });
+            } catch (e) { alert(e.message); }
+        };
+
+        // UPDATE (Auto Save)
+        let saveTimeout;
+        editor.on('change', (cm, change) => {
+            if (change.origin === 'setValue') return;
+            isTyping = true;
+            clearTimeout(saveTimeout);
+            saveTimeout = setTimeout(async () => {
+                if (activeFileId) {
+                    const content = editor.getValue();
+                    try {
+                        await updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: content });
+                    } catch(e) { console.error("Save failed", e); }
+                    isTyping = false;
+                }
+            }, 1000);
+        });
+
+        // DELETE SINGLE
+        window.deleteFile = async function(id, event) {
+            event.stopPropagation();
+            if(confirm("Hapus file ini?")) {
+                await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
+                if(activeFileId === id) { editor.setValue(""); activeFileId = null; }
+            }
+        };
+
+        // DELETE ALL (RESET)
+        window.deleteProject = async function() {
+            if(files.length === 0) return;
+            const confirmTxt = prompt("KETIK 'HAPUS' untuk mereset project:");
+            if(confirmTxt === 'HAPUS') {
+                const batch = writeBatch(db);
+                const allFiles = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
+                allFiles.forEach((d) => batch.delete(d.ref));
+                await batch.commit();
+                editor.setValue(""); activeFileId = null;
+            }
+        };
+
+        // SWITCH FILE
+        window.switchFile = function(id) {
+            activeFileId = id;
+            const file = files.find(f => f.id === id);
+            if (!file) return;
+            isTyping = true;
+            editor.setValue(file.content);
+            isTyping = false;
+            document.getElementById('activeFileName').innerText = file.name;
+            if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
+            else if(file.type === 'css') editor.setOption('mode', 'css');
+            else if(file.type === 'js') editor.setOption('mode', 'javascript');
+            
+            // Highlight sidebar
+            const items = document.querySelectorAll('.file-item');
+            files.forEach((f, i) => {
+                if(f.id === id) items[i].classList.add('active');
+                else items[i].classList.remove('active');
+            });
+            // Close mobile sidebar
+            if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+        };
+
+        // RUN PROJECT
+        window.runProject = function() {
+            const htmlFile = files.find(f => f.type === 'html');
+            const cssFile = files.find(f => f.type === 'css');
+            const jsFile = files.find(f => f.type === 'js');
+            if(!htmlFile) { alert("Butuh file HTML!"); return; }
+            let finalHTML = htmlFile.content;
+            if(cssFile) finalHTML += `<style>${cssFile.content}</style>`;
+            if(jsFile) finalHTML += `<script>${jsFile.content}<\/script>`;
+            window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
+        };
+
+        // Sidebar Toggle
+        window.toggleSidebar = function() {
+            document.getElementById('sidebar').classList.toggle('open');
+        };
+
+    </script>
+</body>
+</html>
