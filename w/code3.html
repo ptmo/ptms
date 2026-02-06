@@ -279,42 +279,41 @@ body {
     padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
 }
 
-        /* --- PREMIUM INLINE INPUT (FIXED) --- */
-        .creation-box {
-            display: flex; align-items: center; gap: 8px;
-            padding: 5px 10px;
-            background: #282a36; 
-            border: 1px solid var(--accent);
-            margin: 2px 0;
-            border-radius: 4px; /* Tambah radius biar halus */
-            animation: fadeIn 0.2s ease;
-        }
-        
-        .creation-input {
-            background: transparent; border: none; outline: none;
-            color: white; font-family: 'Inter', sans-serif;
-            font-size: 0.85rem; 
-            flex: 1; 
-            min-width: 0;
-        }
-        
-        .creation-input::placeholder { color: rgba(255,255,255,0.3); }
+        /* --- PREMIUM INLINE INPUT (FIXED STYLE) --- */
+    .creation-box {
+        display: flex; align-items: center; gap: 8px;
+        padding: 6px 10px;
+        background: #282a36; 
+        border: 1px solid var(--accent);
+        border-radius: 4px;
+        margin: 2px 0;
+        animation: fadeIn 0.2s ease;
+    }
+    
+    .creation-input {
+        background: transparent; border: none; outline: none;
+        color: white; font-family: 'Inter', sans-serif;
+        font-size: 0.85rem; 
+        flex: 1; min-width: 0;
+    }
+    .creation-input::placeholder { color: rgba(255,255,255,0.3); }
 
-        /* Tombol Save (Ceklis) */
-        .creation-save-btn {
-            color: #50fa7b; /* Hijau agar terlihat sebagai aksi 'Save' */
-            cursor: pointer; 
-            padding: 6px;
-            border-radius: 4px;
-            font-size: 0.9rem;
-            display: flex; align-items: center; justify-content: center;
-        }
-        .creation-save-btn:hover { background: rgba(80, 250, 123, 0.2); }
+    /* Tombol Save (Ceklis) */
+    .creation-save-btn {
+        color: #50fa7b; /* Hijau Neon */
+        cursor: pointer; 
+        padding: 6px;
+        font-size: 1rem;
+        display: flex; align-items: center; justify-content: center;
+        transition: 0.2s;
+        z-index: 10; /* Pastikan tombol ada di atas */
+    }
+    .creation-save-btn:hover { text-shadow: 0 0 5px #50fa7b; transform: scale(1.1); }
 
-        @keyframes fadeIn {
-            from { opacity: 0; transform: translateY(-5px); }
-            to { opacity: 1; transform: translateY(0); }
-        }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(-5px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
     </style>
 </head>
 <body>
@@ -615,20 +614,21 @@ body {
         if (action === 'delete') window.deleteFolder(currentCtxPath);
     };
 
-    // --- SMART INLINE CREATION (FIXED & ROBUST) ---
+    // --- SMART INLINE CREATION (PREMIUM & ROBUST) ---
 
     // 1. Create File Trigger
     window.createNewFile = (basePath = '') => {
-        if (!currentUserId) { alert("Tunggu sebentar, sedang memuat data user..."); return; }
+        if (!currentUserId) return alert("Silahkan Login terlebih dahulu!");
         
         spawnInput('file', basePath, async (name, fullPath) => {
-            // Logic Simpan Firebase
+            // Deteksi Tipe File
             const ext = name.split('.').pop();
             let type = 'txt';
             if(['html','htm'].includes(ext)) type = 'html';
             else if(['css'].includes(ext)) type = 'css';
             else if(['js','ts'].includes(ext)) type = 'js';
 
+            // Simpan ke Firebase
             await addDoc(collection(db, "projects", currentUserId, "files"), {
                 name: fullPath, type: type, content: '// ' + name, createdAt: serverTimestamp()
             });
@@ -637,25 +637,26 @@ body {
 
     // 2. Create Folder Trigger
     window.createNewFolder = (basePath = '') => {
-        if (!currentUserId) { alert("Tunggu sebentar, sedang memuat data user..."); return; }
+        if (!currentUserId) return alert("Silahkan Login terlebih dahulu!");
 
         spawnInput('folder', basePath, async (name, fullPath) => {
-            // Logic Simpan Firebase
+            // Simpan Folder ke Firebase
             await addDoc(collection(db, "projects", currentUserId, "files"), {
                 name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
             });
         });
     };
 
-    // --- HELPER: SPAWN INPUT UI (ANTI-ZONK VERSION) ---
+    // --- HELPER: SPAWN INPUT UI (LOGIC INTI) ---
     function spawnInput(type, basePath, callback) {
-        // Bersihkan input lama
+        // 1. Bersihkan sisa input yang mungkin nyangkut
         const existing = document.getElementById('tempCreationBox');
         if(existing) existing.remove();
 
         const container = document.getElementById('fileTreeRoot');
+        if(!container) return console.error("Container Tree tidak ditemukan!");
         
-        // Buat Container Input
+        // 2. Buat Elemen Input Baru
         const div = document.createElement('div');
         div.id = 'tempCreationBox';
         div.className = 'creation-box';
@@ -667,61 +668,64 @@ body {
         div.innerHTML = `
             ${icon}
             <input type="text" class="creation-input" placeholder="Name..." spellcheck="false" autocomplete="off">
-            <i class="fas fa-check creation-save-btn" title="Save"></i>
+            <i class="fas fa-check creation-save-btn" title="Simpan"></i>
         `;
 
-        // Masukkan ke List Paling Atas
+        // Masukkan ke paling atas
         container.insertBefore(div, container.firstChild);
 
         const input = div.querySelector('input');
         const saveBtn = div.querySelector('.creation-save-btn');
         
-        // Auto Focus
-        requestAnimationFrame(() => input.focus());
+        // Fokuskan kursor (Pakai timeout biar browser siap)
+        setTimeout(() => input.focus(), 50);
 
-        // --- CORE SAVE LOGIC ---
-        const submitAction = async () => {
+        // --- CORE SAVE LOGIC (Disimpan di variabel biar rapi) ---
+        const executeSave = async () => {
             const val = input.value.trim();
-            if (!val) return; // Jangan simpan jika kosong
+            if (!val) return; // Jangan simpan kalau kosong
 
-            // 1. UI Loading State (Biar user tahu sedang proses)
+            // UI Loading (Feedback ke user)
             input.disabled = true;
-            saveBtn.style.opacity = '0.5';
-            saveBtn.className = "fas fa-spinner fa-spin creation-save-btn"; // Ganti jadi loading spinner
-
+            saveBtn.className = "fas fa-spinner fa-spin creation-save-btn"; 
+            
             try {
-                // 2. Gabungkan Path
+                // TUNGGU sampai Firebase selesai
                 const fullPath = basePath ? `${basePath}/${val}` : val;
-                
-                // 3. TUNGGU sampai Firebase selesai simpan (AWAIT)
-                await callback(val, fullPath); 
-                
-                // 4. Baru tutup kotaknya jika sukses
-                div.remove();
+                await callback(val, fullPath);
+                div.remove(); // Sukses -> Tutup
             } catch (e) {
-                // 5. Jika Gagal, kembalikan UI agar user bisa coba lagi
-                alert("Gagal menyimpan: " + e.message);
+                // Gagal -> Balikin UI
+                alert("Gagal: " + e.message);
                 input.disabled = false;
                 input.focus();
                 saveBtn.className = "fas fa-check creation-save-btn";
-                saveBtn.style.opacity = '1';
             }
         };
 
         // --- EVENT HANDLERS ---
 
-        // 1. Tombol Enter & Escape
+        // 1. Enter untuk Save, Esc untuk Batal
         input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') submitAction();
-            else if (e.key === 'Escape') div.remove();
+            if (e.key === 'Enter') executeSave();
+            if (e.key === 'Escape') div.remove();
         });
 
-        // 2. PENTING: Gunakan 'mousedown' bukan 'click'
-        // 'mousedown' dieksekusi sebelum input kehilangan fokus (blur)
+        // 2. KLIK TOMBOL SAVE (FIXED)
+        // Gunakan 'mousedown' + 'preventDefault' untuk mencegah input kehilangan fokus
         saveBtn.addEventListener('mousedown', (e) => {
-            e.preventDefault(); // Mencegah input kehilangan fokus
+            e.preventDefault(); // KUNCI: Mencegah event blur
             e.stopPropagation();
-            submitAction();
+            executeSave();
+        });
+        
+        // (Opsional) Hapus input jika klik sembarangan di luar
+        // Kita beri delay agar tidak bentrok dengan tombol save
+        input.addEventListener('blur', () => {
+            setTimeout(() => {
+                // Cek apakah div masih ada di DOM sebelum dihapus
+                if(document.body.contains(div)) div.remove();
+            }, 200);
         });
     }
 
