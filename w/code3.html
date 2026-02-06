@@ -273,6 +273,7 @@
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+    import JSZip from "https://esm.run/jszip";
 
     // 2. CONFIG
     const firebaseConfig = {
@@ -484,7 +485,7 @@
             input.setAttribute('data-target', currentCtxPath);
             input.click();
         }
-        if (action === 'download') alert("Fitur download belum tersedia.");
+        if (action === 'download') window.downloadFolder(currentCtxPath);
         if (action === 'delete') window.deleteFolder(currentCtxPath);
     };
 
@@ -582,6 +583,45 @@
             allFiles.forEach((d) => batch.delete(d.ref));
             await batch.commit();
             editor.setValue(""); activeFileId = null;
+        }
+    };
+
+    // --- DOWNLOAD FOLDER LOGIC (ZIP) ---
+    window.downloadFolder = async (pathName) => {
+        const zip = new JSZip();
+        let count = 0;
+
+        // 1. Cari semua file yang ada di dalam folder tersebut
+        files.forEach(f => {
+            // Cek apakah file ini anak dari folder yg dipilih (Startswith pathName + /)
+            if (f.name.startsWith(pathName + '/')) {
+                // Jangan ikutkan folder placeholder, hanya file isinya
+                if (f.type !== 'folder') {
+                    // Buat path relatif agar rapi di dalam ZIP
+                    // Misal: pathName="src", file="src/css/style.css" -> zip entry="css/style.css"
+                    const relativePath = f.name.substring(pathName.length + 1); 
+                    zip.file(relativePath, f.content);
+                    count++;
+                }
+            }
+        });
+
+        if (count === 0) {
+            alert("Folder kosong atau tidak ada file untuk didownload.");
+            return;
+        }
+
+        // 2. Generate ZIP & Trigger Download
+        try {
+            const content = await zip.generateAsync({ type: "blob" });
+            const link = document.createElement("a");
+            link.href = URL.createObjectURL(content);
+            // Nama file zip diambil dari nama folder terakhir
+            const folderName = pathName.split('/').pop(); 
+            link.download = `${folderName}.zip`;
+            link.click();
+        } catch (e) {
+            alert("Gagal membuat zip: " + e.message);
         }
     };
 
