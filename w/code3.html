@@ -175,20 +175,26 @@
         .tree-item:hover .kebab-menu-btn { opacity: 1; }
         .kebab-menu-btn:hover { background: rgba(255,255,255,0.1); color: white; }
 
-        /* Floating Menu Dropdown */
-        #contextMenu {
+        /* --- UPDATE CSS MENU --- */
+        /* Kita gabungkan selectornya agar style berlaku untuk kedua menu */
+        #contextMenu, #fileContextMenu {
             position: fixed; z-index: 9999;
-            background: #282a36; border: 1px solid #44475a;
+            background: #282a36; border: 1px solid var(--border);
             border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
-            display: none; flex-direction: column; min-width: 150px;
+            display: none; flex-direction: column; min-width: 160px;
         }
-        #contextMenu.visible { display: flex; }
         
+        /* Tambahkan class .visible agar menu muncul */
+        #contextMenu.visible, #fileContextMenu.visible { display: flex; }
+
         .ctx-item {
-            padding: 8px 12px; font-size: 0.85rem; color: #f8f8f2; cursor: pointer;
-            display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+            padding: 10px 15px; font-size: 0.85rem; cursor: pointer; display: flex; gap: 10px; align-items: center;
+            border-bottom: 1px solid rgba(255,255,255,0.05); color: #f8f8f2;
         }
-        .ctx-item:hover { background: #bd93f9; color: #282a36; }
+        .ctx-item:hover { background: var(--accent); color: #282a36; }
+        
+        /* Item Delete selalu merah saat hover */
+        .ctx-item.delete-item:hover { background: #ff5555; color: white; }
         .ctx-item:last-child { border-bottom: none; color: #ff5555; }
         .ctx-item:last-child:hover { background: #ff5555; color: white; }
 
@@ -259,7 +265,12 @@
         <div class="ctx-item" onclick="window.ctxAction('newFolder')"><i class="fas fa-folder-plus"></i> New Folder Here</div>
         <div class="ctx-item" onclick="window.ctxAction('importFile')"><i class="fas fa-file-import"></i> Import File Here</div>
         <div class="ctx-item" onclick="window.ctxAction('download')"><i class="fas fa-download"></i> Download Folder</div>
-        <div class="ctx-item" onclick="window.ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
+        <div class="ctx-item delete-item" onclick="window.ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
+    </div>
+
+    <div id="fileContextMenu">
+        <div class="ctx-item" onclick="window.ctxAction('renameFile')"><i class="fas fa-edit"></i> Rename</div>
+        <div class="ctx-item delete-item" onclick="window.ctxAction('deleteFile')"><i class="fas fa-trash"></i> Delete</div>
     </div>
 
         <main class="editor-area">
@@ -303,6 +314,8 @@
     let unsubscribeFirestore = null;
     let expandedPaths = new Set(); 
     let currentCtxPath = ''; // Variabel penting untuk Context Menu
+    let currentFileId = null;   // Untuk menyimpan ID file yang mau diedit
+    let currentFilePath = null;
 
     // 4. EDITOR SETUP
     const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
@@ -362,7 +375,19 @@
     function renderTree() {
         const rootContainer = document.getElementById('fileTreeRoot');
         rootContainer.innerHTML = '';
+        // ... (Di dalam loop keys.forEach pada buildHTML) ...
 
+                // --- ACTION BUTTONS UPDATE ---
+                let actionBtn = '';
+                if (isFolder) {
+                    // Menu Folder
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
+                } else {
+                    // Menu File (UPDATE DISINI: Ganti Trash jadi Ellipsis)
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
+                }
+                
+                // ... (sisanya sama) ...
         // Build Tree Object
         const tree = {};
         files.forEach(file => {
@@ -416,10 +441,11 @@
                 // File = Sampah (Delete)
                 let actionBtn = '';
                 if (isFolder) {
-                    // Panggil window.showContextMenu
+                    // Menu Folder
                     actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
                 } else {
-                    actionBtn = `<i class="fas fa-trash kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#ff5555;" onclick="window.deleteItem('${fileData.id}', event)"></i>`;
+                    // Menu File (UPDATE DISINI: Ganti Trash jadi Ellipsis)
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
                 }
 
                 const divItem = document.createElement('div');
@@ -730,6 +756,90 @@
             reader.readAsText(file);
         });
     }
+
+    // --- FILE CONTEXT MENU LOGIC ---
+    window.showFileContextMenu = (e, id, path) => {
+        e.stopPropagation();
+        // Tutup menu folder jika terbuka
+        window.hideContextMenu();
+        
+        currentFileId = id;
+        currentFilePath = path;
+        
+        const menu = document.getElementById('fileContextMenu');
+        menu.style.top = e.clientY + 'px';
+        menu.style.left = (e.clientX - 120) + 'px';
+        menu.classList.add('visible');
+        
+        // Klik di mana saja untuk menutup menu
+        document.addEventListener('click', function closeMenu() {
+            menu.classList.remove('visible');
+            document.removeEventListener('click', closeMenu);
+        }, { once: true });
+    };
+
+    // Update ctxAction untuk handle Rename & Delete File
+    const originalCtxAction = window.ctxAction; // Simpan ref fungsi lama jika perlu, atau langsung update isinya:
+    
+    window.ctxAction = (action) => {
+        window.hideContextMenu();
+        document.getElementById('fileContextMenu').classList.remove('visible');
+
+        // Logic Folder Lama
+        if (action === 'newFile') window.createNewFile(currentCtxPath);
+        if (action === 'newFolder') window.createNewFolder(currentCtxPath);
+        if (action === 'importFile') {
+            const input = document.getElementById('fileImporter');
+            input.setAttribute('data-target', currentCtxPath);
+            input.click();
+        }
+        if (action === 'download') window.downloadFolder(currentCtxPath);
+        if (action === 'delete') window.deleteFolder(currentCtxPath);
+
+        // Logic File Baru
+        if (action === 'renameFile') window.performRenameFile();
+        if (action === 'deleteFile') window.performDeleteFile();
+    };
+
+    // --- RENAME LOGIC ---
+    window.performRenameFile = async () => {
+        if (!currentFileId || !currentFilePath) return;
+
+        // Ambil nama file asli dari path (misal: "src/css/style.css" -> "style.css")
+        const oldName = currentFilePath.split('/').pop();
+        
+        // Ambil folder induk (misal: "src/css")
+        const parentPath = currentFilePath.substring(0, currentFilePath.lastIndexOf('/'));
+
+        const newName = prompt("Masukkan nama baru:", oldName);
+        if (!newName || newName === oldName) return;
+
+        // Susun path baru
+        const newFullPath = parentPath ? `${parentPath}/${newName}` : newName;
+
+        try {
+            const fileRef = doc(db, "projects", PROJECT_ID, "files", currentFileId);
+            await updateDoc(fileRef, {
+                name: newFullPath
+            });
+            // Tree akan auto-refresh karena onSnapshot
+        } catch (e) {
+            alert("Gagal rename: " + e.message);
+        }
+    };
+
+    // --- DELETE FILE LOGIC ---
+    window.performDeleteFile = async () => {
+        if(confirm("Yakin hapus file ini?")) {
+            await deleteDoc(doc(db, "projects", PROJECT_ID, "files", currentFileId));
+            // Jika file yang dihapus sedang dibuka di editor, kosongkan editor
+            if(activeFileId === currentFileId) {
+                editor.setValue("");
+                activeFileId = null;
+                document.getElementById('activeFileName').innerText = "No File";
+            }
+        }
+    };
       
     </script>
 </body>
