@@ -440,6 +440,48 @@ body {
     background: #ff5555;
     color: white;
 }
+
+        /* --- STATUS BAR (FOOTER EDITOR) --- */
+    .status-bar {
+        height: 25px;
+        background: var(--accent); /* Ungu */
+        color: #282a36;
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0 15px;
+        font-size: 0.75rem;
+        font-weight: bold;
+        flex-shrink: 0;
+    }
+
+    /* --- SETTINGS MODAL --- */
+    .modal-overlay {
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.7); z-index: 10000;
+        display: none; align-items: center; justify-content: center;
+    }
+    .modal-overlay.show { display: flex; }
+    
+    .settings-box {
+        background: var(--bg-sidebar); border: 1px solid var(--border);
+        width: 300px; padding: 20px; border-radius: 8px;
+        box-shadow: 0 10px 30px black;
+    }
+    .settings-row { margin-bottom: 15px; }
+    .settings-row label { display: block; color: var(--text-muted); font-size: 0.8rem; margin-bottom: 5px; }
+    .settings-row select, .settings-row input {
+        width: 100%; background: var(--bg-editor); border: 1px solid var(--border);
+        color: white; padding: 8px; border-radius: 4px; outline: none;
+    }
+
+    /* --- FIX TAMPILAN SEARCH DIALOG CODEMIRROR --- */
+    .CodeMirror-dialog {
+        background: #282a36 !important; color: white !important;
+        border-bottom: 1px solid var(--accent) !important;
+        padding: 10px !important;
+    }
+    .CodeMirror-dialog input {
+        background: #44475a; border: none; color: white; padding: 4px; outline: none;
+    }
     </style>
 </head>
 <body>
@@ -459,17 +501,28 @@ body {
     </div>
 
     <header class="ide-header">
-        <div style="display:flex; align-items:center;">
-            <i class="fas fa-bars" style="margin-right:15px; cursor:pointer; @media(min-width:768px){display:none;}" onclick="toggleSidebar()"></i>
-            <div class="brand"><i class="fas fa-code-branch"></i> OBUSION <span>CLOUD</span></div>
-        </div>
+    <div style="display:flex; align-items:center;">
+        <i class="fas fa-bars mobile-toggle" onclick="toggleSidebar()"></i>
         
-        <div class="user-profile">
-            <img id="userAvatar" src="" class="user-avatar" style="display:none;">
-            <button class="btn-logout" onclick="window.logoutGoogle()">Logout</button>
-            <button onclick="runProject()" style="margin-left:10px; background:var(--accent); border:none; padding:5px 12px; border-radius:4px; font-weight:bold; cursor:pointer;"><i class="fas fa-play"></i></button>
+        <div class="brand">
+            <i class="fas fa-code-branch"></i> OBUSION <span>CLOUD</span>
         </div>
-    </header>
+    </div>
+    
+    <div class="user-profile">
+        <img id="userAvatar" src="" class="user-avatar" style="display:none;">
+        
+        <button class="btn-icon" onclick="toggleSettings()" title="Editor Settings">
+            <i class="fas fa-cog"></i>
+        </button>
+
+        <button class="btn-logout" onclick="window.logoutGoogle()">Logout</button>
+        
+        <button class="btn-run" onclick="runProject()" title="Run Project (Preview)">
+            <i class="fas fa-play"></i>
+        </button>
+    </div>
+</header>
 
     <div class="ide-body">
         <aside class="sidebar" id="sidebar">
@@ -506,13 +559,48 @@ body {
     </div>
 
         <main class="editor-area">
-            <div class="tab-bar">
-                <div class="file-tab active">
-                    <span id="activeFileName">No File Selected</span>
-                </div>
-            </div>
-            <textarea id="codeEditor"></textarea>
+    <div class="tab-bar">
+        </div>
+
+    <textarea id="codeEditor"></textarea>
+
+    <div class="status-bar">
+        <div class="sb-left">
+            <i class="fas fa-code-commit" style="margin-right:5px;"></i>
+            <span id="cursorPos">Ln 1, Col 1</span>
+        </div>
+        <div class="sb-right">
+            <span id="activeFileType">Plain Text</span>
+            <span style="margin-left:15px;">UTF-8</span>
+            <i class="fas fa-check-double" style="margin-left:10px;"></i>
+        </div>
+    </div>
         </main>
+
+        <div id="settingsModal" class="modal-overlay">
+    <div class="settings-box">
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+            <h3 style="margin:0; color:var(--accent);"><i class="fas fa-sliders-h"></i> Editor Settings</h3>
+            <i class="fas fa-times" onclick="toggleSettings()" style="cursor:pointer; color:var(--text-muted);"></i>
+        </div>
+        
+        <div class="settings-row">
+            <label><i class="fas fa-text-height"></i> Font Size (px)</label>
+            <input type="number" id="set_fontSize" value="14" onchange="applySettings()">
+        </div>
+        
+        <div class="settings-row">
+            <label><i class="fas fa-align-left"></i> Word Wrap</label>
+            <select id="set_wordWrap" onchange="applySettings()">
+                <option value="true">On (Wrap Long Lines)</option>
+                <option value="false">Off (Horizontal Scroll)</option>
+            </select>
+        </div>
+
+        <button onclick="toggleSettings()" class="btn-save-settings">Close & Save</button>
+    </div>
+        </div>
+        
     </div>
 
   <script type="module">
@@ -555,7 +643,7 @@ body {
     let currentFileId = null;   
     let currentFilePath = null;
 
-    // 4. EDITOR SETUP
+    // 4. EDITOR SETUP (PRO VERSION)
     const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
         theme: 'dracula',
         lineNumbers: true,
@@ -564,8 +652,51 @@ body {
         autoCloseBrackets: true,
         matchBrackets: true,
         styleActiveLine: true,
-        mode: 'htmlmixed'
+        mode: 'htmlmixed',
+        
+        // --- FITUR PRO ---
+        extraKeys: {
+            "Ctrl-Space": "autocomplete", // Trigger Auto Complete
+            "Ctrl-F": "findPersistent",   // Trigger Search UI
+            "Cmd-F": "findPersistent"     // Untuk Mac
+        }
     });
+
+    // --- LOGIC STATUS BAR ---
+    editor.on('cursorActivity', () => {
+        const pos = editor.getCursor();
+        // Update teks di status bar: Baris dan Kolom + 1 (biar mulai dari 1 bukan 0)
+        document.getElementById('cursorPos').innerText = `Ln ${pos.line + 1}, Col ${pos.ch + 1}`;
+    });
+
+    // --- LOGIC SETTINGS ---
+    window.toggleSettings = () => {
+        const modal = document.getElementById('settingsModal');
+        modal.classList.toggle('show');
+    };
+
+    window.applySettings = () => {
+        const size = document.getElementById('set_fontSize').value;
+        const wrap = document.getElementById('set_wordWrap').value === "true";
+        
+        // Ubah Ukuran Font
+        document.querySelector('.CodeMirror').style.fontSize = `${size}px`;
+        
+        // Ubah Word Wrap
+        editor.setOption('lineWrapping', wrap);
+        
+        // Simpan ke LocalStorage (Biar direfresh tidak hilang)
+        localStorage.setItem('editorConfig', JSON.stringify({ size, wrap }));
+    };
+
+    // Load Settings saat awal buka
+    const savedConfig = JSON.parse(localStorage.getItem('editorConfig'));
+    if (savedConfig) {
+        document.getElementById('set_fontSize').value = savedConfig.size;
+        document.getElementById('set_wordWrap').value = savedConfig.wrap.toString();
+        document.querySelector('.CodeMirror').style.fontSize = `${savedConfig.size}px`;
+        editor.setOption('lineWrapping', savedConfig.wrap);
+    }
 
     // --- AUTHENTICATION ---
     window.loginGoogle = async () => {
