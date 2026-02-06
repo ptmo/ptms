@@ -167,6 +167,31 @@
             color: var(--text-main);
         }
 
+        /* --- STYLE TAMBAHAN: CONTEXT MENU (TITIK TIGA) --- */
+        .kebab-menu-btn {
+            margin-left: auto; padding: 2px 6px; border-radius: 4px;
+            color: var(--text-muted); transition: all 0.2s; opacity: 0;
+        }
+        .tree-item:hover .kebab-menu-btn { opacity: 1; }
+        .kebab-menu-btn:hover { background: rgba(255,255,255,0.1); color: white; }
+
+        /* Floating Menu Dropdown */
+        #contextMenu {
+            position: fixed; z-index: 9999;
+            background: #282a36; border: 1px solid #44475a;
+            border-radius: 6px; box-shadow: 0 5px 15px rgba(0,0,0,0.5);
+            display: none; flex-direction: column; min-width: 150px;
+        }
+        #contextMenu.visible { display: flex; }
+        
+        .ctx-item {
+            padding: 8px 12px; font-size: 0.85rem; color: #f8f8f2; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; border-bottom: 1px solid rgba(255,255,255,0.05);
+        }
+        .ctx-item:hover { background: #bd93f9; color: #282a36; }
+        .ctx-item:last-child { border-bottom: none; color: #ff5555; }
+        .ctx-item:last-child:hover { background: #ff5555; color: white; }
+
         /* --- UTILS --- */
         #fileImporter, #folderImporter { display: none; }
         
@@ -210,21 +235,28 @@
 
     <div class="ide-body">
         <aside class="sidebar" id="sidebar">
-            <div class="sidebar-header">
-                <span>EXPLORER</span>
-                <div class="sidebar-actions">
-                    <i class="fas fa-file-circle-plus" onclick="createNewFile()" title="New File"></i>
-                    <i class="fas fa-folder-plus" onclick="createNewFolder()" title="New Folder"></i>
-                    <i class="fas fa-cloud-upload-alt" onclick="triggerImport()" title="Import File/Folder"></i>
-                    <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="deleteProject()" title="Format Workspace"></i>
-                </div>
+        <div class="sidebar-header">
+            <span>EXPLORER</span>
+            <div class="sidebar-actions">
+                <i class="fas fa-file-circle-plus" onclick="createNewFile('')" title="New File (Root)"></i>
+                <i class="fas fa-folder-plus" onclick="createNewFolder('')" title="New Folder (Root)"></i>
+                <i class="fas fa-trash-alt" style="color:#ff5555;" onclick="deleteProject()" title="Format Workspace"></i>
             </div>
-            
-            <div id="fileTreeRoot" class="file-list"></div>
+        </div>
+        
+        <div id="fileTreeRoot" class="file-list" onclick="hideContextMenu()"></div>
 
-            <input type="file" id="fileImporter" multiple onchange="handleImport(this.files)">
-            <input type="file" id="folderImporter" webkitdirectory directory onchange="handleImport(this.files)">
-        </aside>
+        <input type="file" id="fileImporter" multiple onchange="processFileImport(this.files)">
+        <input type="file" id="folderImporter" webkitdirectory directory onchange="processFolderImport(this.files)">
+    </aside>
+
+    <div id="contextMenu">
+        <div class="ctx-item" onclick="ctxAction('newFile')"><i class="fas fa-file-plus"></i> New File Here</div>
+        <div class="ctx-item" onclick="ctxAction('newFolder')"><i class="fas fa-folder-plus"></i> New Folder Here</div>
+        <div class="ctx-item" onclick="ctxAction('importFile')"><i class="fas fa-file-import"></i> Import File</div>
+        <div class="ctx-item" onclick="ctxAction('download')"><i class="fas fa-download"></i> Download Folder</div>
+        <div class="ctx-item" onclick="ctxAction('delete')"><i class="fas fa-trash"></i> Delete Folder</div>
+    </div>
 
         <main class="editor-area">
             <div class="tab-bar">
@@ -237,12 +269,11 @@
     </div>
 
     <script type="module">
-    // 1. IMPORT FIREBASE
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
     import { getAuth, GoogleAuthProvider, signInWithPopup, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
     import { getFirestore, collection, addDoc, onSnapshot, doc, updateDoc, deleteDoc, serverTimestamp, query, orderBy, writeBatch, getDocs } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
-    // 2. CONFIG
+    // --- CONFIG ---
     const firebaseConfig = {
         apiKey: "AIzaSyCkXEEgB8fbEuxjVmzPqSL7K7oHnmnvDLs",
         authDomain: "obusioncode.firebaseapp.com",
@@ -259,86 +290,60 @@
     const provider = new GoogleAuthProvider();
     const PROJECT_ID = "global_workspace"; 
 
-    // 3. VARIABLES
+    // --- STATE ---
     let files = [];
     let activeFileId = null;
-    let isTyping = false;
-    let unsubscribeFirestore = null;
-    let expandedPaths = new Set(); // Menyimpan state folder yang terbuka
+    let expandedPaths = new Set();
+    let currentCtxPath = ''; // Path folder yang sedang diklik kanan/titik tiga
 
-    // 4. EDITOR SETUP
+    // --- EDITOR ---
     const editor = CodeMirror.fromTextArea(document.getElementById('codeEditor'), {
-        theme: 'dracula',
-        lineNumbers: true,
-        lineWrapping: true,
-        autoCloseTags: true,
-        autoCloseBrackets: true,
-        styleActiveLine: true,
-        mode: 'htmlmixed'
+        theme: 'dracula', lineNumbers: true, mode: 'htmlmixed',
+        autoCloseTags: true, autoCloseBrackets: true
     });
 
-    // --- AUTHENTICATION ---
-    window.loginGoogle = async () => {
-        try { await signInWithPopup(auth, provider); } 
-        catch (e) { alert("Login Failed: " + e.message); }
-    };
-
-    window.logoutGoogle = async () => {
-        if(confirm("Logout?")) await signOut(auth);
-    };
-
+    // --- AUTH ---
     onAuthStateChanged(auth, (user) => {
         const loginScreen = document.getElementById('loginScreen');
-        const userAvatar = document.getElementById('userAvatar');
-
         if (user) {
-            console.log("Logged in:", user.displayName);
             loginScreen.classList.add('hidden');
-            userAvatar.src = user.photoURL;
-            userAvatar.style.display = 'block';
-            userAvatar.title = user.displayName;
-            startFirestoreListener(); // MULAI APLIKASI
+            document.getElementById('userAvatar').src = user.photoURL;
+            document.getElementById('userAvatar').style.display = 'block';
+            startFirestoreListener();
         } else {
-            console.log("Logged out");
             loginScreen.classList.remove('hidden');
-            userAvatar.style.display = 'none';
-            document.getElementById('fileTreeRoot').innerHTML = ""; // Bersihkan Tree
-            editor.setValue("");
-            if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
         }
     });
 
-    // --- CORE LOGIC: TREE VIEW ---
+    window.loginGoogle = () => signInWithPopup(auth, provider);
+    window.logoutGoogle = () => signOut(auth);
+
+    // --- CORE LOGIC ---
     function startFirestoreListener() {
         const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("name"));
-        
-        unsubscribeFirestore = onSnapshot(q, (snapshot) => {
+        onSnapshot(q, (snapshot) => {
             files = [];
-            snapshot.forEach((docSnap) => {
-                files.push({ id: docSnap.id, ...docSnap.data() });
-            });
-            renderTree(); // RENDER ULANG POHON
+            snapshot.forEach((docSnap) => files.push({ id: docSnap.id, ...docSnap.data() }));
+            renderTree();
         });
     }
 
     function renderTree() {
         const rootContainer = document.getElementById('fileTreeRoot');
         rootContainer.innerHTML = '';
+        const tree = {};
 
         // Build Tree Object
-        const tree = {};
         files.forEach(file => {
-            const parts = file.name.split('/'); 
+            const parts = file.name.split('/');
             let current = tree;
             parts.forEach((part, i) => {
-                if (!current[part]) {
-                    current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
-                }
+                if (!current[part]) current[part] = (i === parts.length - 1) ? { __data: file, __children: {} } : { __children: {} };
                 current = current[part].__children;
             });
         });
 
-        // Build HTML Recursive
+        // Render HTML
         function buildHTML(node, container, pathPrefix = '', depth = 0) {
             const keys = Object.keys(node).sort((a, b) => {
                 const isFolderA = Object.keys(node[a].__children).length > 0 || node[a].__data?.type === 'folder';
@@ -350,7 +355,6 @@
 
             keys.forEach(key => {
                 if (key === '__data' || key === '__children') return;
-
                 const item = node[key];
                 const fileData = item.__data || {};
                 const currentPath = pathPrefix ? `${pathPrefix}/${key}` : key;
@@ -359,192 +363,196 @@
                 const li = document.createElement('li');
                 if (isFolder && expandedPaths.has(currentPath)) li.classList.add('folder-open');
 
-                let iconClass = 'fas fa-file';
-                let colorStyle = '';
-                
-                if (isFolder) {
-                    iconClass = 'fas fa-folder'; colorStyle = 'color: #f1fa8c;'; 
-                } else {
-                    if (fileData.type === 'html') { iconClass = 'fab fa-html5'; colorStyle = 'color: #ffb86c;'; }
-                    else if (fileData.type === 'css') { iconClass = 'fab fa-css3-alt'; colorStyle = 'color: #8be9fd;'; }
-                    else if (fileData.type === 'js') { iconClass = 'fab fa-js'; colorStyle = 'color: #f1fa8c;'; }
+                // Icon & Style
+                let icon = isFolder ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' : '<i class="fas fa-file" style="color:#8be9fd"></i>';
+                if(!isFolder) {
+                    if(fileData.type === 'html') icon = '<i class="fab fa-html5" style="color:#ffb86c"></i>';
+                    else if(fileData.type === 'js') icon = '<i class="fab fa-js" style="color:#f1fa8c"></i>';
                 }
 
-                const padding = 15 + (depth * 12);
-                const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:10px; display:inline-block"></span>`;
-                const deleteBtn = fileData.id ? 
-                    `<i class="fas fa-trash" style="margin-left:auto; font-size:0.7rem; color:#ff5555; opacity:0; transition:opacity 0.2s;" onclick="deleteItem('${fileData.id}', '${isFolder}', '${currentPath}', event)"></i>` : '';
-
-                const divItem = document.createElement('div');
-                divItem.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
-                divItem.style.paddingLeft = `${padding}px`;
-                divItem.innerHTML = `${arrow} <i class="${iconClass}" style="${colorStyle}"></i> <span>${key}</span> ${deleteBtn}`;
+                const arrow = isFolder ? `<i class="fas fa-chevron-right folder-arrow"></i>` : `<span style="width:12px"></span>`;
                 
-                divItem.onmouseenter = () => { if(divItem.querySelector('.fa-trash')) divItem.querySelector('.fa-trash').style.opacity = '1'; }
-                divItem.onmouseleave = () => { if(divItem.querySelector('.fa-trash')) divItem.querySelector('.fa-trash').style.opacity = '0'; }
+                // --- ACTION BUTTONS ---
+                // Jika Folder: Tampilkan Titik Tiga. Jika File: Tampilkan Sampah.
+                let actionBtn = '';
+                if (isFolder) {
+                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" onclick="showContextMenu(event, '${currentPath}')"></i>`;
+                } else {
+                    actionBtn = `<i class="fas fa-trash kebab-menu-btn" style="color:#ff5555" onclick="deleteItem('${fileData.id}', event)"></i>`;
+                }
 
-                divItem.onclick = (e) => {
-                    e.stopPropagation();
+                const div = document.createElement('div');
+                div.className = `tree-item ${fileData.id === activeFileId ? 'active' : ''}`;
+                div.style.paddingLeft = `${10 + (depth * 12)}px`;
+                div.innerHTML = `${arrow} ${icon} <span style="margin-left:5px">${key}</span> ${actionBtn}`;
+
+                div.onclick = (e) => {
+                    e.stopPropagation(); hideContextMenu();
                     if (isFolder) {
-                        if (li.classList.contains('folder-open')) {
-                            li.classList.remove('folder-open');
-                            expandedPaths.delete(currentPath);
-                        } else {
-                            li.classList.add('folder-open');
-                            expandedPaths.add(currentPath);
-                        }
+                        li.classList.toggle('folder-open');
+                        if (li.classList.contains('folder-open')) expandedPaths.add(currentPath);
+                        else expandedPaths.delete(currentPath);
                     } else {
                         window.switchFile(fileData.id);
                     }
                 };
 
-                li.appendChild(divItem);
-
+                li.appendChild(div);
                 if (isFolder) {
-                    const ulChild = document.createElement('ul');
-                    ulChild.className = 'folder-content';
-                    buildHTML(item.__children, ulChild, currentPath, depth + 1);
-                    li.appendChild(ulChild);
+                    const ul = document.createElement('ul');
+                    ul.className = 'folder-content';
+                    buildHTML(item.__children, ul, currentPath, depth + 1);
+                    li.appendChild(ul);
                 }
                 container.appendChild(li);
             });
         }
-
-        const rootUl = document.createElement('ul');
-        rootUl.className = 'file-tree';
-        buildHTML(tree, rootUl);
-        rootContainer.appendChild(rootUl);
+        buildHTML(tree, rootContainer);
     }
 
-    // --- FEATURES ---
-
-    window.triggerImport = function() {
-        const choice = prompt("Ketik '1' File | Ketik '2' Folder:");
-        if(choice === '1') document.getElementById('fileImporter').click();
-        if(choice === '2') document.getElementById('folderImporter').click();
+    // --- CONTEXT MENU LOGIC (TITIK TIGA) ---
+    window.showContextMenu = function(e, path) {
+        e.stopPropagation();
+        currentCtxPath = path; // Simpan path folder yang di-klik
+        const menu = document.getElementById('contextMenu');
+        menu.style.top = e.clientY + 'px';
+        menu.style.left = (e.clientX - 100) + 'px'; // Muncul sedikit ke kiri
+        menu.classList.add('visible');
     };
 
-    window.handleImport = async function(fileList) {
+    window.hideContextMenu = function() {
+        document.getElementById('contextMenu').classList.remove('visible');
+    };
+
+    window.ctxAction = function(action) {
+        hideContextMenu();
+        if (action === 'newFile') createNewFile(currentCtxPath);
+        if (action === 'newFolder') createNewFolder(currentCtxPath);
+        if (action === 'importFile') {
+            document.getElementById('fileImporter').setAttribute('data-target', currentCtxPath);
+            document.getElementById('fileImporter').click();
+        }
+        if (action === 'download') alert("Fitur download folder " + currentCtxPath + " akan segera hadir!"); // Placeholder
+        if (action === 'delete') deleteFolder(currentCtxPath);
+    };
+
+    // --- SMART CREATE FUNCTIONS ---
+    
+    // Create File (Bisa di Root atau di dalam Folder)
+    window.createNewFile = async function(basePath = '') {
+        const fileName = prompt(`Buat file baru di "${basePath || 'root'}":\n(Contoh: script.js)`);
+        if (!fileName) return;
+
+        // Gabungkan Base Path dengan Nama File
+        const fullPath = basePath ? `${basePath}/${fileName}` : fileName;
+        const ext = fileName.split('.').pop();
+        let type = 'txt';
+        if(['html','htm'].includes(ext)) type = 'html';
+        else if(['css'].includes(ext)) type = 'css';
+        else if(['js','ts'].includes(ext)) type = 'js';
+
+        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+            name: fullPath, type: type, content: '// ' + fileName, createdAt: serverTimestamp()
+        });
+    };
+
+    // Create Folder (Bisa di Root atau di dalam Folder)
+    window.createNewFolder = async function(basePath = '') {
+        const folderName = prompt(`Buat folder baru di "${basePath || 'root'}":`);
+        if (!folderName) return;
+
+        const fullPath = basePath ? `${basePath}/${folderName}` : folderName;
+        
+        // Simpan folder sebagai item khusus
+        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
+            name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
+        });
+    };
+
+    // --- IMPORT LOGIC (TERPISAH & SMART) ---
+
+    // 1. IMPORT FILE (Masuk ke folder yang dipilih)
+    window.processFileImport = async function(fileList) {
+        const targetFolder = document.getElementById('fileImporter').getAttribute('data-target') || '';
         if (!fileList.length) return;
+
         const batch = writeBatch(db);
-        let count = 0;
         for (let i = 0; i < fileList.length; i++) {
             const file = fileList[i];
-            if (file.name.startsWith('.')) continue;
-            const fullPath = file.webkitRelativePath || file.name;
-            const ext = fullPath.split('.').pop();
-            let type = 'txt';
-            if(['html','htm'].includes(ext)) type = 'html';
-            else if(['css'].includes(ext)) type = 'css';
-            else if(['js','ts','json'].includes(ext)) type = 'js';
-
+            const fullPath = targetFolder ? `${targetFolder}/${file.name}` : file.name;
             const content = await readFile(file);
+            
             const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
-            batch.set(ref, { name: fullPath, type: type, content: content, createdAt: serverTimestamp() });
-            count++;
+            batch.set(ref, { 
+                name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() 
+            });
         }
         await batch.commit();
-        alert(`Imported ${count} files!`);
+        alert("Import Selesai");
+        document.getElementById('fileImporter').value = ''; // Reset
     };
 
-    window.createNewFolder = async function() {
-        const name = prompt("Nama Folder:");
-        if (!name) return;
-        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-            name: name, type: 'folder', content: '', createdAt: serverTimestamp()
-        });
-    };
+    // 2. IMPORT FOLDER (Struktur Asli)
+    window.processFolderImport = async function(fileList) {
+        if (!fileList.length) return;
+        const batch = writeBatch(db);
+        
+        for (let i = 0; i < fileList.length; i++) {
+            const file = fileList[i];
+            // webkitRelativePath otomatis mengandung struktur folder (misal: "my-project/css/style.css")
+            const fullPath = file.webkitRelativePath || file.name; 
+            const content = await readFile(file);
 
-    window.createNewFile = async function() {
-        const path = prompt("Path File (e.g. src/main.js):");
-        if (!path) return;
-        const ext = path.split('.').pop();
-        let type = 'html';
-        if(ext === 'css') type = 'css'; else if(ext === 'js') type = 'js';
-        await addDoc(collection(db, "projects", PROJECT_ID, "files"), {
-            name: path, type: type, content: '// ' + path, createdAt: serverTimestamp()
-        });
-    };
-
-    window.deleteItem = async function(id, isFolder, pathName, event) {
-        event.stopPropagation();
-        if(confirm(`Hapus ${pathName}?`)) {
-            if(isFolder === 'true') {
-                const batch = writeBatch(db);
-                files.forEach(f => {
-                    if(f.name.startsWith(pathName + '/') || f.name === pathName) {
-                        batch.delete(doc(db, "projects", PROJECT_ID, "files", f.id));
-                    }
-                });
-                await batch.commit();
-            } else {
-                await deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
-                if(activeFileId === id) { editor.setValue(""); activeFileId = null; }
-            }
+            const ref = doc(collection(db, "projects", PROJECT_ID, "files"));
+            batch.set(ref, { 
+                name: fullPath, type: 'txt', content: content, createdAt: serverTimestamp() 
+            });
         }
+        await batch.commit();
+        alert("Folder berhasil diimport!");
+        document.getElementById('folderImporter').value = '';
     };
 
-    window.deleteProject = async function() {
-        if(files.length === 0) return;
-        if(prompt("Ketik 'HAPUS' untuk Reset Project:") === 'HAPUS') {
+    // --- DELETE LOGIC ---
+    window.deleteItem = async function(id, e) {
+        e.stopPropagation();
+        if(confirm("Hapus file ini?")) deleteDoc(doc(db, "projects", PROJECT_ID, "files", id));
+    };
+
+    window.deleteFolder = async function(pathName) {
+        if(confirm(`HAPUS folder "${pathName}" dan semua isinya? PERMANEN.`)) {
             const batch = writeBatch(db);
-            const allFiles = await getDocs(collection(db, "projects", PROJECT_ID, "files"));
-            allFiles.forEach((d) => batch.delete(d.ref));
+            files.forEach(f => {
+                // Hapus jika nama file diawali dengan path folder (misal: "css/" cocok dengan "css/style.css")
+                if(f.name.startsWith(pathName + '/') || f.name === pathName) {
+                    batch.delete(doc(db, "projects", PROJECT_ID, "files", f.id));
+                }
+            });
             await batch.commit();
-            editor.setValue(""); activeFileId = null;
         }
     };
-
-    // --- SWITCH FILE (UPDATED) ---
+    
+    // --- HELPER ---
     window.switchFile = function(id) {
         activeFileId = id;
         const file = files.find(f => f.id === id);
-        if (!file) return;
-
-        isTyping = true;
-        editor.setValue(file.content);
-        isTyping = false;
-        
-        document.getElementById('activeFileName').innerText = file.name;
-        if(file.type === 'html') editor.setOption('mode', 'htmlmixed');
-        else if(file.type === 'css') editor.setOption('mode', 'css');
-        else if(file.type === 'js') editor.setOption('mode', 'javascript');
-
-        // Re-Render Tree untuk update highlight active (Paling Aman)
-        renderTree(); 
-
-        if(window.innerWidth < 768) document.getElementById('sidebar').classList.remove('open');
+        if(file) {
+            editor.setValue(file.content);
+            isTyping = true; // prevent auto-save loop
+            setTimeout(() => isTyping = false, 100);
+            renderTree(); // refresh active highlight
+        }
     };
 
-    // AUTO SAVE
+    // Simpan otomatis saat ngetik
     let saveTimeout;
-    editor.on('change', (cm, change) => {
-        if (change.origin === 'setValue') return;
-        isTyping = true;
+    editor.on('change', () => {
+        if(isTyping) return;
         clearTimeout(saveTimeout);
-        saveTimeout = setTimeout(async () => {
-            if (activeFileId) {
-                try {
-                    await updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: editor.getValue() });
-                } catch(e) {}
-                isTyping = false;
-            }
+        saveTimeout = setTimeout(() => {
+            if(activeFileId) updateDoc(doc(db, "projects", PROJECT_ID, "files", activeFileId), { content: editor.getValue() });
         }, 1000);
     });
-
-    // RUN PROJECT
-    window.runProject = function() {
-        const htmlFile = files.find(f => f.type === 'html');
-        const cssFile = files.find(f => f.type === 'css');
-        const jsFile = files.find(f => f.type === 'js');
-        if(!htmlFile) { alert("Butuh file HTML!"); return; }
-        let finalHTML = htmlFile.content;
-        if(cssFile) finalHTML += `<style>${cssFile.content}</style>`;
-        if(jsFile) finalHTML += `<script>${jsFile.content}<\/script>`;
-        window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
-    };
-
-    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
 
     function readFile(file) {
         return new Promise(r => {
@@ -553,6 +561,7 @@
             reader.readAsText(file);
         });
     }
-</script>
+        </script>
+        
 </body>
 </html>
