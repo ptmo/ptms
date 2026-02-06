@@ -376,18 +376,7 @@
         const rootContainer = document.getElementById('fileTreeRoot');
         rootContainer.innerHTML = '';
         // ... (Di dalam loop keys.forEach pada buildHTML) ...
-
-                // --- ACTION BUTTONS UPDATE ---
-                let actionBtn = '';
-                if (isFolder) {
-                    // Menu Folder
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showContextMenu(event, '${currentPath}')"></i>`;
-                } else {
-                    // Menu File (UPDATE DISINI: Ganti Trash jadi Ellipsis)
-                    actionBtn = `<i class="fas fa-ellipsis-v kebab-menu-btn" style="margin-left:auto; padding:2px 5px; cursor:pointer; color:#6272a4;" onclick="window.showFileContextMenu(event, '${fileData.id}', '${currentPath}')"></i>`;
-                }
                 
-                // ... (sisanya sama) ...
         // Build Tree Object
         const tree = {};
         files.forEach(file => {
@@ -730,34 +719,6 @@
         }, 1000);
     });
 
-    // RUN PROJECT
-    window.runProject = function() {
-        const htmlFile = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
-        if(!htmlFile) { alert("Butuh file HTML!"); return; }
-        let finalHTML = htmlFile.content;
-        
-        // Simple Bundle
-        const cssFiles = files.filter(f => f.type === 'css');
-        cssFiles.forEach(c => finalHTML += `<style>${c.content}</style>`);
-        
-        const jsFiles = files.filter(f => f.type === 'js');
-        jsFiles.forEach(j => finalHTML += `<script>${j.content}<\/script>`);
-
-        window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
-    };
-
-    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
-
-    // Helper untuk membaca isi file menjadi teks
-    function readFile(file) {
-        return new Promise(resolve => {
-            const reader = new FileReader();
-            reader.onload = e => resolve(e.target.result);
-            reader.readAsText(file);
-        });
-    }
-
-    // --- FILE CONTEXT MENU LOGIC ---
     window.showFileContextMenu = (e, id, path) => {
         e.stopPropagation();
         // Tutup menu folder jika terbuka
@@ -840,6 +801,33 @@
             }
         }
     };
+
+    // RUN PROJECT
+    window.runProject = function() {
+        const htmlFile = files.find(f => f.type === 'html' || f.name.endsWith('.html'));
+        if(!htmlFile) { alert("Butuh file HTML!"); return; }
+        let finalHTML = htmlFile.content;
+        
+        // Simple Bundle
+        const cssFiles = files.filter(f => f.type === 'css');
+        cssFiles.forEach(c => finalHTML += `<style>${c.content}</style>`);
+        
+        const jsFiles = files.filter(f => f.type === 'js');
+        jsFiles.forEach(j => finalHTML += `<script>${j.content}<\/script>`);
+
+        window.open(URL.createObjectURL(new Blob([finalHTML], {type: 'text/html'})), '_blank');
+    };
+
+    window.toggleSidebar = function() { document.getElementById('sidebar').classList.toggle('open'); };
+
+    // Helper untuk membaca isi file menjadi teks
+    function readFile(file) {
+        return new Promise(resolve => {
+            const reader = new FileReader();
+            reader.onload = e => resolve(e.target.result);
+            reader.readAsText(file);
+        });
+    }
       
     </script>
 </body>
