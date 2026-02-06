@@ -417,6 +417,7 @@ body {
     const auth = getAuth(app);
     const db = getFirestore(app);
     const provider = new GoogleAuthProvider();
+    let currentUserId = null;
     const PROJECT_ID = "global_workspace"; 
 
     // 3. VARIABLES
@@ -455,25 +456,37 @@ body {
         const userAvatar = document.getElementById('userAvatar');
 
         if (user) {
-            console.log("Logged in:", user.displayName);
+            // 1. SET USER ID SAAT LOGIN (KUNCI PRIVASI)
+            currentUserId = user.uid;
+            console.log("Logged in:", user.displayName, "ID:", currentUserId);
+
             loginScreen.classList.add('hidden');
             userAvatar.src = user.photoURL;
             userAvatar.style.display = 'block';
             userAvatar.title = user.displayName;
-            startFirestoreListener(); 
+            
+            startFirestoreListener(); // Mulai load data user ini
         } else {
+            // 2. HAPUS USER ID SAAT LOGOUT
+            currentUserId = null;
             console.log("Logged out");
+            
             loginScreen.classList.remove('hidden');
             userAvatar.style.display = 'none';
             document.getElementById('fileTreeRoot').innerHTML = ""; 
             editor.setValue("");
+            
+            // Matikan listener agar tidak memakan memori
             if (unsubscribeFirestore) { unsubscribeFirestore(); unsubscribeFirestore = null; }
         }
     });
 
-    // --- CORE LOGIC: TREE VIEW ---
+    // --- CORE LOGIC: TREE VIEW (PRIVATE DATA) ---
     function startFirestoreListener() {
-        const q = query(collection(db, "projects", PROJECT_ID, "files"), orderBy("name"));
+        if (!currentUserId) return; // Stop jika tidak ada user
+
+        // QUERY KE FOLDER PRIVATE USER
+        const q = query(collection(db, "projects", currentUserId, "files"), orderBy("name"));
         
         unsubscribeFirestore = onSnapshot(q, (snapshot) => {
             files = [];
@@ -620,12 +633,17 @@ body {
         if (action === 'delete') window.deleteFolder(currentCtxPath);
     };
 
-    // --- SMART INLINE CREATION (VS CODE STYLE) ---
+    // --- VARIABLES PENTING (Pastikan ini ada di scope global module) ---
+    let currentUserId = null; // Variable penampung UID user yang login
+    let unsubscribeFirestore = null;
+
+    
+
+    // --- SMART INLINE CREATION (VS CODE STYLE - SECURED) ---
 
     // 1. Create File Trigger
     window.createNewFile = (basePath = '') => {
-        // Cek login (sesuaikan dengan variabel auth kamu, misal currentUserId)
-        // if (!currentUserId) return alert("Silahkan login dulu.");
+        if (!currentUserId) return alert("Silahkan login terlebih dahulu!");
 
         spawnInput('file', basePath, async (name, fullPath) => {
             // Logic Simpan Firebase
@@ -635,8 +653,8 @@ body {
             else if(['css'].includes(ext)) type = 'css';
             else if(['js','ts'].includes(ext)) type = 'js';
 
-            // Pastikan collection path sesuai dengan kode kamu sebelumnya (PROJECT_ID atau currentUserId)
-            await addDoc(collection(db, "projects", currentUserId || PROJECT_ID, "files"), {
+            // SIMPAN KE KOLEKSI USER ID
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
                 name: fullPath, type: type, content: '// ' + name, createdAt: serverTimestamp()
             });
         });
@@ -644,9 +662,11 @@ body {
 
     // 2. Create Folder Trigger
     window.createNewFolder = (basePath = '') => {
+        if (!currentUserId) return alert("Silahkan login terlebih dahulu!");
+
         spawnInput('folder', basePath, async (name, fullPath) => {
-            // Logic Simpan Firebase
-            await addDoc(collection(db, "projects", currentUserId || PROJECT_ID, "files"), {
+            // SIMPAN KE KOLEKSI USER ID
+            await addDoc(collection(db, "projects", currentUserId, "files"), {
                 name: fullPath, type: 'folder', content: '', createdAt: serverTimestamp()
             });
         });
@@ -709,6 +729,31 @@ body {
                 saveBtn.className = "fas fa-check creation-save-btn";
             }
         };
+
+        // --- EVENT HANDLERS ---
+
+        // 1. Keyboard: Enter (Save) & Escape (Cancel)
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') executeSave();
+            if (e.key === 'Escape') div.remove();
+        });
+
+        // 2. Mouse: Klik Tombol Save
+        // PENTING: Pakai 'mousedown' + 'preventDefault' agar input tidak blur duluan
+        saveBtn.addEventListener('mousedown', (e) => {
+            e.preventDefault(); 
+            e.stopPropagation();
+            executeSave();
+        });
+
+        // 3. Blur: Hapus box jika user klik di luar (Opsional, tapi rapi)
+        input.addEventListener('blur', () => {
+            // Delay agar tidak bentrok jika user sebenarnya mau klik tombol save
+            setTimeout(() => {
+                if(document.body.contains(div)) div.remove();
+            }, 200);
+        });
+    }
 
         // --- EVENT HANDLERS ---
 
