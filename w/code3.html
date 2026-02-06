@@ -279,12 +279,12 @@ body {
     padding-bottom: 150px !important; /* Ruang napas agar baris terakhir terlihat jelas */
 }
 
-        /* --- PREMIUM INLINE INPUT (VS Code Style) --- */
+        /* --- PREMIUM INLINE INPUT (Dengan Tombol Save) --- */
         .creation-box {
             display: flex; align-items: center; gap: 8px;
-            padding: 5px 15px;
+            padding: 5px 10px; /* Padding kanan dikurangi biar tombol save pas */
             background: #282a36; 
-            border: 1px solid var(--accent); /* Border ungu saat ngetik */
+            border: 1px solid var(--accent);
             margin: 2px 0;
             animation: fadeIn 0.2s ease;
         }
@@ -292,10 +292,23 @@ body {
         .creation-input {
             background: transparent; border: none; outline: none;
             color: white; font-family: 'Inter', sans-serif;
-            font-size: 0.85rem; width: 100%;
+            font-size: 0.85rem; 
+            flex: 1; /* PENTING: Input mengisi sisa ruang */
+            min-width: 0; /* Mencegah overflow */
         }
         
         .creation-input::placeholder { color: rgba(255,255,255,0.3); }
+
+        /* Tombol Save (Ceklis) */
+        .creation-save-btn {
+            color: var(--accent); 
+            cursor: pointer; 
+            padding: 5px;
+            border-radius: 4px;
+            transition: 0.2s;
+            display: flex; align-items: center; justify-content: center;
+        }
+        .creation-save-btn:hover { background: rgba(189, 147, 249, 0.2); color: white; }
 
         @keyframes fadeIn {
             from { opacity: 0; transform: translateY(-5px); }
@@ -627,56 +640,65 @@ body {
         });
     };
 
-    // --- HELPER: SPAWN INPUT UI (The Magic) ---
+    // --- HELPER: SPAWN INPUT UI (Versi Ada Tombol Save) ---
     function spawnInput(type, basePath, callback) {
-        // Hapus input lama jika ada (biar gak numpuk)
+        // Hapus input lama jika ada
         const existing = document.getElementById('tempCreationBox');
         if(existing) existing.remove();
 
         const container = document.getElementById('fileTreeRoot');
         
-        // Buat Elemen Container
+        // Buat Container
         const div = document.createElement('div');
         div.id = 'tempCreationBox';
         div.className = 'creation-box';
         
-        // Ikon sesuai tipe
+        // Ikon Folder/File
         const icon = type === 'folder' 
             ? '<i class="fas fa-folder" style="color:#f1fa8c"></i>' 
             : '<i class="fas fa-file" style="color:#6272a4"></i>';
 
+        // HTML: Icon + Input + TOMBOL SAVE (Ceklis)
         div.innerHTML = `
             ${icon}
             <input type="text" class="creation-input" placeholder="Name..." spellcheck="false">
+            <i class="fas fa-check creation-save-btn" title="Save (Enter)"></i>
         `;
 
-        // Masukkan input di paling atas list (Prepend)
-        // Agar terlihat user sedang membuat sesuatu baru
+        // Masukkan ke paling atas list
         container.insertBefore(div, container.firstChild);
 
         const input = div.querySelector('input');
-        input.focus(); // Langsung fokus kursor
+        const saveBtn = div.querySelector('.creation-save-btn');
+        
+        input.focus(); 
 
-        // Event Listener: ENTER (Simpan) & ESC (Batal)
-        input.addEventListener('keydown', (e) => {
-            if (e.key === 'Enter') {
-                const val = input.value.trim();
-                if (val) {
-                    const fullPath = basePath ? `${basePath}/${val}` : val;
-                    callback(val, fullPath); // Jalankan fungsi simpan Firebase
-                }
-                div.remove(); // Hapus input setelah enter
-            } else if (e.key === 'Escape') {
-                div.remove(); // Batal
+        // --- FUNGSI SIMPAN (Dipakai oleh Enter & Klik Tombol) ---
+        const submitAction = () => {
+            const val = input.value.trim();
+            if (val) {
+                const fullPath = basePath ? `${basePath}/${val}` : val;
+                callback(val, fullPath); // Panggil fungsi simpan ke Firebase
             }
+            div.remove(); // Tutup box
+        };
+
+        // 1. Event: Tombol Enter & Escape
+        input.addEventListener('keydown', (e) => {
+            if (e.key === 'Enter') submitAction();
+            else if (e.key === 'Escape') div.remove();
         });
 
-        // Hapus jika user klik di luar (Blur) - Opsional, biar rapi
-        input.addEventListener('blur', () => {
-            // Delay sedikit agar tombol enter tidak bentrok
-            setTimeout(() => { if(div.parentElement) div.remove(); }, 200);
+        // 2. Event: Klik Tombol Ceklis
+        saveBtn.addEventListener('click', (e) => {
+            e.stopPropagation(); // Biar gak bentrok event lain
+            submitAction();
         });
-      }
+
+        // Catatan: Event 'blur' (klik di luar) sengaja dihapus 
+        // agar user tidak frustasi kalau tidak sengaja klik meleset sedikit.
+        // Box hanya hilang kalau di-Save atau tekan Esc.
+    }
 
     // --- IMPORT LOGIC (SEPARATED) ---
 
