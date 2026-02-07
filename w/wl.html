@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ULTRA SECURE SOLANA VAULT (CDN FIX)</title>
+    <title>SOLANA VAULT (DEV MODE)</title>
     
     <script src="https://bundle.run/buffer@6.0.3"></script>
     
@@ -12,92 +12,95 @@
     <script src="https://bundle.run/bip39@3.1.0"></script>
     
     <style>
-        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #14f195; --danger: #ef4444; }
-        body { font-family: 'Courier New', monospace; background: var(--bg); color: var(--text); padding: 20px; text-align: center; }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --danger: #ef4444; --success: #22c55e; }
+        body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); padding: 20px; text-align: center; }
         
         .container { max-width: 800px; margin: 0 auto; }
         
-        #status-banner { padding: 15px; font-weight: bold; margin-bottom: 20px; border-radius: 8px; transition: 0.3s; }
-        .online { background: var(--danger); color: white; animation: pulse 2s infinite; }
-        .offline { background: var(--accent); color: black; }
-
-        .section { background: var(--card); padding: 25px; border-radius: 12px; margin-bottom: 20px; display: none; border: 1px solid #334155; }
-        .active { display: block; }
-
+        .section { background: var(--card); padding: 25px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+        
         input, textarea { width: 90%; padding: 12px; background: #000; color: var(--accent); border: 1px solid #475569; border-radius: 6px; margin: 10px 0; font-family: inherit; }
+        
         button { background: var(--accent); color: #000; padding: 12px 24px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 6px; margin: 5px; }
-        button:disabled { background: #475569; cursor: not-allowed; opacity: 0.5; }
+        button:hover { opacity: 0.9; }
         button.danger { background: var(--danger); color: white; }
-
-        .token-item { display: flex; justify-content: space-between; padding: 10px; border-bottom: 1px solid #334155; }
-        @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.8; } 100% { opacity: 1; } }
+        
+        /* Hapus animasi pulse/offline warning */
+        #status-banner { background: var(--success); color: black; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+        
+        .blur-text { filter: blur(5px); cursor: pointer; transition: 0.3s; }
+        .blur-text:hover { filter: none; }
     </style>
 </head>
 <body>
 
 <div class="container">
-    <h1>🛡️ SOLANA SECURE VAULT</h1>
+    <h1>🛠️ SOLANA VAULT (DEV MODE)</h1>
     
-    <div id="status-banner" class="online">
-        ⚠️ INTERNET TERDETEKSI! MATIKAN WIFI UNTUK AKSES BRANKAS.
+    <div id="status-banner">
+        ⚡ MODE ONLINE AKTIF (NO RESTRICTIONS)
     </div>
 
-    <div id="secure-gate" class="section">
-        <h2>🔐 BRANKAS OFFLINE</h2>
-        <p>Fitur ini hanya aktif jika internet MATI total.</p>
+    <div id="login-panel" class="section">
+        <h2>🔑 AKSES WALLET</h2>
+        <p>Silakan Generate Baru atau Paste Phrase/Private Key.</p>
         
         <div style="margin: 20px 0;">
-            <button onclick="createWallet()" id="btn-create">GENERATE NEW WALLET</button>
+            <button onclick="createWallet()">GENERATE NEW WALLET</button>
             <p>- ATAU -</p>
             <textarea id="input-phrase" placeholder="Paste Seed Phrase (12/24 kata) ATAU Private Key (Base58)..." rows="3"></textarea>
-            <button onclick="importWallet()" id="btn-import">IMPORT & PROCESS</button>
-        </div>
-
-        <div id="result-area" style="display:none; text-align:left; background:black; padding:15px; border: 1px solid var(--accent);">
-            <p style="color:yellow">⚠️ SALIN SEKARANG! DATA AKAN HILANG SAAT REFRESH.</p>
-            <p><strong>Public Key (Address):</strong> <span id="out-pub" style="color:white"></span></p>
-            <p><strong>Secret Data:</strong> <span id="out-priv" style="color:var(--accent); filter: blur(5px); cursor: pointer;" onclick="this.style.filter='none'">KLIK UNTUK LIHAT</span></p>
+            <button onclick="importWallet()">IMPORT & PROCESS</button>
         </div>
     </div>
 
-    <div id="dashboard" class="section">
-        <div style="display:flex; justify-content:space-between; align-items:center;">
-            <h2>📈 ASET DASHBOARD</h2>
-            <button onclick="logout()" class="danger">LOGOUT / CLEAR RAM</button>
-        </div>
+    <div id="result-panel" class="section" style="display:none;">
+        <h3 style="color:var(--success)">✅ WALLET TERMUAT DI RAM</h3>
         
-        <div style="background:#000; padding:15px; border-radius:8px; margin-bottom:20px;">
-            <small>Wallet Address:</small><br>
-            <strong id="dash-pubkey" style="color:var(--accent); font-size:1.2em;">-</strong>
+        <div style="text-align:left; background:black; padding:15px; border: 1px solid var(--accent); border-radius:8px;">
+            <p><strong>Public Key (Address):</strong></p>
+            <p id="out-pub" style="color:white; word-break:break-all;"></p>
+            
+            <p><strong>Secret Data (Klik untuk lihat):</strong></p>
+            <p id="out-priv" class="blur-text" style="color:var(--accent); word-break:break-all;"></p>
+        </div>
+    </div>
+
+    <div id="dashboard" class="section" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>📈 LIVE DASHBOARD</h2>
+            <button onclick="logout()" class="danger">LOGOUT / RESET</button>
         </div>
 
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-bottom:20px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
             <div style="background:#334155; padding:15px; border-radius:8px;">
-                <small>Total Balance (Est)</small>
-                <h3 id="total-usd">$0.00</h3>
+                <small>Saldo SOL</small>
+                <h3 id="sol-balance">Loading...</h3>
             </div>
             <div style="background:#334155; padding:15px; border-radius:8px;">
-                <small>SOL Price</small>
-                <h3 id="sol-price">Loading...</h3>
+                <small>Estimasi USD</small>
+                <h3 id="usd-balance">Loading...</h3>
             </div>
         </div>
-        <div id="token-list"></div>
     </div>
 </div>
 
 <script>
-    // --- 0. SETUP AWAL (WAJIB) ---
-    // Pastikan Buffer aktif agar bip39 tidak error
-    if (typeof buffer !== 'undefined') {
-        window.Buffer = buffer.Buffer;
-    } else {
-        console.warn("Buffer library loading... tunggu sebentar.");
-    }
+    // --- 1. INISIALISASI (PENTING) ---
+    // Pastikan Buffer terdefinisi sebelum library lain jalan
+    window.onload = function() {
+        if (typeof buffer !== 'undefined') {
+            window.Buffer = buffer.Buffer;
+            console.log("Buffer Loaded.");
+        } else {
+            alert("Gagal memuat library Buffer. Cek koneksi internet!");
+        }
+    };
 
-    let userPublicKey = null; 
-    const HELIUS_RPC = "https://api.mainnet-beta.solana.com";
+    let userPublicKey = null;
+    const RPC_URL = "https://api.mainnet-beta.solana.com"; 
 
-    // --- HELPER: BASE58 DECODE (Agar Import PK Jalan) ---
+    // --- 2. FUNGSI DECODER BASE58 (Supaya bisa Import PK) ---
+    // Ini pengganti library bs58 agar script tetap ringan
     const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
     function decodeBase58(string) {
         if (string.length === 0) return new Uint8Array(0);
@@ -105,7 +108,7 @@
         for (let i = 0; i < string.length; i++) {
             const char = string[i];
             const value = ALPHABET.indexOf(char);
-            if (value === -1) throw new Error('Invalid Base58 character');
+            if (value === -1) throw new Error('Karakter Base58 tidak valid!');
             for (let j = 0; j < bytes.length; j++) bytes[j] *= 58;
             bytes[0] += value;
             let carry = 0;
@@ -123,124 +126,95 @@
         return new Uint8Array(bytes.reverse());
     }
 
-    // --- 1. DETEKSI NETWORK ---
-    function updateNetworkStatus() {
-        const banner = document.getElementById('status-banner');
-        const gate = document.getElementById('secure-gate');
-        const dash = document.getElementById('dashboard');
-        const btns = document.querySelectorAll('#secure-gate button');
-
-        if (navigator.onLine) {
-            banner.className = 'online';
-            banner.innerText = "⚠️ INTERNET ONLINE: INPUT KUNCI DIBLOKIR.";
-            btns.forEach(b => b.disabled = true);
-            
-            if (userPublicKey) {
-                gate.style.display = 'none';
-                dash.style.display = 'block';
-                fetchDashboardData();
-            } else {
-                gate.style.display = 'block'; 
-                dash.style.display = 'none';
-            }
-        } else {
-            banner.className = 'offline';
-            banner.innerText = "✅ INTERNET OFFLINE: MODE AMAN AKTIF.";
-            btns.forEach(b => b.disabled = false);
-            dash.style.display = 'none';
-            gate.style.display = 'block';
-        }
-    }
-
-    window.addEventListener('online', updateNetworkStatus);
-    window.addEventListener('offline', updateNetworkStatus);
-    updateNetworkStatus();
-
-    // --- 2. LOGIKA CREATE & IMPORT ---
+    // --- 3. LOGIKA WALLET ---
     async function createWallet() {
-        // Cek apakah bip39 sudah siap
-        if (typeof bip39 === 'undefined') return alert("Library bip39 sedang loading (atau gagal). Coba refresh halaman.");
+        // Cek library bip39
+        if (typeof bip39 === 'undefined') return alert("Library bip39 belum siap. Refresh halaman.");
         
         const mnemonic = bip39.generateMnemonic();
+        document.getElementById('input-phrase').value = mnemonic; // Tampilkan di input
         processKey(mnemonic);
     }
 
     async function importWallet() {
         const input = document.getElementById('input-phrase').value.trim();
-        if (!input) return alert("Masukkan Phrase atau Private Key!");
+        if (!input) return alert("Input masih kosong!");
         processKey(input);
     }
 
     async function processKey(inputSecret) {
         try {
             let keypair;
-            
-            // CEK: Apakah Mnemonic (Ada spasi) atau Private Key (String panjang)?
+
+            // DETEKSI TIPE INPUT
             if (inputSecret.includes(" ")) {
-                // --- CASE 1: MNEMONIC ---
+                // --- TIPE: MNEMONIC PHRASE ---
                 const seed = await bip39.mnemonicToSeed(inputSecret);
-                // Derivasi simple (CLI Style)
+                // Derivasi Default (m/501'/0'/0/0) agar tidak butuh library ed25519
                 const seedSlice = seed.slice(0, 32); 
                 keypair = solanaWeb3.Keypair.fromSeed(seedSlice);
             } else {
-                // --- CASE 2: PRIVATE KEY (BASE58) ---
+                // --- TIPE: PRIVATE KEY (BASE58) ---
                 try {
                     const secretKey = decodeBase58(inputSecret);
                     keypair = solanaWeb3.Keypair.fromSecretKey(secretKey);
-                } catch(err) {
-                    throw new Error("Format Private Key Salah! Pastikan Base58 string.");
+                } catch (err) {
+                    throw new Error("Private Key tidak valid. Pastikan format Base58.");
                 }
             }
 
+            // SUKSES
             userPublicKey = keypair.publicKey.toString();
+            
+            // Update UI
             document.getElementById('out-pub').innerText = userPublicKey;
             document.getElementById('out-priv').innerText = inputSecret;
-            document.getElementById('result-area').style.display = 'block';
-            document.getElementById('input-phrase').value = ""; // Clear input
+            
+            document.getElementById('login-panel').style.display = 'none';
+            document.getElementById('result-panel').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'block';
 
-            alert("✅ BERHASIL! Wallet tersimpan di RAM.\n1. Catat Kunci Anda.\n2. Nyalakan Internet untuk melihat Dashboard.");
+            // Ambil Data Blockchain
+            fetchBalance();
 
-            keypair = null; // Wipe variable
+            // Hapus keypair dari variabel lokal fungsi (Security minimal)
+            keypair = null;
 
         } catch (e) {
-            alert("GAGAL MEMPROSES WALLET:\n" + e.message);
+            alert("Error: " + e.message);
+            console.error(e);
         }
     }
 
-    // --- 3. DASHBOARD LOGIC ---
-    async function fetchDashboardData() {
-        if (!navigator.onLine || !userPublicKey) return;
-
-        document.getElementById('dash-pubkey').innerText = userPublicKey;
-        const connection = new solanaWeb3.Connection(HELIUS_RPC);
-        const pubKeyObj = new solanaWeb3.PublicKey(userPublicKey);
-
-        // Ambil Saldo
-        const balance = await connection.getBalance(pubKeyObj);
-        const solBalance = balance / 1000000000;
-
+    // --- 4. DATA DASHBOARD ---
+    async function fetchBalance() {
+        if (!userPublicKey) return;
+        
         try {
-            // Ambil Harga
-            const priceRes = await fetch(`https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112`);
-            const priceData = await priceRes.json();
-            const solPrice = priceData.data['So11111111111111111111111111111111111111112'].price;
-
-            document.getElementById('sol-price').innerText = `$${parseFloat(solPrice).toFixed(2)}`;
-            const totalEst = solBalance * solPrice;
-            document.getElementById('total-usd').innerText = `$${totalEst.toFixed(2)}`;
+            const connection = new solanaWeb3.Connection(RPC_URL);
+            const pubKey = new solanaWeb3.PublicKey(userPublicKey);
             
-            document.getElementById('token-list').innerHTML = `
-                <div class="token-item">
-                    <span><strong>SOL</strong></span>
-                    <div style="text-align:right">
-                        <div>${solBalance.toFixed(4)} SOL</div>
-                        <div style="font-size:0.8em; color:#94a3b8">$${totalEst.toFixed(2)}</div>
-                    </div>
-                </div>`;
-        } catch (e) { console.error("Harga gagal", e); }
+            // Get Balance
+            const balance = await connection.getBalance(pubKey);
+            const sol = balance / 1000000000;
+            document.getElementById('sol-balance').innerText = sol.toFixed(4) + " SOL";
+
+            // Get Price (via Jupiter API)
+            const priceRes = await fetch("https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112");
+            const priceJson = await priceRes.json();
+            const price = priceJson.data['So11111111111111111111111111111111111111112'].price;
+            
+            document.getElementById('usd-balance').innerText = "$" + (sol * price).toFixed(2);
+
+        } catch (e) {
+            document.getElementById('sol-balance').innerText = "Error";
+            console.log("Gagal koneksi RPC:", e);
+        }
     }
 
-    function logout() { location.reload(); }
+    function logout() {
+        location.reload();
+    }
 </script>
 
 </body>
