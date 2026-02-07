@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <title>VAULT (TEST MODE - CDN)</title>
+    
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script src="https://unpkg.com/bip39@3.1.0/libs/bip39.browser.js"></script>
+
+    <style>
+        body { background: #1e1e1e; color: #fff; font-family: monospace; padding: 20px; max-width: 700px; margin: 0 auto; }
+        .box { background: #2d2d2d; padding: 20px; border-radius: 8px; margin-bottom: 20px; border: 1px solid #444; }
+        input, textarea { width: 100%; background: #000; border: 1px solid #555; color: #0f0; padding: 10px; box-sizing: border-box; }
+        button { width: 100%; padding: 12px; margin-top: 10px; cursor: pointer; font-weight: bold; }
+        .btn-green { background: #0f0; color: #000; }
+        .btn-red { background: #f00; color: #fff; }
+    </style>
+</head>
+<body>
+
+    <h1 style="color:cyan;">🛠️ VAULT (TEST MODE)</h1>
+    <p><em>Versi ini menggunakan CDN dan BISA dijalankan saat Online.</em></p>
+
+    <div class="box">
+        <h3>1. GENERATE / IMPORT KEY</h3>
+        <button onclick="generateMnemonic()" class="btn-green">GENERATE NEW PHRASE</button>
+        <p>Phrase:</p>
+        <textarea id="mnemonic-input" rows="2"></textarea>
+        
+        <button onclick="processWallet()" class="btn-green">LOAD WALLET KE RAM</button>
+
+        <div id="wallet-info" style="display:none; margin-top:15px; border-top:1px solid #555; padding-top:10px;">
+            <p><strong>Address:</strong> <span id="out-pub" style="color:#0f0"></span></p>
+            <small>Wallet ini kompatibel dengan Phantom (Path m/44'/501'/0'/0')</small>
+        </div>
+    </div>
+
+    <div class="box">
+        <h3>2. SIGN TRANSACTION</h3>
+        <p>Paste Unsigned Message (Base64) dari file Broadcast:</p>
+        <textarea id="unsigned-msg" rows="3"></textarea>
+        
+        <button onclick="signTx()" class="btn-green">SIGN TRANSAKSI</button>
+
+        <p>Hasil Signed Transaction (Copy ke file Broadcast):</p>
+        <textarea id="signed-result" rows="3" readonly style="color:#0f0"></textarea>
+    </div>
+
+<script>
+    // --- 0. POLYFILL ED25519 (Supaya tidak perlu download file lib lagi) ---
+    // Ini kode manual untuk menggantikan library ed25519-hd-key.js
+    const ED25519_CURVE = 'ed25519 seed';
+    const HARDENED_OFFSET = 0x80000000;
+
+    async function hmacSha512(key, data) {
+        const cryptoKey = await window.crypto.subtle.importKey('raw', key, { name: 'HMAC', hash: 'SHA-512' }, false, ['sign']);
+        const signature = await window.crypto.subtle.sign('HMAC', cryptoKey, data);
+        return new Uint8Array(signature);
+    }
+    
+    // Logika Derivasi Phantom (m/44'/501'/0'/0')
+    async function derivePhantomKeypair(mnemonic) {
+        const seed = await bip39.mnemonicToSeed(mnemonic);
+        
+        // 1. Get Master Key
+        const I = await hmacSha512(new TextEncoder().encode(ED25519_CURVE), seed);
+        let key = I.slice(0, 32);
+        let chainCode = I.slice(32);
+
+        // 2. Derive Path: m/44'/501'/0'/0'
+        const segments = [44 + HARDENED_OFFSET, 501 + HARDENED_OFFSET, 0 + HARDENED_OFFSET, 0 + HARDENED_OFFSET];
+        
+        for (const index of segments) {
+            const indexBuffer = new Uint8Array(4);
+            new DataView(indexBuffer.buffer).setUint32(0, index, false);
+            const data = new Uint8Array(1 + key.length + indexBuffer.length);
+            data.set([0], 0); data.set(key, 1); data.set(indexBuffer, 1 + key.length);
+            
+            const I_child = await hmacSha512(chainCode, data);
+            key = I_child.slice(0, 32);
+            chainCode = I_child.slice(32);
+        }
+        
+        return solanaWeb3.Keypair.fromSeed(key);
+    }
+    // ------------------------------------------------------------------
+
+    // --- LOGIKA UTAMA ---
+    window.Buffer = buffer.Buffer;
+    let keypairRAM = null;
+
+    async function generateMnemonic() {
+        const mnemonic = bip39.generateMnemonic();
+        document.getElementById('mnemonic-input').value = mnemonic;
+    }
+
+    async function processWallet() {
+        const mnemonic = document.getElementById('mnemonic-input').value.trim();
+        if(!mnemonic) return alert("Isi mnemonic dulu!");
+        try {
+            keypairRAM = await derivePhantomKeypair(mnemonic);
+            document.getElementById('out-pub').innerText = keypairRAM.publicKey.toString();
+            document.getElementById('wallet-info').style.display = 'block';
+        } catch(e) { alert("Error: " + e.message); }
+    }
+
+    async function signTx() {
+        if(!keypairRAM) return alert("Load wallet dulu!");
+        const msgBase64 = document.getElementById('unsigned-msg').value.trim();
+        if(!msgBase64) return alert("Paste message dulu!");
+
+        try {
+            const msgBuf = buffer.Buffer.from(msgBase64, 'base64');
+            const message = solanaWeb3.Message.from(msgBuf);
+            const tx = solanaWeb3.Transaction.populate(message);
+            
+            tx.sign(keypairRAM);
+            
+            document.getElementById('signed-result').value = tx.serialize().toString('base64');
+            alert("Signed!");
+        } catch(e) { alert("Sign Error: " + e.message); }
+    }
+</script>
+</body>
+</html>
