@@ -3,244 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SOLANA ASSET TRACKER (SAFE MODE)</title>
+    <title>SOLANA VAULT (DEV MODE)</title>
+    
+    <script src="https://bundle.run/buffer@6.0.3"></script>
+    
+    <script src="https://unpkg.com/@solana/web3.js@1.87.6/lib/index.iife.min.js"></script>
+    <script>
+async function sha256(buf) {
+  return crypto.subtle.digest("SHA-256", buf);
+}
+
+function bytesToBinary(bytes) {
+  return bytes.map(b => b.toString(2).padStart(8, '0')).join('');
+}
+
+function binaryToMnemonic(bin) {
+  const chunks = bin.match(/.{1,11}/g);
+  return chunks.map(b => WORDLIST[parseInt(b, 2)]).join(" ");
+}
+
+async function generateMnemonic(strength = 128) {
+  const entropy = crypto.getRandomValues(new Uint8Array(strength / 8));
+  const entropyBits = bytesToBinary([...entropy]);
+
+  const hash = new Uint8Array(await sha256(entropy));
+  const checksumBits = bytesToBinary([...hash]).slice(0, strength / 32);
+
+  return binaryToMnemonic(entropyBits + checksumBits);
+}
+    </script>
+
+    <script>
+async function mnemonicToSeed(mnemonic, passphrase = "") {
+  const enc = new TextEncoder();
+  const keyMaterial = await crypto.subtle.importKey(
+    "raw",
+    enc.encode(mnemonic),
+    "PBKDF2",
+    false,
+    ["deriveBits"]
+  );
+
+  return crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      salt: enc.encode("mnemonic" + passphrase),
+      iterations: 2048,
+      hash: "SHA-512"
+    },
+    keyMaterial,
+    512
+  );
+}
+    </script>
+    
     
     <style>
-        :root {
-            --bg-dark: #0f172a;
-            --card-bg: #1e293b;
-            --text-main: #f8fafc;
-            --text-muted: #94a3b8;
-            --accent: #38bdf8; /* Sky Blue */
-            --success: #22c55e;
-            --border: #334155;
-        }
-
-        body {
-            font-family: 'Segoe UI', sans-serif;
-            background-color: var(--bg-dark);
-            color: var(--text-main);
-            margin: 0;
-            padding: 20px;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            min-height: 100vh;
-        }
-
-        .container {
-            width: 100%;
-            max-width: 600px;
-        }
-
-        /* Header */
-        header {
-            text-align: center;
-            margin-bottom: 30px;
-        }
-        h1 { margin: 0; font-weight: 800; letter-spacing: -1px; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-        p.subtitle { color: var(--text-muted); margin-top: 5px; font-size: 0.9em; }
-
-        /* Search Box */
-        .search-box {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
-            display: flex;
-            gap: 10px;
-        }
-
-        input {
-            flex: 1;
-            background: #0f172a;
-            border: 1px solid var(--border);
-            color: white;
-            padding: 12px 15px;
-            border-radius: 8px;
-            font-family: monospace;
-            outline: none;
-            transition: 0.2s;
-        }
-        input:focus { border-color: var(--accent); }
-
-        button {
-            background: var(--accent);
-            color: #0f172a;
-            border: none;
-            padding: 0 20px;
-            border-radius: 8px;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-        button:hover { filter: brightness(1.1); }
-        button:disabled { background: var(--text-muted); cursor: not-allowed; }
-
-        /* Dashboard Grid */
-        .dashboard {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-top: 20px;
-            display: none; /* Hidden by default */
-        }
-
-        .card {
-            background: var(--card-bg);
-            padding: 20px;
-            border-radius: 16px;
-            border: 1px solid var(--border);
-            text-align: center;
-        }
-
-        .card label { display: block; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
-        .card .value { font-size: 1.5em; font-weight: bold; }
-        .card .sub-value { font-size: 0.8em; color: var(--success); margin-top: 5px; }
-
-        /* Address Badge */
-        .address-badge {
-            background: #334155;
-            color: #e2e8f0;
-            padding: 5px 10px;
-            border-radius: 20px;
-            font-size: 0.75em;
-            font-family: monospace;
-            margin-top: 10px;
-            display: inline-block;
-        }
-
-        /* Spinner */
-        .loader {
-            border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; margin: 0 auto;
-        }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+        :root { --bg: #0f172a; --card: #1e293b; --text: #e2e8f0; --accent: #38bdf8; --danger: #ef4444; --success: #22c55e; }
+        body { font-family: 'Segoe UI', monospace; background: var(--bg); color: var(--text); padding: 20px; text-align: center; }
+        
+        .container { max-width: 800px; margin: 0 auto; }
+        
+        .section { background: var(--card); padding: 25px; border-radius: 12px; margin-bottom: 20px; border: 1px solid #334155; }
+        
+        input, textarea { width: 90%; padding: 12px; background: #000; color: var(--accent); border: 1px solid #475569; border-radius: 6px; margin: 10px 0; font-family: inherit; }
+        
+        button { background: var(--accent); color: #000; padding: 12px 24px; border: none; font-weight: bold; cursor: pointer; font-size: 16px; border-radius: 6px; margin: 5px; }
+        button:hover { opacity: 0.9; }
+        button.danger { background: var(--danger); color: white; }
+        
+        /* Hapus animasi pulse/offline warning */
+        #status-banner { background: var(--success); color: black; padding: 10px; border-radius: 8px; margin-bottom: 20px; font-weight: bold; }
+        
+        .blur-text { filter: blur(5px); cursor: pointer; transition: 0.3s; }
+        .blur-text:hover { filter: none; }
     </style>
 </head>
 <body>
 
-    <div class="container">
-        <header>
-            <h1>SOLANA EXPLORER</h1>
-            <p class="subtitle">Safe Portfolio Tracker (Read-Only)</p>
-        </header>
+<div class="container">
+    <h1>🛠️ SOLANA VAULT (DEV MODE)</h1>
+    
+    <div id="status-banner">
+        ⚡ MODE ONLINE AKTIF (NO RESTRICTIONS)
+    </div>
 
-        <div class="search-box">
-            <input type="text" id="input-address" placeholder="Masukkan Public Key / Address Solana...">
-            <button id="btn-check">CEK ASET</button>
-        </div>
+    <div id="login-panel" class="section">
+        <h2>🔑 AKSES WALLET</h2>
+        <p>Silakan Generate Baru atau Paste Phrase/Private Key.</p>
         
-        <div style="text-align:center; margin-top:10px;">
-            <div class="loader" id="loading-spinner"></div>
-            <span id="error-msg" style="color:var(--danger); font-size:0.9em;"></span>
-        </div>
-
-        <div id="result-view" class="dashboard">
-            <div class="card" style="grid-column: span 2;">
-                <label>Total Aset (Estimasi)</label>
-                <div class="value" id="val-usd">$0.00</div>
-                <div class="sub-value" id="val-idr">Rp 0</div>
-                <div class="address-badge" id="disp-address">Wallet: -</div>
-            </div>
-
-            <div class="card">
-                <label>Harga SOL Saat Ini</label>
-                <div class="value" id="price-sol" style="color:var(--accent)">-</div>
-            </div>
-
-            <div class="card">
-                <label>Saldo Native</label>
-                <div class="value" id="bal-sol">-</div>
-                <div class="sub-value">SOL</div>
-            </div>
-        </div>
-        
-        <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 0.8em;">
-            <p>🔒 100% Aman. Tidak meminta Private Key.</p>
+        <div style="margin: 20px 0;">
+            <button onclick="createWallet()">GENERATE NEW WALLET</button>
+            <p>- ATAU -</p>
+            <textarea id="input-phrase" placeholder="Paste Seed Phrase (12/24 kata) ATAU Private Key (Base58)..." rows="3"></textarea>
+            <button onclick="importWallet()">IMPORT & PROCESS</button>
         </div>
     </div>
 
-    <script type="module">
-        // Import Library Langsung dari ESM (Stabil & Modern)
-        import * as solanaWeb3 from 'https://esm.sh/@solana/web3.js@1.87.6';
-
-        // Variabel Global
-        const CONNECTION = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
-        const JUP_API = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112"; // ID Token SOL
-
-        // Elements
-        const btnCheck = document.getElementById('btn-check');
-        const inputAddr = document.getElementById('input-address');
-        const resultView = document.getElementById('result-view');
-        const spinner = document.getElementById('loading-spinner');
-        const errorMsg = document.getElementById('error-msg');
-
-        // Format Currency Helper
-        const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
-        const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
-
-        // --- CORE FUNCTION ---
-        btnCheck.addEventListener('click', async () => {
-            const address = inputAddr.value.trim();
+    <div id="result-panel" class="section" style="display:none;">
+        <h3 style="color:var(--success)">✅ WALLET TERMUAT DI RAM</h3>
+        
+        <div style="text-align:left; background:black; padding:15px; border: 1px solid var(--accent); border-radius:8px;">
+            <p><strong>Public Key (Address):</strong></p>
+            <p id="out-pub" style="color:white; word-break:break-all;"></p>
             
-            // 1. Validasi Input
-            if (!address) {
-                errorMsg.innerText = "Masukkan alamat wallet dulu!";
-                return;
+            <p><strong>Secret Data (Klik untuk lihat):</strong></p>
+            <p id="out-priv" class="blur-text" style="color:var(--accent); word-break:break-all;"></p>
+        </div>
+    </div>
+
+    <div id="dashboard" class="section" style="display:none;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+            <h2>📈 LIVE DASHBOARD</h2>
+            <button onclick="logout()" class="danger">LOGOUT / RESET</button>
+        </div>
+
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:10px; margin-top:20px;">
+            <div style="background:#334155; padding:15px; border-radius:8px;">
+                <small>Saldo SOL</small>
+                <h3 id="sol-balance">Loading...</h3>
+            </div>
+            <div style="background:#334155; padding:15px; border-radius:8px;">
+                <small>Estimasi USD</small>
+                <h3 id="usd-balance">Loading...</h3>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    // --- 1. INISIALISASI (PENTING) ---
+    // Pastikan Buffer terdefinisi sebelum library lain jalan
+    window.onload = function() {
+        if (typeof buffer !== 'undefined') {
+            window.Buffer = buffer.Buffer;
+            console.log("Buffer Loaded.");
+        } else {
+            alert("Gagal memuat library Buffer. Cek koneksi internet!");
+        }
+    };
+
+    let userPublicKey = null;
+    const RPC_URL = "https://api.mainnet-beta.solana.com"; 
+
+    // --- 2. FUNGSI DECODER BASE58 (Supaya bisa Import PK) ---
+    // Ini pengganti library bs58 agar script tetap ringan
+    const ALPHABET = '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz';
+    function decodeBase58(string) {
+        if (string.length === 0) return new Uint8Array(0);
+        const bytes = [0];
+        for (let i = 0; i < string.length; i++) {
+            const char = string[i];
+            const value = ALPHABET.indexOf(char);
+            if (value === -1) throw new Error('Karakter Base58 tidak valid!');
+            for (let j = 0; j < bytes.length; j++) bytes[j] *= 58;
+            bytes[0] += value;
+            let carry = 0;
+            for (let j = 0; j < bytes.length; j++) {
+                bytes[j] += carry;
+                carry = bytes[j] >> 8;
+                bytes[j] &= 0xff;
             }
+            while (carry) {
+                bytes.push(carry & 0xff);
+                carry >>= 8;
+            }
+        }
+        for (let i = 0; i < string.length && string[i] === '1'; i++) bytes.push(0);
+        return new Uint8Array(bytes.reverse());
+    }
 
-            // Reset UI
-            errorMsg.innerText = "";
-            resultView.style.display = 'none';
-            spinner.style.display = 'block';
-            btnCheck.disabled = true;
+    // --- 3. LOGIKA WALLET ---
+    async function createWallet() {
+        // Cek library bip39
+        if (typeof bip39 === 'undefined') return alert("Library bip39 belum siap. Refresh halaman.");
+        
+        const mnemonic = bip39.generateMnemonic();
+        document.getElementById('input-phrase').value = mnemonic; // Tampilkan di input
+        processKey(mnemonic);
+    }
 
-            try {
-                // 2. Cek Validitas Address Solana
-                let pubKey;
+    async function importWallet() {
+        const input = document.getElementById('input-phrase').value.trim();
+        if (!input) return alert("Input masih kosong!");
+        processKey(input);
+    }
+
+    async function processKey(inputSecret) {
+        try {
+            let keypair;
+
+            // DETEKSI TIPE INPUT
+            if (inputSecret.includes(" ")) {
+                // --- TIPE: MNEMONIC PHRASE ---
+                const seed = await bip39.mnemonicToSeed(inputSecret);
+                // Derivasi Default (m/501'/0'/0/0) agar tidak butuh library ed25519
+                const seedSlice = seed.slice(0, 32); 
+                keypair = solanaWeb3.Keypair.fromSeed(seedSlice);
+            } else {
+                // --- TIPE: PRIVATE KEY (BASE58) ---
                 try {
-                    pubKey = new solanaWeb3.PublicKey(address);
-                } catch (e) {
-                    throw new Error("Alamat Wallet TIDAK VALID (Format Salah).");
+                    const secretKey = decodeBase58(inputSecret);
+                    keypair = solanaWeb3.Keypair.fromSecretKey(secretKey);
+                } catch (err) {
+                    throw new Error("Private Key tidak valid. Pastikan format Base58.");
                 }
-
-                // 3. Request Data Paralel (Biar Cepat)
-                // Kita minta Saldo SOL & Harga Pasar secara bersamaan
-                const [balanceLamports, priceData] = await Promise.all([
-                    CONNECTION.getBalance(pubKey),
-                    fetch(JUP_API).then(res => res.json())
-                ]);
-
-                // 4. Hitung Data
-                const solBalance = balanceLamports / 1_000_000_000; // Konversi Lamport ke SOL
-                const solPriceUSD = priceData.data['So11111111111111111111111111111111111111112'].price;
-                const totalUSD = solBalance * solPriceUSD;
-                const totalIDR = totalUSD * 15500; // Asumsi Kurs IDR manual (bisa pakai API juga kalau mau)
-
-                // 5. Update Tampilan
-                document.getElementById('disp-address').innerText = `Wallet: ${address.slice(0, 4)}...${address.slice(-4)}`;
-                document.getElementById('bal-sol').innerText = solBalance.toFixed(4);
-                document.getElementById('price-sol').innerText = formatUSD(solPriceUSD);
-                document.getElementById('val-usd').innerText = formatUSD(totalUSD);
-                document.getElementById('val-idr').innerText = formatIDR(totalIDR);
-
-                resultView.style.display = 'grid'; // Munculkan Grid
-
-            } catch (err) {
-                console.error(err);
-                errorMsg.innerText = "Error: " + err.message;
-            } finally {
-                spinner.style.display = 'none';
-                btnCheck.disabled = false;
             }
-        });
 
-        // Trigger Enter Key
-        inputAddr.addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') btnCheck.click();
-        });
+            // SUKSES
+            userPublicKey = keypair.publicKey.toString();
+            
+            // Update UI
+            document.getElementById('out-pub').innerText = userPublicKey;
+            document.getElementById('out-priv').innerText = inputSecret;
+            
+            document.getElementById('login-panel').style.display = 'none';
+            document.getElementById('result-panel').style.display = 'block';
+            document.getElementById('dashboard').style.display = 'block';
 
-    </script>
+            // Ambil Data Blockchain
+            fetchBalance();
+
+            // Hapus keypair dari variabel lokal fungsi (Security minimal)
+            keypair = null;
+
+        } catch (e) {
+            alert("Error: " + e.message);
+            console.error(e);
+        }
+    }
+
+    // --- 4. DATA DASHBOARD ---
+    async function fetchBalance() {
+        if (!userPublicKey) return;
+        
+        try {
+            const connection = new solanaWeb3.Connection(RPC_URL);
+            const pubKey = new solanaWeb3.PublicKey(userPublicKey);
+            
+            // Get Balance
+            const balance = await connection.getBalance(pubKey);
+            const sol = balance / 1000000000;
+            document.getElementById('sol-balance').innerText = sol.toFixed(4) + " SOL";
+
+            // Get Price (via Jupiter API)
+            const priceRes = await fetch("https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112");
+            const priceJson = await priceRes.json();
+            const price = priceJson.data['So11111111111111111111111111111111111111112'].price;
+            
+            document.getElementById('usd-balance').innerText = "$" + (sol * price).toFixed(2);
+
+        } catch (e) {
+            document.getElementById('sol-balance').innerText = "Error";
+            console.log("Gagal koneksi RPC:", e);
+        }
+    }
+
+    function logout() {
+        location.reload();
+    }
+</script>
+
 </body>
 </html>
