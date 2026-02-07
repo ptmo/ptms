@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SOLANA ASSET TRACKER (SAFE MODE)</title>
+    
+    <style>
+        :root {
+            --bg-dark: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            --accent: #38bdf8; /* Sky Blue */
+            --success: #22c55e;
+            --border: #334155;
+        }
+
+        body {
+            font-family: 'Segoe UI', sans-serif;
+            background-color: var(--bg-dark);
+            color: var(--text-main);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            min-height: 100vh;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 600px;
+        }
+
+        /* Header */
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        h1 { margin: 0; font-weight: 800; letter-spacing: -1px; background: linear-gradient(to right, #38bdf8, #818cf8); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        p.subtitle { color: var(--text-muted); margin-top: 5px; font-size: 0.9em; }
+
+        /* Search Box */
+        .search-box {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+            display: flex;
+            gap: 10px;
+        }
+
+        input {
+            flex: 1;
+            background: #0f172a;
+            border: 1px solid var(--border);
+            color: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            font-family: monospace;
+            outline: none;
+            transition: 0.2s;
+        }
+        input:focus { border-color: var(--accent); }
+
+        button {
+            background: var(--accent);
+            color: #0f172a;
+            border: none;
+            padding: 0 20px;
+            border-radius: 8px;
+            font-weight: bold;
+            cursor: pointer;
+            transition: 0.2s;
+        }
+        button:hover { filter: brightness(1.1); }
+        button:disabled { background: var(--text-muted); cursor: not-allowed; }
+
+        /* Dashboard Grid */
+        .dashboard {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            margin-top: 20px;
+            display: none; /* Hidden by default */
+        }
+
+        .card {
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            text-align: center;
+        }
+
+        .card label { display: block; color: var(--text-muted); font-size: 0.8em; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+        .card .value { font-size: 1.5em; font-weight: bold; }
+        .card .sub-value { font-size: 0.8em; color: var(--success); margin-top: 5px; }
+
+        /* Address Badge */
+        .address-badge {
+            background: #334155;
+            color: #e2e8f0;
+            padding: 5px 10px;
+            border-radius: 20px;
+            font-size: 0.75em;
+            font-family: monospace;
+            margin-top: 10px;
+            display: inline-block;
+        }
+
+        /* Spinner */
+        .loader {
+            border: 3px solid #f3f3f3; border-top: 3px solid var(--accent); border-radius: 50%; width: 20px; height: 20px; animation: spin 1s linear infinite; display: none; margin: 0 auto;
+        }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <header>
+            <h1>SOLANA EXPLORER</h1>
+            <p class="subtitle">Safe Portfolio Tracker (Read-Only)</p>
+        </header>
+
+        <div class="search-box">
+            <input type="text" id="input-address" placeholder="Masukkan Public Key / Address Solana...">
+            <button id="btn-check">CEK ASET</button>
+        </div>
+        
+        <div style="text-align:center; margin-top:10px;">
+            <div class="loader" id="loading-spinner"></div>
+            <span id="error-msg" style="color:var(--danger); font-size:0.9em;"></span>
+        </div>
+
+        <div id="result-view" class="dashboard">
+            <div class="card" style="grid-column: span 2;">
+                <label>Total Aset (Estimasi)</label>
+                <div class="value" id="val-usd">$0.00</div>
+                <div class="sub-value" id="val-idr">Rp 0</div>
+                <div class="address-badge" id="disp-address">Wallet: -</div>
+            </div>
+
+            <div class="card">
+                <label>Harga SOL Saat Ini</label>
+                <div class="value" id="price-sol" style="color:var(--accent)">-</div>
+            </div>
+
+            <div class="card">
+                <label>Saldo Native</label>
+                <div class="value" id="bal-sol">-</div>
+                <div class="sub-value">SOL</div>
+            </div>
+        </div>
+        
+        <div style="margin-top: 30px; text-align: center; color: var(--text-muted); font-size: 0.8em;">
+            <p>🔒 100% Aman. Tidak meminta Private Key.</p>
+        </div>
+    </div>
+
+    <script type="module">
+        // Import Library Langsung dari ESM (Stabil & Modern)
+        import * as solanaWeb3 from 'https://esm.sh/@solana/web3.js@1.87.6';
+
+        // Variabel Global
+        const CONNECTION = new solanaWeb3.Connection("https://api.mainnet-beta.solana.com");
+        const JUP_API = "https://api.jup.ag/price/v2?ids=So11111111111111111111111111111111111111112"; // ID Token SOL
+
+        // Elements
+        const btnCheck = document.getElementById('btn-check');
+        const inputAddr = document.getElementById('input-address');
+        const resultView = document.getElementById('result-view');
+        const spinner = document.getElementById('loading-spinner');
+        const errorMsg = document.getElementById('error-msg');
+
+        // Format Currency Helper
+        const formatUSD = (num) => new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(num);
+        const formatIDR = (num) => new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR' }).format(num);
+
+        // --- CORE FUNCTION ---
+        btnCheck.addEventListener('click', async () => {
+            const address = inputAddr.value.trim();
+            
+            // 1. Validasi Input
+            if (!address) {
+                errorMsg.innerText = "Masukkan alamat wallet dulu!";
+                return;
+            }
+
+            // Reset UI
+            errorMsg.innerText = "";
+            resultView.style.display = 'none';
+            spinner.style.display = 'block';
+            btnCheck.disabled = true;
+
+            try {
+                // 2. Cek Validitas Address Solana
+                let pubKey;
+                try {
+                    pubKey = new solanaWeb3.PublicKey(address);
+                } catch (e) {
+                    throw new Error("Alamat Wallet TIDAK VALID (Format Salah).");
+                }
+
+                // 3. Request Data Paralel (Biar Cepat)
+                // Kita minta Saldo SOL & Harga Pasar secara bersamaan
+                const [balanceLamports, priceData] = await Promise.all([
+                    CONNECTION.getBalance(pubKey),
+                    fetch(JUP_API).then(res => res.json())
+                ]);
+
+                // 4. Hitung Data
+                const solBalance = balanceLamports / 1_000_000_000; // Konversi Lamport ke SOL
+                const solPriceUSD = priceData.data['So11111111111111111111111111111111111111112'].price;
+                const totalUSD = solBalance * solPriceUSD;
+                const totalIDR = totalUSD * 15500; // Asumsi Kurs IDR manual (bisa pakai API juga kalau mau)
+
+                // 5. Update Tampilan
+                document.getElementById('disp-address').innerText = `Wallet: ${address.slice(0, 4)}...${address.slice(-4)}`;
+                document.getElementById('bal-sol').innerText = solBalance.toFixed(4);
+                document.getElementById('price-sol').innerText = formatUSD(solPriceUSD);
+                document.getElementById('val-usd').innerText = formatUSD(totalUSD);
+                document.getElementById('val-idr').innerText = formatIDR(totalIDR);
+
+                resultView.style.display = 'grid'; // Munculkan Grid
+
+            } catch (err) {
+                console.error(err);
+                errorMsg.innerText = "Error: " + err.message;
+            } finally {
+                spinner.style.display = 'none';
+                btnCheck.disabled = false;
+            }
+        });
+
+        // Trigger Enter Key
+        inputAddr.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') btnCheck.click();
+        });
+
+    </script>
+</body>
+</html>
