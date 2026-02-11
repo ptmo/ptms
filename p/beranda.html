@@ -2155,6 +2155,193 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
   
   console.log("🔥 Firebase Siap!");
     </script>
+
+    <script>
+        // --- A. LOGIKA GATEWAY & LOGIN STATE ---
+
+document.addEventListener("DOMContentLoaded", () => {
+    setTimeout(checkLoginState, 100);
+});
+
+function checkLoginState() {
+    const savedWallet = localStorage.getItem('userWallet');
+    const gateTitle = document.getElementById('gateTitle');
+    const gateDesc = document.getElementById('gateDesc');
+    const btnAction = document.getElementById('btnGateAction');
+
+    // Reset Onclick
+    btnAction.onclick = null; 
+
+    if (savedWallet && savedWallet.length > 10) {
+        // --- USER LAMA: TAMPILKAN TOMBOL MASUK ---
+        console.log("✅ User lama terdeteksi:", savedWallet);
+        const shortAddr = savedWallet.substring(0, 6) + "..." + savedWallet.slice(-4);
+        
+        gateTitle.innerText = "Selamat Datang Kembali";
+        gateDesc.innerHTML = `Akun terdeteksi: <b style="color:#27ae60;">${shortAddr}</b><br>Lanjutkan akses ke dashboard?`;
+        
+        btnAction.innerHTML = `<i class="fas fa-sign-in-alt"></i> Masuk Dashboard`;
+        btnAction.className = "btn-gate-connect secondary"; 
+        
+        // Klik -> Masuk Aplikasi
+        btnAction.onclick = function() { enterApp(); };
+
+    } else {
+        // --- USER BARU: TAMPILKAN TOMBOL CONNECT ---
+        console.log("🔒 User belum login. Gerbang terkunci.");
+        gateTitle.innerText = "Akses Ruang Koleksi";
+        gateDesc.innerHTML = "Hubungkan dompet Web3 Anda untuk membuka<br>sertifikat kepemilikan dan data koleksi.";
+        
+        btnAction.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan Wallet`;
+        btnAction.className = "btn-gate-connect primary"; 
+        
+        // Klik -> Buka Modal Pilih Wallet
+        btnAction.onclick = function() { toggleSelectWallet(true); };
+    }
+}
+
+function enterApp() {
+    const overlay = document.getElementById('loginOverlay');
+    if(overlay) {
+        overlay.classList.add('hidden');
+        setTimeout(() => { 
+            overlay.style.display = 'none'; 
+            // Trigger refresh data jika perlu
+            if(typeof window.initGatekeeper === 'function') window.initGatekeeper();
+        }, 500);
+    }
+}
+
+// --- B. LOGIKA WALLET SELECTION (MODAL) ---
+
+function toggleSelectWallet(show) {
+    const modal = document.getElementById("selectWalletModal");
+    if(modal) modal.style.display = show ? "flex" : "none";
+}
+
+function closeSelectWallet(e) {
+    if (e.target.id === "selectWalletModal") toggleSelectWallet(false);
+}
+
+// --- C. DETEKSI PROVIDER ---
+
+async function pilihProvider(type) {
+    toggleSelectWallet(false); // Tutup modal
+    
+    let providerObj;
+    if (type === 'metamask') {
+        if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
+        else return window.open("https://metamask.io/", "_blank");
+    } 
+    else if (type === 'trust') {
+        if (window.trustwallet) providerObj = window.trustwallet;
+        else if (window.ethereum && window.ethereum.isTrust) providerObj = window.ethereum;
+        else return window.open("https://trustwallet.com/", "_blank");
+    }
+    else if (type === 'okx') {
+        if (window.okxwallet) providerObj = window.okxwallet;
+        else return window.open("https://www.okx.com/web3", "_blank");
+    }
+    else if (type === 'phantom') {
+        if (window.phantom && window.phantom.ethereum) providerObj = window.phantom.ethereum;
+        else return window.open("https://phantom.app/", "_blank");
+    }
+    else if (type === 'binance') {
+        if (window.BinanceChain) providerObj = window.BinanceChain;
+        else return window.open("https://www.binance.com/en/web3wallet", "_blank");
+    }
+    else {
+        if (window.ethereum) providerObj = window.ethereum;
+        else return alert("Tidak ada dompet Web3 terdeteksi!");
+    }
+
+    // Eksekusi Koneksi
+    await executeConnection(providerObj);
+}
+
+// --- D. EKSEKUSI KONEKSI (LOGIKA INTI ANDA) ---
+
+async function executeConnection(customProvider) {
+    const btnConnect = document.getElementById("btnConnect");
+    const btnGate = document.getElementById("btnGateAction"); // Tombol di Overlay
+    const originalText = btnConnect ? btnConnect.innerHTML : "";
+    const originalGateText = btnGate ? btnGate.innerHTML : "";
+
+    // Loading State di kedua tombol
+    if(btnConnect) { btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnConnect.disabled = true; }
+    if(btnGate) { btnGate.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnGate.disabled = true; }
+
+    try {
+        const provider = new ethers.providers.Web3Provider(customProvider);
+        
+        // 1. Request Akun
+        await provider.send("eth_requestAccounts", []);
+
+        // 2. Cek Network
+        const network = await provider.getNetwork();
+        if (typeof CHAIN_ID_DECIMAL !== 'undefined' && network.chainId !== CHAIN_ID_DECIMAL) {
+            try {
+                await customProvider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x' + CHAIN_ID_DECIMAL.toString(16) }]
+                });
+            } catch (switchError) {
+                // Handle Add Chain jika belum ada
+                throw switchError; 
+            }
+        }
+
+        // 3. Ambil Data User (SUKSES)
+        const signer = provider.getSigner();
+        const userAddress = await signer.getAddress();
+        
+        // [PENTING] SIMPAN KE STORAGE
+        localStorage.setItem('userWallet', userAddress);
+        if(typeof modalUserAddr !== 'undefined') modalUserAddr = userAddress;
+
+        // 4. Update UI Navbar
+        if(btnConnect) {
+            btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
+            btnConnect.classList.add("connected");
+            btnConnect.disabled = false;
+        }
+        if(typeof isWalletConnected !== 'undefined') isWalletConnected = true;
+
+        // 5. Update Data Modal Profile
+        if(document.getElementById("modalFullAddress")) {
+            document.getElementById("modalFullAddress").innerText = userAddress;
+            document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        }
+        const balance = await provider.getBalance(userAddress);
+        if(document.getElementById("modalBalance")) {
+            document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
+        }
+        
+        // 6. Jalankan Fungsi Pendukung Anda
+        if(typeof updateSidebarWallet === "function") updateSidebarWallet(userAddress);
+        if(typeof updateModalWalletData === "function") await updateModalWalletData(userAddress);
+        if(typeof window.loadTokensFromCloud === "function") await window.loadTokensFromCloud(userAddress);
+        if(typeof autoScanTokens === "function") autoScanTokens();
+
+        // 7. [KHUSUS OVERLAY] Buka Gerbang / Reload
+        if(document.getElementById('loginOverlay') && document.getElementById('loginOverlay').style.display !== 'none') {
+            console.log("🔓 Login via Overlay sukses. Reloading...");
+            // Reload halaman agar state dashboard bersih & fresh
+            window.location.reload(); 
+        }
+
+    } catch (err) { 
+        console.error("Koneksi Error:", err);
+        localStorage.removeItem('userWallet'); 
+        
+        // Reset Tombol
+        if(btnConnect) { btnConnect.innerHTML = originalText || `<i class="fas fa-wallet"></i> Hubungkan`; btnConnect.disabled = false; }
+        if(btnGate) { btnGate.innerHTML = originalGateText || `<i class="fas fa-wallet"></i> Hubungkan Wallet`; btnGate.disabled = false; }
+        
+        alert("Gagal menghubungkan: " + (err.message || "Dibatalkan"));
+    }
+        }
+    </script>
     
     <script>
 const CHAIN_ID_DECIMAL = 8453; // ID Base Mainnet
@@ -2378,191 +2565,6 @@ window.updateLocalTokens = function(cloudData) {
         loadPopularSection();
     }, 2000);
 };
-
-// --- A. LOGIKA GATEWAY & LOGIN STATE ---
-
-document.addEventListener("DOMContentLoaded", () => {
-    setTimeout(checkLoginState, 100);
-});
-
-function checkLoginState() {
-    const savedWallet = localStorage.getItem('userWallet');
-    const gateTitle = document.getElementById('gateTitle');
-    const gateDesc = document.getElementById('gateDesc');
-    const btnAction = document.getElementById('btnGateAction');
-
-    // Reset Onclick
-    btnAction.onclick = null; 
-
-    if (savedWallet && savedWallet.length > 10) {
-        // --- USER LAMA: TAMPILKAN TOMBOL MASUK ---
-        console.log("✅ User lama terdeteksi:", savedWallet);
-        const shortAddr = savedWallet.substring(0, 6) + "..." + savedWallet.slice(-4);
-        
-        gateTitle.innerText = "Selamat Datang Kembali";
-        gateDesc.innerHTML = `Akun terdeteksi: <b style="color:#27ae60;">${shortAddr}</b><br>Lanjutkan akses ke dashboard?`;
-        
-        btnAction.innerHTML = `<i class="fas fa-sign-in-alt"></i> Masuk Dashboard`;
-        btnAction.className = "btn-gate-connect secondary"; 
-        
-        // Klik -> Masuk Aplikasi
-        btnAction.onclick = function() { enterApp(); };
-
-    } else {
-        // --- USER BARU: TAMPILKAN TOMBOL CONNECT ---
-        console.log("🔒 User belum login. Gerbang terkunci.");
-        gateTitle.innerText = "Akses Ruang Koleksi";
-        gateDesc.innerHTML = "Hubungkan dompet Web3 Anda untuk membuka<br>sertifikat kepemilikan dan data koleksi.";
-        
-        btnAction.innerHTML = `<i class="fas fa-wallet"></i> Hubungkan Wallet`;
-        btnAction.className = "btn-gate-connect primary"; 
-        
-        // Klik -> Buka Modal Pilih Wallet
-        btnAction.onclick = function() { toggleSelectWallet(true); };
-    }
-}
-
-function enterApp() {
-    const overlay = document.getElementById('loginOverlay');
-    if(overlay) {
-        overlay.classList.add('hidden');
-        setTimeout(() => { 
-            overlay.style.display = 'none'; 
-            // Trigger refresh data jika perlu
-            if(typeof window.initGatekeeper === 'function') window.initGatekeeper();
-        }, 500);
-    }
-}
-
-// --- B. LOGIKA WALLET SELECTION (MODAL) ---
-
-function toggleSelectWallet(show) {
-    const modal = document.getElementById("selectWalletModal");
-    if(modal) modal.style.display = show ? "flex" : "none";
-}
-
-function closeSelectWallet(e) {
-    if (e.target.id === "selectWalletModal") toggleSelectWallet(false);
-}
-
-// --- C. DETEKSI PROVIDER ---
-
-async function pilihProvider(type) {
-    toggleSelectWallet(false); // Tutup modal
-    
-    let providerObj;
-    if (type === 'metamask') {
-        if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
-        else return window.open("https://metamask.io/", "_blank");
-    } 
-    else if (type === 'trust') {
-        if (window.trustwallet) providerObj = window.trustwallet;
-        else if (window.ethereum && window.ethereum.isTrust) providerObj = window.ethereum;
-        else return window.open("https://trustwallet.com/", "_blank");
-    }
-    else if (type === 'okx') {
-        if (window.okxwallet) providerObj = window.okxwallet;
-        else return window.open("https://www.okx.com/web3", "_blank");
-    }
-    else if (type === 'phantom') {
-        if (window.phantom && window.phantom.ethereum) providerObj = window.phantom.ethereum;
-        else return window.open("https://phantom.app/", "_blank");
-    }
-    else if (type === 'binance') {
-        if (window.BinanceChain) providerObj = window.BinanceChain;
-        else return window.open("https://www.binance.com/en/web3wallet", "_blank");
-    }
-    else {
-        if (window.ethereum) providerObj = window.ethereum;
-        else return alert("Tidak ada dompet Web3 terdeteksi!");
-    }
-
-    // Eksekusi Koneksi
-    await executeConnection(providerObj);
-}
-
-// --- D. EKSEKUSI KONEKSI (LOGIKA INTI ANDA) ---
-
-async function executeConnection(customProvider) {
-    const btnConnect = document.getElementById("btnConnect");
-    const btnGate = document.getElementById("btnGateAction"); // Tombol di Overlay
-    const originalText = btnConnect ? btnConnect.innerHTML : "";
-    const originalGateText = btnGate ? btnGate.innerHTML : "";
-
-    // Loading State di kedua tombol
-    if(btnConnect) { btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnConnect.disabled = true; }
-    if(btnGate) { btnGate.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnGate.disabled = true; }
-
-    try {
-        const provider = new ethers.providers.Web3Provider(customProvider);
-        
-        // 1. Request Akun
-        await provider.send("eth_requestAccounts", []);
-
-        // 2. Cek Network
-        const network = await provider.getNetwork();
-        if (typeof CHAIN_ID_DECIMAL !== 'undefined' && network.chainId !== CHAIN_ID_DECIMAL) {
-            try {
-                await customProvider.request({
-                    method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: '0x' + CHAIN_ID_DECIMAL.toString(16) }]
-                });
-            } catch (switchError) {
-                // Handle Add Chain jika belum ada
-                throw switchError; 
-            }
-        }
-
-        // 3. Ambil Data User (SUKSES)
-        const signer = provider.getSigner();
-        const userAddress = await signer.getAddress();
-        
-        // [PENTING] SIMPAN KE STORAGE
-        localStorage.setItem('userWallet', userAddress);
-        if(typeof modalUserAddr !== 'undefined') modalUserAddr = userAddress;
-
-        // 4. Update UI Navbar
-        if(btnConnect) {
-            btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-            btnConnect.classList.add("connected");
-            btnConnect.disabled = false;
-        }
-        if(typeof isWalletConnected !== 'undefined') isWalletConnected = true;
-
-        // 5. Update Data Modal Profile
-        if(document.getElementById("modalFullAddress")) {
-            document.getElementById("modalFullAddress").innerText = userAddress;
-            document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
-        }
-        const balance = await provider.getBalance(userAddress);
-        if(document.getElementById("modalBalance")) {
-            document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
-        }
-        
-        // 6. Jalankan Fungsi Pendukung Anda
-        if(typeof updateSidebarWallet === "function") updateSidebarWallet(userAddress);
-        if(typeof updateModalWalletData === "function") await updateModalWalletData(userAddress);
-        if(typeof window.loadTokensFromCloud === "function") await window.loadTokensFromCloud(userAddress);
-        if(typeof autoScanTokens === "function") autoScanTokens();
-
-        // 7. [KHUSUS OVERLAY] Buka Gerbang / Reload
-        if(document.getElementById('loginOverlay') && document.getElementById('loginOverlay').style.display !== 'none') {
-            console.log("🔓 Login via Overlay sukses. Reloading...");
-            // Reload halaman agar state dashboard bersih & fresh
-            window.location.reload(); 
-        }
-
-    } catch (err) { 
-        console.error("Koneksi Error:", err);
-        localStorage.removeItem('userWallet'); 
-        
-        // Reset Tombol
-        if(btnConnect) { btnConnect.innerHTML = originalText || `<i class="fas fa-wallet"></i> Hubungkan`; btnConnect.disabled = false; }
-        if(btnGate) { btnGate.innerHTML = originalGateText || `<i class="fas fa-wallet"></i> Hubungkan Wallet`; btnGate.disabled = false; }
-        
-        alert("Gagal menghubungkan: " + (err.message || "Dibatalkan"));
-    }
-}
 
 // Fungsi Trigger Utama dari Navbar
 function connectWallet() {
