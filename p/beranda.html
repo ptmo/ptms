@@ -1397,6 +1397,33 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     from { opacity: 0; transform: translateY(30px); }
     to { opacity: 1; transform: translateY(0); }
 }
+
+        .wallet-overlay {
+    position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+    background: rgba(0,0,0,0.5); z-index: 9999; display: none;
+    align-items: center; justify-content: center; backdrop-filter: blur(4px);
+}
+.wallet-card {
+    background: white; width: 90%; max-width: 380px; border-radius: 15px;
+    box-shadow: 0 10px 25px rgba(0,0,0,0.2); overflow: hidden;
+    animation: fadeIn 0.3s ease;
+}
+.wc-header {
+    padding: 15px 20px; border-bottom: 1px solid #eee; display: flex;
+    justify-content: space-between; align-items: center; background: #f8f9fa;
+}
+.wc-header h3 { margin: 0; font-size: 16px; color: #333; }
+.wc-grid {
+    padding: 20px; display: grid; grid-template-columns: 1fr 1fr; gap: 15px;
+}
+.wc-item {
+    border: 1px solid #eee; border-radius: 10px; padding: 15px;
+    display: flex; flex-direction: column; align-items: center; gap: 8px;
+    cursor: pointer; transition: 0.2s;
+}
+.wc-item:hover { background: #f0f7ff; border-color: #7385a5; }
+.wc-item span { font-size: 12px; font-weight: 600; color: #555; }
+@keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     </style>
 </head>
 <body>
@@ -2021,6 +2048,41 @@ textarea { width: 100%; padding: 10px; border: 2px solid #e0e0e0; border-radius:
     </div>
 </div>
 
+<div id="selectWalletModal" class="wallet-overlay" onclick="closeSelectWallet(event)">
+    <div class="wallet-card">
+        <div class="wc-header">
+            <h3>Pilih Dompet</h3>
+            <span onclick="toggleSelectWallet(false)" style="cursor:pointer;"><i class="fas fa-times"></i></span>
+        </div>
+        <div class="wc-grid">
+            <div class="wc-item" onclick="pilihProvider('metamask')">
+                <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="30">
+                <span>MetaMask</span>
+            </div>
+            <div class="wc-item" onclick="pilihProvider('trust')">
+                <img src="https://trustwallet.com/assets/images/media/assets/TWT.png" width="30">
+                <span>Trust Wallet</span>
+            </div>
+            <div class="wc-item" onclick="pilihProvider('okx')">
+                <img src="https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2B7D0.png" width="30">
+                <span>OKX Wallet</span>
+            </div>
+            <div class="wc-item" onclick="pilihProvider('phantom')">
+                <img src="https://phantom.app/img/phantom-logo-2.svg" width="30">
+                <span>Phantom</span>
+            </div>
+            <div class="wc-item" onclick="pilihProvider('binance')">
+                <img src="https://public.bnbstatic.com/20190405/eb2349c3-a692-43ea-877d-9727b9f35dcf.png" width="30">
+                <span>Binance Wallet</span>
+            </div>
+            <div class="wc-item" onclick="pilihProvider('injected')">
+                <i class="fas fa-globe" style="font-size: 24px; color: #7385a5;"></i>
+                <span>Browser Default</span>
+            </div>
+        </div>
+    </div>
+</div>
+
 <nav class="bottom-nav">
     <a href="index" class="nav-link active"><i class="fas fa-globe-asia"></i><span>Beranda</span></a>
     <a href="galeri" class="nav-link"><i class="fa fa-university"></i><span>Galeri</span></a>
@@ -2449,52 +2511,119 @@ window.updateLocalTokens = function(cloudData) {
     }, 2000);
 };
 
+// --- 1. TRIGGER UTAMA (Hanya Buka Modal) ---
 async function connectWallet() {
-    // A. Validasi Metamask
-    if (!window.ethereum) return alert("Metamask tidak terdeteksi!");
-    
+    // Jika sudah connect, toggle modal profil (Logika Lama B)
     const btnConnect = document.getElementById("btnConnect");
-    
-    // B. LOGIKA TOGGLE
-    if (isWalletConnected || (btnConnect && btnConnect.classList.contains("connected"))) {
+    if (typeof isWalletConnected !== 'undefined' && isWalletConnected || (btnConnect && btnConnect.classList.contains("connected"))) {
         toggleWalletModal(); 
         return;
     }
+    // Jika belum, buka modal pilihan wallet
+    toggleSelectWallet(true);
+}
 
-    // C. PROSES KONEKSI BARU
-    const originalText = btnConnect.innerHTML;
-    if(btnConnect) btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+// --- 2. LOGIKA UI MODAL ---
+function toggleSelectWallet(show) {
+    const el = document.getElementById("selectWalletModal");
+    if(el) el.style.display = show ? "flex" : "none";
+}
+function closeSelectWallet(e) {
+    if(e.target.id === "selectWalletModal") toggleSelectWallet(false);
+}
+
+// --- 3. DETEKSI PROVIDER ---
+async function pilihProvider(type) {
+    toggleSelectWallet(false); // Tutup modal dulu
+    
+    let providerObj;
+
+    // Cek ketersediaan wallet di browser
+    if (type === 'metamask') {
+        if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
+        else return window.open("https://metamask.io/", "_blank");
+    } 
+    else if (type === 'trust') {
+        if (window.trustwallet) providerObj = window.trustwallet;
+        else if (window.ethereum && window.ethereum.isTrust) providerObj = window.ethereum;
+        else return window.open("https://trustwallet.com/", "_blank");
+    }
+    else if (type === 'okx') {
+        if (window.okxwallet) providerObj = window.okxwallet;
+        else return window.open("https://www.okx.com/web3", "_blank");
+    }
+    else if (type === 'phantom') {
+        if (window.phantom && window.phantom.ethereum) providerObj = window.phantom.ethereum;
+        else return window.open("https://phantom.app/", "_blank");
+    }
+    else if (type === 'binance') {
+        if (window.BinanceChain) providerObj = window.BinanceChain;
+        else return window.open("https://www.binance.com/en/web3wallet", "_blank");
+    }
+    else {
+        // Fallback default
+        if (window.ethereum) providerObj = window.ethereum;
+        else return alert("Tidak ada dompet Web3 terdeteksi!");
+    }
+
+    // Jalankan koneksi dengan provider yg dipilih
+    await executeConnection(providerObj);
+}
+
+// --- 4. EKSEKUSI KONEKSI (LOGIKA ASLI ANDA DISINI) ---
+async function executeConnection(customProvider) {
+    const btnConnect = document.getElementById("btnConnect");
+    const originalText = btnConnect ? btnConnect.innerHTML : "";
+    
+    if(btnConnect) {
+        btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+        btnConnect.disabled = true;
+    }
 
     try {
-        const provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Gunakan provider yg dipilih user, bukan window.ethereum default
+        const provider = new ethers.providers.Web3Provider(customProvider);
         
-        // 1. Request Akun (Tunggu User Klik Approve)
+        // 1. Request Akun
         await provider.send("eth_requestAccounts", []);
 
         // 2. Cek Network
         const network = await provider.getNetwork();
-        if (network.chainId !== CHAIN_ID_DECIMAL) {
-            await switchNetwork(); 
-            // Jangan panggil connectWallet() lagi di sini, biarkan flow berlanjut atau user klik lagi
-            // connectWallet(); return; <--- HAPUS REKURSI INI BIAR GAK LOOPING
+        
+        // Pastikan variabel CHAIN_ID_DECIMAL sudah didefinisikan di script global Anda
+        if (typeof CHAIN_ID_DECIMAL !== 'undefined' && network.chainId !== CHAIN_ID_DECIMAL) {
+            try {
+                // Switch network menggunakan custom provider
+                // Pastikan fungsi switchNetwork Anda mendukung parameter provider, 
+                // atau gunakan request langsung di sini:
+                await customProvider.request({
+                    method: 'wallet_switchEthereumChain',
+                    params: [{ chainId: '0x' + CHAIN_ID_DECIMAL.toString(16) }] // Konversi ke Hex
+                });
+                
+                // Re-init provider setelah switch (penting untuk beberapa wallet)
+                // provider = new ethers.providers.Web3Provider(customProvider); 
+            } catch (switchError) {
+                // Handle add chain error jika perlu (Kode 4902)
+                throw switchError; 
+            }
         }
 
-        // 3. Ambil Data User (PASTI SUKSES DISINI)
+        // 3. Ambil Data User
         const signer = provider.getSigner();
         const userAddress = await signer.getAddress();
         
-        // [FIX 2: KUNCI UTAMA - SIMPAN KE STORAGE]
-        // Tanpa ini, tembok login tidak akan pernah terbuka!
+        // [FIX 2: SIMPAN KE STORAGE]
         localStorage.setItem('userWallet', userAddress);
-        
-        modalUserAddr = userAddress; 
+        if(typeof modalUserAddr !== 'undefined') modalUserAddr = userAddress;
 
         // 4. Update UI
         if(btnConnect) {
             btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
             btnConnect.classList.add("connected");
+            btnConnect.disabled = false;
         }
-        isWalletConnected = true; 
+        if(typeof isWalletConnected !== 'undefined') isWalletConnected = true;
 
         // 5. Update Data Modal
         if(document.getElementById("modalFullAddress")) {
@@ -2507,21 +2636,21 @@ async function connectWallet() {
             document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
         }
         
-        // 6. Jalankan Fungsi Pendukung
-        updateSidebarWallet(userAddress);
-        await updateModalWalletData(userAddress);
-        
-        if (window.loadTokensFromCloud) {
-            await window.loadTokensFromCloud(modalUserAddr);
-        }
-
-        autoScanTokens();
+        // 6. Jalankan Fungsi Pendukung (Cek ketersediaan fungsi dulu agar tidak error)
+        if(typeof updateSidebarWallet === "function") updateSidebarWallet(userAddress);
+        if(typeof updateModalWalletData === "function") await updateModalWalletData(userAddress);
+        if(typeof window.loadTokensFromCloud === "function") await window.loadTokensFromCloud(userAddress);
+        if(typeof autoScanTokens === "function") autoScanTokens();
 
     } catch (err) { 
         console.error("Koneksi Error:", err);
-        // Hapus storage jika gagal/cancel biar tembok tetap ngunci
         localStorage.removeItem('userWallet'); 
-        if(btnConnect) btnConnect.innerHTML = originalText;
+        
+        if(btnConnect) {
+            btnConnect.innerHTML = originalText || `<i class="fas fa-wallet"></i> Hubungkan`;
+            btnConnect.disabled = false;
+        }
+        alert("Gagal menghubungkan: " + (err.message || "User menolak koneksi"));
     }
         }
 
