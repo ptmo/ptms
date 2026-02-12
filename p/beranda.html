@@ -2544,25 +2544,58 @@ async function pilihProvider(type) {
         else return window.open("https://phantom.app/", "_blank");
     }
     else if (type === 'binance') {
-        // CEK 1: Deteksi Standar Binance (window.BinanceChain)
+        // CEK 1: Deteksi Standar Binance
         if (window.BinanceChain) {
             providerObj = window.BinanceChain;
         } 
-        // CEK 2: Deteksi Jalur 'Metamask Compatibility'
+        // CEK 2: Deteksi Jalur Kompatibilitas
         else if (window.ethereum && (window.ethereum.isBinance || window.ethereum.isBinanceWallet)) {
             providerObj = window.ethereum;
         }
-        // JIKA TIDAK KETEMU (User pakai Chrome/Browser Biasa)
+        // JIKA TIDAK KETEMU (User pakai Chrome Biasa)
         else {
-            // GUNAKAN 'PROMPT' AGAR LINK BISA DICOPY
-            // Parameter kedua adalah value default (Link Website Anda)
-            window.prompt(
-                "Aplikasi Binance tidak terdeteksi.\n\nSilakan SALIN link di bawah ini, lalu buka App Binance > Web3 Wallet > Discover (Browser) > Paste:", 
-                "https://putramas.web.id"
-            );
+            // --- CUSTOM POPUP (PREMIUM STYLE) ---
+            
+            // 1. Hapus modal lama jika ada (biar gak numpuk)
+            const oldModal = document.getElementById("binanceFallbackModal");
+            if(oldModal) oldModal.remove();
+
+            // 2. Siapkan HTML Modal (Desain Premium)
+            const fallbackHTML = `
+            <div id="binanceFallbackModal" class="wallet-overlay" style="display:flex; z-index:10000;">
+                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
+                    <div style="margin-bottom:15px;">
+                        <img src="img/binance.svg" width="50" onerror="this.src='https://public.bnbstatic.com/20190405/eb2349c3-a692-43ea-877d-9727b9f35dcf.png'" style="margin-bottom:10px;">
+                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Buka di Binance App</h3>
+                    </div>
+                    
+                    <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
+                        Browser ini tidak mendukung injeksi otomatis.<br>
+                        Silakan salin link di bawah dan buka menu <b>Web3 Wallet > Discover</b> di Aplikasi Binance.
+                    </p>
+                    
+                    <div style="background:#f8f9fa; padding:12px; border-radius:10px; border:1px solid #e9ecef; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                        <input type="text" value="https://putramas.web.id" id="binanceLinkInput" readonly 
+                            style="width:100%; border:none; background:transparent; color:#2c3e50; font-weight:bold; outline:none; font-size:13px;">
+                        
+                        <button onclick="copyBinanceLink(this)" 
+                            style="background:none; border:none; color:#7385a5; font-weight:bold; cursor:pointer; font-size:16px;">
+                            <i class="far fa-copy"></i>
+                        </button>
+                    </div>
+
+                    <button onclick="document.getElementById('binanceFallbackModal').remove()" 
+                        style="width:100%; background:#7385a5; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(115, 133, 165, 0.3);">
+                        Tutup
+                    </button>
+                </div>
+            </div>`;
+
+            // 3. Masukkan ke Body (Tampilkan)
+            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
             return;
         }
-    }
+        }
     else {
         if (window.ethereum) providerObj = window.ethereum;
         else return alert("Tidak ada dompet Web3 terdeteksi!");
@@ -2642,6 +2675,31 @@ async function executeConnection(customProvider) {
         alert("Gagal menghubungkan: " + (err.message || "Dibatalkan"));
     }
 }
+
+// Fungsi Khusus Copy Link Binance
+function copyBinanceLink(btn) {
+    const input = document.getElementById("binanceLinkInput");
+    
+    // Select & Copy
+    input.select();
+    input.setSelectionRange(0, 99999); // Untuk HP
+    navigator.clipboard.writeText(input.value).then(() => {
+        // Efek Visual (Ubah Icon jadi Ceklis)
+        const originalIcon = btn.innerHTML;
+        btn.innerHTML = `<i class="fas fa-check" style="color:#27ae60;"></i>`;
+        
+        // Balikin icon setelah 2 detik
+        setTimeout(() => {
+            btn.innerHTML = originalIcon;
+        }, 2000);
+        
+        // Opsional: Pakai Toast Anda
+        if(typeof showToast === 'function') showToast("Link berhasil disalin!", "success");
+    }).catch(err => {
+        console.error('Gagal copy', err);
+        alert("Gagal menyalin otomatis. Silakan salin manual.");
+    });
+        }
 
 // --- FUNGSI UPDATE SALDO UTAMA ---
 async function refreshMainBalance(addr, explicitProvider = null) {
