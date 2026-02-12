@@ -2544,9 +2544,22 @@ async function pilihProvider(type) {
         else return window.open("https://phantom.app/", "_blank");
     }
     else if (type === 'binance') {
-        if (window.BinanceChain) providerObj = window.BinanceChain;
-        else return window.open("https://www.binance.com/en/web3wallet", "_blank");
-    }
+        // CEK 1: Deteksi Standar Binance (window.BinanceChain)
+        if (window.BinanceChain) {
+            providerObj = window.BinanceChain;
+        } 
+        // CEK 2: Deteksi Jalur 'Metamask Compatibility' (Seringkali Binance inject lewat sini juga)
+        else if (window.ethereum && (window.ethereum.isBinance || window.ethereum.isBinanceWallet)) {
+            providerObj = window.ethereum;
+        }
+        // JIKA TIDAK KETEMU (User pakai Chrome biasa, bukan Browser di dalam App Binance)
+        else {
+            // JANGAN redirect ke website (karena diblokir di Indo).
+            // Beri instruksi yang benar kepada user:
+            alert("Aplikasi Binance tidak terdeteksi di browser ini.\n\nCARA KONEK:\n1. Salin link website ini.\n2. Buka aplikasi Binance di HP Anda.\n3. Masuk menu 'Web3 Wallet' -> 'Discover' -> Paste link di browser search.");
+            return;
+        }
+        }
     else {
         if (window.ethereum) providerObj = window.ethereum;
         else return alert("Tidak ada dompet Web3 terdeteksi!");
