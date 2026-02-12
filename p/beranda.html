@@ -2491,59 +2491,76 @@ async function pilihProvider(type) {
     await executeConnection(providerObj);
 }
 
+// FUNGSI 4: EKSEKUSI KONEKSI (Dulu ini adalah connectWallet Anda)
 async function executeConnection(customProvider) {
     const btnConnect = document.getElementById("btnConnect");
-    const btnGate = document.getElementById("btnGateAction");
+    const originalText = btnConnect ? btnConnect.innerHTML : "";
     
-    const originalGateText = btnGate ? btnGate.innerHTML : "";
-    const originalNavText = btnConnect ? btnConnect.innerHTML : "";
-
-    // Loading State
-    if(btnConnect) { btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnConnect.disabled = true; }
-    if(btnGate) { btnGate.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`; btnGate.disabled = true; }
+    // Update UI Loading
+    if(btnConnect) {
+        btnConnect.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Loading...`;
+        btnConnect.disabled = true;
+    }
 
     try {
-        const providerWeb3 = new ethers.providers.Web3Provider(customProvider);
-        await providerWeb3.send("eth_requestAccounts", []);
+        // PERUBAHAN PENTING: Pakai customProvider, bukan window.ethereum langsung
+        const provider = new ethers.providers.Web3Provider(customProvider);
+        
+        // 1. Request Akun
+        await provider.send("eth_requestAccounts", []);
 
-        const network = await providerWeb3.getNetwork();
-        if (network.chainId !== CHAIN_ID_DECIMAL) {
+        // 2. Cek Network
+        const network = await provider.getNetwork();
+        if (typeof CHAIN_ID_DECIMAL !== 'undefined' && network.chainId !== CHAIN_ID_DECIMAL) {
             try {
+                // Request Switch Network ke Provider yang dipilih
                 await customProvider.request({
                     method: 'wallet_switchEthereumChain',
-                    params: [{ chainId: CHAIN_ID_BASE }]
+                    params: [{ chainId: '0x' + CHAIN_ID_DECIMAL.toString(16) }]
                 });
             } catch (switchError) {
-                if (switchError.code === 4902) {
-                    await customProvider.request({
-                        method: 'wallet_addEthereumChain',
-                        params: [BASE_MAINNET_CONFIG]
-                    });
-                } else { throw switchError; }
+                throw switchError; 
             }
         }
 
-        const signerWeb3 = providerWeb3.getSigner();
-        const userAddress = await signerWeb3.getAddress();
+        // 3. Ambil Data User (SUKSES)
+        const signer = provider.getSigner();
+        const userAddress = await signer.getAddress();
         
-        // SUKSES LOGIN
+        // [FITUR ANDA AMAN] Simpan Storage
         localStorage.setItem('userWallet', userAddress);
-        modalUserAddr = userAddress;
-        isWalletConnected = true;
+        if(typeof modalUserAddr !== 'undefined') modalUserAddr = userAddress;
 
-        // Update UI
+        // 4. Update UI Navbar
         if(btnConnect) {
             btnConnect.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
             btnConnect.classList.add("connected");
             btnConnect.disabled = false;
         }
+        if(typeof isWalletConnected !== 'undefined') isWalletConnected = true;
 
-        // Jalankan fungsi pendukung (jika ada)
-        if(typeof updateSidebarWallet === "function") updateSidebarWallet(userAddress);
-        if(typeof updateModalWalletData === "function") updateModalWalletData(userAddress);
+        // 5. Update Modal Profile
+        if(document.getElementById("modalFullAddress")) {
+            document.getElementById("modalFullAddress").innerText = userAddress;
+            document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 6) + "..." + userAddress.slice(-4);
+        }
         
-        // Reload jika Login dari Overlay
-        if(document.getElementById('loginOverlay') && document.getElementById('loginOverlay').style.display !== 'none') {
+        const balance = await provider.getBalance(userAddress);
+        if(document.getElementById("modalBalance")) {
+            document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(8) + " ETH";
+        }
+        
+        // 6. Jalankan Fungsi Pendukung Lainnya
+        if(typeof updateSidebarWallet === "function") updateSidebarWallet(userAddress);
+        if(typeof updateModalWalletData === "function") await updateModalWalletData(userAddress);
+        if(typeof window.loadTokensFromCloud === "function") await window.loadTokensFromCloud(userAddress);
+        if(typeof autoScanTokens === "function") autoScanTokens();
+
+        // [KHUSUS INTEGRASI OVERLAY] 
+        // Jika login sukses via overlay, reload halaman agar data bersih
+        const overlay = document.getElementById('loginOverlay');
+        if(overlay && overlay.style.display !== 'none') {
+            console.log("🔓 Login via Overlay sukses. Reloading...");
             window.location.reload(); 
         }
 
@@ -2551,12 +2568,13 @@ async function executeConnection(customProvider) {
         console.error("Koneksi Error:", err);
         localStorage.removeItem('userWallet'); 
         
-        if(btnConnect) { btnConnect.innerHTML = originalNavText; btnConnect.disabled = false; }
-        if(btnGate) { btnGate.innerHTML = originalGateText; btnGate.disabled = false; }
-        
+        if(btnConnect) {
+            btnConnect.innerHTML = originalText || `<i class="fas fa-wallet"></i> Hubungkan`;
+            btnConnect.disabled = false;
+        }
         alert("Gagal menghubungkan: " + (err.message || "Dibatalkan"));
     }
-}
+        }
 
 function toggleWalletModal() {
     const modal = document.getElementById("walletModal");
