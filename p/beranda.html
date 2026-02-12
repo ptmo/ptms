@@ -2527,14 +2527,93 @@ async function pilihProvider(type) {
     let providerObj;
     // Deteksi Provider
     if (type === 'metamask') {
-        if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
-        else return window.open("https://metamask.io/", "_blank");
-    } 
+        // CEK 1: Deteksi Object Ethereum & Flag isMetaMask
+        if (window.ethereum && window.ethereum.isMetaMask) {
+             providerObj = window.ethereum;
+        } 
+        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
+        else {
+            // 1. Hapus modal lama jika ada
+            const oldModal = document.getElementById("installMetamaskModal");
+            if(oldModal) oldModal.remove();
+
+            // 2. Siapkan HTML Modal (Desain Premium MetaMask)
+            const fallbackHTML = `
+            <div id="installMetamaskModal" class="wallet-overlay" style="display:flex; z-index:10000;">
+                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
+                    <div style="margin-bottom:15px;">
+                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="60" style="margin-bottom:10px;">
+                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">MetaMask Tidak Terdeteksi</h3>
+                    </div>
+                    
+                    <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:25px;">
+                        Browser ini belum memiliki MetaMask.<br>
+                        Silakan unduh <b>MetaMask</b> untuk melanjutkan.
+                    </p>
+                    
+                    <button onclick="window.open('https://metamask.io/download/', '_blank')" 
+                        style="width:100%; background:#f6851b; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(246, 133, 27, 0.4); margin-bottom:10px;">
+                        <i class="fas fa-download"></i> Unduh MetaMask
+                    </button>
+
+                    <button onclick="document.getElementById('installMetamaskModal').remove()" 
+                        style="width:100%; background:none; color:#fff; border:2pxsolid#f6851b; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
+                        Nanti Saja
+                    </button>
+                </div>
+            </div>`;
+
+            // 3. Tampilkan
+            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+            return;
+        }
+        }
     else if (type === 'trust') {
-        if (window.trustwallet) providerObj = window.trustwallet;
-        else if (window.ethereum && window.ethereum.isTrust) providerObj = window.ethereum;
-        else return window.open("https://trustwallet.com/", "_blank");
-    }
+        // CEK 1: Deteksi Object Trust Wallet
+        if (window.trustwallet) {
+            providerObj = window.trustwallet;
+        } 
+        // CEK 2: Deteksi Flag isTrust di Ethereum
+        else if (window.ethereum && window.ethereum.isTrust) {
+            providerObj = window.ethereum;
+        }
+        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
+        else {
+            // 1. Hapus modal lama jika ada
+            const oldModal = document.getElementById("installTrustModal");
+            if(oldModal) oldModal.remove();
+
+            // 2. Siapkan HTML Modal (Desain Premium Trust Wallet)
+            const fallbackHTML = `
+            <div id="installTrustModal" class="wallet-overlay" style="display:flex; z-index:10000;">
+                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
+                    <div style="margin-bottom:15px;">
+                        <img src="img/trust.svg" width="50" style="margin-bottom:10px;">
+                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Trust Wallet Tidak Terdeteksi</h3>
+                    </div>
+                    
+                    <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:25px;">
+                        Browser ini belum memiliki Trust Wallet.<br>
+                        Silakan unduh <b>Trust Wallet</b> untuk melanjutkan.
+                    </p>
+                    
+                    <button onclick="window.open('https://trustwallet.com/', '_blank')" 
+                        style="width:100%; background:#3375BB; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(51, 117, 187, 0.4); margin-bottom:10px;">
+                        <i class="fas fa-download"></i> Unduh Trust Wallet
+                    </button>
+
+                    <button onclick="document.getElementById('installTrustModal').remove()" 
+                        style="width:100%; background:none; color:#95a5a6; border:none; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
+                        Nanti Saja
+                    </button>
+                </div>
+            </div>`;
+
+            // 3. Tampilkan
+            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+            return;
+        }
+        }
     else if (type === 'okx') {
         // CEK 1: Deteksi Standar OKX
         if (window.okxwallet) {
@@ -2587,9 +2666,51 @@ async function pilihProvider(type) {
         }
         }
     else if (type === 'phantom') {
-        if (window.phantom && window.phantom.ethereum) providerObj = window.phantom.ethereum;
-        else return window.open("https://phantom.app/", "_blank");
-    }
+        // CEK 1: Deteksi Standar Phantom EVM
+        if (window.phantom && window.phantom.ethereum) {
+            providerObj = window.phantom.ethereum;
+        } 
+        // CEK 2: Deteksi Jalur Kompatibilitas Ethereum
+        else if (window.ethereum && window.ethereum.isPhantom) {
+            providerObj = window.ethereum;
+        }
+        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
+        else {
+            // 1. Hapus modal lama jika ada
+            const oldModal = document.getElementById("installPhantomModal");
+            if(oldModal) oldModal.remove();
+
+            // 2. Siapkan HTML Modal (Desain Premium Phantom)
+            const fallbackHTML = `
+            <div id="installPhantomModal" class="wallet-overlay" style="display:flex; z-index:10000;">
+                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
+                    <div style="margin-bottom:15px;">
+                        <img src="img/phantom.svg" width="60" onerror="this.src='https://phantom.app/img/phantom-logo-2.svg'" style="margin-bottom:10px;">
+                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Phantom Tidak Terdeteksi</h3>
+                    </div>
+                    
+                    <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:25px;">
+                        Browser ini belum memiliki dompet Phantom.<br>
+                        Silakan unduh <b>Phantom Wallet</b> untuk melanjutkan.
+                    </p>
+                    
+                    <button onclick="window.open('https://phantom.app/', '_blank')" 
+                        style="width:100%; background:#AB9FF2; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(171, 159, 242, 0.4); margin-bottom:10px;">
+                        <i class="fas fa-download"></i> Unduh Phantom
+                    </button>
+
+                    <button onclick="document.getElementById('installPhantomModal').remove()" 
+                        style="width:100%; background:none; color:#95a5a6; border:none; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
+                        Nanti Saja
+                    </button>
+                </div>
+            </div>`;
+
+            // 3. Tampilkan
+            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+            return;
+        }
+        }
     else if (type === 'binance') {
         // CEK 1: Deteksi Standar Binance
         if (window.BinanceChain) {
@@ -2662,10 +2783,10 @@ async function pilihProvider(type) {
                 <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
                     <div style="margin-bottom:15px;">
                         <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="60" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Dompet Tidak Ditemukan</h3>
+                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Koneksi Tidak Ditemukan</h3>
                     </div>
                     
-                    <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:25px;">
+                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:25px;">
                         Browser ini belum memiliki dompet Web3.<br>
                         Silakan instal <b>MetaMask</b> terlebih dahulu untuk mengakses fitur ini.
                     </p>
@@ -2676,7 +2797,7 @@ async function pilihProvider(type) {
                     </button>
 
                     <button onclick="document.getElementById('installMetamaskModal').remove()" 
-                        style="width:100%; background:none; color:#95a5a6; border:none; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
+                        style="width:100%; background:none; color:#fff; border: 2px solid #f6851b; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
                         Nanti Saja
                     </button>
                 </div>
