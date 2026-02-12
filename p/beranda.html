@@ -2297,23 +2297,27 @@ window.updateLocalTokens = function(cloudData) {
     }
 };
 
-        // --- INIT ---
-        window.onload = async () => {
-    // -----------------------------------------------------------
-    // 1. SETUP READ PROVIDER
-    // -----------------------------------------------------------
+        
+// ==========================================
+// 3. INISIALISASI (WINDOW ONLOAD) - VERSI GABUNGAN (FINAL)
+// ==========================================
+window.onload = async () => {
+    
+    // [DARI V1] Init Token Manager
     if(typeof initTokenManager === 'function') initTokenManager();
-            
-    const rpc = new ethers.providers.JsonRpcProvider("https://base-rpc.publicnode.com");
+
+    // Init Provider Read-Only
+    const rpc = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
     try {
-        if(typeof CONTRACT_ADDRESS !== 'undefined' && typeof ABI !== 'undefined') {
+        if(typeof ABI !== 'undefined' && ABI.length > 0) {
             contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
         }
-    } catch(e) { console.log("Init contract error:", e); }
-    
-    // -----------------------------------------------------------
-    // 2. LOGIKA AUTO-LOGIN METAMASK
-    // -----------------------------------------------------------
+    } catch(e) {}
+
+    // [DARI V2] Cek Login Overlay (PENTING BIAR GERBANG JALAN)
+    checkLoginState();
+
+    // Auto Login Metamask Logic (Silent Check)
     if(window.ethereum) {
         try {
             const web3 = new ethers.providers.Web3Provider(window.ethereum);
@@ -2321,69 +2325,70 @@ window.updateLocalTokens = function(cloudData) {
             
             if(accounts.length > 0) {
                 const userAddress = accounts[0];
-                console.log("✅ Auto-Login Berhasil:", userAddress);
+                console.log("✅ Auto-Login Metamask:", userAddress);
                 
-                // [FIX 1: WAJIB SIMPAN KE STORAGE AGAR TEMBOK TAHU]
-                localStorage.setItem('userWallet', userAddress); 
-                
-                // Update Global Var
-                modalUserAddr = userAddress; 
+                // Set Global Vars
+                localStorage.setItem('userWallet', userAddress);
+                modalUserAddr = userAddress;
                 isWalletConnected = true;
 
-                // A. Update Tampilan Tombol Connect
+                // A. Update Tampilan Tombol Navbar
                 const btn = document.getElementById("btnConnect");
                 if(btn) {
                     btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
                     btn.classList.add("connected");
                 }
                 
-                // B. Update Data Modal
+                // B. Update Data Modal Address
                 if(document.getElementById("modalFullAddress")) {
                     document.getElementById("modalFullAddress").innerText = userAddress;
                     document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
                 }
+                
+                // C. Update Saldo Utama (PENTING)
+                await refreshMainBalance(userAddress, web3);
 
-                // C. Ambil Saldo
-                const balance = await web3.getBalance(userAddress);
-                if(document.getElementById("modalBalance")) {
-                    document.getElementById("modalBalance").innerText = parseFloat(ethers.utils.formatEther(balance)).toFixed(4) + " ETH";
-                }
-
-                // D. Update Fungsi Lain
+                // D. Jalankan Fitur-Fitur V1 (YANG HILANG TADI)
                 if(typeof updateSidebarWallet === 'function') updateSidebarWallet(userAddress);
                 if(typeof updateModalWalletData === 'function') updateModalWalletData(userAddress);
                 
+                // Load Token dari Cloud
                 if (window.loadTokensFromCloud) {
                     await window.loadTokensFromCloud(userAddress);
                 }
-                loadGlobalFeed();
-                loadUserHistory(userAddress);
 
+                // Load Feed & History
+                if(typeof loadGlobalFeed === 'function') loadGlobalFeed();
+                if(typeof loadUserHistory === 'function') loadUserHistory(userAddress);
+
+                // Auto Scan Token
                 setTimeout(() => {
                     if(typeof autoScanTokens === 'function') autoScanTokens();
                 }, 1000);
+
             } else {
-                // Jika tidak ada akun connect, pastikan storage bersih agar tembok terkunci
+                // Jika tidak ada akun, bersihkan storage
                 localStorage.removeItem('userWallet');
             }
-        } catch(e) { console.error("Auto-login error:", e); }
+        } catch(e) { console.warn("Auto login check failed"); }
     }
 
-    // Init fitur lain...
+    // [DARI V1] Fungsi-fungsi Background
     if(typeof loadFeed === 'function') loadFeed();
     if(typeof initDeepIndexer === 'function') setTimeout(initDeepIndexer, 3000);
     
+    // Interval Refresh Saldo Token (PENTING)
     setInterval(() => {
-        if (!document.hidden) {
+        if (!document.hidden && typeof refreshAllTokenBalances === 'function') {
             refreshAllTokenBalances();
         }
     }, 15000);
 
+    // Load Popular Section
     setTimeout(() => {
-        loadPopularSection();
+        if(typeof loadPopularSection === 'function') loadPopularSection();
     }, 2000);
 };
-
 
 
 // --- LOGIKA GATEWAY ---
@@ -2610,65 +2615,6 @@ function disconnectWallet() {
     localStorage.removeItem("userWallet"); 
     window.location.reload();
 }
-
-// Dummy functions agar tidak error jika script lain belum load
-if(typeof updateSidebarWallet === 'undefined') window.updateSidebarWallet = function(){};
-if(typeof updateModalWalletData === 'undefined') window.updateModalWalletData = function(){};
-
-
-// ==========================================
-// 3. INISIALISASI (WINDOW ONLOAD)
-// ==========================================
-window.onload = async () => {
-    
-    // Init Provider Read-Only
-    const rpc = new ethers.providers.JsonRpcProvider(BASE_RPC_URL);
-    try {
-        if(typeof ABI !== 'undefined' && ABI.length > 0) {
-            contractReader = new ethers.Contract(CONTRACT_ADDRESS, ABI, rpc);
-        }
-    } catch(e) {}
-
-    // Cek Login Overlay
-    checkLoginState();
-
-    // Auto Login Metamask Logic (Silent Check)
-    if(window.ethereum) {
-        try {
-            const web3 = new ethers.providers.Web3Provider(window.ethereum);
-            const accounts = await web3.listAccounts();
-            
-            if(accounts.length > 0) {
-                const userAddress = accounts[0];
-                console.log("✅ Auto-Login Metamask:", userAddress);
-                
-                localStorage.setItem('userWallet', userAddress);
-                modalUserAddr = userAddress;
-                isWalletConnected = true;
-
-                // Update Button Navbar
-                const btn = document.getElementById("btnConnect");
-                if(btn) {
-                    btn.innerHTML = `<i class="fas fa-wallet"></i> Info Profile`;
-                    btn.classList.add("connected");
-                }
-                
-                // Update Modal Data
-                if(document.getElementById("modalFullAddress")) {
-                    document.getElementById("modalFullAddress").innerText = userAddress;
-                    document.getElementById("modalShortAddress").innerText = userAddress.substring(0, 10) + "..." + userAddress.slice(-8);
-                }
-                
-                // Load Fungsi Lain
-                updateSidebarWallet(userAddress);
-                updateModalWalletData(userAddress);
-            }
-        } catch(e) { console.warn("Auto login check failed"); }
-    }
-
-    // Load fitur lain
-    if(typeof loadPopularSection === 'function') loadPopularSection();
-};
 
 async function switchNetwork() {
     try {
