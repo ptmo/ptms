@@ -2,344 +2,403 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Putramas Official Store | Wayang Nusantara</title>
-    
-    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@400;700&display=swap" rel="stylesheet">
-    
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Putramas App</title>
+    <link href="https://fonts.googleapis.com/css2?family=Lato:wght@400;700&family=Playfair+Display:wght@700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
 
     <style>
         :root {
-            /* Palette Wayang Premium */
-            --primary-gold: #D4AF37;
-            --secondary-gold: #AA8C2C;
-            --dark-bg: #121212;
-            --card-bg: #1E1E1E;
-            --text-light: #F5F5F0;
-            --text-muted: #B0B0B0;
-            --accent-red: #800000; /* Merah Maroon keraton */
-            --shadow-soft: 0 10px 30px rgba(0,0,0,0.5);
-            --transition: all 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+            --gold: #D4AF37;
+            --gold-dark: #AA8C2C;
+            --bg-dark: #121212;
+            --bg-card: #1E1E1E;
+            --text-main: #FFFFFF;
+            --text-sec: #B0B0B0;
+            --red-accent: #8B0000;
+            --glass: rgba(30, 30, 30, 0.85);
+            --app-width: 480px; /* Batas lebar agar rasa "App" tetap terasa di Desktop */
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 
         body {
+            background-color: #000; /* Latar luar di Desktop */
             font-family: 'Lato', sans-serif;
-            background-color: var(--dark-bg);
-            color: var(--text-light);
-            line-height: 1.6;
-            overflow-x: hidden;
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            min-height: 100vh;
         }
 
-        /* --- Header / Navbar --- */
-        header {
-            background: rgba(18, 18, 18, 0.95);
-            padding: 1.5rem 5%;
-            position: sticky;
+        /* --- App Container (Frame HP) --- */
+        #app-frame {
+            width: 100%;
+            max-width: var(--app-width);
+            background-color: var(--bg-dark);
+            min-height: 100vh;
+            position: relative;
+            box-shadow: 0 0 50px rgba(212, 175, 55, 0.1);
+            padding-bottom: 80px; /* Space untuk Bottom Nav */
+        }
+
+        /* --- 1. Sticky Header with Search --- */
+        .app-header {
+            position: fixed;
             top: 0;
-            z-index: 1000;
-            border-bottom: 1px solid rgba(212, 175, 55, 0.2);
+            width: 100%;
+            max-width: var(--app-width);
+            background: var(--glass);
             backdrop-filter: blur(10px);
+            padding: 15px;
+            z-index: 100;
+            border-bottom: 1px solid rgba(255,255,255,0.05);
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .search-bar {
+            flex: 1;
+            background: #2A2A2A;
+            border-radius: 8px;
+            padding: 8px 15px;
+            display: flex;
+            align-items: center;
+            color: var(--text-sec);
+            font-size: 0.9rem;
+            border: 1px solid transparent;
+            transition: 0.3s;
+        }
+
+        .search-bar:focus-within {
+            border-color: var(--gold);
+            color: var(--gold);
+        }
+
+        .search-bar input {
+            background: transparent;
+            border: none;
+            color: white;
+            width: 100%;
+            margin-left: 10px;
+            outline: none;
+        }
+
+        .icon-btn {
+            color: var(--gold);
+            font-size: 1.2rem;
+            position: relative;
+        }
+
+        .notif-dot {
+            position: absolute;
+            top: -2px; right: -2px;
+            width: 8px; height: 8px;
+            background: var(--red-accent);
+            border-radius: 50%;
+        }
+
+        /* --- 2. Content Area --- */
+        .content {
+            padding-top: 80px; /* Offset header */
+        }
+
+        /* Banner Carousel (Horizontal Scroll) */
+        .banner-container {
+            display: flex;
+            overflow-x: auto;
+            scroll-snap-type: x mandatory;
+            gap: 10px;
+            padding: 0 15px;
+            margin-bottom: 20px;
+            scrollbar-width: none; /* Hide scrollbar Firefox */
+        }
+        .banner-container::-webkit-scrollbar { display: none; } /* Hide Chrome */
+
+        .banner-item {
+            min-width: 90%;
+            height: 160px;
+            background: linear-gradient(45deg, #333, #1a1a1a);
+            border-radius: 12px;
+            scroll-snap-align: center;
+            position: relative;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border: 1px solid rgba(212, 175, 55, 0.3);
+        }
+        
+        .banner-text {
+            position: absolute;
+            bottom: 15px; left: 15px;
+            font-family: 'Playfair Display', serif;
+        }
+        .banner-text h3 { color: var(--gold); margin-bottom: 5px; }
+        .banner-text p { font-size: 0.75rem; color: #fff; }
+
+        /* Category Pills (Horizontal Scroll) */
+        .category-scroll {
+            display: flex;
+            gap: 12px;
+            overflow-x: auto;
+            padding: 0 15px 20px 15px;
+            scrollbar-width: none;
+        }
+        .category-scroll::-webkit-scrollbar { display: none; }
+
+        .cat-item {
+            background: var(--bg-card);
+            padding: 8px 16px;
+            border-radius: 20px;
+            font-size: 0.8rem;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.1);
+            color: var(--text-sec);
+            transition: 0.2s;
+        }
+        .cat-item.active {
+            background: var(--gold);
+            color: #000;
+            font-weight: bold;
+            border-color: var(--gold);
+        }
+
+        /* Product Grid (2 Columns - App Style) */
+        .grid-header {
+            padding: 0 15px 10px;
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
+        .grid-header h3 { font-size: 1.1rem; color: var(--gold); }
+        .grid-header a { font-size: 0.8rem; color: var(--text-sec); text-decoration: none; }
 
-        .logo {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.8rem;
-            font-weight: 700;
-            color: var(--primary-gold);
-            text-decoration: none;
-            letter-spacing: 1px;
+        .product-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            padding: 0 15px;
         }
 
-        .cart-icon {
+        .product-card {
+            background: var(--bg-card);
+            border-radius: 8px;
+            overflow: hidden;
             position: relative;
-            cursor: pointer;
-            font-size: 1.2rem;
-            color: var(--text-light);
-            transition: var(--transition);
         }
 
-        .cart-icon:hover {
-            color: var(--primary-gold);
+        .prod-img {
+            width: 100%;
+            height: 150px;
+            background-color: #333;
+            position: relative;
         }
+        .prod-img img { width: 100%; height: 100%; object-fit: cover; }
 
-        .cart-count {
-            position: absolute;
-            top: -8px;
-            right: -8px;
-            background: var(--accent-red);
-            color: white;
+        .prod-info {
+            padding: 10px;
+        }
+        .prod-title {
+            font-size: 0.9rem;
+            margin-bottom: 5px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .prod-price {
+            color: var(--gold);
+            font-weight: bold;
+            font-size: 0.95rem;
+        }
+        .prod-meta {
             font-size: 0.7rem;
-            width: 18px;
-            height: 18px;
+            color: var(--text-sec);
+            margin-top: 5px;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+
+        /* --- 3. Bottom Navigation (The Core App Feel) --- */
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: var(--app-width);
+            background: var(--bg-card);
+            border-top: 1px solid rgba(255,255,255,0.05);
+            height: 65px;
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            z-index: 999;
+            padding-bottom: 5px; /* Safe area for iPhone home bar */
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            color: var(--text-sec);
+            text-decoration: none;
+            font-size: 0.7rem;
+            gap: 5px;
+            transition: 0.2s;
+        }
+
+        .nav-item i { font-size: 1.2rem; }
+
+        .nav-item.active {
+            color: var(--gold);
+        }
+        .nav-item.active i { transform: translateY(-2px); }
+
+        /* Floating Action Button (Optional - e.g., for Cart) */
+        .fab-center {
+            position: absolute;
+            top: -25px;
+            background: var(--gold);
+            width: 50px; height: 50px;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-        }
-
-        /* --- Hero Section --- */
-        .hero {
-            text-align: center;
-            padding: 4rem 1rem;
-            background: radial-gradient(circle at center, #2a2a2a 0%, #121212 100%);
-        }
-
-        .hero h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 2.5rem;
-            color: var(--primary-gold);
-            margin-bottom: 0.5rem;
-        }
-
-        .hero p {
-            color: var(--text-muted);
-            max-width: 600px;
-            margin: 0 auto;
-        }
-
-        /* --- Product Grid --- */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 2rem 1rem;
-        }
-
-        .product-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-            gap: 2rem;
-        }
-
-        /* --- Product Card (The Core) --- */
-        .product-card {
-            background: var(--card-bg);
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            transition: var(--transition);
-            border: 1px solid rgba(255,255,255,0.05);
-            position: relative;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .product-card:hover {
-            transform: translateY(-8px);
-            box-shadow: var(--shadow-soft);
-            border-color: var(--primary-gold);
-        }
-
-        .card-image {
-            width: 100%;
-            height: 250px;
-            background-color: #2a2a2a; /* Placeholder warna */
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .card-image img {
-            width: 100%;
-            height: 100%;
-            object-fit: cover;
-            transition: transform 0.5s ease;
-        }
-
-        .product-card:hover .card-image img {
-            transform: scale(1.05);
-        }
-
-        .card-details {
-            padding: 1.5rem;
-            flex-grow: 1;
-            display: flex;
-            flex-direction: column;
-        }
-
-        .category {
-            font-size: 0.8rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            color: var(--text-muted);
-            margin-bottom: 0.5rem;
-        }
-
-        .product-title {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.2rem;
-            margin-bottom: 0.5rem;
-            color: var(--text-light);
-        }
-
-        .price {
-            font-size: 1.1rem;
-            font-weight: 700;
-            color: var(--primary-gold);
-            margin-top: auto; /* Push to bottom */
-            margin-bottom: 1rem;
-        }
-
-        /* --- Buttons --- */
-        .btn-group {
-            display: flex;
-            gap: 0.5rem;
-        }
-
-        .btn {
-            padding: 0.8rem 1rem;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-weight: 600;
-            transition: var(--transition);
-            font-family: 'Lato', sans-serif;
-            text-transform: uppercase;
-            font-size: 0.85rem;
-        }
-
-        .btn-primary {
-            background: linear-gradient(45deg, var(--secondary-gold), var(--primary-gold));
             color: #000;
-            flex: 2;
-        }
-
-        .btn-primary:hover {
-            filter: brightness(1.1);
             box-shadow: 0 0 15px rgba(212, 175, 55, 0.4);
+            border: 4px solid var(--bg-dark); /* Create "cutout" effect */
         }
 
-        .btn-outline {
-            background: transparent;
-            border: 1px solid var(--text-muted);
-            color: var(--text-light);
-            flex: 1;
-        }
-
-        .btn-outline:hover {
-            border-color: var(--primary-gold);
-            color: var(--primary-gold);
-        }
-
-        /* --- Footer --- */
-        footer {
-            text-align: center;
-            padding: 2rem;
-            margin-top: 4rem;
-            border-top: 1px solid rgba(255,255,255,0.1);
-            color: var(--text-muted);
-            font-size: 0.9rem;
-        }
-
-        /* --- Mobile Responsiveness --- */
-        @media (max-width: 768px) {
-            .hero h1 { font-size: 2rem; }
-            .product-grid { grid-template-columns: repeat(2, 1fr); gap: 1rem; }
-            .card-image { height: 180px; }
-            .card-details { padding: 1rem; }
-            .btn { font-size: 0.75rem; padding: 0.6rem; }
-        }
-        
-        @media (max-width: 480px) {
-            .product-grid { grid-template-columns: 1fr; }
-        }
     </style>
 </head>
 <body>
 
-    <header>
-        <a href="#" class="logo">PUTRAMAS <span style="font-weight: 400; font-size: 0.8em;">Official</span></a>
-        <div class="cart-icon">
-            <i class="fas fa-shopping-bag"></i>
-            <span class="cart-count">0</span>
+<div id="app-frame">
+    
+    <header class="app-header">
+        <div class="search-bar">
+            <i class="fas fa-search"></i>
+            <input type="text" placeholder="Cari Wayang Kulit...">
+        </div>
+        <div class="icon-btn">
+            <i class="far fa-bell"></i>
+            <div class="notif-dot"></div>
+        </div>
+        <div class="icon-btn">
+            <i class="far fa-comment-dots"></i>
         </div>
     </header>
 
-    <section class="hero">
-        <h1>Koleksi Mahakarya Nusantara</h1>
-        <p>Hadirkan keanggunan budaya dalam genggaman Anda. Pengiriman aman ke seluruh Indonesia.</p>
-    </section>
-
-    <div class="container">
-        <div style="margin-bottom: 2rem; display: flex; gap: 1rem; overflow-x: auto; padding-bottom: 10px;">
-            <button class="btn btn-outline" style="border-color: var(--primary-gold); color: var(--primary-gold);">Semua</button>
-            <button class="btn btn-outline">Wayang Kulit</button>
-            <button class="btn btn-outline">Wayang Golek</button>
-            <button class="btn btn-outline">Aksesoris</button>
+    <div class="content">
+        
+        <div class="banner-container">
+            <div class="banner-item">
+                <div class="banner-text">
+                    <h3>Koleksi Keraton</h3>
+                    <p>Diskon 20% Minggu Ini</p>
+                </div>
+                <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Wayang_Kulit_Gatot_Kaca.jpg/800px-Wayang_Kulit_Gatot_Kaca.jpg" style="position: absolute; right: -20px; height: 120%; opacity: 0.6;">
+            </div>
+            <div class="banner-item" style="background: linear-gradient(45deg, #4a0000, #1a0000);">
+                <div class="banner-text">
+                    <h3>Wayang Golek</h3>
+                    <p>Karya Pengrajin Senior</p>
+                </div>
+            </div>
         </div>
 
-        <div class="product-grid" id="product-list">
+        <div class="category-scroll">
+            <div class="cat-item active">Semua</div>
+            <div class="cat-item">Wayang Kulit</div>
+            <div class="cat-item">Wayang Golek</div>
+            <div class="cat-item">Aksesoris</div>
+            <div class="cat-item">Souvenir</div>
+        </div>
+
+        <div class="grid-header">
+            <h3>Rekomendasi</h3>
+            <a href="#">Lihat Semua</a>
+        </div>
+
+        <div class="product-grid">
             <div class="product-card">
-                <div class="card-image">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Wayang_Kulit_Gatot_Kaca.jpg/800px-Wayang_Kulit_Gatot_Kaca.jpg" alt="Wayang Gatotkaca">
+                <div class="prod-img">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Wayang_Kulit_Arjuna.jpg" alt="Arjuna">
                 </div>
-                <div class="card-details">
-                    <span class="category">Wayang Kulit</span>
-                    <h3 class="product-title">Gatotkaca Kualitas Halus</h3>
-                    <div class="price">Rp 2.500.000</div>
-                    <div class="btn-group">
-                        <button class="btn btn-outline"><i class="far fa-heart"></i></button>
-                        <button class="btn btn-primary" onclick="addToCart()">Beli Sekarang</button>
+                <div class="prod-info">
+                    <div class="prod-title">Arjuna Halus Solo</div>
+                    <div class="prod-price">Rp 1.850.000</div>
+                    <div class="prod-meta">
+                        <i class="fas fa-star" style="color: var(--gold); font-size: 0.6rem;"></i> 4.9 | Terjual 12
                     </div>
                 </div>
             </div>
 
             <div class="product-card">
-                <div class="card-image">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/4/42/Wayang_Kulit_Arjuna.jpg" alt="Wayang Arjuna">
+                <div class="prod-img">
+                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f6/Wayang_Golek_Cepot.jpg" alt="Cepot">
                 </div>
-                <div class="card-details">
-                    <span class="category">Wayang Kulit</span>
-                    <h3 class="product-title">Arjuna Standar Pentas</h3>
-                    <div class="price">Rp 1.800.000</div>
-                    <div class="btn-group">
-                        <button class="btn btn-outline"><i class="far fa-heart"></i></button>
-                        <button class="btn btn-primary" onclick="addToCart()">Beli Sekarang</button>
+                <div class="prod-info">
+                    <div class="prod-title">Si Cepot Super</div>
+                    <div class="prod-price">Rp 450.000</div>
+                    <div class="prod-meta">
+                        <i class="fas fa-star" style="color: var(--gold); font-size: 0.6rem;"></i> 5.0 | Terjual 85
                     </div>
                 </div>
             </div>
 
-             <div class="product-card">
-                <div class="card-image">
-                    <img src="https://upload.wikimedia.org/wikipedia/commons/f/f6/Wayang_Golek_Cepot.jpg" alt="Wayang Golek">
+            <div class="product-card">
+                <div class="prod-img"></div>
+                <div class="prod-info">
+                    <div class="prod-title">Gunungan Emas</div>
+                    <div class="prod-price">Rp 2.100.000</div>
+                    <div class="prod-meta">
+                        <i class="fas fa-star" style="color: var(--gold); font-size: 0.6rem;"></i> 4.8 | Terjual 5
+                    </div>
                 </div>
-                <div class="card-details">
-                    <span class="category">Wayang Golek</span>
-                    <h3 class="product-title">Si Cepot (Astrajingga)</h3>
-                    <div class="price">Rp 750.000</div>
-                    <div class="btn-group">
-                        <button class="btn btn-outline"><i class="far fa-heart"></i></button>
-                        <button class="btn btn-primary" onclick="addToCart()">Beli Sekarang</button>
+            </div>
+
+            <div class="product-card">
+                <div class="prod-img"></div>
+                <div class="prod-info">
+                    <div class="prod-title">Gantungan Kunci</div>
+                    <div class="prod-price">Rp 25.000</div>
+                    <div class="prod-meta">
+                        <i class="fas fa-star" style="color: var(--gold); font-size: 0.6rem;"></i> 4.7 | Terjual 1.2k
                     </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <footer>
-        <p>&copy; 2026 Putramas Official Wayang Nusantara. <br>Melestarikan Budaya dengan Teknologi.</p>
-    </footer>
+    <nav class="bottom-nav">
+        <a href="#" class="nav-item active">
+            <i class="fas fa-home"></i>
+            <span>Beranda</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-box-open"></i>
+            <span>Transaksi</span>
+        </a>
+        
+        <div style="position: relative; width: 50px;">
+            <a href="#" class="fab-center">
+                <i class="fas fa-shopping-cart"></i>
+            </a>
+        </div>
 
-    <script>
-        // Simulasi fungsi interaktif sederhana
-        function addToCart() {
-            const countBadge = document.querySelector('.cart-count');
-            let currentCount = parseInt(countBadge.innerText);
-            
-            // Efek visual sederhana
-            countBadge.innerText = currentCount + 1;
-            
-            // Alert elegan (nanti diganti dengan Toast Notification/SweetAlert)
-            alert("Produk berhasil ditambahkan ke keranjang!");
-        }
-    </script>
+        <a href="#" class="nav-item">
+            <i class="fas fa-heart"></i>
+            <span>Favorit</span>
+        </a>
+        <a href="#" class="nav-item">
+            <i class="fas fa-user"></i>
+            <span>Akun</span>
+        </a>
+    </nav>
+
+</div>
+
 </body>
 </html>
