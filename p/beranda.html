@@ -2521,322 +2521,120 @@ function connectWallet() {
     toggleSelectWallet(true);
 }
 
-async function pilihProvider(type) {
-    toggleSelectWallet(false); // Tutup modal dulu
-    
+// ==========================================
+// KODE KONEKSI WALLET PINTAR (DEEP LINK SUPPORT)
+// ==========================================
+
+window.pilihProvider = async function(type) {
+    window.toggleSelectWallet(false); // Tutup modal pilihan dulu
     let providerObj;
-    // Deteksi Provider
+    
+    // 1. Deteksi Device & URL Saat Ini
+    const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
+    const currentUrl = window.location.href;
+    const cleanUrl = currentUrl.replace(/^https?:\/\//, ''); // Untuk format metamask
+
+    // 2. Fungsi Helper Smart Modal (Anti Koding Berulang)
+    const showFallbackModal = (name, logo, brandColor, deepLink, dlLink, useCopyFallback = false) => {
+        const oldModal = document.getElementById("walletFallbackModal");
+        if(oldModal) oldModal.remove();
+
+        let contentHTML = '';
+        
+        // Skenario A: User di HP (Beri tombol Deep Link)
+        if (isMobile) {
+            contentHTML = `
+                <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
+                    Sistem mendeteksi Anda menggunakan Smartphone.<br>Buka halaman ini langsung di dalam aplikasi <b>${name}</b>.
+                </p>
+                <button onclick="window.open('${deepLink}', '_self')" style="width:100%; background:${brandColor}; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom:10px;">
+                    <i class="fas fa-external-link-alt"></i> Buka di ${name}
+                </button>
+            `;
+        } 
+        // Skenario B: User di Desktop + Dompet OKX/Binance (Beri Copy Link)
+        else if (useCopyFallback) {
+            contentHTML = `
+                <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
+                    Browser tidak mendukung injeksi otomatis.<br>Silakan salin link di bawah dan buka di menu <b>Web3 Discover</b> pada Aplikasi ${name}.
+                </p>
+                <div style="background:#f8f9fa; padding:12px; border-radius:10px; border:1px solid #e9ecef; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
+                    <input type="text" value="${currentUrl}" id="copyFallbackInput" readonly style="width:100%; border:none; background:transparent; color:#2c3e50; font-weight:bold; outline:none; font-size:13px;">
+                    <button onclick="
+                        const inp = document.getElementById('copyFallbackInput');
+                        inp.select(); navigator.clipboard.writeText(inp.value);
+                        this.innerHTML = '<i class=\\'fas fa-check\\' style=\\'color:#27ae60;\\'></i>';
+                        setTimeout(()=> this.innerHTML = '<i class=\\'far fa-copy\\'></i>', 2000);
+                    " style="background:none; border:none; color:${brandColor}; font-weight:bold; cursor:pointer; font-size:16px;">
+                        <i class="far fa-copy"></i>
+                    </button>
+                </div>
+            `;
+        } 
+        // Skenario C: User di Desktop (Beri Link Download Ekstensi)
+        else {
+            contentHTML = `
+                <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
+                    Browser ini belum memiliki ekstensi <b>${name}</b>.<br>Silakan unduh untuk melanjutkan.
+                </p>
+                <button onclick="window.open('${dlLink}', '_blank')" style="width:100%; background:${brandColor}; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom:10px;">
+                    <i class="fas fa-download"></i> Unduh Ekstensi
+                </button>
+            `;
+        }
+
+        // Cetak HTML Modal
+        const fallbackHTML = `
+        <div id="walletFallbackModal" class="wallet-overlay" style="display:flex; z-index:10000;">
+            <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
+                <div style="margin-bottom:15px;">
+                    <img src="${logo}" width="55" style="display: block; margin: 0 auto 10px auto;">
+                    <h3 style="color:#2c3e50; margin:0; font-size:18px; text-align:center;">${name} Tidak Terdeteksi</h3>
+                </div>
+                ${contentHTML}
+                <button onclick="document.getElementById('walletFallbackModal').remove()" style="width:100%; background:none; color:#95a5a6; border:none; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
+                    Nanti Saja
+                </button>
+            </div>
+        </div>`;
+        document.body.insertAdjacentHTML('beforeend', fallbackHTML);
+    };
+
+    // 3. Logika Pemilihan Wallet (Singkat dan Padat)
     if (type === 'metamask') {
-        // CEK 1: Deteksi Object Ethereum & Flag isMetaMask
-        if (window.ethereum && window.ethereum.isMetaMask) {
-             providerObj = window.ethereum;
-        } 
-        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
-        else {
-            // 1. Hapus modal lama jika ada
-            const oldModal = document.getElementById("installMetamaskModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal (Desain Premium MetaMask)
-            const fallbackHTML = `
-            <div id="installMetamaskModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="60" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">MetaMask Tidak Terdeteksi</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:25px;">
-                        Browser ini belum memiliki MetaMask.<br>
-                        Silakan unduh <b>MetaMask</b> untuk melanjutkan.
-                    </p>
-                    
-                    <button onclick="window.open('https://metamask.io/download/', '_blank')" 
-                        style="width:100%; background: linear-gradient(135deg, #f6851b, #ff9a3d); color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; font-size:14px; cursor:pointer; 
-               box-shadow: 0 4px 15px rgba(246, 133, 27, 0.3); backdrop-filter: blur(4px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease; margin-bottom:10px;"
-        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(246,133,27,0.55)';"
-        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(246,133,27,0.3)';">
-                        <i class="fas fa-download"></i> Unduh MetaMask
-                    </button>
-
-                    <button onclick="document.getElementById('installMetamaskModal').remove()" 
-                        style="width:100%; background: rgba(246, 133, 27, 0.15); color:#fff; border: 2px solid #f6851b; border-radius:50px; padding:10px; font-weight:bold; font-size:13px; cursor:pointer;
-               backdrop-filter: blur(6px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.background='rgba(246,133,27,0.3)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(246,133,27,0.45)';"
-        onmouseout="this.style.background='rgba(246,133,27,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                        Nanti Saja
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Tampilkan
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
-        }
+        if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
+        else return showFallbackModal('MetaMask', 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg', '#D9700E', `https://metamask.app.link/dapp/${cleanUrl}`, 'https://metamask.io/download/');
+    }
     else if (type === 'trust') {
-        // CEK 1: Deteksi Object Trust Wallet
-        if (window.trustwallet) {
-            providerObj = window.trustwallet;
-        } 
-        // CEK 2: Deteksi Flag isTrust di Ethereum
-        else if (window.ethereum && window.ethereum.isTrust) {
-            providerObj = window.ethereum;
-        }
-        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
-        else {
-            // 1. Hapus modal lama jika ada
-            const oldModal = document.getElementById("installTrustModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal (Desain Premium Trust Wallet)
-            const fallbackHTML = `
-            <div id="installTrustModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="img/trust.svg" width="50" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Trust Wallet Tidak Terdeteksi</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:25px;">
-                        Browser ini belum memiliki Trust Wallet.<br>
-                        Silakan unduh <b>Trust Wallet</b> untuk melanjutkan.
-                    </p>
-                    
-                    <button onclick="window.open('https://trustwallet.com/', '_blank')" 
-                        style="width:100%; background:#3375BB; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; font-size:14px; cursor:pointer; 
-               box-shadow: 0 4px 15px rgba(51, 117, 187, 0.4); margin-bottom:10px;
-               transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(51,117,187,0.55)';"
-        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(51,117,187,0.4)';">
-                        <i class="fas fa-download"></i> Unduh Trust Wallet
-                    </button>
-
-                    <button onclick="document.getElementById('installTrustModal').remove()" 
-                        style="width:100%; background: rgba(51,117,187,0.15); color:#fff; border: 2px solid #3375BB; border-radius:50px; padding:10px; font-weight:bold; font-size:13px; cursor:pointer;
-               backdrop-filter: blur(6px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.background='rgba(51,117,187,0.3)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(51,117,187,0.45)';"
-        onmouseout="this.style.background='rgba(51,117,187,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                        Nanti Saja
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Tampilkan
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
-        }
-    else if (type === 'okx') {
-        // CEK 1: Deteksi Standar OKX
-        if (window.okxwallet) {
-            providerObj = window.okxwallet;
-        } 
-        // CEK 2: Deteksi Jalur Kompatibilitas Ethereum
-        else if (window.ethereum && window.ethereum.isOkxWallet) {
-            providerObj = window.ethereum;
-        }
-        // JIKA TIDAK KETEMU (Fallback ke Popup Premium)
-        else {
-            // 1. Hapus modal lama jika ada
-            const oldModal = document.getElementById("okxFallbackModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal (Desain Premium OKX)
-            const fallbackHTML = `
-            <div id="okxFallbackModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="img/okx.svg" width="50" onerror="this.src='https://static.okx.com/cdn/assets/imgs/247/58E63FEA47A2B7D0.png'" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Buka di OKX App</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:20px;">
-                        Browser ini tidak mendukung injeksi otomatis.<br>
-                        Silakan salin link di bawah dan buka menu <b>Web3 > Discover</b> di Aplikasi OKX.
-                    </p>
-                    
-                    <div style="background:#f8f9fa; padding:12px; border-radius:10px; border:1px solid #e9ecef; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-                        <input type="text" value="https://putramas.web.id" id="okxLinkInput" readonly 
-                            style="width:100%; border:none; background:transparent; color:#2c3e50; font-weight:bold; outline:none; font-size:13px;">
-                        
-                        <button onclick="copyOkxLink(this)" 
-                            style="background:none; border:none; color:#7385a5; font-weight:bold; cursor:pointer; font-size:16px;">
-                            <i class="far fa-copy"></i>
-                        </button>
-                    </div>
-
-                    <button onclick="document.getElementById('okxFallbackModal').remove()" 
-                        style="width:100%; background:#7385a5; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(115, 133, 165, 0.3);">
-                        Tutup
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Tampilkan
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
-        }
+        if (window.trustwallet) providerObj = window.trustwallet;
+        else if (window.ethereum && window.ethereum.isTrust) providerObj = window.ethereum;
+        else return showFallbackModal('Trust Wallet', 'img/trust.svg', '#155494', `https://link.trustwallet.com/open_url?coin_id=60&url=${encodeURIComponent(currentUrl)}`, 'https://trustwallet.com/');
+    }
     else if (type === 'phantom') {
-        // CEK 1: Deteksi Standar Phantom EVM
-        if (window.phantom && window.phantom.ethereum) {
-            providerObj = window.phantom.ethereum;
-        } 
-        // CEK 2: Deteksi Jalur Kompatibilitas Ethereum
-        else if (window.ethereum && window.ethereum.isPhantom) {
-            providerObj = window.ethereum;
-        }
-        // JIKA TIDAK KETEMU (Tampilkan Modal Install)
-        else {
-            // 1. Hapus modal lama jika ada
-            const oldModal = document.getElementById("installPhantomModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal (Desain Premium Phantom)
-            const fallbackHTML = `
-            <div id="installPhantomModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="img/phantom.svg" width="60" onerror="this.src='https://phantom.app/img/phantom-logo-2.svg'" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Phantom Tidak Terdeteksi</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:25px;">
-                        Browser ini belum memiliki dompet Phantom.<br>
-                        Silakan unduh <b>Phantom Wallet</b> untuk melanjutkan.
-                    </p>
-                    
-                    <button onclick="window.open('https://phantom.app/', '_blank')" 
-                        style="width:100%; background:#8e7aff; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; font-size:14px; cursor:pointer; 
-               box-shadow: 0 4px 15px rgba(171, 159, 242, 0.4); margin-bottom:10px; 
-               transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(171,159,242,0.55)';"
-        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(171,159,242,0.4)';">
-                        <i class="fas fa-download"></i> Unduh Phantom
-                    </button>
-
-                    <button onclick="document.getElementById('installPhantomModal').remove()" 
-                        style="width:100%; background: rgba(171,159,242,0.15); color:#fff; border: 2px solid #8e7aff; border-radius:50px; padding:10px; font-weight:bold; font-size:13px; cursor:pointer;
-               backdrop-filter: blur(6px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.background='rgba(171,159,242,0.3)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(171,159,242,0.45)';"
-        onmouseout="this.style.background='rgba(171,159,242,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                        Nanti Saja
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Tampilkan
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
-        }
+        if (window.phantom && window.phantom.ethereum) providerObj = window.phantom.ethereum;
+        else if (window.ethereum && window.ethereum.isPhantom) providerObj = window.ethereum;
+        else return showFallbackModal('Phantom', 'img/phantom.svg', '#7A69C9', `https://phantom.app/ul/browse/${encodeURIComponent(currentUrl)}`, 'https://phantom.app/');
+    }
+    else if (type === 'okx') {
+        if (window.okxwallet) providerObj = window.okxwallet;
+        else if (window.ethereum && window.ethereum.isOkxWallet) providerObj = window.ethereum;
+        // OKX menggunakan mode copy link di desktop (parameter terakhir 'true')
+        else return showFallbackModal('OKX Wallet', 'img/okx.svg', '#4e6385', `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(currentUrl)}`, '', true);
+    }
     else if (type === 'binance') {
-        // CEK 1: Deteksi Standar Binance
-        if (window.BinanceChain) {
-            providerObj = window.BinanceChain;
-        } 
-        // CEK 2: Deteksi Jalur Kompatibilitas
-        else if (window.ethereum && (window.ethereum.isBinance || window.ethereum.isBinanceWallet)) {
-            providerObj = window.ethereum;
-        }
-        // JIKA TIDAK KETEMU (User pakai Chrome Biasa)
-        else {
-            // --- CUSTOM POPUP (PREMIUM STYLE) ---
-            
-            // 1. Hapus modal lama jika ada (biar gak numpuk)
-            const oldModal = document.getElementById("binanceFallbackModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal (Desain Premium)
-            const fallbackHTML = `
-            <div id="binanceFallbackModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="img/binance.svg" width="50" onerror="this.src='https://public.bnbstatic.com/20190405/eb2349c3-a692-43ea-877d-9727b9f35dcf.png'" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Buka di Binance App</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:20px;">
-                        Browser ini tidak mendukung injeksi otomatis.<br>
-                        Silakan salin link di bawah dan buka menu <b>Web3 Wallet > Discover</b> di Aplikasi Binance.
-                    </p>
-                    
-                    <div style="background:#f8f9fa; padding:12px; border-radius:10px; border:1px solid #e9ecef; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
-                        <input type="text" value="https://putramas.web.id" id="binanceLinkInput" readonly 
-                            style="width:100%; border:none; background:transparent; color:#2c3e50; font-weight:bold; outline:none; font-size:13px;">
-                        
-                        <button onclick="copyBinanceLink(this)" 
-                            style="background:none; border:none; color:#7385a5; font-weight:bold; cursor:pointer; font-size:16px;">
-                            <i class="far fa-copy"></i>
-                        </button>
-                    </div>
-
-                    <button onclick="document.getElementById('binanceFallbackModal').remove()" 
-                        style="width:100%; background:#7385a5; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(115, 133, 165, 0.3);">
-                        Tutup
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Masukkan ke Body (Tampilkan)
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
-        }
-    else {
-        // CEK 1: Apakah ada Injected Wallet umum (MetaMask/Trust/dll yang nempel di window.ethereum)
-        if (window.ethereum) {
-            providerObj = window.ethereum;
-        } 
-        // CEK 2: KOSONG TOTAL (Browser Biasa)
-        else {
-            // --- CUSTOM POPUP INSTALL (PREMIUM STYLE) ---
-            
-            // 1. Hapus modal lama jika ada
-            const oldModal = document.getElementById("installMetamaskModal");
-            if(oldModal) oldModal.remove();
-
-            // 2. Siapkan HTML Modal
-            const fallbackHTML = `
-            <div id="installMetamaskModal" class="wallet-overlay" style="display:flex; z-index:10000;">
-                <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
-                    <div style="margin-bottom:15px;">
-                        <img src="https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg" width="60" style="margin-bottom:10px;">
-                        <h3 style="color:#2c3e50; margin:0; font-size:18px;">Koneksi Tidak Ditemukan</h3>
-                    </div>
-                    
-                    <p style="color:#fff; font-size:13px; line-height:1.5; margin-bottom:25px;">
-                        Browser ini belum memiliki dompet Web3.<br>
-                        Silakan instal <b>MetaMask</b> terlebih dahulu untuk mengakses fitur ini.
-                    </p>
-                    
-                    <button onclick="window.open('https://metamask.io/download/', '_blank')" 
-                        style="width:100%; background: linear-gradient(135deg, #f6851b, #ff9a3d); color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; font-size:14px; cursor:pointer; 
-               box-shadow: 0 4px 15px rgba(246, 133, 27, 0.3); backdrop-filter: blur(4px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease; margin-bottom:10px;"
-        onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 8px 25px rgba(246,133,27,0.55)';"
-        onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 15px rgba(246,133,27,0.3)';">
-                        <i class="fas fa-download"></i> Install MetaMask
-                    </button>
-
-                    <button onclick="document.getElementById('installMetamaskModal').remove()" 
-                        style="width:100%; background: rgba(246, 133, 27, 0.15); color:#fff; border: 2px solid #f6851b; border-radius:50px; padding:10px; font-weight:bold; font-size:13px; cursor:pointer;
-               backdrop-filter: blur(6px); transition: 0.3s ease, transform 0.3s ease, box-shadow 0.3s ease;"
-        onmouseover="this.style.background='rgba(246,133,27,0.3)'; this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 20px rgba(246,133,27,0.45)';"
-        onmouseout="this.style.background='rgba(246,133,27,0.15)'; this.style.transform='translateY(0)'; this.style.boxShadow='none';">
-                        Nanti Saja
-                    </button>
-                </div>
-            </div>`;
-
-            // 3. Tampilkan
-            document.body.insertAdjacentHTML('beforeend', fallbackHTML);
-            return;
-        }
+        if (window.BinanceChain) providerObj = window.BinanceChain;
+        else if (window.ethereum && (window.ethereum.isBinance || window.ethereum.isBinanceWallet)) providerObj = window.ethereum;
+        // Binance menggunakan mode copy link di desktop (parameter terakhir 'true')
+        else return showFallbackModal('Binance Web3', 'img/binance.svg', '#4e6385', `bnc://app.binance.com/defi/discover?url=${encodeURIComponent(currentUrl)}`, '', true);
+    }
+    else { // Fallback Universal
+        if (window.ethereum) providerObj = window.ethereum;
+        else return showFallbackModal('Dompet Web3', 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg', '#D9700E', `https://metamask.app.link/dapp/${cleanUrl}`, 'https://metamask.io/download/');
     }
 
-    await executeConnection(providerObj);
-}
+    // 4. Jika provider ketemu, eksekusi login!
+    await window.executeConnection(providerObj);
+        }
 
 // --- EKSEKUSI KONEKSI ---
 async function executeConnection(customProvider) {
