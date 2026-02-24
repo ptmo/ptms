@@ -2521,10 +2521,7 @@ function connectWallet() {
     toggleSelectWallet(true);
 }
 
-// ==========================================
-// KODE KONEKSI WALLET PINTAR (DEEP LINK SUPPORT)
-// ==========================================
-
+// 2. DETEKSI PROVIDER WALLET (SUPER SMART MODE)
 window.pilihProvider = async function(type) {
     window.toggleSelectWallet(false); // Tutup modal pilihan dulu
     let providerObj;
@@ -2532,31 +2529,34 @@ window.pilihProvider = async function(type) {
     // 1. Deteksi Device & URL Saat Ini
     const isMobile = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent);
     const currentUrl = window.location.href;
-    const cleanUrl = currentUrl.replace(/^https?:\/\//, ''); // Untuk format metamask
+    const cleanUrl = currentUrl.replace(/^https?:\/\//, '');
 
-    // 2. Fungsi Helper Smart Modal (Anti Koding Berulang)
+    // 2. Fungsi Helper Smart Modal (Dinamis sesuai device)
     const showFallbackModal = (name, logo, brandColor, deepLink, dlLink, useCopyFallback = false) => {
         const oldModal = document.getElementById("walletFallbackModal");
         if(oldModal) oldModal.remove();
 
+        let modalTitle = "";
         let contentHTML = '';
         
-        // Skenario A: User di HP (Beri tombol Deep Link)
+        // SKENARIO A: User di HP (Mode Buka Aplikasi / Deep Link)
         if (isMobile) {
+            modalTitle = `Koneksi ${name}`;
             contentHTML = `
                 <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
-                    Sistem mendeteksi Anda menggunakan Smartphone.<br>Buka halaman ini langsung di dalam aplikasi <b>${name}</b>.
+                    Sistem akan mengalihkan Anda.<br>Silakan lanjutkan persetujuan koneksi di dalam aplikasi <b>${name}</b> Anda.
                 </p>
                 <button onclick="window.open('${deepLink}', '_self')" style="width:100%; background:${brandColor}; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom:10px;">
-                    <i class="fas fa-external-link-alt"></i> Buka di ${name}
+                    <i class="fas fa-external-link-alt"></i> Buka Aplikasi ${name}
                 </button>
             `;
         } 
-        // Skenario B: User di Desktop + Dompet OKX/Binance (Beri Copy Link)
+        // SKENARIO B: User di Desktop + OKX/Binance (Mode Copy Link)
         else if (useCopyFallback) {
+            modalTitle = `Gunakan ${name}`;
             contentHTML = `
                 <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
-                    Browser tidak mendukung injeksi otomatis.<br>Silakan salin link di bawah dan buka di menu <b>Web3 Discover</b> pada Aplikasi ${name}.
+                    Browser ini tidak mendukung injeksi otomatis.<br>Silakan salin link di bawah dan buka di menu <b>Web3 Discover</b> pada Aplikasi ${name}.
                 </p>
                 <div style="background:#f8f9fa; padding:12px; border-radius:10px; border:1px solid #e9ecef; display:flex; align-items:center; gap:10px; margin-bottom:20px;">
                     <input type="text" value="${currentUrl}" id="copyFallbackInput" readonly style="width:100%; border:none; background:transparent; color:#2c3e50; font-weight:bold; outline:none; font-size:13px;">
@@ -2571,11 +2571,12 @@ window.pilihProvider = async function(type) {
                 </div>
             `;
         } 
-        // Skenario C: User di Desktop (Beri Link Download Ekstensi)
+        // SKENARIO C: User di Desktop tanpa ekstensi (Mode Install)
         else {
+            modalTitle = `${name} Tidak Terdeteksi`;
             contentHTML = `
                 <p style="color:#7f8c8d; font-size:13px; line-height:1.5; margin-bottom:20px;">
-                    Browser ini belum memiliki ekstensi <b>${name}</b>.<br>Silakan unduh untuk melanjutkan.
+                    Browser ini belum memiliki ekstensi <b>${name}</b>.<br>Silakan unduh terlebih dahulu untuk melanjutkan.
                 </p>
                 <button onclick="window.open('${dlLink}', '_blank')" style="width:100%; background:${brandColor}; color:white; border:none; padding:12px; border-radius:50px; font-weight:bold; cursor:pointer; font-size:14px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); margin-bottom:10px;">
                     <i class="fas fa-download"></i> Unduh Ekstensi
@@ -2589,18 +2590,18 @@ window.pilihProvider = async function(type) {
             <div class="wallet-card" style="text-align:center; padding:25px; animation: slideUp 0.3s ease;">
                 <div style="margin-bottom:15px;">
                     <img src="${logo}" width="55" style="display: block; margin: 0 auto 10px auto;">
-                    <h3 style="color:#2c3e50; margin:0; font-size:18px; text-align:center;">${name} Tidak Terdeteksi</h3>
+                    <h3 style="color:#2c3e50; margin:0; font-size:18px; text-align:center;">${modalTitle}</h3>
                 </div>
                 ${contentHTML}
                 <button onclick="document.getElementById('walletFallbackModal').remove()" style="width:100%; background:none; color:#95a5a6; border:none; padding:10px; font-weight:bold; cursor:pointer; font-size:13px;">
-                    Nanti Saja
+                    Batal
                 </button>
             </div>
         </div>`;
         document.body.insertAdjacentHTML('beforeend', fallbackHTML);
     };
 
-    // 3. Logika Pemilihan Wallet (Singkat dan Padat)
+    // 3. Routing Pilihan Wallet
     if (type === 'metamask') {
         if (window.ethereum && window.ethereum.isMetaMask) providerObj = window.ethereum;
         else return showFallbackModal('MetaMask', 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg', '#D9700E', `https://metamask.app.link/dapp/${cleanUrl}`, 'https://metamask.io/download/');
@@ -2618,24 +2619,22 @@ window.pilihProvider = async function(type) {
     else if (type === 'okx') {
         if (window.okxwallet) providerObj = window.okxwallet;
         else if (window.ethereum && window.ethereum.isOkxWallet) providerObj = window.ethereum;
-        // OKX menggunakan mode copy link di desktop (parameter terakhir 'true')
         else return showFallbackModal('OKX Wallet', 'img/okx.svg', '#4e6385', `okx://wallet/dapp/url?dappUrl=${encodeURIComponent(currentUrl)}`, '', true);
     }
     else if (type === 'binance') {
         if (window.BinanceChain) providerObj = window.BinanceChain;
         else if (window.ethereum && (window.ethereum.isBinance || window.ethereum.isBinanceWallet)) providerObj = window.ethereum;
-        // Binance menggunakan mode copy link di desktop (parameter terakhir 'true')
         else return showFallbackModal('Binance Web3', 'img/binance.svg', '#4e6385', `bnc://app.binance.com/defi/discover?url=${encodeURIComponent(currentUrl)}`, '', true);
     }
-    else { // Fallback Universal
+    else { 
         if (window.ethereum) providerObj = window.ethereum;
         else return showFallbackModal('Dompet Web3', 'https://upload.wikimedia.org/wikipedia/commons/3/36/MetaMask_Fox.svg', '#D9700E', `https://metamask.app.link/dapp/${cleanUrl}`, 'https://metamask.io/download/');
     }
 
-    // 4. Jika provider ketemu, eksekusi login!
+    // 4. Jika provider ketemu (di PC / Browser DApp), langsung eksekusi!
     await window.executeConnection(providerObj);
         }
-
+        
 // --- EKSEKUSI KONEKSI ---
 async function executeConnection(customProvider) {
     const btnConnect = document.getElementById("btnConnect");
