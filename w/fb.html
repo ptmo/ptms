@@ -3,106 +3,243 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>FB Video Downloader - Premium Standard</title>
-    <script src="https://cdn.tailwindcss.com"></script>
+    <title>Pro FB Downloader - Private Mode</title>
     <style>
-        body { background: radial-gradient(circle at top left, #f8fafc, #e2e8f0); min-height: 100vh; }
-        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
-        .btn-premium { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); transition: all 0.3s ease; }
-        .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4); }
+        /* CSS NATIVE - Tanpa Framework, Mudah Diubah */
+        :root {
+            --primary: #2563eb;
+            --bg-gradient: radial-gradient(circle at 0% 0%, #f1f5f9 0%, #cbd5e1 100%);
+            --glass: rgba(255, 255, 255, 0.8);
+            --text-main: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+            background: var(--bg-gradient);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 500px;
+            padding: 40px;
+            background: var(--glass);
+            backdrop-filter: blur(15px);
+            border-radius: 30px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+        }
+
+        .header h1 {
+            font-size: 24px;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .tabs {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 20px;
+            background: rgba(0,0,0,0.05);
+            padding: 5px;
+            border-radius: 12px;
+        }
+
+        .tab-btn {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: transparent;
+            font-weight: 600;
+            transition: 0.3s;
+        }
+
+        .tab-btn.active {
+            background: white;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            color: var(--primary);
+        }
+
+        .input-group { margin-bottom: 20px; }
+
+        label { display: block; margin-bottom: 8px; font-size: 14px; font-weight: 500; }
+
+        textarea, input {
+            width: 100%;
+            padding: 15px;
+            border: 1px solid rgba(0,0,0,0.1);
+            border-radius: 15px;
+            box-sizing: border-box;
+            background: white;
+            font-size: 14px;
+            outline: none;
+            transition: 0.3s;
+        }
+
+        textarea:focus { border-color: var(--primary); box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.1); }
+
+        .btn-main {
+            width: 100%;
+            padding: 16px;
+            background: var(--primary);
+            color: white;
+            border: none;
+            border-radius: 15px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: 0.3s;
+        }
+
+        .btn-main:hover { opacity: 0.9; transform: translateY(-1px); }
+
+        #result {
+            margin-top: 25px;
+            padding: 20px;
+            background: #f8fafc;
+            border-radius: 20px;
+            display: none;
+            text-align: center;
+        }
+
+        .download-links { display: flex; gap: 10px; margin-top: 15px; }
+
+        .dl-card {
+            flex: 1;
+            padding: 12px;
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 12px;
+            text-decoration: none;
+            color: var(--text-main);
+            font-size: 14px;
+            font-weight: bold;
+        }
+
+        .dl-card.hd { background: var(--primary); color: white; border: none; }
+
+        .instructions {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 10px;
+            line-height: 1.5;
+        }
     </style>
 </head>
-<body class="flex items-center justify-center p-6">
+<body>
 
-    <div class="max-w-xl w-full glass p-8 rounded-3xl shadow-2xl">
-        <div class="text-center mb-8">
-            <h1 class="text-3xl font-bold text-slate-800 tracking-tight">FB <span class="text-blue-600">Downloader</span></h1>
-            <p class="text-slate-500 text-sm mt-2">Premium, Smooth, & High Speed Extraction</p>
-        </div>
+<div class="container">
+    <div class="header">
+        <h1>FB Downloader <span style="color:var(--primary)">Pro</span></h1>
+    </div>
 
-        <div class="space-y-4">
-            <input type="text" id="fbUrl" placeholder="Tempel link video Facebook di sini..." 
-                class="w-full p-4 rounded-2xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white/50">
-            
-            <button onclick="extractVideo()" id="btnAction" class="w-full btn-premium text-white font-semibold py-4 rounded-2xl">
-                Ambil Link Video
-            </button>
-        </div>
+    <div class="tabs">
+        <button class="tab-btn active" onclick="switchMode('public')">Public</button>
+        <button class="tab-btn" onclick="switchMode('private')">Private</button>
+    </div>
 
-        <div id="result" class="hidden mt-8 space-y-4 animate-fade-in">
-            <div class="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center">
-                <p class="text-blue-700 font-medium mb-3">Video Berhasil Ditemukan!</p>
-                <div class="flex gap-3 w-full">
-                    <a id="sdLink" href="#" target="_blank" class="flex-1 text-center bg-white border border-slate-200 py-3 rounded-xl text-slate-700 hover:bg-slate-50 transition font-medium">Kualitas SD</a>
-                    <a id="hdLink" href="#" target="_blank" class="flex-1 text-center bg-blue-600 py-3 rounded-xl text-white hover:bg-blue-700 transition font-medium shadow-md">Kualitas HD</a>
-                </div>
-            </div>
-        </div>
-
-        <div id="loader" class="hidden mt-6 text-center">
-            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
-            <p class="text-slate-400 text-xs mt-2 italic">Sedang mengekstrak data dari Facebook...</p>
+    <div id="publicMode">
+        <div class="input-group">
+            <label>Link Video Facebook</label>
+            <input type="text" id="fbUrl" placeholder="https://www.facebook.com/watch/...">
         </div>
     </div>
 
-    <script>
-        async function extractVideo() {
+    <div id="privateMode" style="display:none">
+        <div class="input-group">
+            <label>Source Code Halaman (CTRL + U)</label>
+            <textarea id="fbSource" rows="5" placeholder="Tempel source code video di sini..."></textarea>
+            <p class="instructions">
+                Buka video di browser -> Tekan <b>CTRL + U</b> -> Salin semua kode (CTRL + A & CTRL + C) -> Tempel di sini.
+            </p>
+        </div>
+    </div>
+
+    <button onclick="processVideo()" id="btnAction" class="btn-main">Ekstrak Video</button>
+
+    <div id="result">
+        <p style="margin:0; font-size:14px; color:#64748b">Video Ditemukan!</p>
+        <div class="download-links">
+            <a id="sdLink" href="#" target="_blank" class="dl-card">Kualitas SD</a>
+            <a id="hdLink" href="#" target="_blank" class="dl-card hd">Kualitas HD</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    let currentMode = 'public';
+
+    function switchMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        event.target.classList.add('active');
+        
+        document.getElementById('publicMode').style.display = (mode === 'public') ? 'block' : 'none';
+        document.getElementById('privateMode').style.display = (mode === 'private') ? 'block' : 'none';
+        document.getElementById('result').style.display = 'none';
+    }
+
+    async function processVideo() {
+        const btn = document.getElementById('btnAction');
+        btn.innerText = 'Sedang Memproses...';
+        
+        let htmlContent = '';
+
+        if (currentMode === 'public') {
             const url = document.getElementById('fbUrl').value;
-            const btn = document.getElementById('btnAction');
-            const resultDiv = document.getElementById('result');
-            const loader = document.getElementById('loader');
-
-            if (!url.includes('facebook.com')) {
-                alert('Tolong masukkan link Facebook yang valid!');
-                return;
-            }
-
-            // UI State
-            btn.disabled = true;
-            btn.innerText = 'Memproses...';
-            loader.classList.remove('hidden');
-            resultDiv.classList.add('hidden');
-
+            if(!url) return alert('Masukkan URL!');
             try {
-                // Menggunakan Proxy AllOrigins untuk Bypass CORS
-                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
-                const response = await fetch(proxyUrl);
+                const response = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(url)}`);
                 const data = await response.json();
-                const html = data.contents;
-
-                // Regex untuk mencari link MP4 (SD & HD)
-                const hdMatch = html.match(/browser_native_hd_url":"(.*?)"/);
-                const sdMatch = html.match(/browser_native_sd_url":"(.*?)"/);
-
-                if (sdMatch || hdMatch) {
-                    const hdUrl = hdMatch ? decodeUnicode(hdMatch[1]) : null;
-                    const sdUrl = sdMatch ? decodeUnicode(sdMatch[1]) : null;
-
-                    document.getElementById('hdLink').href = hdUrl || sdUrl;
-                    document.getElementById('sdLink').href = sdUrl || hdUrl;
-                    
-                    if(!hdUrl) document.getElementById('hdLink').classList.add('hidden');
-                    
-                    resultDiv.classList.remove('hidden');
-                } else {
-                    alert('Gagal mengambil video. Pastikan video bersifat Publik.');
-                }
-            } catch (error) {
-                console.error(error);
-                alert('Terjadi kesalahan teknis.');
-            } finally {
-                btn.disabled = false;
-                btn.innerText = 'Ambil Link Video';
-                loader.classList.add('hidden');
+                htmlContent = data.contents;
+            } catch (e) {
+                alert('Gagal mengambil data public.');
             }
+        } else {
+            htmlContent = document.getElementById('fbSource').value;
+            if(!htmlContent) return alert('Masukkan Source Code!');
         }
 
-        // Fungsi untuk membersihkan karakter unicode dari URL
-        function decodeUnicode(str) {
-            return str.replace(/\\u([\d\w]{4})/gi, (match, grp) => {
-                return String.fromCharCode(parseInt(grp, 16));
-            }).replace(/\\/g, '');
+        extractAndShow(htmlContent);
+        btn.innerText = 'Ekstrak Video';
+    }
+
+    function extractAndShow(html) {
+        // Regex diperkuat untuk mencari pola video terbaru
+        const hdMatch = html.match(/browser_native_hd_url":"(.*?)"/);
+        const sdMatch = html.match(/browser_native_sd_url":"(.*?)"/);
+
+        if (sdMatch || hdMatch) {
+            const hdUrl = hdMatch ? decodeUnicode(hdMatch[1]) : null;
+            const sdUrl = sdMatch ? decodeUnicode(sdMatch[1]) : null;
+
+            document.getElementById('hdLink').href = hdUrl || sdUrl;
+            document.getElementById('sdLink').href = sdUrl || hdUrl;
+            
+            // Sembunyikan tombol HD jika memang tidak ada
+            document.getElementById('hdLink').style.display = hdUrl ? 'block' : 'none';
+            
+            document.getElementById('result').style.display = 'block';
+        } else {
+            alert('Video tidak ditemukan. Jika ini video private, pastikan Anda menyalin seluruh Source Code halaman video tersebut.');
         }
-    </script>
+    }
+
+    function decodeUnicode(str) {
+        try {
+            return JSON.parse('"' + str + '"');
+        } catch (e) {
+            return str.replace(/\\u([\d\w]{4})/gi, (m, g) => String.fromCharCode(parseInt(g, 16))).replace(/\\/g, '');
+        }
+    }
+</script>
+
 </body>
 </html>
