@@ -1,0 +1,108 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FB Video Downloader - Premium Standard</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { background: radial-gradient(circle at top left, #f8fafc, #e2e8f0); min-height: 100vh; }
+        .glass { background: rgba(255, 255, 255, 0.7); backdrop-filter: blur(10px); border: 1px solid rgba(255, 255, 255, 0.3); }
+        .btn-premium { background: linear-gradient(135deg, #3b82f6 0%, #1d4ed8 100%); transition: all 0.3s ease; }
+        .btn-premium:hover { transform: translateY(-2px); box-shadow: 0 10px 15px -3px rgba(59, 130, 246, 0.4); }
+    </style>
+</head>
+<body class="flex items-center justify-center p-6">
+
+    <div class="max-w-xl w-full glass p-8 rounded-3xl shadow-2xl">
+        <div class="text-center mb-8">
+            <h1 class="text-3xl font-bold text-slate-800 tracking-tight">FB <span class="text-blue-600">Downloader</span></h1>
+            <p class="text-slate-500 text-sm mt-2">Premium, Smooth, & High Speed Extraction</p>
+        </div>
+
+        <div class="space-y-4">
+            <input type="text" id="fbUrl" placeholder="Tempel link video Facebook di sini..." 
+                class="w-full p-4 rounded-2xl border-none ring-1 ring-slate-200 focus:ring-2 focus:ring-blue-500 outline-none transition-all bg-white/50">
+            
+            <button onclick="extractVideo()" id="btnAction" class="w-full btn-premium text-white font-semibold py-4 rounded-2xl">
+                Ambil Link Video
+            </button>
+        </div>
+
+        <div id="result" class="hidden mt-8 space-y-4 animate-fade-in">
+            <div class="p-4 bg-blue-50 border border-blue-100 rounded-2xl flex flex-col items-center">
+                <p class="text-blue-700 font-medium mb-3">Video Berhasil Ditemukan!</p>
+                <div class="flex gap-3 w-full">
+                    <a id="sdLink" href="#" target="_blank" class="flex-1 text-center bg-white border border-slate-200 py-3 rounded-xl text-slate-700 hover:bg-slate-50 transition font-medium">Kualitas SD</a>
+                    <a id="hdLink" href="#" target="_blank" class="flex-1 text-center bg-blue-600 py-3 rounded-xl text-white hover:bg-blue-700 transition font-medium shadow-md">Kualitas HD</a>
+                </div>
+            </div>
+        </div>
+
+        <div id="loader" class="hidden mt-6 text-center">
+            <div class="inline-block animate-spin rounded-full h-8 w-8 border-4 border-blue-500 border-t-transparent"></div>
+            <p class="text-slate-400 text-xs mt-2 italic">Sedang mengekstrak data dari Facebook...</p>
+        </div>
+    </div>
+
+    <script>
+        async function extractVideo() {
+            const url = document.getElementById('fbUrl').value;
+            const btn = document.getElementById('btnAction');
+            const resultDiv = document.getElementById('result');
+            const loader = document.getElementById('loader');
+
+            if (!url.includes('facebook.com')) {
+                alert('Tolong masukkan link Facebook yang valid!');
+                return;
+            }
+
+            // UI State
+            btn.disabled = true;
+            btn.innerText = 'Memproses...';
+            loader.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+
+            try {
+                // Menggunakan Proxy AllOrigins untuk Bypass CORS
+                const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+                const response = await fetch(proxyUrl);
+                const data = await response.json();
+                const html = data.contents;
+
+                // Regex untuk mencari link MP4 (SD & HD)
+                const hdMatch = html.match(/browser_native_hd_url":"(.*?)"/);
+                const sdMatch = html.match(/browser_native_sd_url":"(.*?)"/);
+
+                if (sdMatch || hdMatch) {
+                    const hdUrl = hdMatch ? decodeUnicode(hdMatch[1]) : null;
+                    const sdUrl = sdMatch ? decodeUnicode(sdMatch[1]) : null;
+
+                    document.getElementById('hdLink').href = hdUrl || sdUrl;
+                    document.getElementById('sdLink').href = sdUrl || hdUrl;
+                    
+                    if(!hdUrl) document.getElementById('hdLink').classList.add('hidden');
+                    
+                    resultDiv.classList.remove('hidden');
+                } else {
+                    alert('Gagal mengambil video. Pastikan video bersifat Publik.');
+                }
+            } catch (error) {
+                console.error(error);
+                alert('Terjadi kesalahan teknis.');
+            } finally {
+                btn.disabled = false;
+                btn.innerText = 'Ambil Link Video';
+                loader.classList.add('hidden');
+            }
+        }
+
+        // Fungsi untuk membersihkan karakter unicode dari URL
+        function decodeUnicode(str) {
+            return str.replace(/\\u([\d\w]{4})/gi, (match, grp) => {
+                return String.fromCharCode(parseInt(grp, 16));
+            }).replace(/\\/g, '');
+        }
+    </script>
+</body>
+</html>
