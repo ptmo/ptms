@@ -3,58 +3,151 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Simulasi Transfer</title>
+    <title>Sistem Injeksi Koin Premium</title>
     <style>
-        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
-        .panel { background: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 320px; }
-        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
-        button { width: 90%; padding: 12px; margin-top: 10px; background: #2b2b2b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
-        button:disabled { background: #aaa; cursor: not-allowed; }
-        .status { margin-top: 20px; font-weight: bold; min-height: 20px; font-size: 14px; }
-        .loading { color: #f39c12; }
-        .success { color: #2ecc71; }
+        :root {
+            --primary-bg: #121212;
+            --panel-bg: #1e1e1e;
+            --text-main: #ffffff;
+            --text-sec: #aaaaaa;
+            --accent: #ff0050; /* TikTok Pink */
+            --accent-green: #2ecc71;
+            --border-color: #333333;
+        }
+
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--primary-bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        .panel { background: var(--panel-bg); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 350px; border: 1px solid var(--border-color); text-align: center; }
+        
+        h3 { margin-top: 0; color: var(--text-main); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
+        
+        /* Gaya Input */
+        .input-group { margin-bottom: 15px; text-align: left;}
+        .input-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; font-weight: bold; text-transform: uppercase;}
+        input { width: 100%; padding: 12px 15px; background-color: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 14px; box-sizing: border-box; transition: 0.3s; }
+        input:focus { border-color: var(--accent); outline: none; background-color: rgba(255,255,255,0.1); }
+
+        /* Gaya Profil yang Muncul */
+        .profile-card { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 1px solid transparent; display: flex; align-items: center; gap: 15px; transition: all 0.5s ease; opacity: 0; transform: translateY(-10px); height: 0; overflow: hidden; padding: 0;}
+        .profile-card.visible { opacity: 1; transform: translateY(0); height: auto; padding: 15px; border-color: var(--border-color); }
+        .avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; }
+        .profile-info { text-align: left; flex: 1; }
+        .full-name { font-weight: bold; font-size: 15px; color: var(--text-main); }
+        .username-display { font-size: 13px; color: var(--text-sec); }
+
+        /* Tombol & Status */
+        button { width: 100%; padding: 12px; background-color: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
+        button:hover { background-color: #e60045; }
+        button:disabled { background-color: #555; cursor: not-allowed; }
+        
+        .status { margin-top: 20px; font-weight: bold; min-height: 20px; font-size: 14px; padding: 10px; border-radius: 6px; }
+        .loading { color: #f39c12; background-color: rgba(243, 156, 18, 0.1); border: 1px solid #f39c12; }
+        .success { color: var(--accent-green); background-color: rgba(46, 204, 113, 0.1); border: 1px solid var(--accent-green); }
+        
+        /* Animasi Spinner */
+        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; vertical-align: middle;}
+        @keyframes spin { to { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
 
 <div class="panel">
-    <h3>Dasbor Transfer Virtual</h3>
-    <input type="text" id="username" placeholder="Masukkan ID Target">
-    <input type="number" id="amount" placeholder="Jumlah Nominal">
-    <button id="btnKirim" onclick="mulaiSimulasi()">Kirim Saldo</button>
-    <div id="statusTeks" class="status"></div>
+    <h3>Sistem Admin</h3>
+    
+    <div class="input-group">
+        <label class="input-label">Username Tujuan</label>
+        <input type="text" id="userInput" placeholder="@contoh_user" oninput="cekUsername()" autocomplete="off">
+    </div>
+
+    <div id="profileCard" class="profile-card">
+        <img id="avatarImg" src="" alt="Avatar" class="avatar">
+        <div class="profile-info">
+            <div id="fullName" class="full-name">Nama Pengguna</div>
+            <div id="usernameDisplay" class="username-display">@username</div>
+        </div>
+    </div>
+
+    <div class="input-group">
+        <label class="input-label">Jumlah Koin</label>
+        <input type="number" id="amount" placeholder="Jumlah (maks. 99.999)">
+    </div>
+
+    <button id="btnKirim" onclick="mulaiSimulasi()">Mulai Injeksi</button>
+    <div id="statusTeks" class="status" style="display: none;"></div>
 </div>
 
 <script>
+    // 1. DATA TIRUAN (Mock Data)
+    // Di sinilah kita menyimpan database profil palsu
+    const databaseUser = {
+        'skibidi_sigma': {
+            nama: 'Alvaro Reynaldi',
+            foto: 'https://i.pravatar.cc/150?u=alvaro' // Foto random
+        },
+        'gadget_bro': {
+            nama: 'Zaky Teknologi',
+            foto: 'https://i.pravatar.cc/150?u=zaky'
+        },
+        'wibu_santuy': {
+            nama: 'Aris Setiawan (Neko)',
+            foto: 'https://i.pravatar.cc/150?u=aris'
+        }
+    };
+
+    // 2. Fungsi untuk mengecek username saat diketik
+    function cekUsername() {
+        const input = document.getElementById('userInput').value;
+        const profileCard = document.getElementById('profileCard');
+        
+        // Menghapus '@' jika ada di input agar pencocokan database akurat
+        const cleanUsername = input.startsWith('@') ? input.substring(1) : input;
+
+        // Mengecek apakah username ada di database tiruan kita
+        if (databaseUser[cleanUsername]) {
+            // Jika ADA, tampilkan profilnya
+            const userData = databaseUser[cleanUsername];
+            document.getElementById('avatarImg').src = userData.foto;
+            document.getElementById('fullName').innerText = userData.nama;
+            document.getElementById('usernameDisplay').innerText = '@' + cleanUsername;
+            
+            // Tambahkan kelas CSS untuk animasi muncul
+            profileCard.classList.add('visible');
+        } else {
+            // Jika TIDAK ADA, sembunyikan kembali panel profil
+            profileCard.classList.remove('visible');
+        }
+    }
+
+    // 3. Fungsi Simulasi Pengiriman (Proses Akhir)
     function mulaiSimulasi() {
-        const username = document.getElementById('username').value;
+        const username = document.getElementById('userInput').value;
         const amount = document.getElementById('amount').value;
         const btn = document.getElementById('btnKirim');
         const status = document.getElementById('statusTeks');
+        const profileCard = document.getElementById('profileCard');
 
         if(!username || !amount) {
-            status.innerHTML = "<span style='color:red;'>Isi data ID dan nominal terlebih dahulu!</span>";
+            alert('Isi data ID dan nominal terlebih dahulu!');
             return;
         }
 
-        // Mematikan tombol saat proses berjalan
         btn.disabled = true;
-        
-        // Tahap 1: Animasi Loading Palsu
+        status.style.display = "block";
         status.className = "status loading";
-        status.innerText = "Menghubungkan ke server pusat...";
+        // Menambahkan ikon spinner agar terlihat canggih
+        status.innerHTML = '<span class="spinner"></span>Menghubungkan ke API Gateway...';
 
         setTimeout(() => {
-            status.innerText = "Menginjeksi " + amount + " saldo ke @" + username + "...";
+            status.innerHTML = '<span class="spinner"></span>Melakukan injeksi ' + amount + ' koin...';
             
-            // Tahap 2: Notifikasi Sukses Palsu
             setTimeout(() => {
                 status.className = "status success";
-                status.innerText = "✔️ Pengiriman Berhasil!";
-                btn.disabled = false; // Menyalakan tombol kembali
-            }, 2000); // Jeda 2 detik sebelum sukses
+                status.innerText = "✔️ [SUCCESS] Koin berhasil disinkronisasi!";
+                btn.disabled = false;
+                // Sembunyikan profil setelah sukses agar bisa reset
+                profileCard.classList.remove('visible');
+            }, 3000); // Jeda proses kedua (3 detik)
 
-        }, 1500); // Jeda 1.5 detik di tahap pertama
+        }, 2000); // Jeda proses pertama (2 detik)
     }
 </script>
 </body>
