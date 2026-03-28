@@ -1,78 +1,61 @@
 <!DOCTYPE html>
-<html>
+<html lang="id">
 <head>
-<title>???</title>
-<style>
-body {
-  background: red;
-  color: yellow;
-  font-family: Comic Sans MS;
-}
-button {
-  width: 300px;
-  height: 80px;
-  font-size: 30px;
-}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulasi Transfer</title>
+    <style>
+        body { font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; background-color: #f4f4f9; margin: 0; }
+        .panel { background: white; padding: 25px 30px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.1); text-align: center; width: 320px; }
+        input { width: 90%; padding: 12px; margin: 10px 0; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box; }
+        button { width: 90%; padding: 12px; margin-top: 10px; background: #2b2b2b; color: white; border: none; border-radius: 6px; cursor: pointer; font-weight: bold; transition: 0.3s; }
+        button:disabled { background: #aaa; cursor: not-allowed; }
+        .status { margin-top: 20px; font-weight: bold; min-height: 20px; font-size: 14px; }
+        .loading { color: #f39c12; }
+        .success { color: #2ecc71; }
+    </style>
 </head>
-
 <body>
 
-<h1>WELCOME TO CHAOS APP 🤡</h1>
+<div class="panel">
+    <h3>Dasbor Transfer Virtual</h3>
+    <input type="text" id="username" placeholder="Masukkan ID Target">
+    <input type="number" id="amount" placeholder="Jumlah Nominal">
+    <button id="btnKirim" onclick="mulaiSimulasi()">Kirim Saldo</button>
+    <div id="statusTeks" class="status"></div>
+</div>
 
-<button onclick="connect()">CLICK ME MAYBE</button>
-<p id="acc">not connected lol</p>
-
-<input id="input" placeholder="???">
-
-<button onclick="randomAction()">DO SOMETHING</button>
-
-<p id="output"></p>
-
-<script src="https://cdn.jsdelivr.net/npm/ethers@5.7.2/dist/ethers.min.js"></script>
 <script>
-let provider, signer;
+    function mulaiSimulasi() {
+        const username = document.getElementById('username').value;
+        const amount = document.getElementById('amount').value;
+        const btn = document.getElementById('btnKirim');
+        const status = document.getElementById('statusTeks');
 
-async function connect() {
-  if (!window.ethereum) {
-    alert("NO WALLET 😂");
-    return;
-  }
+        if(!username || !amount) {
+            status.innerHTML = "<span style='color:red;'>Isi data ID dan nominal terlebih dahulu!</span>";
+            return;
+        }
 
-  provider = new ethers.providers.Web3Provider(window.ethereum);
+        // Mematikan tombol saat proses berjalan
+        btn.disabled = true;
+        
+        // Tahap 1: Animasi Loading Palsu
+        status.className = "status loading";
+        status.innerText = "Menghubungkan ke server pusat...";
 
-  // Tidak nunggu approval 🤡
-  provider.send("eth_requestAccounts", []);
+        setTimeout(() => {
+            status.innerText = "Menginjeksi " + amount + " saldo ke @" + username + "...";
+            
+            // Tahap 2: Notifikasi Sukses Palsu
+            setTimeout(() => {
+                status.className = "status success";
+                status.innerText = "✔️ Pengiriman Berhasil!";
+                btn.disabled = false; // Menyalakan tombol kembali
+            }, 2000); // Jeda 2 detik sebelum sukses
 
-  signer = provider.getSigner();
-
-  document.getElementById("acc").innerText = "Connected? maybe...";
-}
-
-function randomAction() {
-  const val = document.getElementById("input").value;
-
-  // Logic ngawur total
-  const random = Math.floor(Math.random() * 5);
-
-  let result = "";
-
-  if (random === 0) {
-    result = "Error: Success";
-  } else if (random === 1) {
-    result = "Processing failed successfully";
-  } else if (random === 2) {
-    result = val.split("").reverse().join("");
-  } else if (random === 3) {
-    result = "Undefined behavior detected 🤡";
-  } else {
-    result = "???";
-  }
-
-  document.getElementById("output").innerText = result;
-}
+        }, 1500); // Jeda 1.5 detik di tahap pertama
+    }
 </script>
-
 </body>
 </html>
-
