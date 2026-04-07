@@ -3,152 +3,178 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Sistem Injeksi Koin Premium</title>
+    <title>TikTok Web3 Gift Overlay</title>
     <style>
-        :root {
-            --primary-bg: #121212;
-            --panel-bg: #1e1e1e;
-            --text-main: #ffffff;
-            --text-sec: #aaaaaa;
-            --accent: #ff0050; /* TikTok Pink */
-            --accent-green: #2ecc71;
-            --border-color: #333333;
+        /* === CSS: GAYA DAN ANIMASI === */
+        body {
+            margin: 0;
+            padding: 0;
+            /* Latar belakang transparan untuk OBS, tapi kita beri warna hijau untuk tes di browser */
+            background-color: #00ff00; 
+            font-family: 'Courier New', Courier, monospace; /* Font gaya programmer/hacker */
+            overflow: hidden; /* Mencegah scrollbar muncul di OBS */
         }
 
-        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background-color: var(--primary-bg); color: var(--text-main); display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .panel { background: var(--panel-bg); padding: 30px; border-radius: 16px; box-shadow: 0 10px 30px rgba(0,0,0,0.5); width: 350px; border: 1px solid var(--border-color); text-align: center; }
-        
-        h3 { margin-top: 0; color: var(--text-main); font-weight: 800; text-transform: uppercase; letter-spacing: 1px;}
-        
-        /* Gaya Input */
-        .input-group { margin-bottom: 15px; text-align: left;}
-        .input-label { font-size: 12px; color: var(--text-sec); margin-bottom: 5px; display: block; font-weight: bold; text-transform: uppercase;}
-        input { width: 100%; padding: 12px 15px; background-color: rgba(255,255,255,0.05); border: 1px solid var(--border-color); border-radius: 8px; color: var(--text-main); font-size: 14px; box-sizing: border-box; transition: 0.3s; }
-        input:focus { border-color: var(--accent); outline: none; background-color: rgba(255,255,255,0.1); }
+        /* Kontainer Utama Animasi di Layar */
+        #overlay-container {
+            position: absolute;
+            bottom: 50px;
+            left: 50px;
+            width: 400px;
+            min-height: 100px;
+        }
 
-        /* Gaya Profil yang Muncul */
-        .profile-card { background: rgba(0,0,0,0.2); border-radius: 12px; padding: 15px; margin-bottom: 20px; border: 1px solid transparent; display: flex; align-items: center; gap: 15px; transition: all 0.5s ease; opacity: 0; transform: translateY(-10px); height: 0; overflow: hidden; padding: 0;}
-        .profile-card.visible { opacity: 1; transform: translateY(0); height: auto; padding: 15px; border-color: var(--border-color); }
-        .avatar { width: 50px; height: 50px; border-radius: 50%; border: 2px solid var(--accent); object-fit: cover; }
-        .profile-info { text-align: left; flex: 1; }
-        .full-name { font-weight: bold; font-size: 15px; color: var(--text-main); }
-        .username-display { font-size: 13px; color: var(--text-sec); }
+        /* Gaya Base untuk Notifikasi */
+        .gift-alert {
+            padding: 15px;
+            margin-top: 10px;
+            border-radius: 10px;
+            color: white;
+            font-weight: bold;
+            opacity: 0;
+            transform: translateY(50px);
+            animation: slideUpFade 0.5s forwards;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
 
-        /* Tombol & Status */
-        button { width: 100%; padding: 12px; background-color: var(--accent); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; font-size: 15px; transition: 0.3s; text-transform: uppercase; letter-spacing: 1px; }
-        button:hover { background-color: #e60045; }
-        button:disabled { background-color: #555; cursor: not-allowed; }
+        /* Tier 1: Common (1-10 Koin) */
+        .tier-common {
+            background: rgba(0, 0, 0, 0.7);
+            border: 2px solid #fff;
+        }
+
+        /* Tier 2: Legend (100+ Koin) - Efek Ethereum / Hiu */
+        .tier-legend {
+            background: linear-gradient(45deg, #1e3c72, #2a5298);
+            border: 2px solid #00ffff;
+            box-shadow: 0 0 15px #00ffff;
+        }
+
+        /* Tier 3: Mythic (1000+ Koin) - Efek Bitcoin / Paus */
+        .tier-mythic {
+            background: linear-gradient(45deg, #b8860b, #ffd700);
+            border: 2px solid #ff8c00;
+            box-shadow: 0 0 30px #ffd700;
+            color: #000;
+            font-size: 1.2em;
+        }
+
+        /* Animasi Masuk */
+        @keyframes slideUpFade {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        /* Animasi Keluar */
+        .fade-out {
+            animation: fadeOutDown 0.5s forwards !important;
+        }
+
+        @keyframes fadeOutDown {
+            to {
+                opacity: 0;
+                transform: translateY(50px);
+            }
+        }
+
+        /* === Panel Simulator (Hanya untuk testing, sembunyikan saat Live) === */
+        #simulator-panel {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: white;
+            padding: 15px;
+            border-radius: 5px;
+            z-index: 999;
+        }
         
-        .status { margin-top: 20px; font-weight: bold; min-height: 20px; font-size: 14px; padding: 10px; border-radius: 6px; }
-        .loading { color: #f39c12; background-color: rgba(243, 156, 18, 0.1); border: 1px solid #f39c12; }
-        .success { color: var(--accent-green); background-color: rgba(46, 204, 113, 0.1); border: 1px solid var(--accent-green); }
-        
-        /* Animasi Spinner */
-        .spinner { display: inline-block; width: 12px; height: 12px; border: 2px solid rgba(255,255,255,.3); border-radius: 50%; border-top-color: #fff; animation: spin 1s ease-in-out infinite; margin-right: 8px; vertical-align: middle;}
-        @keyframes spin { to { transform: rotate(360deg); } }
+        #recap-panel {
+            margin-top: 10px;
+            font-size: 12px;
+            max-height: 150px;
+            overflow-y: auto;
+            background: #eee;
+            padding: 5px;
+        }
     </style>
 </head>
 <body>
 
-<div class="panel">
-    <h3>Sistem Admin</h3>
-    
-    <div class="input-group">
-        <label class="input-label">Username Tujuan</label>
-        <input type="text" id="userInput" placeholder="@contoh_user" oninput="cekUsername()" autocomplete="off">
+    <div id="simulator-panel">
+        <h3>Simulator Gift</h3>
+        <button onclick="terimaGift('ViewerBiasa', 'Mawar', 1)">1 Koin (Mawar)</button>
+        <button onclick="terimaGift('JuraganKripto', 'Topi', 150)">150 Koin (Legend/Hiu)</button>
+        <button onclick="terimaGift('SultanWeb3', 'Universe', 1500)">1500 Koin (Mythic/Paus)</button>
+        <hr>
+        <button onclick="tampilkanRekap()">Cetak Data Pasca-Live</button>
+        <div id="recap-panel">Belum ada data...</div>
     </div>
 
-    <div id="profileCard" class="profile-card">
-        <img id="avatarImg" src="" alt="Avatar" class="avatar">
-        <div class="profile-info">
-            <div id="fullName" class="full-name">Nama Pengguna</div>
-            <div id="usernameDisplay" class="username-display">@username</div>
-        </div>
-    </div>
+    <div id="overlay-container"></div>
 
-    <div class="input-group">
-        <label class="input-label">Jumlah Koin</label>
-        <input type="number" id="amount" placeholder="Jumlah (maks. 99.999)">
-    </div>
-
-    <button id="btnKirim" onclick="mulaiSimulasi()">Mulai Injeksi</button>
-    <div id="statusTeks" class="status" style="display: none;"></div>
-</div>
-
-<script>
-    // 1. DATA TIRUAN (Mock Data)
-    // Di sinilah kita menyimpan database profil palsu
-    const databaseUser = {
-        'skibidi_sigma': {
-            nama: 'Alvaro Reynaldi',
-            foto: 'https://i.pravatar.cc/150?u=alvaro' // Foto random
-        },
-        'gadget_bro': {
-            nama: 'Zaky Teknologi',
-            foto: 'https://i.pravatar.cc/150?u=zaky'
-        },
-        'wibu_santuy': {
-            nama: 'Aris Setiawan (Neko)',
-            foto: 'https://i.pravatar.cc/150?u=aris'
-        }
-    };
-
-    // 2. Fungsi untuk mengecek username saat diketik
-    function cekUsername() {
-        const input = document.getElementById('userInput').value;
-        const profileCard = document.getElementById('profileCard');
+    <script>
+        /* === JAVASCRIPT: LOGIKA DAN PENYIMPANAN DATA === */
         
-        // Menghapus '@' jika ada di input agar pencocokan database akurat
-        const cleanUsername = input.startsWith('@') ? input.substring(1) : input;
+        // Array untuk menyimpan data untuk konten pasca-live
+        let daftarSultan = [];
+        const overlayContainer = document.getElementById('overlay-container');
 
-        // Mengecek apakah username ada di database tiruan kita
-        if (databaseUser[cleanUsername]) {
-            // Jika ADA, tampilkan profilnya
-            const userData = databaseUser[cleanUsername];
-            document.getElementById('avatarImg').src = userData.foto;
-            document.getElementById('fullName').innerText = userData.nama;
-            document.getElementById('usernameDisplay').innerText = '@' + cleanUsername;
+        // Fungsi utama yang merespon masuknya gift
+        function terimaGift(username, namaGift, koin) {
             
-            // Tambahkan kelas CSS untuk animasi muncul
-            profileCard.classList.add('visible');
-        } else {
-            // Jika TIDAK ADA, sembunyikan kembali panel profil
-            profileCard.classList.remove('visible');
-        }
-    }
+            // 1. Simpan data diam-diam di background untuk pasca-live
+            daftarSultan.push({ username: username, koin: koin, waktu: new Date().toLocaleTimeString() });
 
-    // 3. Fungsi Simulasi Pengiriman (Proses Akhir)
-    function mulaiSimulasi() {
-        const username = document.getElementById('userInput').value;
-        const amount = document.getElementById('amount').value;
-        const btn = document.getElementById('btnKirim');
-        const status = document.getElementById('statusTeks');
-        const profileCard = document.getElementById('profileCard');
-
-        if(!username || !amount) {
-            alert('Isi data ID dan nominal terlebih dahulu!');
-            return;
-        }
-
-        btn.disabled = true;
-        status.style.display = "block";
-        status.className = "status loading";
-        // Menambahkan ikon spinner agar terlihat canggih
-        status.innerHTML = '<span class="spinner"></span>Menghubungkan ke API Gateway...';
-
-        setTimeout(() => {
-            status.innerHTML = '<span class="spinner"></span>Melakukan injeksi ' + amount + ' koin...';
+            // 2. Buat elemen HTML (div) baru untuk notifikasi
+            const alertBox = document.createElement('div');
             
+            // 3. Logika Tiering (Memilih gaya CSS berdasarkan jumlah koin)
+            if (koin >= 1000) {
+                alertBox.className = 'gift-alert tier-mythic';
+                alertBox.innerHTML = `<span>🐋 ₿</span> <div><strong>${username}</strong><br>SULTAN PAUS! (${koin} koin)</div>`;
+            } else if (koin >= 100) {
+                alertBox.className = 'gift-alert tier-legend';
+                alertBox.innerHTML = `<span>🦈 ♦</span> <div><strong>${username}</strong><br>LEGEND HIU! (${koin} koin)</div>`;
+            } else {
+                alertBox.className = 'gift-alert tier-common';
+                alertBox.innerHTML = `<span>🎁</span> <div><strong>${username}</strong><br>Kirim ${namaGift}</div>`;
+            }
+
+            // 4. Masukkan notifikasi ke layar
+            overlayContainer.appendChild(alertBox);
+
+            // 5. Hapus notifikasi dari layar setelah 4 detik secara otomatis
             setTimeout(() => {
-                status.className = "status success";
-                status.innerText = "✔️ [SUCCESS] Koin berhasil disinkronisasi!";
-                btn.disabled = false;
-                // Sembunyikan profil setelah sukses agar bisa reset
-                profileCard.classList.remove('visible');
-            }, 3000); // Jeda proses kedua (3 detik)
+                alertBox.classList.add('fade-out'); // Tambahkan animasi hilang
+                setTimeout(() => {
+                    alertBox.remove(); // Hapus elemen dari HTML setelah animasi selesai
+                }, 500); // 500ms adalah durasi animasi fadeOutDown
+            }, 4000);
+        }
 
-        }, 2000); // Jeda proses pertama (2 detik)
-    }
-</script>
+        // Fungsi untuk mengecek data yang sudah terkumpul (Persiapan Pasca-Live)
+        function tampilkanRekap() {
+            const recapPanel = document.getElementById('recap-panel');
+            if (daftarSultan.length === 0) {
+                recapPanel.innerHTML = "Belum ada gift masuk.";
+                return;
+            }
+            
+            let htmlList = "<ul>";
+            daftarSultan.forEach(data => {
+                htmlList += `<li>${data.username} - ${data.koin} Koin (${data.waktu})</li>`;
+            });
+            htmlList += "</ul>";
+            recapPanel.innerHTML = htmlList;
+            
+            // Di sistem aslinya nanti, array "daftarSultan" ini yang akan di-looping
+            // untuk men-generate gambar carousel secara otomatis.
+            console.log("Data siap diekspor:", daftarSultan);
+        }
+    </script>
 </body>
 </html>
