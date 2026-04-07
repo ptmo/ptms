@@ -2,179 +2,79 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TikTok Web3 Gift Overlay</title>
+    <title>OBS Web3 Live Overlay</title>
+    <script src="/socket.io/socket.io.js"></script>
     <style>
-        /* === CSS: GAYA DAN ANIMASI === */
-        body {
-            margin: 0;
-            padding: 0;
-            /* Latar belakang transparan untuk OBS, tapi kita beri warna hijau untuk tes di browser */
-            background-color: #00ff00; 
-            font-family: 'Courier New', Courier, monospace; /* Font gaya programmer/hacker */
-            overflow: hidden; /* Mencegah scrollbar muncul di OBS */
-        }
-
-        /* Kontainer Utama Animasi di Layar */
-        #overlay-container {
-            position: absolute;
-            bottom: 50px;
-            left: 50px;
-            width: 400px;
-            min-height: 100px;
-        }
-
-        /* Gaya Base untuk Notifikasi */
-        .gift-alert {
-            padding: 15px;
-            margin-top: 10px;
-            border-radius: 10px;
-            color: white;
-            font-weight: bold;
-            opacity: 0;
-            transform: translateY(50px);
-            animation: slideUpFade 0.5s forwards;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-
-        /* Tier 1: Common (1-10 Koin) */
-        .tier-common {
-            background: rgba(0, 0, 0, 0.7);
-            border: 2px solid #fff;
-        }
-
-        /* Tier 2: Legend (100+ Koin) - Efek Ethereum / Hiu */
-        .tier-legend {
-            background: linear-gradient(45deg, #1e3c72, #2a5298);
-            border: 2px solid #00ffff;
-            box-shadow: 0 0 15px #00ffff;
-        }
-
-        /* Tier 3: Mythic (1000+ Koin) - Efek Bitcoin / Paus */
-        .tier-mythic {
-            background: linear-gradient(45deg, #b8860b, #ffd700);
-            border: 2px solid #ff8c00;
-            box-shadow: 0 0 30px #ffd700;
-            color: #000;
-            font-size: 1.2em;
-        }
-
-        /* Animasi Masuk */
-        @keyframes slideUpFade {
-            to {
-                opacity: 1;
-                transform: translateY(0);
-            }
-        }
-
-        /* Animasi Keluar */
-        .fade-out {
-            animation: fadeOutDown 0.5s forwards !important;
-        }
-
-        @keyframes fadeOutDown {
-            to {
-                opacity: 0;
-                transform: translateY(50px);
-            }
-        }
-
-        /* === Panel Simulator (Hanya untuk testing, sembunyikan saat Live) === */
-        #simulator-panel {
-            position: absolute;
-            top: 10px;
-            right: 10px;
-            background: white;
-            padding: 15px;
-            border-radius: 5px;
-            z-index: 999;
-        }
+        /* CSS SAMA SEPERTI SEBELUMNYA, SESUAIKAN DENGAN ASETMU */
+        body { margin: 0; overflow: hidden; font-family: 'Courier New', monospace; }
+        #overlay-container { position: absolute; bottom: 50px; left: 50px; width: 450px; }
         
-        #recap-panel {
-            margin-top: 10px;
-            font-size: 12px;
-            max-height: 150px;
-            overflow-y: auto;
-            background: #eee;
-            padding: 5px;
+        .gift-alert {
+            padding: 15px; margin-top: 10px; border-radius: 10px; color: white;
+            font-weight: bold; opacity: 0; transform: translateY(50px);
+            animation: slideUpFade 0.5s forwards; display: flex; align-items: center; gap: 15px;
         }
+
+        .profil-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid white; }
+        
+        .tier-common { background: rgba(0, 0, 0, 0.7); border: 1px solid #fff; }
+        .tier-legend { background: linear-gradient(45deg, #1e3c72, #2a5298); border: 2px solid #00ffff; box-shadow: 0 0 15px #00ffff; }
+        .tier-mythic { background: linear-gradient(45deg, #b8860b, #ffd700); border: 2px solid #ff8c00; box-shadow: 0 0 30px #ffd700; color: #000; }
+
+        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
+        .fade-out { animation: fadeOutDown 0.5s forwards !important; }
+        @keyframes fadeOutDown { to { opacity: 0; transform: translateY(50px); } }
     </style>
 </head>
 <body>
 
-    <div id="simulator-panel">
-        <h3>Simulator Gift</h3>
-        <button onclick="terimaGift('ViewerBiasa', 'Mawar', 1)">1 Koin (Mawar)</button>
-        <button onclick="terimaGift('JuraganKripto', 'Topi', 150)">150 Koin (Legend/Hiu)</button>
-        <button onclick="terimaGift('SultanWeb3', 'Universe', 1500)">1500 Koin (Mythic/Paus)</button>
-        <hr>
-        <button onclick="tampilkanRekap()">Cetak Data Pasca-Live</button>
-        <div id="recap-panel">Belum ada data...</div>
-    </div>
-
     <div id="overlay-container"></div>
 
     <script>
-        /* === JAVASCRIPT: LOGIKA DAN PENYIMPANAN DATA === */
-        
-        // Array untuk menyimpan data untuk konten pasca-live
-        let daftarSultan = [];
+        // Inisialisasi koneksi WebSockets ke Backend
+        const socket = io();
         const overlayContainer = document.getElementById('overlay-container');
 
-        // Fungsi utama yang merespon masuknya gift
-        function terimaGift(username, namaGift, koin) {
+        // Dengarkan event 'giftMasukRealtime' dari server Node.js
+        socket.on('giftMasukRealtime', (giftData) => {
             
-            // 1. Simpan data diam-diam di background untuk pasca-live
-            daftarSultan.push({ username: username, koin: koin, waktu: new Date().toLocaleTimeString() });
-
-            // 2. Buat elemen HTML (div) baru untuk notifikasi
             const alertBox = document.createElement('div');
-            
-            // 3. Logika Tiering (Memilih gaya CSS berdasarkan jumlah koin)
-            if (koin >= 1000) {
+            let iconAtauEfek = "";
+            let keteranganTier = "";
+
+            // Logika Tiering Profesional berbasis coinValue asli dari TikTok
+            if (giftData.coinValue >= 1000) {
                 alertBox.className = 'gift-alert tier-mythic';
-                alertBox.innerHTML = `<span>🐋 ₿</span> <div><strong>${username}</strong><br>SULTAN PAUS! (${koin} koin)</div>`;
-            } else if (koin >= 100) {
+                iconAtauEfek = "🐋 ₿";
+                keteranganTier = "SULTAN PAUS!";
+            } else if (giftData.coinValue >= 100) {
                 alertBox.className = 'gift-alert tier-legend';
-                alertBox.innerHTML = `<span>🦈 ♦</span> <div><strong>${username}</strong><br>LEGEND HIU! (${koin} koin)</div>`;
+                iconAtauEfek = "🦈 ♦";
+                keteranganTier = "LEGEND HIU!";
             } else {
                 alertBox.className = 'gift-alert tier-common';
-                alertBox.innerHTML = `<span>🎁</span> <div><strong>${username}</strong><br>Kirim ${namaGift}</div>`;
+                iconAtauEfek = "🎁";
+                keteranganTier = `Kirim ${giftData.giftName}`;
             }
 
-            // 4. Masukkan notifikasi ke layar
+            // Tampilkan foto profil asli dari audiens (diambil dari URL TikTok)
+            alertBox.innerHTML = `
+                <img src="${giftData.profilePic}" class="profil-img">
+                <div>
+                    <strong>${giftData.username}</strong><br>
+                    ${keteranganTier} (${giftData.coinValue} Koin)
+                </div>
+                <span style="font-size: 2em; margin-left: auto;">${iconAtauEfek}</span>
+            `;
+
             overlayContainer.appendChild(alertBox);
 
-            // 5. Hapus notifikasi dari layar setelah 4 detik secara otomatis
+            // Bersihkan dari layar setelah 5 detik
             setTimeout(() => {
-                alertBox.classList.add('fade-out'); // Tambahkan animasi hilang
-                setTimeout(() => {
-                    alertBox.remove(); // Hapus elemen dari HTML setelah animasi selesai
-                }, 500); // 500ms adalah durasi animasi fadeOutDown
-            }, 4000);
-        }
-
-        // Fungsi untuk mengecek data yang sudah terkumpul (Persiapan Pasca-Live)
-        function tampilkanRekap() {
-            const recapPanel = document.getElementById('recap-panel');
-            if (daftarSultan.length === 0) {
-                recapPanel.innerHTML = "Belum ada gift masuk.";
-                return;
-            }
-            
-            let htmlList = "<ul>";
-            daftarSultan.forEach(data => {
-                htmlList += `<li>${data.username} - ${data.koin} Koin (${data.waktu})</li>`;
-            });
-            htmlList += "</ul>";
-            recapPanel.innerHTML = htmlList;
-            
-            // Di sistem aslinya nanti, array "daftarSultan" ini yang akan di-looping
-            // untuk men-generate gambar carousel secara otomatis.
-            console.log("Data siap diekspor:", daftarSultan);
-        }
+                alertBox.classList.add('fade-out');
+                setTimeout(() => alertBox.remove(), 500);
+            }, 5000);
+        });
     </script>
 </body>
 </html>
