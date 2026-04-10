@@ -3,9 +3,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>Farming Pro: OS War</title>
+  <title>Farming Pro: OS War - LIVE</title>
   <style>
-    /* --- CSS RESET & VARIABLES --- */
     :root {
       --bg-dark: #0f0f13;
       --apple-glow: #1c1c22;
@@ -14,37 +13,62 @@
       --glass-border: rgba(255, 255, 255, 0.15);
     }
 
-    * {
-      margin: 0;
-      padding: 0;
-      box-sizing: border-box;
-    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
 
     body {
       background-color: var(--bg-dark);
       color: white;
       font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-      overflow: hidden; /* Mencegah scroll yang tidak diinginkan */
+      overflow: hidden;
       display: flex;
       flex-direction: column;
-      min-height: 100vh;
-      min-height: 100dvh; /* Adaptasi khusus mobile browser */
+      height: 100vh; /* Dikunci penuh satu layar tanpa scroll */
     }
 
-    /* --- DASHBOARD HEADER (Fluid & Responsive) --- */
+    /* --- DASHBOARD HEADER --- */
     header {
       width: 100%;
       padding: 15px;
       z-index: 100;
       display: flex;
-      justify-content: center;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+      position: absolute; /* Mengambang di atas konten utama */
+      top: 0;
+    }
+
+    .connection-badge {
+      background: rgba(255, 193, 7, 0.2);
+      border: 1px solid rgba(255, 193, 7, 0.5);
+      color: #ffc107;
+      padding: 5px 15px;
+      border-radius: 20px;
+      font-size: 0.8rem;
+      font-weight: bold;
+      letter-spacing: 1px;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: all 0.3s ease;
+    }
+    
+    .connection-badge.connected {
+      background: rgba(46, 204, 113, 0.2);
+      border: 1px solid rgba(46, 204, 113, 0.5);
+      color: #2ecc71;
+    }
+
+    .connection-badge .dot {
+      width: 8px; height: 8px; border-radius: 50%; background: currentColor;
+      box-shadow: 0 0 8px currentColor;
     }
 
     .dashboard-header {
       text-align: center;
       background: var(--glass-bg);
       backdrop-filter: blur(15px);
-      -webkit-backdrop-filter: blur(15px); /* Dukungan Safari */
+      -webkit-backdrop-filter: blur(15px);
       padding: clamp(10px, 3vw, 20px) clamp(15px, 4vw, 40px);
       border-radius: 20px;
       border: 1px solid var(--glass-border);
@@ -54,7 +78,6 @@
     }
 
     .dashboard-header h1 {
-      /* Fluid Typography: min 1.2rem, ideal 4vw, max 2.2rem */
       font-size: clamp(1.2rem, 4vw, 2.2rem);
       margin-bottom: 5px;
       color: #ffffff;
@@ -79,11 +102,12 @@
       display: inline-block;
     }
 
-    /* --- LAYOUT UTAMA (Medan Perang) --- */
+    /* --- LAYOUT UTAMA --- */
     main.war-container {
-      flex: 1; /* Mengisi sisa ruang antara header dan footer */
+      flex: 1;
       display: flex;
       width: 100vw;
+      height: 100%;
       position: relative;
     }
 
@@ -95,169 +119,66 @@
       align-items: center;
       position: relative;
       overflow: hidden;
+      padding-top: 100px; /* Menghindari overlap dengan header statis */
     }
 
-    .apple {
-      flex-basis: 50%;
-      background: radial-gradient(circle at center, var(--apple-glow) 0%, #000000 100%);
-      border-right: 1px solid rgba(255,255,255,0.1);
-    }
+    .apple { flex-basis: 50%; background: radial-gradient(circle at center, var(--apple-glow) 0%, #000000 100%); border-right: 1px solid rgba(255,255,255,0.1); }
+    .android { flex-basis: 50%; background: radial-gradient(circle at center, var(--android-glow) 0%, #000000 100%); }
 
-    .android {
-      flex-basis: 50%;
-      background: radial-gradient(circle at center, var(--android-glow) 0%, #000000 100%);
-    }
-
-    /* --- KONTEN DALAM PANEL --- */
-    .content {
-      text-align: center;
-      z-index: 10;
-      padding: 0 10px;
-    }
-
-    .faction h2 {
-      font-size: clamp(1.2rem, 3.5vw, 2.5rem);
-      letter-spacing: 1px;
-      opacity: 0.9;
-      margin-bottom: 10px;
-    }
-
-    .score {
-      font-size: clamp(2.5rem, 8vw, 6rem);
-      font-weight: 900;
-      text-shadow: 0 5px 25px rgba(0,0,0,0.6);
-      line-height: 1;
-    }
+    .content { text-align: center; z-index: 10; padding: 0 10px; }
+    .faction h2 { font-size: clamp(1.2rem, 3.5vw, 2.5rem); letter-spacing: 1px; opacity: 0.9; margin-bottom: 10px; }
+    .score { font-size: clamp(2.5rem, 8vw, 6rem); font-weight: 900; text-shadow: 0 5px 25px rgba(0,0,0,0.6); line-height: 1; }
 
     .total-coins {
-      margin-top: 15px;
-      font-size: clamp(0.9rem, 2vw, 1.5rem);
-      font-weight: 600;
-      background: rgba(0, 0, 0, 0.5);
-      padding: 8px 20px;
-      border-radius: 30px;
-      border: 1px solid rgba(255, 255, 255, 0.2);
-      box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+      margin-top: 15px; font-size: clamp(0.9rem, 2vw, 1.5rem); font-weight: 600;
+      background: rgba(0, 0, 0, 0.5); padding: 8px 20px; border-radius: 30px;
+      border: 1px solid rgba(255, 255, 255, 0.2); box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
       display: inline-block;
     }
 
-    /* --- PEMISAH TENGAH (VS BADGE) --- */
     .divider {
-      position: absolute;
-      top: 50%;
-      left: 50%;
-      transform: translate(-50%, -50%);
-      z-index: 20;
-      transition: left 1s cubic-bezier(0.25, 1, 0.5, 1);
-      pointer-events: none; /* Agar tidak menghalangi klik event di belakangnya */
+      position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+      z-index: 20; transition: left 1s cubic-bezier(0.25, 1, 0.5, 1); pointer-events: none;
     }
 
     .vs-badge {
-      background: var(--glass-bg);
-      backdrop-filter: blur(15px);
-      -webkit-backdrop-filter: blur(15px);
-      border: 2px solid rgba(255,255,255,0.3);
-      padding: clamp(10px, 3vw, 20px) clamp(15px, 4vw, 30px);
-      border-radius: 50px;
-      font-size: clamp(1.2rem, 4vw, 2rem);
-      font-weight: 900;
-      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
+      background: var(--glass-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px);
+      border: 2px solid rgba(255,255,255,0.3); padding: clamp(10px, 3vw, 20px) clamp(15px, 4vw, 30px);
+      border-radius: 50px; font-size: clamp(1.2rem, 4vw, 2rem); font-weight: 900; box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
 
     /* --- ANIMASI FLOATING TEXT --- */
     .floating-text {
-      position: absolute;
-      font-size: clamp(1.5rem, 4vw, 2.5rem);
-      font-weight: bold;
-      color: #fff;
-      text-shadow: 0 0 15px rgba(255,255,255,0.9);
-      pointer-events: none;
-      animation: floatUp 1.2s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      position: absolute; font-size: clamp(1.5rem, 4vw, 2.5rem); font-weight: bold;
+      color: #fff; text-shadow: 0 0 15px rgba(255,255,255,0.9); pointer-events: none;
+      animation: floatUp 1.5s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+      display: flex; flex-direction: column; align-items: center;
     }
+    .floating-text span.user { font-size: 0.4em; color: #f1c40f; text-shadow: none; margin-bottom: 5px; }
 
     @keyframes floatUp {
       0% { transform: translateY(0) scale(1); opacity: 1; }
       50% { transform: translateY(-50px) scale(1.2); opacity: 1; }
-      100% { transform: translateY(-100px) scale(1.4); opacity: 0; }
+      100% { transform: translateY(-120px) scale(1.4); opacity: 0; }
     }
 
-    /* --- KONTROL BAWAH (Grid Responsive) --- */
-    footer.controls {
-      padding: 15px;
-      background-color: #0a0a0c;
-      border-top: 1px solid #222;
-      display: flex;
-      justify-content: center;
-    }
-
-    .control-grid {
-      display: grid;
-      grid-template-columns: repeat(4, 1fr);
-      gap: 10px;
-      width: 100%;
-      max-width: 900px;
-    }
-
-    button {
-      padding: clamp(10px, 2vw, 15px) 5px;
-      border-radius: 10px;
-      border: none;
-      cursor: pointer;
-      font-weight: bold;
-      font-size: clamp(0.75rem, 1.5vw, 1rem);
-      transition: transform 0.1s, filter 0.2s;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      justify-content: center;
-      gap: 5px;
-    }
-    
-    button:active { transform: scale(0.95); }
-    
-    .btn-apple { background: linear-gradient(135deg, #444, #111); color: white; border: 1px solid #666; }
-    .btn-android { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: 1px solid #2ecc71; }
-    .btn-whale { background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: 1px solid #d2b4de;}
-
-    /* --- RESPONSIVE MEDIA QUERIES (Untuk Layar HP) --- */
     @media (max-width: 768px) {
-      .dashboard-header {
-        border-radius: 12px;
-      }
-      .control-grid {
-        /* Ubah menjadi 2 baris di layar kecil agar tombol tidak gepeng */
-        grid-template-columns: 1fr 1fr; 
-      }
-      .faction {
-        /* Pertahankan split kiri-kanan, tapi ubah urutan konten vertikal jika sempit */
-        justify-content: flex-end;
-        padding-bottom: 15vh; /* Beri ruang agar tidak nabrak bawah */
-      }
-      .total-coins {
-        display: block; /* Turun ke baris baru */
-        margin-top: 10px;
-      }
-    }
-    
-    @media (max-width: 400px) {
-      .control-grid {
-        /* Di HP yang sangat sempit, buat memanjang ke bawah */
-        grid-template-columns: 1fr; 
-      }
-      footer.controls {
-        max-height: 30vh;
-        overflow-y: auto;
-      }
+      .faction { justify-content: flex-end; padding-bottom: 10vh; }
     }
   </style>
 </head>
 <body>
 
   <header>
+    <div class="connection-badge" id="api-status">
+      <div class="dot"></div>
+      <span id="api-text">Menunggu Koneksi Webcast...</span>
+    </div>
+
     <div class="dashboard-header">
       <h1>⚔️ Perang OS: Apple vs Android ⚔️</h1>
-      <div class="status" id="war-status">STATUS: PERTEMPURAN DIMULAI!</div>
-      <div class="rules">Kubu Apple: Kirim Mawar 🌹 | Kubu Android: Kirim Kopi ☕ | Paus 🐳 Menentukan Kemenangan!</div>
+      <div class="status" id="war-status">STATUS: MENCARI DOMINASI!</div>
+      <div class="rules">🍎 Apple: Mawar / Kacamata DJ | 🤖 Android: Kerucut Es Krim / Mahkota Naga</div>
     </div>
   </header>
 
@@ -266,127 +187,149 @@
       <div class="content">
         <h2>TIM APPLE 🍎</h2>
         <div class="score" id="score-apple">50.0%</div>
-        <div class="total-coins">Poin: <span id="total-apple">0</span></div>
+        <div class="total-coins">Total: <span id="total-apple">0</span> Koin</div>
       </div>
     </div>
 
-    <div class="divider">
-      <div class="vs-badge">VS</div>
-    </div>
+    <div class="divider"><div class="vs-badge">VS</div></div>
 
     <div class="faction android" id="panel-android">
       <div class="content">
         <h2>TIM ANDROID 🤖</h2>
         <div class="score" id="score-android">50.0%</div>
-        <div class="total-coins">Poin: <span id="total-android">0</span></div>
+        <div class="total-coins">Total: <span id="total-android">0</span> Koin</div>
       </div>
     </div>
   </main>
 
-  <footer class="controls">
-    <div class="control-grid">
-      <button class="btn-apple" onclick="addScore('apple', 10, '🌹')">
-        <span>+ Apple</span>
-        <span>(Mawar 10)</span>
-      </button>
-      <button class="btn-android" onclick="addScore('android', 10, '☕')">
-        <span>+ Android</span>
-        <span>(Kopi 10)</span>
-      </button>
-      <button class="btn-whale" onclick="addScore('apple', 500, '🐳')">
-        <span>+ Paus Apple</span>
-        <span>(500 Koin)</span>
-      </button>
-      <button class="btn-whale" onclick="addScore('android', 500, '🐳')">
-        <span>+ Paus Android</span>
-        <span>(500 Koin)</span>
-      </button>
-    </div>
-  </footer>
-
   <script>
-    const baseWeight = 2000; 
+    /* =========================================
+       1. GAME CONFIGURATION & DICTIONARY
+       ========================================= */
+    const GAME_CONFIG = {
+        baseWeight: 2000,
+        minClampPercent: 15,
+        maxClampPercent: 85
+    };
+
+    // Dictionary Pemetaan Gift TikTok
+    const GIFT_DICTIONARY = {
+        "Rose": { faction: "apple", value: 1, emoji: "🌹" },
+        "Mawar": { faction: "apple", value: 1, emoji: "🌹" },
+        "DJ Glasses": { faction: "apple", value: 199, emoji: "🕶️" },
+        "Kacamata DJ": { faction: "apple", value: 199, emoji: "🕶️" },
+
+        "Ice Cream Cone": { faction: "android", value: 1, emoji: "🍦" },
+        "Kerucut Es Krim": { faction: "android", value: 1, emoji: "🍦" },
+        "Dragon Crown": { faction: "android", value: 299, emoji: "👑" },
+        "Mahkota Naga": { faction: "android", value: 299, emoji: "👑" }
+    };
+
+    /* =========================================
+       2. STATE & DOM ELEMENTS
+       ========================================= */
     let appleCoins = 0;
     let androidCoins = 0;
 
-    const panelApple = document.getElementById('panel-apple');
-    const panelAndroid = document.getElementById('panel-android');
-    const textApple = document.getElementById('score-apple');
-    const textAndroid = document.getElementById('score-android');
-    const labelTotalApple = document.getElementById('total-apple');
-    const labelTotalAndroid = document.getElementById('total-android');
-    const statusText = document.getElementById('war-status');
-    const divider = document.querySelector('.divider');
+    const DOM = {
+        panelApple: document.getElementById('panel-apple'),
+        panelAndroid: document.getElementById('panel-android'),
+        textApple: document.getElementById('score-apple'),
+        textAndroid: document.getElementById('score-android'),
+        labelTotalApple: document.getElementById('total-apple'),
+        labelTotalAndroid: document.getElementById('total-android'),
+        statusText: document.getElementById('war-status'),
+        divider: document.querySelector('.divider')
+    };
 
-    window.addScore = function(faction, amount, emoji) {
+    /* =========================================
+       3. CORE ENGINE LOGIC
+       ========================================= */
+    function processGift(faction, amount, emoji, username) {
         if (faction === 'apple') {
             appleCoins += amount;
-            createFloatingText(panelApple, `+${amount} ${emoji}`);
-        } else {
+            createFloatingText(DOM.panelApple, `+${amount} ${emoji}`, username);
+        } else if (faction === 'android') {
             androidCoins += amount;
-            createFloatingText(panelAndroid, `+${amount} ${emoji}`);
+            createFloatingText(DOM.panelAndroid, `+${amount} ${emoji}`, username);
         }
 
-        let totalAppleWeight = baseWeight + appleCoins;
-        let totalAndroidWeight = baseWeight + androidCoins;
+        let totalAppleWeight = GAME_CONFIG.baseWeight + appleCoins;
+        let totalAndroidWeight = GAME_CONFIG.baseWeight + androidCoins;
         let totalWeight = totalAppleWeight + totalAndroidWeight;
 
         let applePercent = (totalAppleWeight / totalWeight) * 100;
         let androidPercent = 100 - applePercent;
 
-        // Batas minimal layar (Clamp) disesuaikan agar di Mobile tetap terlihat
-        if (applePercent < 15) {
-            applePercent = 15;
-            androidPercent = 85;
-        } else if (androidPercent < 15) {
-            androidPercent = 15;
-            applePercent = 85;
+        if (applePercent < GAME_CONFIG.minClampPercent) {
+            applePercent = GAME_CONFIG.minClampPercent;
+            androidPercent = GAME_CONFIG.maxClampPercent;
+        } else if (androidPercent < GAME_CONFIG.minClampPercent) {
+            androidPercent = GAME_CONFIG.minClampPercent;
+            applePercent = GAME_CONFIG.maxClampPercent;
         }
 
-        panelApple.style.flexBasis = `${applePercent}%`;
-        panelAndroid.style.flexBasis = `${androidPercent}%`;
-        divider.style.left = `${applePercent}%`;
+        DOM.panelApple.style.flexBasis = `${applePercent}%`;
+        DOM.panelAndroid.style.flexBasis = `${androidPercent}%`;
+        DOM.divider.style.left = `${applePercent}%`;
 
-        textApple.innerText = `${applePercent.toFixed(1)}%`;
-        textAndroid.innerText = `${androidPercent.toFixed(1)}%`;
+        DOM.textApple.innerText = `${applePercent.toFixed(1)}%`;
+        DOM.textAndroid.innerText = `${androidPercent.toFixed(1)}%`;
         
-        labelTotalApple.innerText = appleCoins.toLocaleString('id-ID');
-        labelTotalAndroid.innerText = androidCoins.toLocaleString('id-ID');
+        DOM.labelTotalApple.innerText = appleCoins.toLocaleString('id-ID');
+        DOM.labelTotalAndroid.innerText = androidCoins.toLocaleString('id-ID');
 
         updateWarStatus();
     }
 
     function updateWarStatus() {
         if (appleCoins > androidCoins) {
-            statusText.innerText = "STATUS: 🍎 APPLE MENDOMINASI!";
-            statusText.style.color = "#ff6b6b"; 
+            DOM.statusText.innerText = "STATUS: 🍎 APPLE MENDOMINASI!";
+            DOM.statusText.style.color = "#ff6b6b"; 
         } else if (androidCoins > appleCoins) {
-            statusText.innerText = "STATUS: 🤖 ANDROID MENGAMBIL ALIH!";
-            statusText.style.color = "#2ecc71"; 
+            DOM.statusText.innerText = "STATUS: 🤖 ANDROID MENGAMBIL ALIH!";
+            DOM.statusText.style.color = "#2ecc71"; 
         } else {
-            statusText.innerText = "STATUS: ⚔️ PERTEMPURAN SEIMBANG";
-            statusText.style.color = "#ffffff";
+            DOM.statusText.innerText = "STATUS: ⚔️ PERTEMPURAN SEIMBANG";
+            DOM.statusText.style.color = "#ffffff";
         }
     }
 
-    function createFloatingText(panel, text) {
+    function createFloatingText(panel, text, username) {
         const floatEl = document.createElement('div');
         floatEl.classList.add('floating-text');
-        floatEl.innerText = text;
+        
+        floatEl.innerHTML = `<span class="user">@${username}</span>${text}`;
 
-        // Penyesuaian area spawn animasi
         const randomX = Math.floor(Math.random() * 40) + 30; 
         const randomY = Math.floor(Math.random() * 20) + 50; 
-        
         floatEl.style.left = `${randomX}%`;
         floatEl.style.top = `${randomY}%`;
 
         panel.appendChild(floatEl);
-
-        setTimeout(() => {
-            floatEl.remove();
-        }, 1200);
+        setTimeout(() => floatEl.remove(), 1500);
     }
+
+    /* =========================================
+       4. API INTERFACE (Jembatan ke TikTok)
+       ========================================= */
+    // FUNGSI INI ADALAH SATU-SATUNYA PINTU MASUK DATA DARI SERVER
+    window.handleTikTokEvent = function(giftName, giftCount, username) {
+        const validGift = GIFT_DICTIONARY[giftName];
+        
+        if (validGift) {
+            const totalValue = validGift.value * giftCount;
+            processGift(validGift.faction, totalValue, validGift.emoji, username);
+        }
+    };
+
+    // Fungsi untuk mengubah status indikator UI saat server backend terhubung ke TikTok
+    window.setConnected = function(username) {
+        const badge = document.getElementById('api-status');
+        badge.classList.add('connected');
+        document.getElementById('api-text').innerText = `Live Terhubung: @${username}`;
+    };
+
   </script>
 </body>
 </html>
