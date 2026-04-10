@@ -2,9 +2,18 @@
 <html lang="id">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
   <title>Farming Pro: OS War</title>
   <style>
+    /* --- CSS RESET & VARIABLES --- */
+    :root {
+      --bg-dark: #0f0f13;
+      --apple-glow: #1c1c22;
+      --android-glow: #15261b;
+      --glass-bg: rgba(0, 0, 0, 0.65);
+      --glass-border: rgba(255, 255, 255, 0.15);
+    }
+
     * {
       margin: 0;
       padding: 0;
@@ -12,64 +21,72 @@
     }
 
     body {
-      background-color: #0f0f13;
+      background-color: var(--bg-dark);
       color: white;
-      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-      overflow: hidden;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+      overflow: hidden; /* Mencegah scroll yang tidak diinginkan */
+      display: flex;
+      flex-direction: column;
+      min-height: 100vh;
+      min-height: 100dvh; /* Adaptasi khusus mobile browser */
     }
 
-    /* --- DASHBOARD HEADER --- */
-    .dashboard-header {
-      position: absolute;
-      top: 30px;
-      left: 50%;
-      transform: translateX(-50%);
+    /* --- DASHBOARD HEADER (Fluid & Responsive) --- */
+    header {
+      width: 100%;
+      padding: 15px;
       z-index: 100;
+      display: flex;
+      justify-content: center;
+    }
+
+    .dashboard-header {
       text-align: center;
-      background: rgba(0, 0, 0, 0.6);
+      background: var(--glass-bg);
       backdrop-filter: blur(15px);
-      padding: 20px 40px;
+      -webkit-backdrop-filter: blur(15px); /* Dukungan Safari */
+      padding: clamp(10px, 3vw, 20px) clamp(15px, 4vw, 40px);
       border-radius: 20px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      width: 85%;
+      border: 1px solid var(--glass-border);
+      width: 100%;
       max-width: 900px;
-      box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
 
     .dashboard-header h1 {
-      font-size: 2.2rem;
-      margin-bottom: 8px;
+      /* Fluid Typography: min 1.2rem, ideal 4vw, max 2.2rem */
+      font-size: clamp(1.2rem, 4vw, 2.2rem);
+      margin-bottom: 5px;
       color: #ffffff;
       text-transform: uppercase;
-      letter-spacing: 3px;
+      letter-spacing: 2px;
       text-shadow: 0 0 10px rgba(255, 255, 255, 0.3);
     }
 
     .dashboard-header .status {
-      font-size: 1.4rem;
+      font-size: clamp(0.9rem, 2.5vw, 1.4rem);
       font-weight: 800;
-      margin-bottom: 10px;
+      margin-bottom: 8px;
       transition: color 0.4s ease;
     }
 
     .dashboard-header .rules {
-      font-size: 1rem;
+      font-size: clamp(0.7rem, 2vw, 1rem);
       color: #bbbbbb;
       background: rgba(255, 255, 255, 0.05);
-      padding: 8px 15px;
+      padding: 6px 12px;
       border-radius: 10px;
       display: inline-block;
     }
 
-    /* --- LAYOUT UTAMA --- */
-    .war-container {
+    /* --- LAYOUT UTAMA (Medan Perang) --- */
+    main.war-container {
+      flex: 1; /* Mengisi sisa ruang antara header dan footer */
       display: flex;
       width: 100vw;
-      height: 90vh;
       position: relative;
     }
 
-    /* --- STYLING KUBU --- */
     .faction {
       transition: flex-basis 1s cubic-bezier(0.25, 1, 0.5, 1); 
       display: flex;
@@ -82,71 +99,75 @@
 
     .apple {
       flex-basis: 50%;
-      background: radial-gradient(circle at center, #1c1c22 0%, #000000 100%);
+      background: radial-gradient(circle at center, var(--apple-glow) 0%, #000000 100%);
       border-right: 1px solid rgba(255,255,255,0.1);
     }
 
     .android {
       flex-basis: 50%;
-      background: radial-gradient(circle at center, #15261b 0%, #000000 100%);
+      background: radial-gradient(circle at center, var(--android-glow) 0%, #000000 100%);
     }
 
     /* --- KONTEN DALAM PANEL --- */
     .content {
       text-align: center;
       z-index: 10;
-      margin-top: 80px; /* Jarak agar tidak tertutup header */
+      padding: 0 10px;
     }
 
     .faction h2 {
-      font-size: 2.5rem;
-      letter-spacing: 2px;
+      font-size: clamp(1.2rem, 3.5vw, 2.5rem);
+      letter-spacing: 1px;
       opacity: 0.9;
-      margin-bottom: 15px;
+      margin-bottom: 10px;
     }
 
     .score {
-      font-size: 6rem;
+      font-size: clamp(2.5rem, 8vw, 6rem);
       font-weight: 900;
       text-shadow: 0 5px 25px rgba(0,0,0,0.6);
+      line-height: 1;
     }
 
     .total-coins {
-      margin-top: 20px;
-      font-size: 1.5rem;
+      margin-top: 15px;
+      font-size: clamp(0.9rem, 2vw, 1.5rem);
       font-weight: 600;
       background: rgba(0, 0, 0, 0.5);
-      padding: 10px 25px;
+      padding: 8px 20px;
       border-radius: 30px;
       border: 1px solid rgba(255, 255, 255, 0.2);
       box-shadow: inset 0 0 10px rgba(0,0,0,0.5);
+      display: inline-block;
     }
 
     /* --- PEMISAH TENGAH (VS BADGE) --- */
     .divider {
       position: absolute;
-      top: 55%;
+      top: 50%;
       left: 50%;
       transform: translate(-50%, -50%);
       z-index: 20;
       transition: left 1s cubic-bezier(0.25, 1, 0.5, 1);
+      pointer-events: none; /* Agar tidak menghalangi klik event di belakangnya */
     }
 
     .vs-badge {
-      background: rgba(255, 255, 255, 0.1);
+      background: var(--glass-bg);
       backdrop-filter: blur(15px);
+      -webkit-backdrop-filter: blur(15px);
       border: 2px solid rgba(255,255,255,0.3);
-      padding: 20px 30px;
-      border-radius: 40px;
-      font-size: 2rem;
+      padding: clamp(10px, 3vw, 20px) clamp(15px, 4vw, 30px);
+      border-radius: 50px;
+      font-size: clamp(1.2rem, 4vw, 2rem);
       font-weight: 900;
-      box-shadow: 0 15px 40px rgba(0,0,0,0.6);
+      box-shadow: 0 10px 30px rgba(0,0,0,0.6);
     }
 
     /* --- ANIMASI FLOATING TEXT --- */
     .floating-text {
       position: absolute;
-      font-size: 2.5rem;
+      font-size: clamp(1.5rem, 4vw, 2.5rem);
       font-weight: bold;
       color: #fff;
       text-shadow: 0 0 15px rgba(255,255,255,0.9);
@@ -156,46 +177,91 @@
 
     @keyframes floatUp {
       0% { transform: translateY(0) scale(1); opacity: 1; }
-      50% { transform: translateY(-70px) scale(1.3); opacity: 1; }
-      100% { transform: translateY(-150px) scale(1.5); opacity: 0; }
+      50% { transform: translateY(-50px) scale(1.2); opacity: 1; }
+      100% { transform: translateY(-100px) scale(1.4); opacity: 0; }
     }
 
-    /* --- KONTROL BAWAH (Simulasi) --- */
-    .controls {
-      height: 10vh;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      gap: 15px;
+    /* --- KONTROL BAWAH (Grid Responsive) --- */
+    footer.controls {
+      padding: 15px;
       background-color: #0a0a0c;
       border-top: 1px solid #222;
+      display: flex;
+      justify-content: center;
+    }
+
+    .control-grid {
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 10px;
+      width: 100%;
+      max-width: 900px;
     }
 
     button {
-      padding: 12px 24px;
+      padding: clamp(10px, 2vw, 15px) 5px;
       border-radius: 10px;
       border: none;
       cursor: pointer;
       font-weight: bold;
-      font-size: 1rem;
+      font-size: clamp(0.75rem, 1.5vw, 1rem);
       transition: transform 0.1s, filter 0.2s;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 5px;
     }
+    
     button:active { transform: scale(0.95); }
     
-    .btn-apple { background: linear-gradient(45deg, #444, #111); color: white; border: 1px solid #666; }
-    .btn-android { background: linear-gradient(45deg, #2ecc71, #27ae60); color: white; }
-    .btn-whale { background: linear-gradient(45deg, #9b59b6, #8e44ad); color: white; border: 1px solid #d2b4de;}
+    .btn-apple { background: linear-gradient(135deg, #444, #111); color: white; border: 1px solid #666; }
+    .btn-android { background: linear-gradient(135deg, #2ecc71, #27ae60); color: white; border: 1px solid #2ecc71; }
+    .btn-whale { background: linear-gradient(135deg, #9b59b6, #8e44ad); color: white; border: 1px solid #d2b4de;}
+
+    /* --- RESPONSIVE MEDIA QUERIES (Untuk Layar HP) --- */
+    @media (max-width: 768px) {
+      .dashboard-header {
+        border-radius: 12px;
+      }
+      .control-grid {
+        /* Ubah menjadi 2 baris di layar kecil agar tombol tidak gepeng */
+        grid-template-columns: 1fr 1fr; 
+      }
+      .faction {
+        /* Pertahankan split kiri-kanan, tapi ubah urutan konten vertikal jika sempit */
+        justify-content: flex-end;
+        padding-bottom: 15vh; /* Beri ruang agar tidak nabrak bawah */
+      }
+      .total-coins {
+        display: block; /* Turun ke baris baru */
+        margin-top: 10px;
+      }
+    }
+    
+    @media (max-width: 400px) {
+      .control-grid {
+        /* Di HP yang sangat sempit, buat memanjang ke bawah */
+        grid-template-columns: 1fr; 
+      }
+      footer.controls {
+        max-height: 30vh;
+        overflow-y: auto;
+      }
+    }
   </style>
 </head>
 <body>
 
-  <div class="dashboard-header">
-    <h1>⚔️ Perang OS: Apple vs Android ⚔️</h1>
-    <div class="status" id="war-status">STATUS: PERTEMPURAN DIMULAI!</div>
-    <div class="rules">Kubu Apple: Kirim Mawar 🌹 | Kubu Android: Kirim Kopi ☕ | Paus 🐳 Menentukan Kemenangan!</div>
-  </div>
+  <header>
+    <div class="dashboard-header">
+      <h1>⚔️ Perang OS: Apple vs Android ⚔️</h1>
+      <div class="status" id="war-status">STATUS: PERTEMPURAN DIMULAI!</div>
+      <div class="rules">Kubu Apple: Kirim Mawar 🌹 | Kubu Android: Kirim Kopi ☕ | Paus 🐳 Menentukan Kemenangan!</div>
+    </div>
+  </header>
 
-  <div class="war-container">
+  <main class="war-container">
     <div class="faction apple" id="panel-apple">
       <div class="content">
         <h2>TIM APPLE 🍎</h2>
@@ -215,19 +281,30 @@
         <div class="total-coins">Koin: <span id="total-android">0</span></div>
       </div>
     </div>
-  </div>
+  </main>
 
-  <div class="controls">
-    <button class="btn-apple" onclick="addScore('apple', 10, '🌹')">+ Apple (Mawar 10)</button>
-    <button class="btn-android" onclick="addScore('android', 10, '☕')">+ Android (Kopi 10)</button>
-    <button class="btn-whale" onclick="addScore('apple', 500, '🐳')">+ Paus Apple (500)</button>
-    <button class="btn-whale" onclick="addScore('android', 500, '🐳')">+ Paus Android (500)</button>
-  </div>
+  <footer class="controls">
+    <div class="control-grid">
+      <button class="btn-apple" onclick="addScore('apple', 10, '🌹')">
+        <span>+ Apple</span>
+        <span>(Mawar 10)</span>
+      </button>
+      <button class="btn-android" onclick="addScore('android', 10, '☕')">
+        <span>+ Android</span>
+        <span>(Kopi 10)</span>
+      </button>
+      <button class="btn-whale" onclick="addScore('apple', 500, '🐳')">
+        <span>+ Paus Apple</span>
+        <span>(500 Koin)</span>
+      </button>
+      <button class="btn-whale" onclick="addScore('android', 500, '🐳')">
+        <span>+ Paus Android</span>
+        <span>(500 Koin)</span>
+      </button>
+    </div>
+  </footer>
 
   <script>
-    // 1. Inisialisasi State
-    // Base weight digunakan agar persentase tidak langsung loncat ke 100% saat donasi pertama masuk.
-    // Semakin besar baseWeight, semakin susah garis tengah bergeser (perlu lebih banyak koin).
     const baseWeight = 2000; 
     let appleCoins = 0;
     let androidCoins = 0;
@@ -241,9 +318,7 @@
     const statusText = document.getElementById('war-status');
     const divider = document.querySelector('.divider');
 
-    // 2. Fungsi Utama: Menambah Skor dan Kalkulasi
     window.addScore = function(faction, amount, emoji) {
-        // Tambah koin dan panggil animasi
         if (faction === 'apple') {
             appleCoins += amount;
             createFloatingText(panelApple, `+${amount} ${emoji}`);
@@ -252,7 +327,6 @@
             createFloatingText(panelAndroid, `+${amount} ${emoji}`);
         }
 
-        // Kalkulasi Persentase Dinamis
         let totalAppleWeight = baseWeight + appleCoins;
         let totalAndroidWeight = baseWeight + androidCoins;
         let totalWeight = totalAppleWeight + totalAndroidWeight;
@@ -260,8 +334,7 @@
         let applePercent = (totalAppleWeight / totalWeight) * 100;
         let androidPercent = 100 - applePercent;
 
-        // Clamp / Batas Maksimal (Agar yang kalah tidak hilang dari layar)
-        // Kita batasi layar terkecil adalah 15%
+        // Batas minimal layar (Clamp) disesuaikan agar di Mobile tetap terlihat
         if (applePercent < 15) {
             applePercent = 15;
             androidPercent = 85;
@@ -270,7 +343,6 @@
             applePercent = 85;
         }
 
-        // 3. Update UI Visual
         panelApple.style.flexBasis = `${applePercent}%`;
         panelAndroid.style.flexBasis = `${androidPercent}%`;
         divider.style.left = `${applePercent}%`;
@@ -284,27 +356,25 @@
         updateWarStatus();
     }
 
-    // 4. Update Status Teks Dashboard
     function updateWarStatus() {
         if (appleCoins > androidCoins) {
             statusText.innerText = "STATUS: 🍎 APPLE MENDOMINASI!";
-            statusText.style.color = "#ff6b6b"; // Merah muda
+            statusText.style.color = "#ff6b6b"; 
         } else if (androidCoins > appleCoins) {
             statusText.innerText = "STATUS: 🤖 ANDROID MENGAMBIL ALIH!";
-            statusText.style.color = "#2ecc71"; // Hijau terang
+            statusText.style.color = "#2ecc71"; 
         } else {
             statusText.innerText = "STATUS: ⚔️ PERTEMPURAN SEIMBANG";
             statusText.style.color = "#ffffff";
         }
     }
 
-    // 5. Animasi Floating Teks (Umpan Balik Visual)
     function createFloatingText(panel, text) {
         const floatEl = document.createElement('div');
         floatEl.classList.add('floating-text');
         floatEl.innerText = text;
 
-        // Posisi spawn acak di tengah panel
+        // Penyesuaian area spawn animasi
         const randomX = Math.floor(Math.random() * 40) + 30; 
         const randomY = Math.floor(Math.random() * 20) + 50; 
         
