@@ -1,80 +1,218 @@
 <!DOCTYPE html>
 <html lang="id">
 <head>
-    <meta charset="UTF-8">
-    <title>OBS Web3 Live Overlay</title>
-    <script src="/socket.io/socket.io.js"></script>
-    <style>
-        /* CSS SAMA SEPERTI SEBELUMNYA, SESUAIKAN DENGAN ASETMU */
-        body { margin: 0; overflow: hidden; font-family: 'Courier New', monospace; }
-        #overlay-container { position: absolute; bottom: 50px; left: 50px; width: 450px; }
-        
-        .gift-alert {
-            padding: 15px; margin-top: 10px; border-radius: 10px; color: white;
-            font-weight: bold; opacity: 0; transform: translateY(50px);
-            animation: slideUpFade 0.5s forwards; display: flex; align-items: center; gap: 15px;
-        }
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Farming Pro: OS War</title>
+  <link rel="stylesheet" href="/style.css" />
+<style>
+    * {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
 
-        .profil-img { width: 50px; height: 50px; border-radius: 50%; border: 2px solid white; }
-        
-        .tier-common { background: rgba(0, 0, 0, 0.7); border: 1px solid #fff; }
-        .tier-legend { background: linear-gradient(45deg, #1e3c72, #2a5298); border: 2px solid #00ffff; box-shadow: 0 0 15px #00ffff; }
-        .tier-mythic { background: linear-gradient(45deg, #b8860b, #ffd700); border: 2px solid #ff8c00; box-shadow: 0 0 30px #ffd700; color: #000; }
+body {
+  background-color: #0f0f13; /* Warna gelap premium ala iOS */
+  color: white;
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  overflow: hidden;
+}
 
-        @keyframes slideUpFade { to { opacity: 1; transform: translateY(0); } }
-        .fade-out { animation: fadeOutDown 0.5s forwards !important; }
-        @keyframes fadeOutDown { to { opacity: 0; transform: translateY(50px); } }
-    </style>
+/* --- LAYOUT UTAMA --- */
+.war-container {
+  display: flex;
+  width: 100vw;
+  height: 90vh; /* Sisakan ruang untuk tombol kontrol */
+  position: relative;
+}
+
+/* --- STYLING KUBU (PANEL) --- */
+.faction {
+  /* KUNCI SMOOTHNESS: Transisi flex-basis saat persentase berubah */
+  transition: flex-basis 0.8s cubic-bezier(0.25, 1, 0.5, 1); 
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.apple {
+  flex-basis: 50%;
+  /* Gradien gelap dengan sedikit cahaya biru keputihan */
+  background: radial-gradient(circle at center, #1c1c22 0%, #000000 100%);
+  border-right: 1px solid rgba(255,255,255,0.1);
+}
+
+.android {
+  flex-basis: 50%;
+  /* Gradien gelap dengan sedikit cahaya hijau */
+  background: radial-gradient(circle at center, #15261b 0%, #000000 100%);
+}
+
+/* --- KONTEN DALAM PANEL --- */
+.content {
+  text-align: center;
+  z-index: 10;
+}
+
+.faction h2 {
+  font-size: 2rem;
+  letter-spacing: 2px;
+  opacity: 0.8;
+  margin-bottom: 10px;
+}
+
+.score {
+  font-size: 5rem;
+  font-weight: 800;
+  text-shadow: 0 4px 20px rgba(0,0,0,0.5);
+}
+
+/* --- PEMISAH TENGAH (VS BADGE) --- */
+.divider {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 20;
+  /* KUNCI SOFTNESS: Mengikuti garis pemisah yang bergeser */
+  transition: left 0.8s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.vs-badge {
+  background: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px); /* Efek Kaca (Glassmorphism) */
+  border: 1px solid rgba(255,255,255,0.2);
+  padding: 15px 25px;
+  border-radius: 30px;
+  font-size: 1.5rem;
+  font-weight: bold;
+  box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+}
+
+/* --- ANIMASI FLOATING TEXT (Umpan Balik Visual) --- */
+.floating-text {
+  position: absolute;
+  font-size: 2rem;
+  font-weight: bold;
+  color: #fff;
+  text-shadow: 0 0 10px rgba(255,255,255,0.8);
+  pointer-events: none;
+  animation: floatUp 1s cubic-bezier(0.25, 1, 0.5, 1) forwards;
+}
+
+@keyframes floatUp {
+  0% { transform: translateY(0) scale(1); opacity: 1; }
+  100% { transform: translateY(-100px) scale(1.5); opacity: 0; }
+}
+
+/* --- KONTROL BAWAH (Hanya untuk test) --- */
+.controls {
+  height: 10vh;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 20px;
+  background-color: #000;
+}
+
+button {
+  padding: 10px 20px;
+  border-radius: 8px;
+  border: none;
+  cursor: pointer;
+  background: #333;
+  color: white;
+}
+</style>
 </head>
 <body>
+  <div class="war-container">
+    
+    <div class="faction apple" id="panel-apple">
+      <div class="content">
+        <h2>TIM APPLE 🍎</h2>
+        <div class="score" id="score-apple">50%</div>
+      </div>
+    </div>
 
-    <div id="overlay-container"></div>
+    <div class="divider">
+      <div class="vs-badge">VS</div>
+    </div>
 
-    <script>
-        // Inisialisasi koneksi WebSockets ke Backend
-        const socket = io();
-        const overlayContainer = document.getElementById('overlay-container');
+    <div class="faction android" id="panel-android">
+      <div class="content">
+        <h2>TIM ANDROID 🤖</h2>
+        <div class="score" id="score-android">50%</div>
+      </div>
+    </div>
 
-        // Dengarkan event 'giftMasukRealtime' dari server Node.js
-        socket.on('giftMasukRealtime', (giftData) => {
-            
-            const alertBox = document.createElement('div');
-            let iconAtauEfek = "";
-            let keteranganTier = "";
+  </div>
 
-            // Logika Tiering Profesional berbasis coinValue asli dari TikTok
-            if (giftData.coinValue >= 1000) {
-                alertBox.className = 'gift-alert tier-mythic';
-                iconAtauEfek = "🐋 ₿";
-                keteranganTier = "SULTAN PAUS!";
-            } else if (giftData.coinValue >= 100) {
-                alertBox.className = 'gift-alert tier-legend';
-                iconAtauEfek = "🦈 ♦";
-                keteranganTier = "LEGEND HIU!";
-            } else {
-                alertBox.className = 'gift-alert tier-common';
-                iconAtauEfek = "🎁";
-                keteranganTier = `Kirim ${giftData.giftName}`;
-            }
+  <div class="controls">
+    <button onclick="addScore('apple')">Simulasi: +Apple</button>
+    <button onclick="addScore('android')">Simulasi: +Android</button>
+  </div>
 
-            // Tampilkan foto profil asli dari audiens (diambil dari URL TikTok)
-            alertBox.innerHTML = `
-                <img src="${giftData.profilePic}" class="profil-img">
-                <div>
-                    <strong>${giftData.username}</strong><br>
-                    ${keteranganTier} (${giftData.coinValue} Koin)
-                </div>
-                <span style="font-size: 2em; margin-left: auto;">${iconAtauEfek}</span>
-            `;
+  <script>
+      // State awal: seimbang 50-50
+let appleScore = 50;
+let androidScore = 50;
 
-            overlayContainer.appendChild(alertBox);
+const panelApple = document.getElementById('panel-apple');
+const panelAndroid = document.getElementById('panel-android');
+const textApple = document.getElementById('score-apple');
+const textAndroid = document.getElementById('score-android');
+const divider = document.querySelector('.divider');
 
-            // Bersihkan dari layar setelah 5 detik
-            setTimeout(() => {
-                alertBox.classList.add('fade-out');
-                setTimeout(() => alertBox.remove(), 500);
-            }, 5000);
-        });
-    </script>
+// Karena kita menggunakan Vite, jadikan fungsi ini global agar bisa diakses button HTML
+window.addScore = function(faction) {
+    // 1. Update Logika Persentase
+    if (faction === 'apple' && appleScore < 95) {
+        appleScore += 2;
+        androidScore -= 2;
+        createFloatingText(panelApple, '+🍎');
+    } else if (faction === 'android' && androidScore < 95) {
+        androidScore += 2;
+        appleScore -= 2;
+        createFloatingText(panelAndroid, '+🤖');
+    }
+
+    // 2. Update Tampilan Layar (Smooth Transition dari CSS akan bekerja di sini)
+    panelApple.style.flexBasis = `${appleScore}%`;
+    panelAndroid.style.flexBasis = `${androidScore}%`;
+    
+    // 3. Update Teks Persentase
+    textApple.innerText = `${appleScore}%`;
+    textAndroid.innerText = `${androidScore}%`;
+    
+    // 4. Geser Badge VS di tengah agar mengikuti batas
+    divider.style.left = `${appleScore}%`;
+}
+
+// Fungsi Premium: Efek tulisan melayang saat dapat gift
+function createFloatingText(panel, text) {
+    const floatEl = document.createElement('div');
+    floatEl.classList.add('floating-text');
+    floatEl.innerText = text;
+
+    // Posisi acak di sekitar tengah panel
+    const randomX = Math.floor(Math.random() * 40) + 30; // 30% - 70% width
+    const randomY = Math.floor(Math.random() * 20) + 40; // 40% - 60% height
+    
+    floatEl.style.left = `${randomX}%`;
+    floatEl.style.top = `${randomY}%`;
+
+    panel.appendChild(floatEl);
+
+    // Hapus elemen dari DOM setelah animasi selesai agar memori tidak bocor (Standar Industri)
+    setTimeout(() => {
+        floatEl.remove();
+    }, 1000);
+}
+  </script>
 </body>
 </html>
