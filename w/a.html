@@ -257,17 +257,17 @@
     };
 
     const GIFT_DICTIONARY = {
-        "Rose": { faction: "apple", value: 1, emoji: "🌹" },
-        "Mawar": { faction: "apple", value: 1, emoji: "🌹" },
-        "DJ Glasses": { faction: "apple", value: 199, emoji: "🕶️" },
-        "Kacamata DJ": { faction: "apple", value: 199, emoji: "🕶️" },
+    "Rose": { faction: "apple", value: 1, icon: "rose.png" },
+    "Mawar": { faction: "apple", value: 1, icon: "rose.png" },
+    "DJ Glasses": { faction: "apple", value: 500, icon: "glass.png" },
+    "Kacamata DJ": { faction: "apple", value: 500, icon: "glass.png" },
 
-        "Ice Cream Cone": { faction: "android", value: 1, emoji: "🍦" },
-        "Kerucut Es Krim": { faction: "android", value: 1, emoji: "🍦" },
-        "Dragon Crown": { faction: "android", value: 299, emoji: "👑" },
-        "Mahkota Naga": { faction: "android", value: 299, emoji: "👑" }
+    "Ice Cream Cone": { faction: "android", value: 1, icon: "es.png" },
+    "Kerucut Es Krim": { faction: "android", value: 1, icon: "es.png" },
+    "Dragon Crown": { faction: "android", value: 500, icon: "naga.png" },
+    "Mahkota Naga": { faction: "android", value: 500, icon: "naga.png" }
     };
-
+    
     let appleCoins = 0;
     let androidCoins = 0;
 
@@ -287,47 +287,56 @@
     /* =========================================
        FUNGSI RIWAYAT AUDIENS (HISTORY FEED)
        ========================================= */
-    function addHistoryItem(faction, username, avatarUrl, emoji, giftName, count) {
-        const list = faction === 'apple' ? DOM.historyApple : DOM.historyAndroid;
-        const item = document.createElement('div');
-        
-        // Atur style border dan glow berdasarkan tim
-        item.className = `history-item ${faction}-style`;
-        
-        item.innerHTML = `
-            <img src="${avatarUrl}" class="hist-avatar" alt="ava">
-            <div class="hist-info">
-                <div class="hist-name">@${username}</div>
-                <div class="hist-gift-count">Mengirim ${count}x ${giftName}</div>
-            </div>
-            <div class="hist-badge">${emoji}</div>
-            <div class="hist-bg-icon">${emoji}</div>
-        `;
+        // Parameter 'emoji' diganti namanya menjadi 'iconUrl'
+function addHistoryItem(faction, username, avatarUrl, iconUrl, giftName, count) {
+    const list = faction === 'apple' ? DOM.historyApple : DOM.historyAndroid;
+    const item = document.createElement('div');
+    
+    // Atur style border dan glow berdasarkan tim
+    item.className = `history-item ${faction}-style`;
+    
+    // PERHATIAN: Bagian hist-badge dan hist-bg-icon sekarang dibungkus tag <img>
+    item.innerHTML = `
+        <img src="${avatarUrl}" class="hist-avatar" alt="ava">
+        <div class="hist-info">
+            <div class="hist-name">@${username}</div>
+            <div class="hist-gift-count">Mengirim ${count}x ${giftName}</div>
+        </div>
+        <div class="hist-badge">
+            <img src="${iconUrl}" alt="gift" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+        <div class="hist-bg-icon">
+            <img src="${iconUrl}" alt="gift-bg" style="width: 100%; height: 100%; object-fit: contain;">
+        </div>
+    `;
 
-        // Prepend menaruh data terbaru di urutan paling atas
-        list.prepend(item);
+    // Prepend menaruh data terbaru di urutan paling atas
+    list.prepend(item);
 
-        // Hapus data ke-6 dengan animasi fadeOutUp agar terlihat smooth
-        if (list.children.length > GAME_CONFIG.maxHistoryItems) {
-            const lastItem = list.lastElementChild;
-            lastItem.style.animation = 'fadeOutUp 0.4s ease forwards';
-            setTimeout(() => {
-                if (lastItem.parentNode) lastItem.remove();
-            }, 400); // Tunggu animasi selesai baru dihapus dari DOM
-        }
+    // Hapus data ke-6 dengan animasi fadeOutUp agar terlihat smooth
+    if (list.children.length > GAME_CONFIG.maxHistoryItems) {
+        const lastItem = list.lastElementChild;
+        lastItem.style.animation = 'fadeOutUp 0.4s ease forwards';
+        setTimeout(() => {
+            if (lastItem.parentNode) lastItem.remove();
+        }, 400); // Tunggu animasi selesai baru dihapus dari DOM
     }
+}
 
-    function processGift(faction, amount, emoji, username, avatarUrl, giftName, count) {
-        if (faction === 'apple') {
-            appleCoins += amount;
-            createFloatingText(DOM.panelApple, `+${amount} ${emoji}`, username);
-            addHistoryItem('apple', username, avatarUrl, emoji, giftName, count);
-        } else if (faction === 'android') {
-            androidCoins += amount;
-            createFloatingText(DOM.panelAndroid, `+${amount} ${emoji}`, username);
-            addHistoryItem('android', username, avatarUrl, emoji, giftName, count);
-        }
-
+// Parameter juga disesuaikan di sini
+function processGift(faction, amount, iconUrl, username, avatarUrl, giftName, count) {
+    if (faction === 'apple') {
+        appleCoins += amount;
+        // PENTING: Pastikan fungsi createFloatingText Anda mendukung format <img> (menggunakan innerHTML, bukan innerText)
+        createFloatingText(DOM.panelApple, `+${amount} <img src="${iconUrl}" style="width: 1.2em; vertical-align: middle;">`, username);
+        addHistoryItem('apple', username, avatarUrl, iconUrl, giftName, count);
+    } else if (faction === 'android') {
+        androidCoins += amount;
+        createFloatingText(DOM.panelAndroid, `+${amount} <img src="${iconUrl}" style="width: 1.2em; vertical-align: middle;">`, username);
+        addHistoryItem('android', username, avatarUrl, iconUrl, giftName, count);
+    }
+}
+    
         let totalAppleWeight = GAME_CONFIG.baseWeight + appleCoins;
         let totalAndroidWeight = GAME_CONFIG.baseWeight + androidCoins;
         let totalWeight = totalAppleWeight + totalAndroidWeight;
@@ -357,16 +366,19 @@
     }
 
     function updateWarStatus() {
-        if (appleCoins > androidCoins) {
-            DOM.statusText.innerText = "STATUS: 🍎 APPLE MENDOMINASI!";
-            DOM.statusText.style.color = "#ff6b6b"; 
-        } else if (androidCoins > appleCoins) {
-            DOM.statusText.innerText = "STATUS: 🤖 ANDROID MENGAMBIL ALIH!";
-            DOM.statusText.style.color = "#2ecc71"; 
-        } else {
-            DOM.statusText.innerText = "STATUS: ⚔️ PERTEMPURAN SEIMBANG";
-            DOM.statusText.style.color = "#ffffff";
-        }
+    if (appleCoins > androidCoins) {
+        // PERHATIKAN: innerText diubah menjadi innerHTML
+        DOM.statusText.innerHTML = "STATUS: <img src='apple.png' alt='Apple' style='width: 1.2em; height: 1.2em; vertical-align: middle; margin-right: 0.2em;'> APPLE MENDOMINASI!";
+        DOM.statusText.style.color = "#ff6b6b"; 
+    } else if (androidCoins > appleCoins) {
+        // PERHATIKAN: innerText diubah menjadi innerHTML
+        DOM.statusText.innerHTML = "STATUS: <img src='android.png' alt='Android' style='width: 1.2em; height: 1.2em; vertical-align: middle; margin-right: 0.2em;'> ANDROID MENGAMBIL ALIH!";
+        DOM.statusText.style.color = "#2ecc71"; 
+    } else {
+        // PERHATIKAN: innerText diubah menjadi innerHTML
+        DOM.statusText.innerHTML = "STATUS: <img src='war.png' alt='War' style='width: 1.2em; height: 1.2em; vertical-align: middle; margin-right: 0.2em;'> PERTEMPURAN SEIMBANG";
+        DOM.statusText.style.color = "#ffffff";
+    }
     }
 
     function createFloatingText(panel, text, username) {
@@ -389,16 +401,17 @@
        ========================================= */
     // Parameter diperbarui untuk menerima Foto Profil (avatarUrl)
     window.handleTikTokEvent = function(giftName, giftCount, username, avatarUrl) {
-        const validGift = GIFT_DICTIONARY[giftName];
+    const validGift = GIFT_DICTIONARY[giftName];
+    
+    if (validGift) {
+        const totalValue = validGift.value * giftCount;
+        // Gunakan placeholder foto default jika API belum mengirim URL asli
+        const finalAvatar = avatarUrl || 'https://ui-avatars.com/api/?name=' + username + '&background=random';
         
-        if (validGift) {
-            const totalValue = validGift.value * giftCount;
-            // Gunakan placeholder foto default jika API belum mengirim URL asli
-            const finalAvatar = avatarUrl || 'https://ui-avatars.com/api/?name=' + username + '&background=random';
-            
-            processGift(validGift.faction, totalValue, validGift.emoji, username, finalAvatar, giftName, giftCount);
-        }
-    };
+        // PERUBAHAN: validGift.emoji diganti menjadi validGift.icon
+        processGift(validGift.faction, totalValue, validGift.icon, username, finalAvatar, giftName, giftCount);
+    }
+};
 
     window.setConnected = function(username) {
         const badge = document.getElementById('api-status');
