@@ -1,0 +1,272 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Minimalist PDF Compressor (90-95KB)</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <style>
+    :root {
+      --bg-color: #121212;
+      --surface-color: #1e1e1e;
+      --text-primary: #ffffff;
+      --text-secondary: #aaaaaa;
+      --accent-color: #4CAF50;
+      --border-color: #333333;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background-color: var(--bg-color);
+      color: var(--text-primary);
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    .container {
+      background-color: var(--surface-color);
+      border: 1px solid var(--border-color);
+      border-radius: 12px;
+      padding: 40px;
+      width: 100%;
+      max-width: 500px;
+      text-align: center;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+    }
+
+    h1 { font-size: 1.5rem; margin-bottom: 10px; font-weight: 600; }
+    p { color: var(--text-secondary); font-size: 0.9rem; margin-bottom: 30px; }
+
+    .upload-area {
+      border: 2px dashed var(--border-color);
+      border-radius: 8px;
+      padding: 40px 20px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      margin-bottom: 20px;
+    }
+    .upload-area:hover { border-color: var(--accent-color); background: rgba(76, 175, 80, 0.05); }
+    
+    input[type="file"] { display: none; }
+    
+    .btn {
+      background-color: var(--accent-color);
+      color: white;
+      border: none;
+      padding: 12px 24px;
+      border-radius: 6px;
+      font-size: 1rem;
+      font-weight: 600;
+      cursor: pointer;
+      width: 100%;
+      transition: opacity 0.2s;
+    }
+    .btn:hover { opacity: 0.9; }
+    .btn:disabled { background-color: #555; cursor: not-allowed; }
+
+    #status {
+      margin-top: 20px;
+      font-size: 0.9rem;
+      color: var(--accent-color);
+      min-height: 20px;
+    }
+
+    .info-box {
+      margin-top: 20px;
+      padding: 15px;
+      background: rgba(255,255,255,0.05);
+      border-radius: 6px;
+      font-size: 0.85rem;
+      text-align: left;
+      color: var(--text-secondary);
+    }
+  </style>
+</head>
+<body>
+
+  <div class="container">
+    <h1>PDF Target Compressor</h1>
+    <p>Target Output: 90KB - 95KB</p>
+
+    <div class="upload-area" id="drop-zone" onclick="document.getElementById('pdf-upload').click()">
+      <div id="file-name">Klik atau Drop PDF di sini</div>
+      <input type="file" id="pdf-upload" accept="application/pdf">
+    </div>
+
+    <button id="compress-btn" class="btn" disabled>Mulai Kompresi</button>
+    <div id="status"></div>
+
+    <div class="info-box">
+      <strong>Catatan:</strong><br>
+      Sistem akan mengubah PDF menjadi gambar dan menyesuaikan resolusinya secara otomatis. PDF dengan halaman terlalu banyak mungkin tidak dapat ditekan hingga 95KB.
+    </div>
+  </div>
+
+  <script>
+    // Konfigurasi PDF.js Worker
+    pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
+
+    const uploadInput = document.getElementById('pdf-upload');
+    const dropZone = document.getElementById('drop-zone');
+    const fileNameDisplay = document.getElementById('file-name');
+    const compressBtn = document.getElementById('compress-btn');
+    const statusDisplay = document.getElementById('status');
+
+    const MIN_SIZE = 90 * 1024; // 90 KB dalam Bytes
+    const MAX_SIZE = 95 * 1024; // 95 KB dalam Bytes
+
+    let currentFile = null;
+
+    // Handle File Selection
+    uploadInput.addEventListener('change', (e) => {
+      if (e.target.files.length > 0) {
+        currentFile = e.target.files[0];
+        fileNameDisplay.innerText = `${currentFile.name} (${(currentFile.size / 1024).toFixed(2)} KB)`;
+        compressBtn.disabled = false;
+        statusDisplay.innerText = '';
+      }
+    });
+
+    compressBtn.addEventListener('click', async () => {
+      if (!currentFile) return;
+      compressBtn.disabled = true;
+      statusDisplay.innerText = 'Membaca PDF...';
+
+      try {
+        const arrayBuffer = await currentFile.arrayBuffer();
+        const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
+        const numPages = pdf.numPages;
+        
+        // Render semua halaman ke Canvas
+        const pagesData = [];
+        statusDisplay.innerText = 'Merasterisasi halaman...';
+        
+        for (let i = 1; i <= numPages; i++) {
+          const page = await pdf.getPage(i);
+          const viewport = page.getViewport({ scale: 1.5 }); // Scale awal
+          const canvas = document.createElement('canvas');
+          const ctx = canvas.getContext('2d');
+          canvas.height = viewport.height;
+          canvas.width = viewport.width;
+
+          await page.render({ canvasContext: ctx, viewport: viewport }).promise;
+          pagesData.push({ canvas, width: viewport.width, height: viewport.height });
+        }
+
+        statusDisplay.innerText = 'Mencari rasio kompresi optimal...';
+        
+        // Logika Binary Search untuk mencari kualitas gambar yang tepat
+        let lowQuality = 0.1;
+        let highQuality = 1.0;
+        let finalBlob = null;
+        let bestQuality = 0.5;
+
+        // Mencoba maksimal 8 iterasi untuk menemukan ukuran yang pas
+        for (let attempt = 0; attempt < 8; attempt++) {
+          bestQuality = (lowQuality + highQuality) / 2;
+          const testBlob = await generatePDFBlob(pagesData, bestQuality);
+          
+          if (testBlob.size >= MIN_SIZE && testBlob.size <= MAX_SIZE) {
+            finalBlob = testBlob;
+            break; // Ukuran sudah pas!
+          } else if (testBlob.size > MAX_SIZE) {
+            highQuality = bestQuality; // Terlalu besar, turunkan kualitas
+          } else {
+            lowQuality = bestQuality; // Terlalu kecil, naikkan kualitas
+            finalBlob = testBlob; // Simpan sebagai cadangan jika tidak bisa lebih besar lagi
+          }
+        }
+
+        // Jika setelah diloop ukuran masih TERLALU KECIL (< 90KB), kita lakukan Padding (suntik byte kosong)
+        if (finalBlob.size < MIN_SIZE) {
+            statusDisplay.innerText = 'Ukuran terlalu kecil. Melakukan Padding (Suntik Data)...';
+            finalBlob = await padPDF(finalBlob, MIN_SIZE);
+        }
+
+        // Final Check
+        if (finalBlob.size > MAX_SIZE) {
+           statusDisplay.innerText = `Gagal! Dokumen terlalu kompleks. Terkecil didapat: ${(finalBlob.size / 1024).toFixed(2)} KB.`;
+        } else {
+           statusDisplay.innerText = `Berhasil! Ukuran: ${(finalBlob.size / 1024).toFixed(2)} KB`;
+           downloadBlob(finalBlob, `Target_90-95KB_${currentFile.name}`);
+        }
+
+      } catch (error) {
+        console.error(error);
+        statusDisplay.innerText = 'Terjadi kesalahan saat memproses PDF.';
+      } finally {
+        compressBtn.disabled = false;
+      }
+    });
+
+    // Fungsi membuat PDF baru menggunakan jsPDF
+    async function generatePDFBlob(pagesData, quality) {
+      const { jsPDF } = window.jspdf;
+      // Gunakan orientasi portrait, ukuran pt (points)
+      const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
+      
+      for (let i = 0; i < pagesData.length; i++) {
+        if (i > 0) pdf.addPage();
+        const data = pagesData[i];
+        
+        // Konversi canvas ke JPEG dengan kualitas spesifik
+        const imgData = data.canvas.toDataURL('image/jpeg', quality);
+        
+        // Ambil ukuran halaman A4 di jsPDF
+        const pdfWidth = pdf.internal.pageSize.getWidth();
+        const pdfHeight = pdf.internal.pageSize.getHeight();
+        
+        pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
+      }
+      return pdf.output('blob');
+    }
+
+    // Fungsi Padding: Menambahkan karakter tak terlihat untuk menggelembungkan size
+    async function padPDF(blob, targetSize) {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF();
+        // Membaca file lama yang terlalu kecil (kita bypass dengan membuat dokumen kosong + gambar sebelumnya jika mau sempurna, 
+        // tapi demi efisiensi browser, trik metadata lebih aman).
+        
+        const arrayBuffer = await blob.arrayBuffer();
+        let uint8Array = new Uint8Array(arrayBuffer);
+        
+        // Selisih byte yang dibutuhkan
+        const paddingNeeded = targetSize - uint8Array.length + 500; // +500 byte ekstra agar aman lewat 90KB
+        
+        if (paddingNeeded > 0) {
+            // Membuat dummy text (spasi) seukuran paddingNeeded
+            const dummyString = " ".repeat(paddingNeeded);
+            const encoder = new TextEncoder();
+            const paddingBytes = encoder.encode(`\n% PADDING DUMMY DATA UNTUK MENCAPAI TARGET SIZE\n% ${dummyString}\n`);
+            
+            // Menggabungkan byte PDF asli dengan byte padding
+            const paddedArray = new Uint8Array(uint8Array.length + paddingBytes.length);
+            paddedArray.set(uint8Array);
+            paddedArray.set(paddingBytes, uint8Array.length);
+            
+            return new Blob([paddedArray], { type: 'application/pdf' });
+        }
+        return blob;
+    }
+
+    // Fungsi Download
+    function downloadBlob(blob, filename) {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = filename;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }
+  </script>
+</body>
+</html>
