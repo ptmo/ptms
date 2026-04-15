@@ -91,7 +91,7 @@
 <body>
 
   <div class="container">
-    <h1>PDF Target Compressor</h1>
+    <h1>PDF Compressor</h1>
     <p>Target Output: 90KB - 95KB</p>
 
     <div class="upload-area" id="drop-zone" onclick="document.getElementById('pdf-upload').click()">
@@ -104,7 +104,7 @@
 
     <div class="info-box">
       <strong>Catatan:</strong><br>
-      Sistem akan mengubah PDF menjadi gambar dan menyesuaikan resolusinya secara otomatis. PDF dengan halaman terlalu banyak mungkin tidak dapat ditekan hingga 95KB.
+      Sistem kini dilengkapi dengan <em>Dynamic Downscaling</em>. Jika PDF berisi banyak gambar, resolusinya akan otomatis diperkecil agar bisa tembus batas maksimal 95KB.
     </div>
   </div>
 
@@ -118,8 +118,8 @@
     const compressBtn = document.getElementById('compress-btn');
     const statusDisplay = document.getElementById('status');
 
-    const MIN_SIZE = 90 * 1024; // 90 KB dalam Bytes
-    const MAX_SIZE = 95 * 1024; // 95 KB dalam Bytes
+    const MIN_SIZE = 90 * 1024; // 90 KB
+    const MAX_SIZE = 95 * 1024; // 95 KB
 
     let currentFile = null;
 
@@ -143,13 +143,13 @@
         const pdf = await pdfjsLib.getDocument(arrayBuffer).promise;
         const numPages = pdf.numPages;
         
-        // Render semua halaman ke Canvas
         const pagesData = [];
-        statusDisplay.innerText = 'Merasterisasi halaman...';
+        statusDisplay.innerText = 'Merasterisasi halaman awal...';
         
+        // PERBAIKAN: Gunakan scale 1.0 agar tidak memakan RAM berlebihan di awal
         for (let i = 1; i <= numPages; i++) {
           const page = await pdf.getPage(i);
-          const viewport = page.getViewport({ scale: 1.5 }); // Scale awal
+          const viewport = page.getViewport({ scale: 1.0 }); 
           const canvas = document.createElement('canvas');
           const ctx = canvas.getContext('2d');
           canvas.height = viewport.height;
@@ -159,41 +159,41 @@
           pagesData.push({ canvas, width: viewport.width, height: viewport.height });
         }
 
-        statusDisplay.innerText = 'Mencari rasio kompresi optimal...';
+        statusDisplay.innerText = 'Mencari rasio kompresi & skala optimal...';
         
-        // Logika Binary Search untuk mencari kualitas gambar yang tepat
-        let lowQuality = 0.1;
-        let highQuality = 1.0;
+        // PERBAIKAN: Gunakan 'Faktor Kompresi' (0.01 - 1.0)
+        // Faktor ini akan mengontrol baik KUALITAS maupun SKALA DIMENSI secara bersamaan.
+        let lowFactor = 0.01;
+        let highFactor = 1.0;
         let finalBlob = null;
-        let bestQuality = 0.5;
+        let bestFactor = 0.5;
 
-        // Mencoba maksimal 8 iterasi untuk menemukan ukuran yang pas
         for (let attempt = 0; attempt < 8; attempt++) {
-          bestQuality = (lowQuality + highQuality) / 2;
-          const testBlob = await generatePDFBlob(pagesData, bestQuality);
+          bestFactor = (lowFactor + highFactor) / 2;
+          const testBlob = await generatePDFBlob(pagesData, bestFactor);
           
           if (testBlob.size >= MIN_SIZE && testBlob.size <= MAX_SIZE) {
             finalBlob = testBlob;
-            break; // Ukuran sudah pas!
+            break; // Ukuran pas!
           } else if (testBlob.size > MAX_SIZE) {
-            highQuality = bestQuality; // Terlalu besar, turunkan kualitas
+            highFactor = bestFactor; // Terlalu besar, tekan faktor kompresi
           } else {
-            lowQuality = bestQuality; // Terlalu kecil, naikkan kualitas
-            finalBlob = testBlob; // Simpan sebagai cadangan jika tidak bisa lebih besar lagi
+            lowFactor = bestFactor; // Terlalu kecil, naikkan faktor kompresi
+            finalBlob = testBlob; 
           }
         }
 
-        // Jika setelah diloop ukuran masih TERLALU KECIL (< 90KB), kita lakukan Padding (suntik byte kosong)
+        // Padding jika masih < 90KB
         if (finalBlob.size < MIN_SIZE) {
-            statusDisplay.innerText = 'Ukuran terlalu kecil. Melakukan Padding (Suntik Data)...';
+            statusDisplay.innerText = 'Menyesuaikan batas minimal (Suntik Data)...';
             finalBlob = await padPDF(finalBlob, MIN_SIZE);
         }
 
         // Final Check
         if (finalBlob.size > MAX_SIZE) {
-           statusDisplay.innerText = `Gagal! Dokumen terlalu kompleks. Terkecil didapat: ${(finalBlob.size / 1024).toFixed(2)} KB.`;
+           statusDisplay.innerText = `Gagal! Terlalu banyak halaman. Terkecil didapat: ${(finalBlob.size / 1024).toFixed(2)} KB.`;
         } else {
-           statusDisplay.innerText = `Berhasil! Ukuran: ${(finalBlob.size / 1024).toFixed(2)} KB`;
+           statusDisplay.innerText = `Berhasil! Ukuran akhir: ${(finalBlob.size / 1024).toFixed(2)} KB`;
            downloadBlob(finalBlob, `Target_90-95KB_${currentFile.name}`);
         }
 
@@ -205,48 +205,56 @@
       }
     });
 
-    // Fungsi membuat PDF baru menggunakan jsPDF
-    async function generatePDFBlob(pagesData, quality) {
+    // PERBAIKAN FUNGSI: Menerima "factor" untuk mengatur Kualitas & Skala Dimensi
+    async function generatePDFBlob(pagesData, factor) {
       const { jsPDF } = window.jspdf;
-      // Gunakan orientasi portrait, ukuran pt (points)
       const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
-      
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = pdf.internal.pageSize.getHeight();
+
+      // Logika dinamis:
+      // Kualitas minimal 0.1 (agar gambar masih terlihat)
+      let quality = Math.max(0.1, factor); 
+      // Jika factor di bawah 0.5, berarti PDF membandel. Kita mulai paksa turunkan resolusi dimensi kanvasnya!
+      let scaleMod = factor < 0.5 ? Math.max(0.2, factor * 2) : 1.0; 
+
       for (let i = 0; i < pagesData.length; i++) {
         if (i > 0) pdf.addPage();
         const data = pagesData[i];
         
-        // Konversi canvas ke JPEG dengan kualitas spesifik
-        const imgData = data.canvas.toDataURL('image/jpeg', quality);
+        let targetCanvas = data.canvas;
+
+        // Jika harus diturunkan resolusinya, buat kanvas sementara yang lebih kecil
+        if (scaleMod < 1.0) {
+            targetCanvas = document.createElement('canvas');
+            targetCanvas.width = data.canvas.width * scaleMod;
+            targetCanvas.height = data.canvas.height * scaleMod;
+            const ctx = targetCanvas.getContext('2d');
+            // Menggambar gambar besar ke kanvas kecil (Downscaling)
+            ctx.drawImage(data.canvas, 0, 0, targetCanvas.width, targetCanvas.height);
+        }
         
-        // Ambil ukuran halaman A4 di jsPDF
-        const pdfWidth = pdf.internal.pageSize.getWidth();
-        const pdfHeight = pdf.internal.pageSize.getHeight();
+        // Kompresi kualitas JPEG
+        const imgData = targetCanvas.toDataURL('image/jpeg', quality);
         
+        // Masukkan ke PDF dengan ukuran kertas yang sama (A4)
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
       return pdf.output('blob');
     }
 
-    // Fungsi Padding: Menambahkan karakter tak terlihat untuk menggelembungkan size
     async function padPDF(blob, targetSize) {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF();
-        // Membaca file lama yang terlalu kecil (kita bypass dengan membuat dokumen kosong + gambar sebelumnya jika mau sempurna, 
-        // tapi demi efisiensi browser, trik metadata lebih aman).
-        
         const arrayBuffer = await blob.arrayBuffer();
         let uint8Array = new Uint8Array(arrayBuffer);
         
-        // Selisih byte yang dibutuhkan
-        const paddingNeeded = targetSize - uint8Array.length + 500; // +500 byte ekstra agar aman lewat 90KB
+        const paddingNeeded = targetSize - uint8Array.length + 500; 
         
         if (paddingNeeded > 0) {
-            // Membuat dummy text (spasi) seukuran paddingNeeded
             const dummyString = " ".repeat(paddingNeeded);
             const encoder = new TextEncoder();
-            const paddingBytes = encoder.encode(`\n% PADDING DUMMY DATA UNTUK MENCAPAI TARGET SIZE\n% ${dummyString}\n`);
+            // PERBAIKAN PADDING: Menambahkan %%EOF di akhir agar file PDF tidak dianggap korup (Corrupt)
+            const paddingBytes = encoder.encode(`\n% PADDING DUMMY DATA\n% ${dummyString}\n%%EOF\n`);
             
-            // Menggabungkan byte PDF asli dengan byte padding
             const paddedArray = new Uint8Array(uint8Array.length + paddingBytes.length);
             paddedArray.set(uint8Array);
             paddedArray.set(paddingBytes, uint8Array.length);
@@ -256,7 +264,6 @@
         return blob;
     }
 
-    // Fungsi Download
     function downloadBlob(blob, filename) {
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
