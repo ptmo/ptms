@@ -111,7 +111,7 @@
 <body>
 
   <header>
-    <h1>Teka-Teki</h1>
+    <h1>Teka-Teki Silang</h1>
     <div class="level-text" id="level-display">Level 1</div>
   </header>
 
@@ -131,39 +131,87 @@
   </div>
 
   <script>
-    /* =========================================
-       1. DICTIONARY (Kamus Standar Industri)
+/* =========================================
+       0. CRYPTOGRAPHIC ENGINE (Standar Keamanan)
        ========================================= */
-    const WORD_POOLS = [
-        { letters: ['B','A','T','U'], words: ['BATU', 'BUTA', 'BAU', 'TUA'] },
-        { letters: ['I','K','A','N'], words: ['IKAN', 'KIAN', 'NAIK', 'AKI'] },
-        { letters: ['P','A','L','U'], words: ['PALU', 'LUPA', 'PULA', 'UAP'] },
-        { letters: ['P','A','S','U'], words: ['PUAS', 'SAPU', 'PAUS', 'UAP', 'SUP'] },
-        { letters: ['K','I','T','A'], words: ['KITA', 'IKAT', 'AKI', 'TAK'] },
-        { letters: ['B','I','S','A'], words: ['BISA', 'ABIS', 'BIAS', 'BAS'] },
-        { letters: ['M','A','I','N'], words: ['MAIN', 'AMIN', 'IMAN'] },
-        { letters: ['A','M','A','N'], words: ['AMAN', 'MANA', 'NAMA'] },
-        { letters: ['K','A','C','A'], words: ['KACA', 'ACAK', 'CAK'] },
-        { letters: ['R','A','J','A'], words: ['RAJA', 'AJAR', 'JAR'] },
-        { letters: ['H','A','T','I'], words: ['HATI', 'TAHI', 'HAI'] }
-    ];
+    function getCryptoRandom() {
+        const array = new Uint32Array(1);
+        window.crypto.getRandomValues(array);
+        return array[0] / (0xFFFFFFFF + 1);
+    }
+
+    function cryptoShuffle(array) {
+        let currentIndex = array.length, randomIndex;
+        while (currentIndex > 0) {
+            randomIndex = Math.floor(getCryptoRandom() * currentIndex);
+            currentIndex--;
+            [array[currentIndex], array[randomIndex]] = [array[randomIndex], array[currentIndex]];
+        }
+        return array;
+    }
 
     /* =========================================
-       2. CROSSWORD GENERATOR (BUG FIXED!)
+       1. MASTER DICTIONARY (KAMUS INDUK 800+ KATA)
+       Admin HANYA menaruh ribuan kata acak di sini.
+       Mesin yang akan mencari kombinasi silangnya secara mandiri.
+       ========================================= */
+    const RAW_DICTIONARY_STRING = "ABADI,ABAI,ABDI,ABIS,ABU,ACAK,ACARA,ADA,ADAB,ADAM,ADAT,ADIK,ADIL,ADU,ADUK,AGAK,AGAMA,AGAR,AGEN,AHIR,AHLI,AIR,AJAK,AJAL,AJAR,AKAL,AKAR,AKHIR,AKI,AKSES,AKSI,AKU,AKUN,ALAM,ALAS,ALAT,ALIH,ALIM,ALIR,ALIS,ALUR,AMAL,AMAN,AMAT,AMIN,ANAK,ANAM,ANCAK,ANDA,ANEH,ANGIN,ANGKA,ANGSA,ANTAR,ANTI,ANUT,APA,API,APIK,ARAH,ARAK,ARANG,ARUS,ASAL,ASAM,ASAP,ASAR,ASAS,ASIK,ASIN,ASING,ASLI,ASPAL,ASUH,ATAP,ATAS,ATAU,ATLET,ATOM,ATUR,AWAL,AWAM,AWAN,AWAS,AWET,AYAH,AYAM,AYO,AYUN,BABI,BACA,BADAI,BADAN,BAGI,BAGUS,BAH,BAHASA,BAIK,BAJAK,BAJU,BAKA,BAKAL,BAKAR,BAKAT,BAKU,BALI,BALIK,BALOK,BALON,BALUT,BAMBU,BAN,BANAL,BANDAR,BANG,BANGSA,BANGUN,BANK,BANTU,BANYAK,BAPA,BAPAK,BARANG,BARAT,BARENG,BARIS,BARU,BAS,BASA,BASAH,BASI,BATAL,BATAS,BATI,BATIK,BATIN,BATU,BAU,BAWA,BAWAH,BAWANG,BAYAR,BAYI,BEBAS,BECAK,BEDA,BEDAK,BEKAS,BELA,BELAH,BELAS,BELI,BELUM,BENAR,BENDA,BENGIS,BENIH,BERAK,BERANI,BERAS,BERAT,BERI,BERSIH,BESAR,BESI,BESOK,BETA,BETIS,BETUL,BIAK,BIAR,BIAS,BIASA,BIAYA,BIBIR,BIDA,BIDAN,BIJI,BIKIN,BILA,BILANG,BINA,BINAR,BIRO,BISA,BISU,BOCOR,BODOH,BOHONG,BOLA,BOLEH,BOLONG,BONEKA,BOSAN,BOTAK,BOTOL,BUAH,BUAT,BUDAK,BUDAYA,BUDI,BUKA,BUKAN,BUKIT,BUKTI,BUKU,BULAN,BULAT,BULU,BUMBU,BUMI,BUNDAR,BUNGA,BUNYI,BURUK,BURUNG,BUSA,BUSUK,BUTA,BUTIR,BUTUH,CABAI,CABANG,CABUT,CACAD,CACAT,CACING,CADANG,CAHAYA,CAIR,CAKAP,CAKAR,CALON,CAMPUR,CANDI,CANTIK,CAPAI,CAPEK,CARA,CARI,CATAT,CATUR,CAWAN,CEBOL,CEGAH,CEKIK,CELANA,CEMAR,CEMAS,CEPAT,CERAH,CERAI,CERDAS,CERITA,CERMIN,CETAK,CICAK,CINCIN,CINTA,CIUM,COBA,COCOK,COLOK,CONTOH,CORAK,CUACA,CUCI,CUCU,CUKUP,CUMA,CUMAN,CURANG,CURI,CUTI,DADA,DADAK,DAERAH,DAFTAR,DAGANG,DAGING,DAHAN,DAHI,DALAM,DAMAI,DAN,DANA,DANAU,DANDAN,DAPAT,DAPUR,DARAH,DARAT,DARI,DASAR,DATA,DATANG,DATAR,DAUN,DAWAI,DEBAR,DEBU,DEGUP,DEKAT,DEMAM,DENDAM,DENGAN,DENGAR,DEPAN,DERAS,DERITA,DESA,DESAK,DETIK,DEWA,DEWASA,DIAM,DIAN,DIDIK,DIET,DIK,DIKIT,DINAS,DINGIN,DIRI,DOA,DOKTER,DOMBA,DORONG,DOSA,DUA,DUDA,DUDUK,DUGA,DUKA,DUKUNG,DULU,DUNIA,DURI,DUSUN,EJAAN,EKOR,ELANG,ELOK,EMAS,EMPAT,ENAM,ENAK,ENGKAU,ERAT,ESOK,FAHAM,FAJAR,FAKTA,GABUNG,GADIS,GAGAL,GAJAH,GAJI,GALAK,GALI,GAMBAR,GANJIL,GANTI,GARAM,GARIS,GARPU,GATAL,GAUL,GAWANG,GAYA,GEJALA,GELANG,GELAP,GELAR,GELAS,GEMUK,GENAP,GIGI,GILA,GILIR,GODEK,GOLONG,GORENG,GORES,GOSOK,GOYANG,GUA,GUGUR,GULA,GUNA,GUNUNG,GURU,HABIS,HADAP,HADIAH,HADIR,HAKIM,HALAL,HALANG,HALUS,HAMA,HAMBA,HAMIL,HAMPIR,HANCUR,HANGAT,HANTU,HANYA,HANYUT,HAPUS,HARAM,HARAP,HARGA,HARI,HARTA,HARUM,HARUS,HASIL,HATI,HAUS,HEBAT,HELAI,HELM,HENTI,HERAN,HEWAN,HIAS,HIDUNG,HIDUP,HIJAU,HILANG,HINA,HINDAR,HITAM,HITUNG,HUJAN,HUKUM,HURUF,HUTAN,IBLIS,IBU,IDAM,IDEAL,IJIN,IKAN,IKAT,IKUT,ILMU,IMAN,IMBAU,INDAH,INGAT,INGIN,INI,INJAK,INTI,IRAMA,IRI,IRIS,ISAP,ISI,ISTANA,ISTRI,ITU,IZIN,JABAT,JADI,JAGA,JAGUNG,JAHAT,JAHE,JAHIT,JAJAH,JAKET,JALAN,JAMAN,JAMBU,JAMIN,JAMUR,JANDA,JANGAN,JANJI,JANTAN,JARAK,JARI,JARING,JARUM,JATUH,JAUH,JAWAB,JAY,JELAS,JELEK,JEMPUT,JERUK,JIKA,JILAT,JINAK,JIWA,JODOH,JUANG,JUARA,JUDUL,JUGA,JUJUR,JUMAT,JUMLAH,JUMPA,JURUS,JUTA,KABAR,KABEL,KABUR,KACA,KACANG,KADANG,KADER,KAGET,KAIN,KAKAK,KAKEK,KAKI,KAKU,KALAH,KALAU,KALI,KALUNG,KAMAR,KAMI,KAMIS,KAMU,KANAK,KANAN,KANGEN,KANTOR,KAPAL,KAPAN,KAPAS,KAPUR,KARANG,KARENA,KARET,KARTU,KASAR,KASIH,KASUR,KATA,KATAK,KAWAL,KAWAN,KAWIN,KAYA,KAYU,KEBUN,KECIL,KEDUA,KEJAM,KEJUT,KELAM,KELAS,KELUAR,KEMAS,KEMBAR,KENAL,KENAPA,KEPALA,KERA,KERAS,KERING,KERIS,KERJA,KERTAS,KESAH,KETAT,KETIKA,KETUA,KHAS,KHUSUS,KILAT,KINI,KIRA,KIRI,KITA,KOLAM,KOSONG,KOTA,KOTOR,KUAT,KUCING,KUDA,KUE,KUKU,KULIT,KUNCI,KUNING,KURANG,KURSI,KURUS,KUSUT,KUTU,LABA,LACI,LADA,LAGI,LAGU,LAHIR,LAIN,LAKI,LALU,LAMA,LAMBAT,LAMPU,LANCAR,LANGIT,LANJUT,LARI,LATAR,LAUT,LAWAN,LAYAK,LAYANG,LAYAR,LEBAR,LEBAH,LEBIH,LEBUNG,LEKAS,LELAH,LEMAH,LEMAK,LEMBAR,LEMBUT,LENGAN,LEPAS,LIAR,LICIN,LIDAH,LIHAT,LIMA,LINTAS,LIPAT,LOBANG,LOGAM,LOMPAT,LUANG,LUAR,LUAS,LUBANG,LUKA,LULUS,LUMPUR,LUNAK,LUPA,LURUS,LUTUT,MAAF,MABUK,MACAM,MADU,MAHAL,MAIN,MAJU,MAKAN,MAKMUR,MAKSUD,MALAM,MALANG,MALAS,MALU,MAMPU,MANA,MANDI,MANDUL,MANIS,MANJA,MARAH,MASA,MASAK,MASAM,MASIH,MASING,MASUK,MATA,MATI,MAU,MAWAR,MAYA,MAYAT,MEGAH,MEJA,MEKAR,MELATI,MEMANG,MENANG,MENTAH,MERAH,MEREKA,MESIN,MESKI,MILIK,MIMPI,MINGGU,MINTA,MINUM,MINYAK,MIRIP,MISAL,MISKIN,MOBIL,MODAL,MOHON,MOMEN,MONYET,MUDA,MUDAH,MUKA,MULA,MULAI,MULUS,MULUT,MUNCUL,MUNDUR,MURAH,MURID,MUSIM,MUSIT,MUSUH,MUTLAK,MUTU,NABI,NADA,NADI,NAFAS,NAGA,NAIK,NAJIS,NAKAL,NAMA,NANAS,NANTI,NAPAS,NASI,NASIB,NAUNG,NEGARA,NEGERI,NENEK,NERAKA,NIKMAT,NILAI,NOMOR,NORMAL,NYALA,NYAMAN,NYAMUK,NYANYI,NYATA,NYAWA,OBAT,OBOR,ODOL,OGAH,OKNUM,OLAH,OLEH,OMBAK,OMONG,ORANG,OTAK,OTOT,PACAR,PACU,PADAM,PADANG,PADAT,PADI,PAGAR,PAGI,PAHA,PAHAM,PAHIT,PAJAK,PAKAI,PAKAR,PAKSA,PAKU,PALING,PALSU,PALU,PAMER,PANAH,PANAS,PANDAI,PANGKAL,PANTAI,PANTAS,PANTAT,PAPA,PAPAR,PARAH,PARU,PASAL,PASANG,PASAR,PASIR,PASTI,PATAH,PATUH,PATUNG,PAUS,PAYA,PAYUNG,PECAH,PEDANG,PEDAS,PEDULI,PEGANG,PEKA,PELAN,PELUANG,PELUH,PELUK,PEMUDA,PENA,PENDEK,PENING,PENTING,PENUH,PEPAYA,PERAHU,PERAN,PERANG,PERGI,PERI,PERIH,PERLU,PERNAH,PERUT,PESAN,PESTA,PETANI,PETA,PETIK,PETIR,PIHAK,PIJAT,PIKIR,PILAR,PILIH,PILOT,PIMPIN,PINDAH,PINTAR,PINTU,PIPA,PISANG,PISAU,PITA,POHON,POKOK,POLA,POLISI,POLOS,POMPA,POTONG,PRIA,PUAS,PUASA,PUCUK,PUDAR,PUISI,PUJA,PUJI,PUKUL,PULANG,PULAU,PULUH,PUNCAK,PUNDAK,PUNYA,PURA,PUSAT,PUSING,PUTIH,PUTRA,PUTRI,PUTUS,RABU,RACUN,RADA,RADEN,RAGA,RAGU,RAHIM,RAJIN,RAKYAT,RAMAI,RAMBUT,RAMING,RAMU,RASA,RASUL,RATA,RATU,RATUS,RAWAT,RAYA,REBAH,REBUS,REDA,REKAM,REKAN,REKAT,RELA,REMAJA,REMPAH,RENDAH,RENTAN,RESEP,RESMI,RETAK,RIANG,RIBU,RIBUT,RINGAN,RINDU,RINTIH,RITME,ROBEK,RODA,ROKOK,ROTAN,ROTI,RUANG,RUBAH,RUGI,RUH,RUMAH,RUMPUT,RUNTUH,RUPA,RUSAK,RUSUK,SABAR,SABUK,SABUN,SADAR,SAH,SAHAM,SAHUT,SAING,SAJA,SAJAK,SAKIT,SAKSI,SAKU,SALAH,SALAM,SALIN,SALUR,SAMA,SAMAR,SAMBAL,SAMBIL,SAMPAH,SAMPAI,SANA,SANDAR,SANGAT,SANGGUP,SANGKA,SANTIK,SANTUN,SAPA,SAPI,SAPU,SARAN,SARANG,SARAT,SARI,SARING,SASAR,SATU,SAYANG,SAYAP,SAYUR,SEBAB,SEBAR,SEBELUM,SEBUT,SEDANG,SEDAP,SEDIH,SEDIKIT,SEGALA,SEGAR,SEGERA,SEGI,SEHAT,SEJAK,SEJARAH,SEJATI,SEJUK,SEKALI,SEKAT,SEKOLAH,SELALU,SELAMAT,SELANG,SELESAI,SELIMUT,SELIP,SELURUH,SEMEN,SEMPAT,SEMPIT,SEMUA,SEMUT,SENANG,SENDIRI,SENGAN,SENI,SENIN,SENJATA,SENTUH,SENYUM,SEPAK,SEPATU,SEPERTI,SEPI,SEPULUH,SERANG,SERAT,SERATUS,SERBA,SERBU,SERING,SERTA,SERU,SESAK,SESAL,SESUATU,SETAN,SETIA,SETIAP,SEWA,SIANG,SIAP,SIAPA,SIBANG,SIBUK,SIDA,SIDANG,SIFAT,SIGAP,SIHIR,SIKAP,SIKAT,SIKSA,SIKU,SILA,SILAKAN,SILAM,SILANG,SIMAK,SIMPAN,SINAR,SINGA,SINGKAT,SINI,SISA,SISI,SISIR,SISTEM,SITUS,SKALA,SOAL,SOBEK,SOMBONG,SORE,SOSIAL,SUAMI,SUARA,SUASANA,SUATU,SUBAH,SUBUR,SUCI,SUDAH,SUDUT,SUKA,SUKAR,SUKSES,SULIT,SULTAN,SUMBER,SUMPAH,SUNGAI,SUNGGUH,SUNTIK,SUNYI,SUPAYA,SURA,SURAT,SURGA,SUSAH,SUSU,SUSUL,SUSUN,SYARAT,SYUKUR,TAAT,TABEL,TABRAK,TABUNG,TAHAN,TAHAP,TAHU,TAHUN,TAJAM,TAK,TAKAR,TAKDIR,TAKUT,TALI,TAMAN,TAMBAH,TAMBAL,TAMPAK,TAMPAN,TAMPIL,TAMU,TANAH,TANAK,TANAM,TANDA,TANGAN,TANGGA,TANGGAL,TANGIS,TANGKAP,TANJUNG,TANYA,TAPA,TARIF,TARI,TARIK,TARUNG,TATA,TATAP,TAWAR,TEBAL,TEBANG,TEBAR,TEBAS,TEBU,TEGAK,TEGANG,TEGAR,TEGAS,TEGUR,TEKA,TEKAN,TEKNIK,TEKS,TELAH,TELAN,TELAT,TELINGA,TELITI,TELUR,TEMAN,TEMBAK,TEMBOK,TEMPAT,TEMPEL,TEMPO,TEMU,TENANG,TENDA,TENGAH,TENGKUK,TENTANG,TENTARA,TENTU,TEORI,TEPAT,TEPI,TEPUK,TERANG,TERAP,TERBANG,TERBIT,TERIAK,TERIMA,TERJADI,TERJANG,TERJUN,TERKA,TERLALU,TERUS,TETAP,TETAPI,TEWAS,TIADA,TIANG,TIBA,TIDAK,TIDUR,TIGA,TIKAR,TIKUS,TIMBANG,TIMBUL,TIMPA,TIMUR,TINDAK,TINGGAL,TINGGI,TINGKAT,TINJU,TINTA,TIPIS,TIPU,TIRU,TITIK,TITIP,TIUP,TOKOH,TOLAK,TOLEH,TOLONG,TOMBAK,TONG,TONGAT,TONGKAT,TOPENG,TOPI,TOTAL,TRADISI,TUA,TUAN,TUBUH,TUDUH,TUGAS,TUHAN,TUJUAN,TUJUH,TUKANG,TUKAR,TULANG,TULIS,TULUS,TUMBUH,TUMIT,TUMPANG,TUMPUK,TUMPUL,TUNAI,TUNDUK,TUNGGAL,TUNGGU,TUNJUK,TURUN,TUTUP,UANG,UAP,UBAH,UBAN,UCA,UCAP,UDARA,UDIK,UJI,UJIAN,UJUNG,UKUR,ULAR,ULAS,ULAT,UMAT,UMPAN,UMUM,UMUR,UNDANG,UNDUR,UNGGUL,UNGKAP,UNIK,UNTUK,UNTUNG,UPACA,UPAH,UPAYA,URAT,URUS,URUT,USAHA,USIA,USIR,UTAMA,UTARA,UTUH,UTUS,WAJAR,WAJIB,WAKIL,WAKTU,WALAU,WALI,WANGI,WANITA,WARGA,WARIS,WARNA,WARTA,WARUNG,WASIT,WATAK,WAYANG,YAKIN,YANG,YATIM";
+    const MASTER_DICTIONARY = RAW_DICTIONARY_STRING.split(',');
+
+    /* =========================================
+       2. DYNAMIC ANAGRAM ALGORITHM 
+       Mencari kata tersembunyi secara otomatis!
+       ========================================= */
+    // Mengecek apakah "testWord" bisa disusun dari "availableLetters"
+    function canFormWord(testWord, availableLetters) {
+        let tempLetters = [...availableLetters];
+        for (let i = 0; i < testWord.length; i++) {
+            let char = testWord[i];
+            let idx = tempLetters.indexOf(char);
+            if (idx === -1) return false; 
+            tempLetters.splice(idx, 1); 
+        }
+        return true;
+    }
+
+    function generateDynamicPool() {
+        // 1. Pilih "Seed Word" (Kata Induk) dengan panjang 4-6 huruf
+        const seedCandidates = MASTER_DICTIONARY.filter(w => w.length >= 4 && w.length <= 6);
+        const seedIndex = Math.floor(getCryptoRandom() * seedCandidates.length);
+        const seedWord = seedCandidates[seedIndex];
+        
+        // 2. Pecah menjadi huruf-huruf untuk ditaruh di roda
+        const wheelLetters = seedWord.split('');
+
+        // 3. Pindai SELURUH KAMUS (Real-time) untuk mencari kata turunan (minimal 3 huruf)
+        const discoveredWords = [];
+        for (let i = 0; i < MASTER_DICTIONARY.length; i++) {
+            let dictWord = MASTER_DICTIONARY[i];
+            // Tambahan keamanan: pastikan huruf pertama dan lainnya cocok tanpa duplikat berlebih
+            if (dictWord.length >= 3 && dictWord.length <= wheelLetters.length) {
+                if (canFormWord(dictWord, wheelLetters)) {
+                    discoveredWords.push(dictWord);
+                }
+            }
+        }
+
+        return {
+            letters: cryptoShuffle(wheelLetters), 
+            words: discoveredWords 
+        };
+    }
+
+    /* =========================================
+       3. CROSSWORD GENERATOR 
        ========================================= */
     function canPlace(grid, word, x, y, dir) {
-      // 1. Cek Out of Bounds
       if (x < 0 || y < 0 || (dir === 'H' && x + word.length > 15) || (dir === 'V' && y + word.length > 15)) return false;
 
-      // 2. Cek Huruf & Ruang di Kiri Kanan Atas Bawah
       for (let i = 0; i < word.length; i++) {
         let cx = dir === 'H' ? x + i : x;
         let cy = dir === 'H' ? y : y + i;
-        
-        // Cek tabrakan huruf
         if (grid[cy][cx] !== ' ' && grid[cy][cx] !== word[i]) return false;
 
-        // Cegah kata menempel paralel (dempet-dempetan)
         if (dir === 'H') {
           if (grid[cy][cx] === ' ') {
             if (cy > 0 && grid[cy-1][cx] !== ' ') return false;
@@ -177,16 +225,13 @@
         }
       }
       
-      // 3. (FIX UTAMA) Cek Ujung Awal dan Ujung Akhir Kata!
-      // Dikeluarkan dari loop agar dieksekusi secara mutlak
       if (dir === 'H') {
-        if (x > 0 && grid[y][x-1] !== ' ') return false; // Cek kiri dari huruf pertama
-        if (x + word.length < 15 && grid[y][x + word.length] !== ' ') return false; // Cek kanan dari huruf terakhir
+        if (x > 0 && grid[y][x-1] !== ' ') return false; 
+        if (x + word.length < 15 && grid[y][x + word.length] !== ' ') return false; 
       } else {
-        if (y > 0 && grid[y-1][x] !== ' ') return false; // Cek atas dari huruf pertama
-        if (y + word.length < 15 && grid[y + word.length][x] !== ' ') return false; // Cek bawah dari huruf terakhir
+        if (y > 0 && grid[y-1][x] !== ' ') return false; 
+        if (y + word.length < 15 && grid[y + word.length][x] !== ' ') return false; 
       }
-
       return true;
     }
 
@@ -198,6 +243,7 @@
     }
 
     function buildCrossword(wordList) {
+      // Prioritaskan kata terpanjang terlebih dahulu
       let words = [...wordList].sort((a,b) => b.length - a.length); 
       let grid = Array(15).fill(null).map(() => Array(15).fill(' '));
       let placements = [];
@@ -238,7 +284,7 @@
 
       let width = maxX - minX + 1; let height = maxY - minY + 1;
 
-      // Harus muat di grid maksimal 6x6 dan minimal ada 3 kata silang
+      // Filter: Harus muat di grid maks 6x6 dan minimal ada 3 kata silang
       if (width <= 6 && height <= 6 && placements.length >= 3) {
         placements.forEach(p => { p.x -= minX; p.y -= minY; });
         return { placements, cols: width, rows: height };
@@ -249,27 +295,31 @@
     function generateRandomLevelData() {
       let maxRetries = 200;
       let bestGrid = null;
+      let bestPool = null;
 
       while (maxRetries > 0) {
-        let pool = WORD_POOLS[Math.floor(Math.random() * WORD_POOLS.length)];
-        let shuffledWords = [...pool.words].sort(() => Math.random() - 0.5);
+        // PERUBAHAN: Tarik kata murni acak tanpa setingan
+        let dynamicPool = generateDynamicPool();
+        
+        let shuffledWords = cryptoShuffle([...dynamicPool.words]);
         let gridData = buildCrossword(shuffledWords);
         
         if (gridData && gridData.placements.length >= 3) {
-            // Optimasi: Pilih grid yang menggunakan kata paling banyak
             if (!bestGrid || gridData.placements.length > bestGrid.placements.length) {
-                bestGrid = { letters: pool.letters, words: gridData.placements, cols: gridData.cols, rows: gridData.rows };
+                bestPool = dynamicPool;
+                bestGrid = { letters: bestPool.letters, words: gridData.placements, cols: gridData.cols, rows: gridData.rows };
             }
-            if (gridData.placements.length === pool.words.length) break; // Sempurna, hentikan pencarian
+            if (gridData.placements.length === dynamicPool.words.length) break; 
         }
         maxRetries--;
       }
+      
+      // Jika RNG apes setelah 200x percobaan, fallback ke kata yang pasti jalan
       return bestGrid || { cols: 4, rows: 4, letters: ['P','A','L','U'], words: [{word:"PALU", x:0, y:1, dir:"H"}, {word:"PULA", x:0, y:1, dir:"V"}, {word:"UAP", x:3, y:0, dir:"V"}] };
     }
 
-
     /* =========================================
-       3. AUDIO ENGINE & RENDERER
+       4. AUDIO ENGINE & RENDERER
        ========================================= */
     const AudioContext = window.AudioContext || window.webkitAudioContext;
     let audioCtx;
@@ -288,7 +338,6 @@
     }
 
     const Sound = {
-      // Suara diatur lebih soft dan mewah (sine waves)
       hover: (index) => playTone(300 + (index * 50), 'sine', 0.15, 0.05),
       success: () => { playTone(523.25, 'sine', 0.2); setTimeout(() => playTone(659.25, 'sine', 0.4), 100); },
       wrong: () => playTone(150, 'square', 0.2, 0.03),
@@ -343,13 +392,13 @@
       DOM.ctx = DOM.canvas.getContext('2d');
       resizeCanvas();
 
-      let lettersToRender = [...currentLevelData.letters].sort(() => Math.random() - 0.5);
+      let lettersToRender = [...currentLevelData.letters];
       const totalLetters = lettersToRender.length;
-      const radius = 95; // Sedikit lebih lebar agar swipe lebih leluasa
+      const radius = 95; 
       
       lettersToRender.forEach((char, i) => {
         const angle = (i / totalLetters) * (2 * Math.PI) - (Math.PI / 2); 
-        const x = 140 + radius * Math.cos(angle) - 32.5; // 32.5 adalah setengah dari 65px width
+        const x = 140 + radius * Math.cos(angle) - 32.5; 
         const y = 140 + radius * Math.sin(angle) - 32.5;
 
         const node = document.createElement('div');
@@ -361,7 +410,7 @@
     }
 
     /* =========================================
-       4. SWIPE / DRAG CONTROLS
+       5. SWIPE / DRAG CONTROLS
        ========================================= */
     function resizeCanvas() { DOM.canvas.width = DOM.wheel.clientWidth; DOM.canvas.height = DOM.wheel.clientHeight; }
     window.addEventListener('resize', resizeCanvas);
@@ -383,87 +432,6 @@
 
       selectedNodes.forEach((node, index) => {
         const x = node.offsetLeft + 32.5; const y = node.offsetTop + 32.5;
-        if (index === 0) DOM.ctx.moveTo(x, y); else DOM.ctx.lineTo(x, y);
-      });
-      if (isDrawing) DOM.ctx.lineTo(mousePos.x, mousePos.y);
-      DOM.ctx.stroke();
-    }
-
-    function updatePreview() {
-      DOM.preview.innerText = selectedNodes.map(n => n.dataset.char).join('');
-      DOM.preview.className = 'preview-word';
-    }
-
-    function checkCollision(pos) {
-      document.querySelectorAll('.letter-node').forEach(node => {
-        const nx = node.offsetLeft + 32.5; const ny = node.offsetTop + 32.5;
-        if (Math.hypot(pos.x - nx, pos.y - ny) < 38 && !selectedNodes.includes(node)) {
-          selectedNodes.push(node); node.classList.add('selected');
-          Sound.hover(selectedNodes.length); updatePreview();
-        }
-      });
-    }
-
-    function startDrag(e) {
-      initAudio(); isDrawing = true; selectedNodes = [];
-      document.querySelectorAll('.letter-node').forEach(n => n.classList.remove('selected'));
-      mousePos = getMousePos(e); checkCollision(mousePos); drawLine();
-    }
-
-    function moveDrag(e) {
-      if (!isDrawing) return;
-      e.preventDefault(); 
-      mousePos = getMousePos(e); checkCollision(mousePos); drawLine();
-    }
-
-    function endDrag() {
-      if (!isDrawing) return;
-      isDrawing = false; DOM.ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height); 
-      
-      const word = DOM.preview.innerText;
-      validateWord(word);
-      
-      selectedNodes.forEach(n => n.classList.remove('selected')); selectedNodes = [];
-      setTimeout(() => { if(DOM.preview.innerText === word) DOM.preview.innerText = ''; }, 1000);
-    }
-
-    DOM.wheel.addEventListener('mousedown', startDrag);
-    DOM.wheel.addEventListener('touchstart', startDrag, {passive: false});
-    window.addEventListener('mousemove', moveDrag);
-    window.addEventListener('touchmove', moveDrag, {passive: false});
-    window.addEventListener('mouseup', endDrag);
-    window.addEventListener('touchend', endDrag);
-
-    /* =========================================
-       5. GAME VALIDATION
-       ========================================= */
-    function validateWord(guessedWord) {
-      if (!guessedWord) return;
-      const validTarget = currentLevelData.words.find(w => w.word === guessedWord);
-
-      if (validTarget && !guessedWords.includes(guessedWord)) {
-        guessedWords.push(guessedWord); Sound.success();
-        let cx = validTarget.x, cy = validTarget.y;
-        for (let i = 0; i < validTarget.word.length; i++) {
-          const cell = document.getElementById(`cell-${cx}-${cy}`);
-          cell.innerText = validTarget.word[i]; cell.classList.add('revealed');
-          if (validTarget.dir === 'H') cx++; else cy++;
-        }
-        if (guessedWords.length === currentLevelData.words.length) {
-          setTimeout(() => { Sound.win(); DOM.overlay.classList.add('show'); }, 800);
-        }
-      } else {
-        DOM.preview.classList.add('wrong'); Sound.wrong();
-      }
-    }
-
-    function nextLevel() {
-      DOM.overlay.classList.remove('show');
-      currentLevelNum++;
-      loadLevel(); 
-    }
-
-    window.onload = () => loadLevel();
-  </script>
+        if (index === 0) DOM.ctx.moveTo(x, y
 </body>
 </html>
