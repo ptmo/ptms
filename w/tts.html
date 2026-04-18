@@ -432,6 +432,87 @@
 
       selectedNodes.forEach((node, index) => {
         const x = node.offsetLeft + 32.5; const y = node.offsetTop + 32.5;
-        if (index === 0) DOM.ctx.moveTo(x, y
+        if (index === 0) DOM.ctx.moveTo(x, y); else DOM.ctx.lineTo(x, y);
+      });
+      if (isDrawing) DOM.ctx.lineTo(mousePos.x, mousePos.y);
+      DOM.ctx.stroke();
+    }
+
+    function updatePreview() {
+      DOM.preview.innerText = selectedNodes.map(n => n.dataset.char).join('');
+      DOM.preview.className = 'preview-word';
+    }
+
+    function checkCollision(pos) {
+      document.querySelectorAll('.letter-node').forEach(node => {
+        const nx = node.offsetLeft + 32.5; const ny = node.offsetTop + 32.5;
+        if (Math.hypot(pos.x - nx, pos.y - ny) < 38 && !selectedNodes.includes(node)) {
+          selectedNodes.push(node); node.classList.add('selected');
+          Sound.hover(selectedNodes.length); updatePreview();
+        }
+      });
+    }
+
+    function startDrag(e) {
+      initAudio(); isDrawing = true; selectedNodes = [];
+      document.querySelectorAll('.letter-node').forEach(n => n.classList.remove('selected'));
+      mousePos = getMousePos(e); checkCollision(mousePos); drawLine();
+    }
+
+    function moveDrag(e) {
+      if (!isDrawing) return;
+      e.preventDefault(); 
+      mousePos = getMousePos(e); checkCollision(mousePos); drawLine();
+    }
+
+    function endDrag() {
+      if (!isDrawing) return;
+      isDrawing = false; DOM.ctx.clearRect(0, 0, DOM.canvas.width, DOM.canvas.height); 
+      
+      const word = DOM.preview.innerText;
+      validateWord(word);
+      
+      selectedNodes.forEach(n => n.classList.remove('selected')); selectedNodes = [];
+      setTimeout(() => { if(DOM.preview.innerText === word) DOM.preview.innerText = ''; }, 1000);
+    }
+
+    DOM.wheel.addEventListener('mousedown', startDrag);
+    DOM.wheel.addEventListener('touchstart', startDrag, {passive: false});
+    window.addEventListener('mousemove', moveDrag);
+    window.addEventListener('touchmove', moveDrag, {passive: false});
+    window.addEventListener('mouseup', endDrag);
+    window.addEventListener('touchend', endDrag);
+
+    /* =========================================
+       6. GAME VALIDATION
+       ========================================= */
+    function validateWord(guessedWord) {
+      if (!guessedWord) return;
+      const validTarget = currentLevelData.words.find(w => w.word === guessedWord);
+
+      if (validTarget && !guessedWords.includes(guessedWord)) {
+        guessedWords.push(guessedWord); Sound.success();
+        let cx = validTarget.x, cy = validTarget.y;
+        for (let i = 0; i < validTarget.word.length; i++) {
+          const cell = document.getElementById(`cell-${cx}-${cy}`);
+          cell.innerText = validTarget.word[i]; cell.classList.add('revealed');
+          if (validTarget.dir === 'H') cx++; else cy++;
+        }
+        if (guessedWords.length === currentLevelData.words.length) {
+          setTimeout(() => { Sound.win(); DOM.overlay.classList.add('show'); }, 800);
+        }
+      } else {
+        DOM.preview.classList.add('wrong'); Sound.wrong();
+      }
+    }
+
+    function nextLevel() {
+      DOM.overlay.classList.remove('show');
+      currentLevelNum++;
+      loadLevel(); 
+    }
+
+    window.onload = () => loadLevel();
+  </script>
 </body>
 </html>
