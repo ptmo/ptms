@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-  <title>Premium Random Wordscapes</title>
+  <title>Premium Wordscapes - Flawless Logic</title>
   <style>
     :root {
       --bg-dark: #0a0a0c;
@@ -12,7 +12,7 @@
       --accent-glow: #00e5ff;
       --text-main: #ffffff;
       --success-color: #2ecc71;
-      --error-color: #e74c3c;
+      --error-color: #ff3366;
       --cell-bg: rgba(255, 255, 255, 0.05);
       --cell-border: rgba(255, 255, 255, 0.2);
     }
@@ -31,68 +31,87 @@
     h1 { font-size: 1.5rem; letter-spacing: 2px; text-transform: uppercase; text-shadow: 0 0 10px rgba(255,255,255,0.3); }
     .level-text { font-size: 0.9rem; color: #aaa; margin-top: 5px; }
 
+    /* Layout Grid yang presisi di tengah */
     .grid-container {
-      flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; padding: 20px;
+      flex: 1; display: flex; justify-content: center; align-items: center; width: 100%; padding: 10px;
     }
     
     .crossword-grid {
-      display: grid; gap: 6px; 
-      transition: all 0.5s ease;
+      display: grid; gap: 8px; 
+      transition: all 0.5s cubic-bezier(0.25, 1, 0.5, 1);
     }
     
     .cell {
-      width: clamp(35px, 10vw, 50px); height: clamp(35px, 10vw, 50px);
-      border-radius: 8px; font-size: clamp(1.2rem, 5vw, 1.8rem); font-weight: bold;
+      width: clamp(35px, 10vw, 55px); height: clamp(35px, 10vw, 55px);
+      border-radius: 10px; font-size: clamp(1.2rem, 5vw, 1.8rem); font-weight: 800;
       display: flex; justify-content: center; align-items: center;
       transition: all 0.3s ease; opacity: 0; transform: scale(0.5);
     }
-    .cell.active { background: var(--cell-bg); border: 2px solid var(--cell-border); box-shadow: inset 0 0 10px rgba(0,0,0,0.5); opacity: 1; transform: scale(1); }
-    .cell.revealed { background: rgba(0, 229, 255, 0.15); border-color: var(--accent-glow); color: var(--accent-glow); text-shadow: 0 0 8px var(--accent-glow); box-shadow: 0 0 15px rgba(0, 229, 255, 0.3); animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
-
-    .preview-word {
-      height: 40px; font-size: 1.5rem; font-weight: bold; letter-spacing: 4px;
-      color: #f1c40f; text-shadow: 0 0 10px rgba(241, 196, 15, 0.5);
-      display: flex; justify-content: center; align-items: center; z-index: 10; margin-bottom: 20px;
+    
+    .cell.active { 
+      background: var(--cell-bg); border: 2px solid var(--cell-border); 
+      box-shadow: inset 0 0 15px rgba(0,0,0,0.6), 0 4px 10px rgba(0,0,0,0.2); 
+      opacity: 1; transform: scale(1); 
     }
-    .preview-word.wrong { color: var(--error-color); text-shadow: 0 0 10px var(--error-color); animation: shake 0.4s ease; }
+    
+    .cell.revealed { 
+      background: rgba(0, 229, 255, 0.15); border-color: var(--accent-glow); 
+      color: var(--accent-glow); text-shadow: 0 0 10px var(--accent-glow); 
+      box-shadow: 0 0 20px rgba(0, 229, 255, 0.2); 
+      animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; 
+    }
 
+    /* Teks Pratinjau (Preview Word) */
+    .preview-word {
+      height: 40px; font-size: 1.6rem; font-weight: 900; letter-spacing: 5px;
+      color: #f1c40f; text-shadow: 0 0 15px rgba(241, 196, 15, 0.6);
+      display: flex; justify-content: center; align-items: center; z-index: 10; margin-bottom: 30px;
+    }
+    .preview-word.wrong { color: var(--error-color); text-shadow: 0 0 15px var(--error-color); animation: shake 0.4s ease; }
+
+    /* Area Lingkaran Swipe */
     .wheel-container {
-      position: relative; width: 280px; height: 280px; margin-bottom: 40px;
-      border-radius: 50%; background: var(--panel-bg); backdrop-filter: blur(10px);
-      border: 1px solid var(--glass-border); box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+      position: relative; width: 280px; height: 280px; margin-bottom: 50px;
+      border-radius: 50%; background: var(--panel-bg); backdrop-filter: blur(15px);
+      border: 1px solid var(--glass-border); box-shadow: 0 15px 35px rgba(0,0,0,0.6);
       display: flex; justify-content: center; align-items: center; z-index: 10;
     }
     
     .letter-node {
-      position: absolute; width: 60px; height: 60px; border-radius: 50%;
-      background: linear-gradient(145deg, #2a2a35, #1a1a24); border: 2px solid rgba(255,255,255,0.1);
+      position: absolute; width: 65px; height: 65px; border-radius: 50%;
+      background: linear-gradient(145deg, #2a2a35, #1a1a24); border: 2px solid rgba(255,255,255,0.05);
       display: flex; justify-content: center; align-items: center;
-      font-size: 1.8rem; font-weight: 900; color: white; cursor: pointer;
-      box-shadow: 0 5px 15px rgba(0,0,0,0.5); transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
+      font-size: 2rem; font-weight: 900; color: white; cursor: pointer;
+      box-shadow: 0 5px 15px rgba(0,0,0,0.4); transition: transform 0.2s cubic-bezier(0.25, 1, 0.5, 1);
     }
-    .letter-node.selected { transform: scale(1.2); border-color: var(--accent-glow); color: var(--accent-glow); box-shadow: 0 0 20px rgba(0, 229, 255, 0.4); }
+    .letter-node.selected { 
+      transform: scale(1.15); border-color: var(--accent-glow); 
+      color: var(--accent-glow); box-shadow: 0 0 25px rgba(0, 229, 255, 0.5); 
+    }
 
     #swipe-canvas { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 5; pointer-events: none; }
 
+    /* Layar Menang */
     .overlay {
       position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-      background: rgba(0,0,0,0.8); backdrop-filter: blur(5px); z-index: 100;
+      background: rgba(0,0,0,0.85); backdrop-filter: blur(8px); z-index: 100;
       display: flex; flex-direction: column; justify-content: center; align-items: center;
       opacity: 0; pointer-events: none; transition: opacity 0.5s ease;
     }
     .overlay.show { opacity: 1; pointer-events: auto; }
-    .overlay h2 { font-size: 2.5rem; color: var(--success-color); margin-bottom: 20px; text-shadow: 0 0 20px var(--success-color); }
-    .btn-next { padding: 15px 40px; font-size: 1.2rem; font-weight: bold; color: #000; background: var(--accent-glow); border: none; border-radius: 30px; cursor: pointer; box-shadow: 0 0 20px rgba(0, 229, 255, 0.5); transition: transform 0.2s; }
+    .overlay h2 { font-size: 3rem; color: var(--success-color); margin-bottom: 30px; text-shadow: 0 0 25px var(--success-color); }
+    .btn-next { padding: 15px 45px; font-size: 1.2rem; font-weight: 900; color: #000; background: var(--accent-glow); border: none; border-radius: 40px; cursor: pointer; box-shadow: 0 0 25px rgba(0, 229, 255, 0.5); transition: all 0.2s; }
     .btn-next:active { transform: scale(0.95); }
 
-    @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.1); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
-    @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
+    /* Animasi Premium */
+    @keyframes popIn { 0% { transform: scale(0.5); opacity: 0; } 70% { transform: scale(1.15); opacity: 1; } 100% { transform: scale(1); opacity: 1; } }
+    @keyframes shake { 0%, 100% { transform: translateX(0); } 20%, 60% { transform: translateX(-12px); } 40%, 80% { transform: translateX(12px); } }
   </style>
 </head>
 <body>
 
   <header>
-    <h1>Teka-Teki Silang</h1>
+    <h1>Teka-Teki</h1>
     <div class="level-text" id="level-display">Level 1</div>
   </header>
 
@@ -108,20 +127,19 @@
 
   <div class="overlay" id="overlay">
     <h2>Luar Biasa!</h2>
-    <button class="btn-next" onclick="nextLevel()">Lanjut Level Acak</button>
+    <button class="btn-next" onclick="nextLevel()">Lanjut Level Berikutnya</button>
   </div>
 
   <script>
     /* =========================================
-       1. DICTIONARY (Kamus Kata Dasar)
-       Anda bisa menambah kata di sini sebanyak mungkin
+       1. DICTIONARY (Kamus Standar Industri)
        ========================================= */
     const WORD_POOLS = [
         { letters: ['B','A','T','U'], words: ['BATU', 'BUTA', 'BAU', 'TUA'] },
         { letters: ['I','K','A','N'], words: ['IKAN', 'KIAN', 'NAIK', 'AKI'] },
         { letters: ['P','A','L','U'], words: ['PALU', 'LUPA', 'PULA', 'UAP'] },
         { letters: ['P','A','S','U'], words: ['PUAS', 'SAPU', 'PAUS', 'UAP', 'SUP'] },
-        { letters: ['K','I','T','A'], words: ['KITA', 'IKAT', 'AKI', 'TAKI'] },
+        { letters: ['K','I','T','A'], words: ['KITA', 'IKAT', 'AKI', 'TAK'] },
         { letters: ['B','I','S','A'], words: ['BISA', 'ABIS', 'BIAS', 'BAS'] },
         { letters: ['M','A','I','N'], words: ['MAIN', 'AMIN', 'IMAN'] },
         { letters: ['A','M','A','N'], words: ['AMAN', 'MANA', 'NAMA'] },
@@ -131,41 +149,50 @@
     ];
 
     /* =========================================
-       2. CROSSWORD ALGORITHM GENERATOR
-       Mengacak dan merangkai grid secara matematis
+       2. CROSSWORD GENERATOR (BUG FIXED!)
        ========================================= */
     function canPlace(grid, word, x, y, dir) {
+      // 1. Cek Out of Bounds
       if (x < 0 || y < 0 || (dir === 'H' && x + word.length > 15) || (dir === 'V' && y + word.length > 15)) return false;
 
+      // 2. Cek Huruf & Ruang di Kiri Kanan Atas Bawah
       for (let i = 0; i < word.length; i++) {
         let cx = dir === 'H' ? x + i : x;
         let cy = dir === 'H' ? y : y + i;
         
-        // Tabrakan huruf yang tidak cocok
+        // Cek tabrakan huruf
         if (grid[cy][cx] !== ' ' && grid[cy][cx] !== word[i]) return false;
 
-        // Cek agar tidak ada kata yang menempel bersisihan (paralel)
-        if (grid[cy][cx] === ' ') {
-          if (dir === 'H') {
+        // Cegah kata menempel paralel (dempet-dempetan)
+        if (dir === 'H') {
+          if (grid[cy][cx] === ' ') {
             if (cy > 0 && grid[cy-1][cx] !== ' ') return false;
             if (cy < 14 && grid[cy+1][cx] !== ' ') return false;
-            if (i === 0 && cx > 0 && grid[cy][cx-1] !== ' ') return false;
-            if (i === word.length-1 && cx < 14 && grid[cy][cx+1] !== ' ') return false;
-          } else {
+          }
+        } else {
+          if (grid[cy][cx] === ' ') {
             if (cx > 0 && grid[cy][cx-1] !== ' ') return false;
             if (cx < 14 && grid[cy][cx+1] !== ' ') return false;
-            if (i === 0 && cy > 0 && grid[cy-1][cx] !== ' ') return false;
-            if (i === word.length-1 && cy < 14 && grid[cy+1][cx] !== ' ') return false;
           }
         }
       }
+      
+      // 3. (FIX UTAMA) Cek Ujung Awal dan Ujung Akhir Kata!
+      // Dikeluarkan dari loop agar dieksekusi secara mutlak
+      if (dir === 'H') {
+        if (x > 0 && grid[y][x-1] !== ' ') return false; // Cek kiri dari huruf pertama
+        if (x + word.length < 15 && grid[y][x + word.length] !== ' ') return false; // Cek kanan dari huruf terakhir
+      } else {
+        if (y > 0 && grid[y-1][x] !== ' ') return false; // Cek atas dari huruf pertama
+        if (y + word.length < 15 && grid[y + word.length][x] !== ' ') return false; // Cek bawah dari huruf terakhir
+      }
+
       return true;
     }
 
     function placeWord(grid, word, x, y, dir) {
       for (let i = 0; i < word.length; i++) {
-        let cx = dir === 'H' ? x + i : x;
-        let cy = dir === 'H' ? y : y + i;
+        let cx = dir === 'H' ? x + i : x; let cy = dir === 'H' ? y : y + i;
         grid[cy][cx] = word[i];
       }
     }
@@ -180,10 +207,8 @@
       placements.push({ word: words[0], x: startX, y: startY, dir: 'H' });
 
       for (let i = 1; i < words.length; i++) {
-        let placed = false;
-        let word = words[i];
+        let placed = false; let word = words[i];
         
-        // Cari persimpangan (intersection)
         for (let j = 0; j < placements.length && !placed; j++) {
           let p = placements[j];
           for (let k = 0; k < word.length && !placed; k++) {
@@ -204,7 +229,6 @@
         }
       }
 
-      // Normalisasi koordinat dan potong ruang kosong
       let minX = 15, maxX = 0, minY = 15, maxY = 0;
       placements.forEach(p => {
         minX = Math.min(minX, p.x); minY = Math.min(minY, p.y);
@@ -212,10 +236,9 @@
         maxY = Math.max(maxY, p.dir === 'V' ? p.y + p.word.length - 1 : p.y);
       });
 
-      let width = maxX - minX + 1;
-      let height = maxY - minY + 1;
+      let width = maxX - minX + 1; let height = maxY - minY + 1;
 
-      // Filter: Pastikan ukuran muat di layar (Maks 6, Min 3 kotak kata)
+      // Harus muat di grid maksimal 6x6 dan minimal ada 3 kata silang
       if (width <= 6 && height <= 6 && placements.length >= 3) {
         placements.forEach(p => { p.x -= minX; p.y -= minY; });
         return { placements, cols: width, rows: height };
@@ -224,20 +247,24 @@
     }
 
     function generateRandomLevelData() {
-      let maxRetries = 100;
+      let maxRetries = 200;
+      let bestGrid = null;
+
       while (maxRetries > 0) {
         let pool = WORD_POOLS[Math.floor(Math.random() * WORD_POOLS.length)];
-        // Acak urutan agar bentuk silangnya berbeda setiap kali dimainkan
         let shuffledWords = [...pool.words].sort(() => Math.random() - 0.5);
         let gridData = buildCrossword(shuffledWords);
         
-        if (gridData) {
-          return { letters: pool.letters, words: gridData.placements, cols: gridData.cols, rows: gridData.rows };
+        if (gridData && gridData.placements.length >= 3) {
+            // Optimasi: Pilih grid yang menggunakan kata paling banyak
+            if (!bestGrid || gridData.placements.length > bestGrid.placements.length) {
+                bestGrid = { letters: pool.letters, words: gridData.placements, cols: gridData.cols, rows: gridData.rows };
+            }
+            if (gridData.placements.length === pool.words.length) break; // Sempurna, hentikan pencarian
         }
         maxRetries--;
       }
-      // Fallback Darurat jika RNG apes (sangat jarang terjadi)
-      return { cols: 4, rows: 4, letters: ['B','A','T','U'], words: [{word:"BATU", x:0, y:1, dir:"H"}, {word:"BAU", x:0, y:1, dir:"V"}, {word:"TUA", x:2, y:0, dir:"V"}] };
+      return bestGrid || { cols: 4, rows: 4, letters: ['P','A','L','U'], words: [{word:"PALU", x:0, y:1, dir:"H"}, {word:"PULA", x:0, y:1, dir:"V"}, {word:"UAP", x:3, y:0, dir:"V"}] };
     }
 
 
@@ -261,10 +288,11 @@
     }
 
     const Sound = {
-      hover: (index) => playTone(300 + (index * 50), 'sine', 0.2, 0.05),
-      success: () => { playTone(523.25, 'triangle', 0.1); setTimeout(() => playTone(659.25, 'triangle', 0.3), 100); },
-      wrong: () => playTone(150, 'square', 0.3, 0.05),
-      win: () => { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.4), i * 150)); }
+      // Suara diatur lebih soft dan mewah (sine waves)
+      hover: (index) => playTone(300 + (index * 50), 'sine', 0.15, 0.05),
+      success: () => { playTone(523.25, 'sine', 0.2); setTimeout(() => playTone(659.25, 'sine', 0.4), 100); },
+      wrong: () => playTone(150, 'square', 0.2, 0.03),
+      win: () => { [523, 659, 783, 1046].forEach((f, i) => setTimeout(() => playTone(f, 'sine', 0.4), i * 120)); }
     };
 
     let currentLevelNum = 1;
@@ -284,7 +312,7 @@
     };
 
     function loadLevel() {
-      currentLevelData = generateRandomLevelData(); // Panggil generator acak
+      currentLevelData = generateRandomLevelData(); 
       DOM.levelDisplay.innerText = `Level ${currentLevelNum}`;
       guessedWords = [];
       
@@ -310,21 +338,19 @@
         }
       });
 
-      // Render Wheel Lingkaran Huruf
       DOM.wheel.innerHTML = '<canvas id="swipe-canvas"></canvas>';
       DOM.canvas = document.getElementById('swipe-canvas');
       DOM.ctx = DOM.canvas.getContext('2d');
       resizeCanvas();
 
-      // Acak posisi huruf di lingkaran
       let lettersToRender = [...currentLevelData.letters].sort(() => Math.random() - 0.5);
       const totalLetters = lettersToRender.length;
-      const radius = 90; 
+      const radius = 95; // Sedikit lebih lebar agar swipe lebih leluasa
       
       lettersToRender.forEach((char, i) => {
         const angle = (i / totalLetters) * (2 * Math.PI) - (Math.PI / 2); 
-        const x = 140 + radius * Math.cos(angle) - 30; 
-        const y = 140 + radius * Math.sin(angle) - 30;
+        const x = 140 + radius * Math.cos(angle) - 32.5; // 32.5 adalah setengah dari 65px width
+        const y = 140 + radius * Math.sin(angle) - 32.5;
 
         const node = document.createElement('div');
         node.className = 'letter-node'; node.innerText = char;
@@ -352,11 +378,11 @@
       if (selectedNodes.length === 0) return;
 
       DOM.ctx.beginPath(); DOM.ctx.lineCap = 'round'; DOM.ctx.lineJoin = 'round';
-      DOM.ctx.lineWidth = 12; DOM.ctx.strokeStyle = '#00e5ff';
-      DOM.ctx.shadowBlur = 15; DOM.ctx.shadowColor = '#00e5ff';
+      DOM.ctx.lineWidth = 14; DOM.ctx.strokeStyle = '#00e5ff';
+      DOM.ctx.shadowBlur = 20; DOM.ctx.shadowColor = '#00e5ff';
 
       selectedNodes.forEach((node, index) => {
-        const x = node.offsetLeft + 30; const y = node.offsetTop + 30;
+        const x = node.offsetLeft + 32.5; const y = node.offsetTop + 32.5;
         if (index === 0) DOM.ctx.moveTo(x, y); else DOM.ctx.lineTo(x, y);
       });
       if (isDrawing) DOM.ctx.lineTo(mousePos.x, mousePos.y);
@@ -370,8 +396,8 @@
 
     function checkCollision(pos) {
       document.querySelectorAll('.letter-node').forEach(node => {
-        const nx = node.offsetLeft + 30; const ny = node.offsetTop + 30;
-        if (Math.hypot(pos.x - nx, pos.y - ny) < 35 && !selectedNodes.includes(node)) {
+        const nx = node.offsetLeft + 32.5; const ny = node.offsetTop + 32.5;
+        if (Math.hypot(pos.x - nx, pos.y - ny) < 38 && !selectedNodes.includes(node)) {
           selectedNodes.push(node); node.classList.add('selected');
           Sound.hover(selectedNodes.length); updatePreview();
         }
@@ -409,7 +435,7 @@
     window.addEventListener('touchend', endDrag);
 
     /* =========================================
-       5. GAME VALIDATION & PROGRESSION
+       5. GAME VALIDATION
        ========================================= */
     function validateWord(guessedWord) {
       if (!guessedWord) return;
@@ -434,7 +460,7 @@
     function nextLevel() {
       DOM.overlay.classList.remove('show');
       currentLevelNum++;
-      loadLevel(); // Load dan Generate grid acak baru
+      loadLevel(); 
     }
 
     window.onload = () => loadLevel();
