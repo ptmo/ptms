@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Minimalist PDF Compressor (90-95KB)</title>
+  <title>PDF Compressor (90-95KB)</title>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.min.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
   <style>
@@ -109,7 +109,6 @@
   </div>
 
   <script>
-    // Konfigurasi PDF.js Worker
     pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/2.16.105/pdf.worker.min.js';
 
     const uploadInput = document.getElementById('pdf-upload');
@@ -123,7 +122,6 @@
 
     let currentFile = null;
 
-    // Handle File Selection
     uploadInput.addEventListener('change', (e) => {
       if (e.target.files.length > 0) {
         currentFile = e.target.files[0];
@@ -146,7 +144,6 @@
         const pagesData = [];
         statusDisplay.innerText = 'Merasterisasi halaman awal...';
         
-        // PERBAIKAN: Gunakan scale 1.0 agar tidak memakan RAM berlebihan di awal
         for (let i = 1; i <= numPages; i++) {
           const page = await pdf.getPage(i);
           const viewport = page.getViewport({ scale: 1.0 }); 
@@ -161,8 +158,6 @@
 
         statusDisplay.innerText = 'Mencari rasio kompresi & skala optimal...';
         
-        // PERBAIKAN: Gunakan 'Faktor Kompresi' (0.01 - 1.0)
-        // Faktor ini akan mengontrol baik KUALITAS maupun SKALA DIMENSI secara bersamaan.
         let lowFactor = 0.01;
         let highFactor = 1.0;
         let finalBlob = null;
@@ -174,22 +169,20 @@
           
           if (testBlob.size >= MIN_SIZE && testBlob.size <= MAX_SIZE) {
             finalBlob = testBlob;
-            break; // Ukuran pas!
+            break;
           } else if (testBlob.size > MAX_SIZE) {
-            highFactor = bestFactor; // Terlalu besar, tekan faktor kompresi
+            highFactor = bestFactor;
           } else {
-            lowFactor = bestFactor; // Terlalu kecil, naikkan faktor kompresi
+            lowFactor = bestFactor;
             finalBlob = testBlob; 
           }
         }
 
-        // Padding jika masih < 90KB
         if (finalBlob.size < MIN_SIZE) {
             statusDisplay.innerText = 'Menyesuaikan batas minimal (Suntik Data)...';
             finalBlob = await padPDF(finalBlob, MIN_SIZE);
         }
 
-        // Final Check
         if (finalBlob.size > MAX_SIZE) {
            statusDisplay.innerText = `Gagal! Terlalu banyak halaman. Terkecil didapat: ${(finalBlob.size / 1024).toFixed(2)} KB.`;
         } else {
@@ -205,17 +198,13 @@
       }
     });
 
-    // PERBAIKAN FUNGSI: Menerima "factor" untuk mengatur Kualitas & Skala Dimensi
     async function generatePDFBlob(pagesData, factor) {
       const { jsPDF } = window.jspdf;
       const pdf = new jsPDF({ orientation: 'p', unit: 'pt', format: 'a4' });
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = pdf.internal.pageSize.getHeight();
 
-      // Logika dinamis:
-      // Kualitas minimal 0.1 (agar gambar masih terlihat)
       let quality = Math.max(0.1, factor); 
-      // Jika factor di bawah 0.5, berarti PDF membandel. Kita mulai paksa turunkan resolusi dimensi kanvasnya!
       let scaleMod = factor < 0.5 ? Math.max(0.2, factor * 2) : 1.0; 
 
       for (let i = 0; i < pagesData.length; i++) {
@@ -224,20 +213,16 @@
         
         let targetCanvas = data.canvas;
 
-        // Jika harus diturunkan resolusinya, buat kanvas sementara yang lebih kecil
         if (scaleMod < 1.0) {
             targetCanvas = document.createElement('canvas');
             targetCanvas.width = data.canvas.width * scaleMod;
             targetCanvas.height = data.canvas.height * scaleMod;
             const ctx = targetCanvas.getContext('2d');
-            // Menggambar gambar besar ke kanvas kecil (Downscaling)
             ctx.drawImage(data.canvas, 0, 0, targetCanvas.width, targetCanvas.height);
         }
         
-        // Kompresi kualitas JPEG
         const imgData = targetCanvas.toDataURL('image/jpeg', quality);
         
-        // Masukkan ke PDF dengan ukuran kertas yang sama (A4)
         pdf.addImage(imgData, 'JPEG', 0, 0, pdfWidth, pdfHeight);
       }
       return pdf.output('blob');
@@ -252,7 +237,6 @@
         if (paddingNeeded > 0) {
             const dummyString = " ".repeat(paddingNeeded);
             const encoder = new TextEncoder();
-            // PERBAIKAN PADDING: Menambahkan %%EOF di akhir agar file PDF tidak dianggap korup (Corrupt)
             const paddingBytes = encoder.encode(`\n% PADDING DUMMY DATA\n% ${dummyString}\n%%EOF\n`);
             
             const paddedArray = new Uint8Array(uint8Array.length + paddingBytes.length);
