@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Get Coins</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            -webkit-tap-highlight-color: transparent; 
+        }
+
+        body {
+            background-color: #f4f5f5;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-container {
+            width: 100%;
+            max-width: 480px;
+            background-color: #f4f5f5;
+            min-height: 100vh;
+            position: relative;
+            padding-bottom: 80px;
+            box-shadow: 0 0 20px rgba(0,0,0,0.05);
+            overflow-x: hidden;
+            overflow-y: auto;
+        }
+
+        /* Header */
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 20px 16px;
+            background-color: #ffffff;
+            font-size: 18px;
+            font-weight: 600;
+        }
+
+        .header-icon {
+            font-size: 20px;
+            cursor: pointer;
+            color: #161823;
+        }
+
+        /* Saldo Koin */
+        .balance-section { 
+            background-color: #ffffff; 
+            margin: 16px 8px;
+            padding: 20px 16px; 
+            border-radius: 12px; 
+        }
+
+        .balance-title {
+            font-size: 17px;
+            color: #161823;
+            margin-bottom: 12px;
+            font-weight: 500;
+        }
+
+        .balance-amount {
+            display: flex;
+            align-items: center;
+            gap: 2px; /* Jarak 2px antara ikon dan angka saldo */
+            font-size: 36px;
+            font-weight: 700;
+            color: #161823;
+        }
+
+        .coin-icon {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            margin-right: 0;
+        }
+
+        .coin-img {
+            width: 40px; 
+            height: 40px;
+            object-fit: contain;
+            display: block;
+        }
+        
+        /* Pilihan Nominal */
+        .recharge-section { 
+            background-color: #ffffff; 
+            margin: 0 8px 16px 8px; 
+            padding: 20px 16px; 
+            border-radius: 12px; 
+        }
+
+        .recharge-title {
+            font-size: 15px;
+            color: #161823;
+            margin-bottom: 16px;
+            font-weight: 500;
+        }
+
+        .grid-container {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+        }
+
+        @media (max-width: 360px) {
+            .grid-container {
+                grid-template-columns: repeat(2, 1fr);
+            }
+        }
+
+        .recharge-card {
+            border: 1px solid #f2f2f2;
+            background-color: #f1f1f1;
+            border-radius: 8px;
+            padding: 12px 4px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .recharge-card.active {
+            border-color: #ea4359;
+            background-color: #fdf2f4;
+        }
+
+        .coin-value {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 16px;
+            font-weight: 700;
+            color: #161823;
+            margin-bottom: 4px;
+            width: 100%;
+            gap: 2px; /* Jarak ikon kecil dengan angka */
+        }
+
+        .coin-img-small {
+            width: 20px; 
+            height: 20px;
+            object-fit: contain;
+            display: block;
+        }
+
+        .price {
+            font-size: 13px;
+            color: #8a8b91;
+        }
+
+        /* Penyesuaian agar input kustom tidak merusak layout flex */
+        .custom-input {
+            width: 100%;
+            max-width: 60px; 
+            border: none;
+            outline: none;
+            text-align: center;
+            font-family: inherit;
+            font-weight: inherit;
+            font-size: inherit;
+            background: transparent;
+        }
+        
+        .custom-input::placeholder {
+            color: #8a8b91;
+            font-weight: 500;
+        }
+
+        .custom-input::-webkit-outer-spin-button,
+        .custom-input::-webkit-inner-spin-button {
+            -webkit-appearance: none;
+            margin: 0;
+        }
+
+        /* Bottom Bar */
+        .bottom-bar {
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+            max-width: 480px;
+            background-color: #ffffff;
+            padding: 12px 16px;
+            border-top: 1px solid #f2f2f2;
+            display: flex;
+            justify-content: center;
+            z-index: 10;
+        }
+
+        .btn-recharge {
+            width: 100%;
+            background-color: #fe2b54;
+            color: white;
+            font-size: 16px;
+            font-weight: 600;
+            padding: 14px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+        }
+
+        /* Modal Styles */
+        .modal-overlay {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0, 0, 0, 0.6);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 100;
+            padding: 20px;
+        }
+
+        .modal-box {
+            background-color: #fff;
+            width: 100%;
+            max-width: 320px;
+            border-radius: 12px;
+            padding: 24px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            animation: slideUp 0.3s ease;
+        }
+
+        @keyframes slideUp {
+            from { transform: translateY(20px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+
+        .modal-title { font-size: 18px; font-weight: 700; margin-bottom: 8px; text-align: center; }
+        .modal-desc { font-size: 14px; color: #8a8b91; margin-bottom: 20px; text-align: center; }
+        
+        .input-username {
+            width: 100%; padding: 12px 16px; border: 1px solid #e3e3e4; border-radius: 8px;
+            font-size: 15px; margin-bottom: 20px; outline: none; transition: border 0.2s;
+        }
+        .input-username:focus { border-color: #ea4359; }
+
+        .btn-group { display: flex; gap: 12px; }
+        .btn-modal { flex: 1; padding: 12px; border-radius: 8px; font-size: 15px; font-weight: 600; border: none; cursor: pointer; }
+        .btn-cancel { background-color: #f2f2f2; color: #161823; }
+        .btn-submit { background-color: #ea4359; color: white; }
+
+        /* Struk Styles */
+        .receipt-icon {
+            display: flex; justify-content: center; align-items: center; width: 50px; height: 50px;
+            background-color: #20D578; border-radius: 50%; color: white; font-size: 24px; margin: 0 auto 16px auto;
+        }
+        .receipt-row { display: flex; justify-content: space-between; font-size: 14px; margin-bottom: 12px; color: #161823; }
+        .receipt-label { color: #8a8b91; }
+        .divider { border: none; border-top: 1px dashed #e3e3e4; margin: 16px 0; }
+
+        /* Toast */
+        .toast {
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            background-color: rgba(0, 0, 0, 0.8); color: white; padding: 12px 24px; border-radius: 30px;
+            font-size: 14px; font-weight: 500; z-index: 200; opacity: 0; visibility: hidden; transition: opacity 0.3s;
+        }
+        .toast.show { opacity: 1; visibility: visible; }
+
+        /* --- PANEL RIWAYAT KOIN --- */
+        .history-panel {
+            position: absolute;
+            top: 0; left: 0; right: 0; bottom: 0;
+            background-color: #ffffff;
+            z-index: 50; 
+            display: none;
+            flex-direction: column;
+            animation: slideInRight 0.25s ease-out;
+        }
+
+        @keyframes slideInRight {
+            from { transform: translateX(100%); }
+            to { transform: translateX(0); }
+        }
+
+        .history-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid #f2f2f2;
+        }
+
+        .history-header-title {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .history-filter-month {
+            background-color: #f8f8f8;
+            padding: 10px 16px;
+            font-size: 13px;
+            color: #555;
+            font-weight: 500;
+        }
+
+        .history-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding-bottom: 20px;
+        }
+
+        .history-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 16px;
+            border-bottom: 1px solid #f2f2f2;
+        }
+
+        .history-left {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        .h-title {
+            font-size: 15px;
+            color: #161823;
+        }
+
+        .h-user {
+            display: flex;
+            align-items: center;
+            font-size: 13px;
+            color: #8a8b91;
+            gap: 6px;
+        }
+
+        .h-avatar {
+            width: 18px;
+            height: 18px;
+            border-radius: 50%;
+            background-color: #ccc;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+            font-size: 10px;
+            font-weight: bold;
+        }
+
+        .h-date {
+            font-size: 12px;
+            color: #8a8b91;
+            margin-top: 2px;
+        }
+
+        .history-right {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            justify-content: space-between;
+        }
+
+        .h-amount {
+            font-size: 15px;
+            color: #161823;
+        }
+
+        .h-detail-link {
+            font-size: 12px;
+            color: #8a8b91;
+            margin-top: 8px;
+        }
+        
+        .empty-history {
+            text-align: center;
+            padding: 40px 20px;
+            color: #8a8b91;
+            font-size: 14px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    
+    <div class="header">
+        <div class="header-icon">&lt;</div>
+        <div>Get Coins</div>
+        <div class="header-icon" id="btnOpenHistory">📄</div>
+    </div>
+
+    <div id="historyPanel" class="history-panel">
+        <div class="history-header">
+            <div class="header-icon" id="btnCloseHistory">&larr;</div>
+            <div class="history-header-title">
+                <div style="font-size:16px; font-weight:600;">Riwayat Koin</div>
+                <div style="font-size:12px; color:#8a8b91; margin-top:2px;">Semua jenis &#9662;</div>
+            </div>
+            <div class="header-icon" style="visibility:hidden">&larr;</div>
+        </div>
+        <div class="history-filter-month" id="currentMonthLabel">
+            </div>
+        <div class="history-list-container" id="historyList">
+            </div>
+    </div>
+
+    <div class="balance-section">
+    <div class="balance-title">Coin balance</div>
+    <div class="balance-amount">
+        <span class="coin-icon">
+            <img src="img/to.png" alt="Coin Icon" class="coin-img">
+        </span>
+        <span id="balanceText">0</span> 
+    </div>
+    </div>
+
+    <div class="recharge-section">
+    <div class="recharge-title">Recharge</div>
+    <div class="grid-container">
+        <div class="recharge-card active" data-amount="5">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 5</div>
+            <div class="price">Rp 1.200</div>
+        </div>
+        <div class="recharge-card" data-amount="10">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 10</div>
+            <div class="price">Rp 2.300</div>
+        </div>
+        <div class="recharge-card" data-amount="20">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 20</div>
+            <div class="price">Rp 4.700</div>
+        </div>
+        <div class="recharge-card" data-amount="30">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 30</div>
+            <div class="price">Rp 7.100</div>
+        </div>
+        <div class="recharge-card" data-amount="50">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 50</div>
+            <div class="price">Rp 11.800</div>
+        </div>
+        <div class="recharge-card" data-amount="70">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 70</div>
+            <div class="price">Rp 16.500</div>
+        </div>
+        <div class="recharge-card" data-amount="139">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 139</div>
+            <div class="price">Rp 32.700</div>
+        </div>
+        <div class="recharge-card" data-amount="210">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 210</div>
+            <div class="price">Rp 49.300</div>
+        </div>
+        <div class="recharge-card" data-amount="500">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 500</div>
+            <div class="price">Rp 117.500</div>
+        </div>
+        <div class="recharge-card" data-amount="700">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 700</div>
+            <div class="price">Rp 164.500</div>
+        </div>
+        <div class="recharge-card" data-amount="1500">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 1.500</div>
+            <div class="price">Rp 352.500</div>
+        </div>
+        <div class="recharge-card" data-amount="3500">
+            <div class="coin-value"><img src="img/to.png" alt="Coin" class="coin-img-small"> 3.500</div>
+            <div class="price">Rp 822.500</div>
+        </div>
+        <div class="recharge-card" id="cardCustom">
+            <div class="coin-value">
+                <img src="img/to.png" alt="Coin" class="coin-img-small"> 
+                <input type="number" id="customInput" class="custom-input" placeholder="Kustom" min="1">
+            </div>
+            <div class="price" id="customPrice">Rp 0</div>
+        </div>
+    </div>
+    </div>
+    
+    <div class="bottom-bar">
+        <button class="btn-recharge" id="btnMainAction">Recharge</button>
+    </div>
+
+    <div id="transferModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="modal-title">Kirim Koin</div>
+            <div class="modal-desc">Anda akan mengirim <strong id="modalKoinAmount" style="color:#161823;">0</strong> koin</div>
+            
+            <input type="text" id="inputUsername" class="input-username" placeholder="Masukkan Nickname Penerima" autocomplete="off">
+            
+            <div class="btn-group">
+                <button class="btn-modal btn-cancel" id="btnCancelTransfer">Batal</button>
+                <button class="btn-modal btn-submit" id="btnSubmitTransfer">Kirim</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="receiptModal" class="modal-overlay">
+        <div class="modal-box">
+            <div class="receipt-icon">✓</div>
+            <div class="modal-title" style="margin-bottom: 20px;">Transfer Berhasil</div>
+            
+            <div class="receipt-row">
+                <span class="receipt-label">Penerima</span>
+                <strong id="strukNickname">-</strong>
+            </div>
+            <div class="receipt-row">
+                <span class="receipt-label">Jumlah Koin</span>
+                <strong id="strukAmount">-</strong>
+            </div>
+            <div class="receipt-row">
+                <span class="receipt-label">Tanggal & Waktu</span>
+                <strong id="strukDate" style="text-align: right; max-width: 140px;">-</strong>
+            </div>
+            <div class="divider"></div>
+            <div class="receipt-row">
+                <span class="receipt-label">Status</span>
+                <strong style="color: #20D578;">Berhasil</strong>
+            </div>
+
+            <button class="btn-modal btn-cancel" id="btnCloseReceipt" style="width: 100%; margin-top: 10px;">Tutup Struk</button>
+        </div>
+    </div>
+
+    <div id="toastMessage" class="toast">Transfer Berhasil!</div>
+
+</div>
+
+<script>
+    // --- STATE DATA (Terhubung ke LocalStorage) ---
+    // Ambil saldo dari memori browser, jika tidak ada setel ke 500000000
+    let savedBalance = localStorage.getItem('simulasiCoinBalance');
+    let coinBalance = savedBalance !== null ? parseInt(savedBalance, 10) : 500000000; 
+
+    // Ambil riwayat dari memori browser, jika tidak ada setel array kosong []
+    let savedHistory = localStorage.getItem('simulasiHistoryData');
+    let historyData = savedHistory !== null ? JSON.parse(savedHistory) : [];
+
+    let selectedAmount = 5;     
+
+    // Set Label Bulan Saat Ini
+    const d = new Date();
+    document.getElementById('currentMonthLabel').innerHTML = `${d.getFullYear()}-${d.getMonth() + 1} &#9662;`;
+
+    // --- DOM ELEMENTS ---
+    const balanceText = document.getElementById('balanceText');
+    const cards = document.querySelectorAll('.recharge-card');
+    const customInput = document.getElementById('customInput');
+    const customPrice = document.getElementById('customPrice');
+    const cardCustom = document.getElementById('cardCustom');
+    
+    const btnMainAction = document.getElementById('btnMainAction');
+    const transferModal = document.getElementById('transferModal');
+    const modalKoinAmount = document.getElementById('modalKoinAmount');
+    const inputUsername = document.getElementById('inputUsername');
+    const btnCancelTransfer = document.getElementById('btnCancelTransfer');
+    const btnSubmitTransfer = document.getElementById('btnSubmitTransfer');
+
+    const receiptModal = document.getElementById('receiptModal');
+    const strukNickname = document.getElementById('strukNickname');
+    const strukAmount = document.getElementById('strukAmount');
+    const strukDate = document.getElementById('strukDate');
+    const btnCloseReceipt = document.getElementById('btnCloseReceipt');
+
+    const toastMessage = document.getElementById('toastMessage');
+
+    // Elemen Riwayat
+    const btnOpenHistory = document.getElementById('btnOpenHistory');
+    const btnCloseHistory = document.getElementById('btnCloseHistory');
+    const historyPanel = document.getElementById('historyPanel');
+    const historyList = document.getElementById('historyList');
+
+    // --- FUNGSI ---
+    
+    const updateDisplay = () => {
+        balanceText.innerText = coinBalance.toLocaleString('id-ID');
+    };
+    updateDisplay();
+
+    // Render Riwayat List
+    const renderHistory = () => {
+        historyList.innerHTML = ''; 
+        
+        // Jika data kosong, tampilkan pesan ini
+        if (historyData.length === 0) {
+            historyList.innerHTML = '<div class="empty-history">Belum ada riwayat transaksi.</div>';
+            return;
+        }
+
+        // Jika ada data, render itemnya
+        historyData.forEach(item => {
+            // Ambil huruf pertama username untuk avatar
+            const initial = item.user.charAt(0).toUpperCase();
+            
+            const html = `
+                <div class="history-item">
+                    <div class="history-left">
+                        <div class="h-title">${item.title}</div>
+                        <div class="h-user">
+                            <div class="h-avatar" style="background-color: ${item.color};">${initial}</div>
+                            ${item.user}
+                        </div>
+                        <div class="h-date">${item.date}</div>
+                    </div>
+                    <div class="history-right">
+                        <div class="h-amount">${item.amount}</div>
+                        <div class="h-detail-link">Lihat detail &gt;</div>
+                    </div>
+                </div>
+            `;
+            historyList.innerHTML += html;
+        });
+    };
+    renderHistory(); // Panggil saat awal web diload
+
+    // Event Riwayat Panel
+    btnOpenHistory.addEventListener('click', () => {
+        historyPanel.style.display = 'flex';
+    });
+    btnCloseHistory.addEventListener('click', () => {
+        historyPanel.style.display = 'none';
+    });
+
+    // Pilihan Nominal
+    cards.forEach(card => {
+        card.addEventListener('click', function() {
+            cards.forEach(c => c.classList.remove('active'));
+            this.classList.add('active');
+            
+            if (this.id === 'cardCustom') {
+                selectedAmount = parseInt(customInput.value, 10) || 0;
+                customInput.focus();
+            } else {
+                selectedAmount = parseInt(this.getAttribute('data-amount'), 10);
+            }
+        });
+    });
+
+    // Input Kustom
+    customInput.addEventListener('input', function() {
+        let val = parseInt(this.value, 10) || 0;
+        selectedAmount = val;
+        customPrice.innerText = 'Rp ' + (val * 235).toLocaleString('id-ID');
+        
+        cards.forEach(c => c.classList.remove('active'));
+        cardCustom.classList.add('active');
+    });
+
+    const showToast = (message) => {
+        toastMessage.innerText = message;
+        toastMessage.classList.add('show');
+        setTimeout(() => {
+            toastMessage.classList.remove('show');
+        }, 2500);
+    };
+
+    btnMainAction.addEventListener('click', () => {
+        if (selectedAmount <= 0) {
+            alert("Silakan pilih atau masukkan jumlah koin yang valid!");
+            return;
+        }
+        if (coinBalance < selectedAmount) {
+            alert("Saldo koin Anda tidak mencukupi!");
+            return;
+        }
+        modalKoinAmount.innerText = selectedAmount.toLocaleString('id-ID');
+        inputUsername.value = ''; 
+        transferModal.style.display = 'flex';
+    });
+
+    btnCancelTransfer.addEventListener('click', () => {
+        transferModal.style.display = 'none';
+    });
+
+    // Proses Pengiriman Koin
+    btnSubmitTransfer.addEventListener('click', () => {
+        const username = inputUsername.value.trim();
+        
+        if (!username) {
+            alert("Harap masukkan Nickname/Username penerima!");
+            return;
+        }
+        if (coinBalance < selectedAmount) {
+            alert("Saldo koin tidak mencukupi!");
+            return;
+        }
+
+        // 1. Potong Saldo & Simpan ke LocalStorage
+        coinBalance -= selectedAmount;
+        localStorage.setItem('simulasiCoinBalance', coinBalance); // UPDATE DATA SALDO
+        updateDisplay();
+
+        const now = new Date();
+        const dateStruk = now.toLocaleDateString('id-ID', { year: 'numeric', month: 'short', day: 'numeric' });
+        
+        // Format Waktu Riwayat
+        const dd = String(now.getDate()).padStart(2, '0');
+        const mm = String(now.getMonth() + 1).padStart(2, '0');
+        const yyyy = now.getFullYear();
+        const hh = String(now.getHours()).padStart(2, '0');
+        const min = String(now.getMinutes()).padStart(2, '0');
+        const ss = String(now.getSeconds()).padStart(2, '0');
+        const dateRiwayat = `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
+
+        // 2. Simpan Data Asli ke Riwayat & LocalStorage
+        const randomColor = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
+        historyData.unshift({
+            title: "Hadiah Terkirim",
+            user: username,         
+            date: dateRiwayat,
+            amount: -selectedAmount, 
+            color: randomColor
+        });
+        
+        localStorage.setItem('simulasiHistoryData', JSON.stringify(historyData)); // UPDATE DATA RIWAYAT
+        
+        // 3. Render Ulang Panel Riwayat
+        renderHistory(); 
+
+        // 4. Siapkan Struk
+        strukNickname.innerText = username;
+        strukAmount.innerText = selectedAmount.toLocaleString('id-ID') + " Koin";
+        strukDate.innerText = `${dateStruk}, ${hh}:${min}`;
+
+        transferModal.style.display = 'none';
+        showToast("Transfer Berhasil!");
+        
+        setTimeout(() => {
+            receiptModal.style.display = 'flex';
+        }, 500);
+    });
+
+    btnCloseReceipt.addEventListener('click', () => {
+        receiptModal.style.display = 'none';
+    });
+
+</script>
+
+</body>
+</html>
