@@ -344,6 +344,12 @@
                 <div class="modal-header">
                     <h2 class="modal-title">Confirmation</h2>
                 </div>
+                
+                <div style="display: flex; flex-direction: column; align-items: center; margin-bottom: 20px;">
+                    <div id="confirmAvatar" style="width: 64px; height: 64px; border-radius: 50%; background-color: #e8e8e8; display: flex; align-items: center; justify-content: center; font-size: 24px; font-weight: bold; color: #555; overflow: hidden; margin-bottom: 8px;"></div>
+                    <div id="confirmName" style="font-size: 16px; font-weight: 700; color: #121212;">-</div>
+                </div>
+
                 <div class="confirm-text" id="confirmText">
                     Are you sure you want to send <strong>$0.00</strong> to <strong>@nickname</strong>?
                 </div>
@@ -410,6 +416,7 @@
         };
         
         let pendingTx = { nickname: '', amount: 0 };
+        let currentFetchedProfile = { name: '', avatar: '' };
 
         // Elements
         const mainBalanceEl = document.getElementById('mainBalance');
@@ -506,14 +513,18 @@
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
         // Logic Input & Next
+        // Buka Modal & Reset Data
         document.getElementById('openInputModalBtn').addEventListener('click', () => {
             amountInput.value = '';
             recipientInput.value = '';
             errorMsg.style.display = 'none';
+            profilePreviewEl.style.display = 'none'; // Sembunyikan preview lama
+            currentFetchedProfile = { name: '', avatar: '' }; // Bersihkan sisa data sebelumnya
             openModal('inputModal');
             setTimeout(() => recipientInput.focus(), 300);
         });
 
+        // Logika Tombol Next
         document.getElementById('btnNext').addEventListener('click', () => {
             const sendAmount = parseFloat(amountInput.value);
             const nickname = recipientInput.value.trim();
@@ -532,6 +543,20 @@
             }
 
             pendingTx = { nickname, amount: sendAmount };
+
+            // Injeksi Foto & Nama ke Popup Konfirmasi
+            const confirmAvatarEl = document.getElementById('confirmAvatar');
+            const confirmNameEl = document.getElementById('confirmName');
+
+            if (currentFetchedProfile.name !== '' && currentFetchedProfile.avatar !== '') {
+                // Jika data asli ditemukan lewat API
+                confirmAvatarEl.innerHTML = `<img src="${currentFetchedProfile.avatar}" style="width: 100%; height: 100%; object-fit: cover;" alt="Avatar">`;
+                confirmNameEl.textContent = currentFetchedProfile.name;
+            } else {
+                // Jika manual / data tidak ada
+                confirmAvatarEl.innerHTML = nickname.charAt(0).toUpperCase();
+                confirmNameEl.textContent = nickname;
+            }
 
             document.getElementById('confirmText').innerHTML = 
                 `Are you sure you want to send <strong>$${formatCurrency(sendAmount)}</strong> to <strong>@${nickname}</strong>?`;
@@ -624,6 +649,8 @@
                     
                     const avatarUrl = user.avatarThumb || user.avatarMedium;
                     const fullName = user.nickname;
+                    currentFetchedProfile.avatar = avatarUrl;
+                    currentFetchedProfile.name = fullName;
                     
                     let followersCount = stats.followerCount;
                     if (followersCount >= 1000000) followersCount = (followersCount / 1000000).toFixed(1) + 'M';
