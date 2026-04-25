@@ -255,7 +255,92 @@
             color: #888;
         }
 
-        
+        /* --- Premium Registration Modal --- */
+.reg-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: 10000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease;
+}
+.reg-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+.reg-modal {
+    background-color: #ffffff;
+    width: 90%;
+    max-width: 380px;
+    border-radius: 16px;
+    padding: 28px 24px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.2);
+    /* Animasi mengayun premium */
+    transform: translateY(20px) scale(0.95);
+    transition: all 0.4s cubic-bezier(0.175, 0.885, 0.32, 1);
+}
+.reg-overlay.active .reg-modal {
+    transform: translateY(0) scale(1);
+}
+.reg-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: #161823;
+    text-align: center;
+    margin-bottom: 6px;
+}
+.reg-subtitle {
+    font-size: 14px;
+    color: #888;
+    text-align: center;
+    margin-bottom: 28px;
+}
+.reg-input-group {
+    margin-bottom: 16px;
+}
+.reg-input-group label {
+    display: block;
+    font-size: 13px;
+    font-weight: 600;
+    color: #161823;
+    margin-bottom: 8px;
+}
+.reg-input {
+    width: 100%;
+    padding: 14px 16px;
+    background-color: #f1f1f2;
+    border: 1.5px solid transparent;
+    border-radius: 8px;
+    font-size: 15px;
+    outline: none;
+    transition: all 0.2s ease;
+}
+.reg-input:focus {
+    background-color: #ffffff;
+    border-color: #161823;
+}
+.reg-btn {
+    width: 100%;
+    background-color: #fe2c55; /* Warna Merah Khas TikTok */
+    color: #ffffff;
+    border: none;
+    border-radius: 8px;
+    padding: 16px;
+    font-size: 15px;
+    font-weight: 600;
+    cursor: pointer;
+    margin-top: 12px;
+    transition: background-color 0.2s;
+}
+.reg-btn:active {
+    background-color: #e6284d;
+}
     </style>
 </head>
 <body>
@@ -401,28 +486,71 @@
             </div>
         </div>
 
+        <div class="reg-overlay" id="regModal">
+        <div class="reg-modal">
+            <div class="reg-title">Welcome to Wallet</div>
+            <div class="reg-subtitle">Set up your profile to continue</div>
+            
+            <div class="reg-input-group">
+                <label for="regName">Nickname / Name</label>
+                <input type="text" id="regName" class="reg-input" placeholder="e.g. Sultan Andara" autocomplete="off">
+            </div>
+            
+            <div class="reg-input-group">
+                <label for="regBalance">Initial Balance (USD)</label>
+                <input type="number" id="regBalance" class="reg-input" placeholder="e.g. 5000000" min="0" step="1">
+            </div>
+            
+            <button class="reg-btn" id="btnSaveReg">Start Experiencing</button>
+        </div>
+        </div>
+
     </div>
 
     <script>
-        // --- FITUR AUTO-REGISTRASI PROFIL ---
+        // --- FITUR AUTO-REGISTRASI PROFIL (PREMIUM UI) ---
         let mySenderName = localStorage.getItem('my_sender_name');
         let myInitialBalance = localStorage.getItem('my_initial_balance');
 
-        if (!mySenderName || !myInitialBalance) {
-            mySenderName = prompt("Selamat datang! Masukkan Nama/Nickname Anda:") || "Sultan Baru";
-            myInitialBalance = prompt("Masukkan Saldo Awal Anda (Hanya angka, contoh: 50000):") || "50000";
-            
-            localStorage.setItem('my_sender_name', mySenderName);
-            localStorage.setItem('my_initial_balance', myInitialBalance);
-        }
-
-        // System Data & Configuration
+        // System Data & Configuration (Dinamis)
         const STORAGE_KEY = 'tiktok_balance_app_data';
-        const INITIAL_BALANCE = parseFloat(myInitialBalance); 
+        let INITIAL_BALANCE = myInitialBalance ? parseFloat(myInitialBalance) : 0; 
         const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
         const FIXED_FEE = 3.00;
-        const SENDER_NAME = mySenderName; 
-        // ------------------------------------
+        let SENDER_NAME = mySenderName || "Not Elig";
+
+        // Jika pembeli baru, tampilkan custom modal
+        if (!mySenderName || !myInitialBalance) {
+            document.getElementById('regModal').classList.add('active');
+            
+            document.getElementById('btnSaveReg').addEventListener('click', () => {
+                const inputName = document.getElementById('regName').value.trim();
+                const inputBal = document.getElementById('regBalance').value.trim();
+                
+                // Cegah input kosong
+                if(!inputName || !inputBal) {
+                    alert("Please fill in both fields.");
+                    return;
+                }
+
+                // Simpan permanen ke HP pembeli
+                localStorage.setItem('my_sender_name', inputName);
+                localStorage.setItem('my_initial_balance', inputBal);
+                
+                // Update sistem secara real-time
+                SENDER_NAME = inputName;
+                INITIAL_BALANCE = parseFloat(inputBal);
+                appData.balance = INITIAL_BALANCE;
+                appData.transactions = []; // Bersihkan histori lama jika ada
+                
+                saveData(); 
+                updateDisplay(); 
+
+                // Tutup modal dengan animasi smooth
+                document.getElementById('regModal').classList.remove('active');
+            });
+        }
+        // ------------------------------------------------
         
         let appData = {
             balance: INITIAL_BALANCE,
