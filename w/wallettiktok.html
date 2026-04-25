@@ -358,7 +358,7 @@
         <div class="header-title">Balance</div>
     </div>
 
-    <div class="header-icon-right" id="openHistoryBtn">
+    <div class="header-icon-right" id="openSettingsBtn">
         <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
             <circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/>
         </svg>
@@ -492,16 +492,44 @@
             <div class="reg-subtitle">Set up your profile to continue</div>
             
             <div class="reg-input-group">
-                <label for="regName">Nickname / Name</label>
-                <input type="text" id="regName" class="reg-input" placeholder="e.g. Sultan Andara" autocomplete="off">
+                <label for="regName">Set Nickname</label>
+                <input type="text" id="regName" class="reg-input" placeholder="e.g. Your TikTok Username" autocomplete="off">
             </div>
             
             <div class="reg-input-group">
-                <label for="regBalance">Initial Balance (USD)</label>
-                <input type="number" id="regBalance" class="reg-input" placeholder="e.g. 5000000" min="0" step="1">
+                <label for="regBalance">Set Initial Balance (USD)</label>
+                <input type="number" id="regBalance" class="reg-input" placeholder="e.g. 2000000000" min="0" step="1">
             </div>
             
             <button class="reg-btn" id="btnSaveReg">Start Experiencing</button>
+        </div>
+        </div>
+
+        <div class="reg-overlay" id="settingsModal">
+        <div class="reg-modal">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 24px;">
+                <h2 class="modal-title" style="margin-bottom: 0;">Settings</h2>
+                <button class="close-btn" onclick="document.getElementById('settingsModal').classList.remove('active')">
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line>
+                    </svg>
+                </button>
+            </div>
+            
+            <div class="reg-input-group">
+                <label for="updateName">Update Nickname</label>
+                <input type="text" id="updateName" class="reg-input" placeholder="Enter new nickname" autocomplete="off">
+            </div>
+            
+            <div class="reg-input-group">
+                <label for="updateBalance">Update Balance (USD)</label>
+                <input type="number" id="updateBalance" class="reg-input" placeholder="Enter exact new balance" min="0" step="1">
+                <div style="font-size: 11px; color: #888; margin-top: 6px;">*This will completely replace your current balance.</div>
+            </div>
+            
+            <button class="reg-btn" id="btnSaveSettings">Save Changes</button>
+            
+            <button id="btnResetApp" style="width: 100%; background: none; border: none; color: #ff3b30; font-size: 14px; font-weight: 600; margin-top: 16px; cursor: pointer; padding: 10px;">Reset All App Data</button>
         </div>
         </div>
 
@@ -856,6 +884,56 @@
                 profilePreviewEl.style.display = 'none';
             }
         });
+
+        // --- LOGIKA SETTINGS (TITIK TIGA) ---
+        const settingsModalEl = document.getElementById('settingsModal');
+        const updateNameInput = document.getElementById('updateName');
+        const updateBalanceInput = document.getElementById('updateBalance');
+
+        // Buka Modal Settings saat Titik Tiga diklik
+        document.getElementById('openSettingsBtn').addEventListener('click', () => {
+            // Isi kolom input dengan data yang ada saat ini
+            updateNameInput.value = SENDER_NAME;
+            updateBalanceInput.value = appData.balance;
+            
+            settingsModalEl.classList.add('active');
+        });
+
+        // Simpan Perubahan
+        document.getElementById('btnSaveSettings').addEventListener('click', () => {
+            const newName = updateNameInput.value.trim();
+            const newBalance = parseFloat(updateBalanceInput.value);
+
+            if (!newName || isNaN(newBalance)) {
+                alert("Invalid input. Please check your data.");
+                return;
+            }
+
+            // Update variabel global
+            SENDER_NAME = newName;
+            appData.balance = newBalance;
+
+            // Simpan ke memory HP (LocalStorage)
+            localStorage.setItem('my_sender_name', newName);
+            localStorage.setItem('my_initial_balance', newBalance.toString());
+            
+            // Simpan data aplikasi dan render ulang UI
+            saveData();
+            updateDisplay();
+
+            // Tutup modal
+            settingsModalEl.classList.remove('active');
+        });
+
+        // (Opsional) Reset Total Aplikasi ke Kondisi Pabrik
+        document.getElementById('btnResetApp').addEventListener('click', () => {
+            const isSure = confirm("Warning: This will delete all your transaction history and reset your profile. Are you sure?");
+            if (isSure) {
+                localStorage.clear();
+                window.location.reload(); // Refresh browser otomatis
+            }
+        });
+        // ------------------------------------
         
         // Jalankan Script
         initApp();
