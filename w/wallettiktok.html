@@ -575,6 +575,7 @@
         const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
         const FIXED_FEE = 3.00;
         let SENDER_NAME = mySenderName || "Not Elig";
+        let SENDER_AVATAR = localStorage.getItem('my_sender_avatar') || '';
 
         // Jika pembeli baru, tampilkan custom modal
         if (!mySenderName || !myInitialBalance) {
@@ -675,10 +676,13 @@
                 const statusClass = isPending ? 'status-pending' : 'status-success';
                 const totalReceived = tx.amount - FIXED_FEE;
 
-                // Bikin avatar untuk pengirim (lingkaran gelap elegan dengan inisial)
-                const senderInitial = SENDER_NAME.charAt(0).toUpperCase();
-                const senderAvatarHtml = `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
-
+                // Bikin avatar untuk pengirim (Pakai foto asli dari API jika ada)
+                let cleanSenderName = SENDER_NAME.replace('@', ''); // Hapus @ biar inisialnya huruf asli
+                const senderInitial = cleanSenderName.charAt(0).toUpperCase() || 'S';
+                const senderAvatarHtml = SENDER_AVATAR 
+                    ? `<img src="${SENDER_AVATAR}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` 
+                    : `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
+                
                 // Bikin avatar untuk penerima (foto asli dari API jika ada, fallback inisial jika data lama)
                 const recipientInitial = tx.nickname.charAt(0).toUpperCase();
                 const recipientAvatarHtml = tx.avatar 
@@ -966,6 +970,7 @@
             // Simpan data aplikasi dan render ulang UI
             saveData();
             updateDisplay();
+            syncSenderAvatar();
 
             // Tutup modal
             settingsModalEl.classList.remove('active');
@@ -995,9 +1000,34 @@
             window.location.reload(); // Refresh browser/aplikasi otomatis kembali ke awal
         });
         // ------------------------------------------
+
+        // Menarik foto profil pengirim dari API secara otomatis
+        async function syncSenderAvatar() {
+            let cleanName = SENDER_NAME.replace('@', '');
+            if (!cleanName || cleanName === 'Not Elig') return;
+            
+            try {
+                const response = await fetch(`https://backendtik.onrender.com/api/tiktok/${cleanName}`);
+                const result = await response.json();
+                
+                if (result.code === 0 && result.data) {
+                    const avatarUrl = result.data.user.avatarThumb || result.data.user.avatarMedium;
+                    if (SENDER_AVATAR !== avatarUrl) {
+                        SENDER_AVATAR = avatarUrl;
+                        localStorage.setItem('my_sender_avatar', avatarUrl); // Simpan permanen
+                        updateDisplay(); // Refresh struk biar fotonya langsung muncul
+                    }
+                }
+            } catch (error) { console.log("Gagal menarik foto pengirim"); }
+        }
         
         // Jalankan Script
-        initApp();
+        function initApp() {
+            const savedData = localStorage.getItem(STORAGE_KEY);
+            if (savedData) appData = JSON.parse(savedData);
+            updateDisplay();
+            syncSenderAvatar(); // <--- TAMBAHKAN BARIS INI
+        }
     </script>
 </body>
 </html>
