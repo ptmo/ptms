@@ -627,97 +627,52 @@
         }
         // ------------------------------------------------
 
-
 let appData = {
-
 balance: INITIAL_BALANCE,
-
 transactions: []
-
 };
 
-
 let pendingTx = { nickname: '', amount: 0 };
-
 let currentFetchedProfile = { name: '', avatar: '' };
 
-
-
 // Elements
-
 const mainBalanceEl = document.getElementById('mainBalance');
-
 const cardBalanceEl = document.getElementById('cardBalance');
-
 const receiptListEl = document.getElementById('receiptListContainer');
-
 const errorMsg = document.getElementById('errorMsg');
-
 const recipientInput = document.getElementById('recipient');
-
 const amountInput = document.getElementById('amount');
 
-
-
 // Initialization
-
 function initApp() {
-
 const savedData = localStorage.getItem(STORAGE_KEY);
-
 if (savedData) appData = JSON.parse(savedData);
-
 updateDisplay();
-
 }
-
-
 
 function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
-
-
-
 function formatCurrency(amount) {
-
 return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-
 }
-
-
 
 function formatDate(timestamp) {
-
 return new Date(timestamp).toLocaleString('en-US', {
-
 month: 'short', day: 'numeric', year: 'numeric',
-
 hour: 'numeric', minute: '2-digit', hour12: true
-
 });
-
+    
 }
-
 
 function generateTrxID() {
-
 return 'TXN-' + Math.random().toString(36).substr(2, 9).toUpperCase();
-
 }
 
-
-
 // Display Updates
-
 function updateDisplay() {
-
 const formattedBalance = formatCurrency(appData.balance);
-
 mainBalanceEl.textContent = formattedBalance;
-
 cardBalanceEl.textContent = 'USD ' + formattedBalance;
-
 renderReceipts();
-
 }
 
 // Render Detailed Receipts on Main View
@@ -790,130 +745,72 @@ renderReceipts();
             });
         }
 
-
 function openModal(id) { document.getElementById(id).classList.add('active'); }
-
 function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-
-
 // Logic Input & Next
-
 // Buka Modal & Reset Data
-
 document.getElementById('openInputModalBtn').addEventListener('click', () => {
-
 amountInput.value = '';
-
 recipientInput.value = '';
-
 errorMsg.style.display = 'none';
-
 profilePreviewEl.style.display = 'none'; // Sembunyikan preview lama
-
 currentFetchedProfile = { name: '', avatar: '' }; // Bersihkan sisa data sebelumnya
-
 openModal('inputModal');
-
 setTimeout(() => recipientInput.focus(), 300);
-
 });
 
-
-
 // Logika Tombol Next
-
 document.getElementById('btnNext').addEventListener('click', () => {
-
 const sendAmount = parseFloat(amountInput.value);
-
 const nickname = recipientInput.value.trim();
 
-
-
 if (!nickname) {
-
 errorMsg.textContent = "Please enter a recipient nickname.";
-
 errorMsg.style.display = 'block'; return;
-
 }
 
 if (isNaN(sendAmount) || sendAmount <= FIXED_FEE) {
-
 errorMsg.textContent = `Amount must be greater than $${FIXED_FEE} (fee).`;
-
 errorMsg.style.display = 'block'; return;
-
 }
 
 if (sendAmount > appData.balance) {
-
 errorMsg.textContent = "Insufficient balance.";
-
 errorMsg.style.display = 'block'; return;
-
 }
-
-
 
 pendingTx = { nickname, amount: sendAmount };
 
-
-
 // Injeksi Foto & Nama ke Popup Konfirmasi
-
 const confirmAvatarEl = document.getElementById('confirmAvatar');
-
 const confirmNameEl = document.getElementById('confirmName');
 
-
-
 if (currentFetchedProfile.name !== '' && currentFetchedProfile.avatar !== '') {
-
 // Jika data asli ditemukan lewat API
-
 confirmAvatarEl.innerHTML = `<img src="${currentFetchedProfile.avatar}" style="width: 100%; height: 100%; object-fit: cover;" alt="Avatar">`;
-
 confirmNameEl.textContent = currentFetchedProfile.name;
-
 } else {
 
 // Jika manual / data tidak ada
-
 confirmAvatarEl.innerHTML = nickname.charAt(0).toUpperCase();
-
 confirmNameEl.textContent = nickname;
-
 }
 
-
-
 document.getElementById('confirmText').innerHTML =
-
 `Are you sure you want to send <strong>$${formatCurrency(sendAmount)}</strong> to <strong>@${nickname}</strong>?`;
 
-
-
 closeModal('inputModal');
-
 openModal('confirmModal');
 
 });
 
-
-
 // Logic Confirmation -> Send Data to Receipt
-
 document.getElementById('btnCancelConfirm').addEventListener('click', () => {
-
 closeModal('confirmModal');
-
 openModal('inputModal');
 
 });
-
-
 
 // Logic Confirmation -> Send Data to Receipt & Show Success
         document.getElementById('btnConfirmSend').addEventListener('click', () => {
@@ -965,188 +862,102 @@ openModal('inputModal');
 
 const profilePreviewEl = document.getElementById('profilePreview');
 
-
-
 // Pisahkan logika pencarian ke dalam fungsi agar bisa dipanggil oleh berbagai tombol HP
-
 async function fetchTiktokData() {
-
 const nickname = recipientInput.value.trim().replace('@', '');
 
-
-
 if (nickname === '') {
-
 profilePreviewEl.style.display = 'none';
-
 return;
-
 }
-
-
 
 // Tampilkan status Loading
-
 profilePreviewEl.innerHTML = `
-
 <div class="preview-avatar">
-
 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
-
 <circle cx="12" cy="12" r="10"></circle>
-
 <path d="M12 2a10 10 0 0 1 10 10"></path>
-
 </svg>
-
 </div>
-
 <div class="preview-details">
-
 <span class="preview-name" style="color:#888;">Searching @${nickname}...</span>
-
 </div>
-
 `;
-
+    
 profilePreviewEl.style.display = 'flex';
-
-
+    
 // Tambahkan animasi putar untuk loading
-
 if (!document.getElementById('spinAnim')) {
-
 const style = document.createElement('style');
-
 style.id = 'spinAnim';
-
 style.innerHTML = '@keyframes spin { 100% { transform: rotate(360deg); } }';
-
 document.head.appendChild(style);
-
 }
 
-
-
 try {
-
 // FIX 1: Gunakan layanan CORS Proxy agar Github Pages tidak diblokir TikWM
-
 const response = await fetch(`https://backendtik.onrender.com/api/tiktok/${nickname}`);
-
 const result = await response.json();
 
-
-
 if (result.code === 0 && result.data) {
-
 const user = result.data.user;
-
 const stats = result.data.stats;
 
-
 const avatarUrl = user.avatarThumb || user.avatarMedium;
-
 const fullName = user.nickname;
-
 currentFetchedProfile.avatar = avatarUrl;
-
 currentFetchedProfile.name = fullName;
 
-
 let followersCount = stats.followerCount;
-
 if (followersCount >= 1000000) followersCount = (followersCount / 1000000).toFixed(1) + 'M';
-
 else if (followersCount >= 1000) followersCount = (followersCount / 1000).toFixed(1) + 'K';
 
-
-
 profilePreviewEl.innerHTML = `
-
 <div class="preview-avatar"><img src="${avatarUrl}" alt="avatar"></div>
-
 <div class="preview-details">
-
 <span class="preview-name">${fullName}</span>
-
 <span class="preview-stats">${followersCount} Followers</span>
-
 </div>
-
 `;
-
 
 amountInput.focus();
-
 } else {
-
 profilePreviewEl.innerHTML = `
-
 <div class="preview-details">
-
 <span class="preview-name" style="color:#ff3b30;">User not found</span>
-
 </div>
-
 `;
-
 }
 
 } catch (error) {
-
 profilePreviewEl.innerHTML = `
-
 <div class="preview-details">
-
 <span class="preview-name" style="color:#ff3b30;">Network error. Try again.</span>
-
 </div>
-
 `;
-
 }
 
 }
-
-
 
 // FIX 2: Dukungan penuh untuk Keyboard Mobile
-
 // Mendeteksi tombol "Enter", "Go", atau "Search" di Keyboard
-
 recipientInput.addEventListener('keydown', function(e) {
-
 if (e.key === 'Enter' || e.keyCode === 13) {
-
 e.preventDefault();
-
 fetchTiktokData();
-
 }
 
 });
 
-
-
 // Akan terpicu otomatis saat Anda mengetik lalu mengeklik ke luar kolom (atau menutup keyboard HP)
-
 recipientInput.addEventListener('change', function() {
-
 fetchTiktokData();
-
 });
 
-
-
 // Sembunyikan profil jika kolom dikosongkan
-
 recipientInput.addEventListener('input', function() {
-
 if (this.value.trim() === '') {
-
 profilePreviewEl.style.display = 'none';
-
 }
 
 });
@@ -1173,7 +984,7 @@ profilePreviewEl.style.display = 'none';
             if (!newName || isNaN(newBalance)) {
                 document.getElementById('errorAlertText').textContent = "Invalid input. Please check your data.";
                 document.getElementById('errorAlertModal').classList.add('active');
-                return;
+            return;
             }
 
             // Update variabel global
