@@ -675,6 +675,16 @@
                 const statusClass = isPending ? 'status-pending' : 'status-success';
                 const totalReceived = tx.amount - FIXED_FEE;
 
+                // Bikin avatar untuk pengirim (lingkaran gelap elegan dengan inisial)
+                const senderInitial = SENDER_NAME.charAt(0).toUpperCase();
+                const senderAvatarHtml = `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
+
+                // Bikin avatar untuk penerima (foto asli dari API jika ada, fallback inisial jika data lama)
+                const recipientInitial = tx.nickname.charAt(0).toUpperCase();
+                const recipientAvatarHtml = tx.avatar 
+                    ? `<img src="${tx.avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` 
+                    : `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #e8e8e8; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${recipientInitial}</div>`;
+
                 const card = document.createElement('div');
                 card.className = 'receipt-card';
                 card.innerHTML = `
@@ -684,11 +694,17 @@
                     </div>
                     <div class="receipt-row">
                         <span class="label">Sender</span>
-                        <span class="val">${SENDER_NAME}</span>
+                        <span class="val" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+                            ${senderAvatarHtml}
+                            ${SENDER_NAME}
+                        </span>
                     </div>
                     <div class="receipt-row">
                         <span class="label">Recipient</span>
-                        <span class="val">@${tx.nickname}</span>
+                        <span class="val" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
+                            ${recipientAvatarHtml}
+                            @${tx.nickname}
+                        </span>
                     </div>
                     <div class="receipt-row">
                         <span class="label">Send Amount</span>
@@ -783,7 +799,8 @@
                 nickname: pendingTx.nickname,
                 amount: pendingTx.amount,
                 timestamp: timestamp,
-                trxId: newTrxId
+                trxId: newTrxId,
+                avatar: currentFetchedProfile.avatar // <--- TAMBAHKAN BARIS INI
             });
 
             saveData();
