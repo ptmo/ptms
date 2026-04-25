@@ -565,18 +565,30 @@
     </div>
 
     <script>
-        // --- FITUR AUTO-REGISTRASI PROFIL (PREMIUM UI) ---
+        // --- 1. KONFIGURASI SISTEM & MEMORI (ANTI-RESET) ---
+        const STORAGE_KEY = 'tiktok_balance_app_data';
+        const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
+        const FIXED_FEE = 3.00;
+
+        // Ambil Data Profil dari Memori HP
         let mySenderName = localStorage.getItem('my_sender_name');
         let myInitialBalance = localStorage.getItem('my_initial_balance');
 
-        // System Data & Configuration (Dinamis)
-        const STORAGE_KEY = 'tiktok_balance_app_data';
-        let INITIAL_BALANCE = myInitialBalance ? parseFloat(myInitialBalance) : 0; 
-        const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
-        const FIXED_FEE = 3.00;
         let SENDER_NAME = mySenderName || "Not Elig";
+        let INITIAL_BALANCE = myInitialBalance ? parseFloat(myInitialBalance) : 0;
 
-        // Jika pembeli baru, tampilkan custom modal
+        // Siapkan Wadah Data Utama (Langsung baca memori agar tidak reset)
+        let appData = {
+            balance: INITIAL_BALANCE,
+            transactions: []
+        };
+        
+        const savedData = localStorage.getItem(STORAGE_KEY);
+        if (savedData) {
+            appData = JSON.parse(savedData);
+        }
+
+        // --- 2. FITUR AUTO-REGISTRASI PROFIL ---
         if (!mySenderName || !myInitialBalance) {
             document.getElementById('regModal').classList.add('active');
             
@@ -584,55 +596,44 @@
                 const inputName = document.getElementById('regName').value.trim();
                 const inputBal = document.getElementById('regBalance').value.trim();
                 
-                // Cegah input kosong
                 if(!inputName || !inputBal) {
                     alert("Please fill in both fields.");
                     return;
                 }
 
-                // Simpan permanen ke HP pembeli
+                // Simpan permanen ke HP
                 localStorage.setItem('my_sender_name', inputName);
                 localStorage.setItem('my_initial_balance', inputBal);
                 
-                // Update sistem secara real-time
                 SENDER_NAME = inputName;
                 INITIAL_BALANCE = parseFloat(inputBal);
+                
                 appData.balance = INITIAL_BALANCE;
-                appData.transactions = []; // Bersihkan histori lama jika ada
+                appData.transactions = []; 
                 
                 saveData(); 
                 updateDisplay(); 
 
-                // Tutup modal dengan animasi smooth
                 document.getElementById('regModal').classList.remove('active');
             });
         }
-        // ------------------------------------------------
-        
-        let appData = {
-            balance: INITIAL_BALANCE,
-            transactions: []
-        };
-        
+
+        // --- 3. VARIABEL & ELEMEN DOM ---
         let pendingTx = { nickname: '', amount: 0 };
         let currentFetchedProfile = { name: '', avatar: '' };
 
-        // Elements
         const mainBalanceEl = document.getElementById('mainBalance');
         const cardBalanceEl = document.getElementById('cardBalance');
         const receiptListEl = document.getElementById('receiptListContainer');
         const errorMsg = document.getElementById('errorMsg');
         const recipientInput = document.getElementById('recipient');
         const amountInput = document.getElementById('amount');
+        const profilePreviewEl = document.getElementById('profilePreview');
 
-        // Initialization
-        function initApp() {
-            const savedData = localStorage.getItem(STORAGE_KEY);
-            if (savedData) appData = JSON.parse(savedData);
-            updateDisplay();
+        // --- 4. FUNGSI INTI ---
+        function saveData() { 
+            localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); 
         }
-
-        function saveData() { localStorage.setItem(STORAGE_KEY, JSON.stringify(appData)); }
 
         function formatCurrency(amount) {
             return amount.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
@@ -649,7 +650,6 @@
             return 'TXN-' + Math.random().toString(36).substr(2, 9).toUpperCase();
         }
 
-        // Display Updates
         function updateDisplay() {
             const formattedBalance = formatCurrency(appData.balance);
             mainBalanceEl.textContent = formattedBalance;
@@ -657,7 +657,7 @@
             renderReceipts();
         }
 
-// Render Detailed Receipts on Main View
+        // --- 5. RENDER RIWAYAT (Versi Stabil, Tanpa Foto Profil) ---
         function renderReceipts() {
             receiptListEl.innerHTML = '';
             if (appData.transactions.length === 0) {
@@ -675,16 +675,6 @@
                 const statusClass = isPending ? 'status-pending' : 'status-success';
                 const totalReceived = tx.amount - FIXED_FEE;
 
-                // Bikin avatar untuk pengirim (lingkaran gelap elegan dengan inisial)
-                const senderInitial = SENDER_NAME.charAt(0).toUpperCase();
-                const senderAvatarHtml = `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
-
-                // Bikin avatar untuk penerima (foto asli dari API jika ada, fallback inisial jika data lama)
-                const recipientInitial = tx.nickname.charAt(0).toUpperCase();
-                const recipientAvatarHtml = tx.avatar 
-                    ? `<img src="${tx.avatar}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` 
-                    : `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #e8e8e8; color: #555; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${recipientInitial}</div>`;
-
                 const card = document.createElement('div');
                 card.className = 'receipt-card';
                 card.innerHTML = `
@@ -694,17 +684,11 @@
                     </div>
                     <div class="receipt-row">
                         <span class="label">Sender</span>
-                        <span class="val" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
-                            ${senderAvatarHtml}
-                            ${SENDER_NAME}
-                        </span>
+                        <span class="val">${SENDER_NAME}</span>
                     </div>
                     <div class="receipt-row">
                         <span class="label">Recipient</span>
-                        <span class="val" style="display: flex; align-items: center; gap: 8px; justify-content: flex-end;">
-                            ${recipientAvatarHtml}
-                            @${tx.nickname}
-                        </span>
+                        <span class="val">@${tx.nickname}</span>
                     </div>
                     <div class="receipt-row">
                         <span class="label">Send Amount</span>
@@ -724,31 +708,20 @@
             });
         }
 
-// Masukkan data ke array transaksi
-            appData.transactions.push({
-                nickname: pendingTx.nickname,
-                amount: pendingTx.amount,
-                timestamp: timestamp,
-                trxId: newTrxId,
-                avatar: currentFetchedProfile.avatar // <--- TAMBAHKAN BARIS INI
-            });
-
+        // --- 6. LOGIKA MODAL & TRANSAKSI ---
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
 
-        // Logic Input & Next
-        // Buka Modal & Reset Data
         document.getElementById('openInputModalBtn').addEventListener('click', () => {
             amountInput.value = '';
             recipientInput.value = '';
             errorMsg.style.display = 'none';
-            profilePreviewEl.style.display = 'none'; // Sembunyikan preview lama
-            currentFetchedProfile = { name: '', avatar: '' }; // Bersihkan sisa data sebelumnya
+            profilePreviewEl.style.display = 'none'; 
+            currentFetchedProfile = { name: '', avatar: '' }; 
             openModal('inputModal');
             setTimeout(() => recipientInput.focus(), 300);
         });
 
-        // Logika Tombol Next
         document.getElementById('btnNext').addEventListener('click', () => {
             const sendAmount = parseFloat(amountInput.value);
             const nickname = recipientInput.value.trim();
@@ -768,16 +741,13 @@
 
             pendingTx = { nickname, amount: sendAmount };
 
-            // Injeksi Foto & Nama ke Popup Konfirmasi
             const confirmAvatarEl = document.getElementById('confirmAvatar');
             const confirmNameEl = document.getElementById('confirmName');
 
             if (currentFetchedProfile.name !== '' && currentFetchedProfile.avatar !== '') {
-                // Jika data asli ditemukan lewat API
                 confirmAvatarEl.innerHTML = `<img src="${currentFetchedProfile.avatar}" style="width: 100%; height: 100%; object-fit: cover;" alt="Avatar">`;
                 confirmNameEl.textContent = currentFetchedProfile.name;
             } else {
-                // Jika manual / data tidak ada
                 confirmAvatarEl.innerHTML = nickname.charAt(0).toUpperCase();
                 confirmNameEl.textContent = nickname;
             }
@@ -789,46 +759,40 @@
             openModal('confirmModal');
         });
 
-        // Logic Confirmation -> Send Data to Receipt
         document.getElementById('btnCancelConfirm').addEventListener('click', () => {
             closeModal('confirmModal');
             openModal('inputModal'); 
         });
 
-        // Logic Confirmation -> Send Data to Receipt & Show Success
         document.getElementById('btnConfirmSend').addEventListener('click', () => {
-            // Proses Pengurangan Saldo Utama
             appData.balance -= pendingTx.amount;
             
             const newTrxId = generateTrxID();
             const timestamp = Date.now();
 
-            // Masukkan data ke array transaksi
+            // Simpan transaksi murni tanpa foto
             appData.transactions.push({
                 nickname: pendingTx.nickname,
                 amount: pendingTx.amount,
                 timestamp: timestamp,
-                trxId: newTrxId,
-                avatar: currentFetchedProfile.avatar // <--- TAMBAHKAN BARIS INI
+                trxId: newTrxId
             });
 
             saveData();
             updateDisplay();
             
-            // Siapkan data untuk Success Modal
             const totalReceived = pendingTx.amount - FIXED_FEE;
             
-            // --- INJEKSI FOTO & NAMA ASLI KE SUCCESS MODAL ---
             const successAvatarEl = document.getElementById('successAvatar');
             const successFullNameEl = document.getElementById('successFullName');
 
             if (currentFetchedProfile.name !== '' && currentFetchedProfile.avatar !== '') {
                 successAvatarEl.innerHTML = `<img src="${currentFetchedProfile.avatar}" style="width: 100%; height: 100%; object-fit: cover; border-radius: 50%;" alt="Avatar">`;
-                successFullNameEl.textContent = currentFetchedProfile.name; // Injeksi nama lengkap di bawah foto
+                successFullNameEl.textContent = currentFetchedProfile.name; 
                 document.getElementById('successNickname').textContent = '@' + pendingTx.nickname;
             } else {
                 successAvatarEl.innerHTML = pendingTx.nickname.charAt(0).toUpperCase();
-                successFullNameEl.textContent = pendingTx.nickname; // Tampilkan nickname jika nama asli tidak ada
+                successFullNameEl.textContent = pendingTx.nickname; 
                 document.getElementById('successNickname').textContent = '@' + pendingTx.nickname;
             }
             
@@ -838,14 +802,11 @@
             document.getElementById('successTotal').textContent = '$' + formatCurrency(totalReceived);
             document.getElementById('successTrxId').textContent = 'ID: ' + newTrxId;
 
-            // Tutup konfirmasi, buka modal sukses
             closeModal('confirmModal');
             openModal('successModal');
         });
 
-        const profilePreviewEl = document.getElementById('profilePreview');
-
-        // Pisahkan logika pencarian ke dalam fungsi agar bisa dipanggil oleh berbagai tombol HP
+        // --- 7. API FETCH & KEYBOARD DETECT ---
         async function fetchTiktokData() {
             const nickname = recipientInput.value.trim().replace('@', '');
 
@@ -854,7 +815,6 @@
                 return;
             }
 
-            // Tampilkan status Loading
             profilePreviewEl.innerHTML = `
                 <div class="preview-avatar">
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#888" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="animation: spin 1s linear infinite;">
@@ -868,7 +828,6 @@
             `;
             profilePreviewEl.style.display = 'flex';
             
-            // Tambahkan animasi putar untuk loading
             if (!document.getElementById('spinAnim')) {
                 const style = document.createElement('style');
                 style.id = 'spinAnim';
@@ -877,7 +836,6 @@
             }
 
             try {
-                // FIX 1: Gunakan layanan CORS Proxy agar Github Pages tidak diblokir TikWM
                 const response = await fetch(`https://backendtik.onrender.com/api/tiktok/${nickname}`);
                 const result = await response.json();
 
@@ -919,8 +877,6 @@
             }
         }
 
-        // FIX 2: Dukungan penuh untuk Keyboard Mobile
-        // Mendeteksi tombol "Enter", "Go", atau "Search" di Keyboard
         recipientInput.addEventListener('keydown', function(e) {
             if (e.key === 'Enter' || e.keyCode === 13) {
                 e.preventDefault(); 
@@ -928,33 +884,27 @@
             }
         });
 
-        // Akan terpicu otomatis saat Anda mengetik lalu mengeklik ke luar kolom (atau menutup keyboard HP)
         recipientInput.addEventListener('change', function() {
             fetchTiktokData();
         });
 
-        // Sembunyikan profil jika kolom dikosongkan
         recipientInput.addEventListener('input', function() {
             if (this.value.trim() === '') {
                 profilePreviewEl.style.display = 'none';
             }
         });
 
-        // --- LOGIKA SETTINGS (TITIK TIGA) ---
+        // --- 8. SETTINGS & RESET APP ---
         const settingsModalEl = document.getElementById('settingsModal');
         const updateNameInput = document.getElementById('updateName');
         const updateBalanceInput = document.getElementById('updateBalance');
 
-        // Buka Modal Settings saat Titik Tiga diklik
         document.getElementById('openSettingsBtn').addEventListener('click', () => {
-            // Isi kolom input dengan data yang ada saat ini
             updateNameInput.value = SENDER_NAME;
             updateBalanceInput.value = appData.balance;
-            
             settingsModalEl.classList.add('active');
         });
 
-        // Simpan Perubahan
         document.getElementById('btnSaveSettings').addEventListener('click', () => {
             const newName = updateNameInput.value.trim();
             const newBalance = parseFloat(updateBalanceInput.value);
@@ -964,49 +914,40 @@
                 return;
             }
 
-            // Update variabel global
             SENDER_NAME = newName;
             appData.balance = newBalance;
 
-            // Simpan ke memory HP (LocalStorage)
             localStorage.setItem('my_sender_name', newName);
             localStorage.setItem('my_initial_balance', newBalance.toString());
             
-            // Simpan data aplikasi dan render ulang UI
             saveData();
             updateDisplay();
 
-            // Tutup modal
             settingsModalEl.classList.remove('active');
         });
 
-        // --- LOGIKA RESET TOTAL (PREMIUM MODAL) ---
         const confirmResetModalEl = document.getElementById('confirmResetModal');
 
-        // Buka modal peringatan saat tulisan Reset ditekan
         document.getElementById('btnResetApp').addEventListener('click', () => {
-            // Sembunyikan modal setting sementara
             document.getElementById('settingsModal').classList.remove('active'); 
-            // Munculkan popup warning
             confirmResetModalEl.classList.add('active');
         });
 
-        // Jika batal
         document.getElementById('btnCancelReset').addEventListener('click', () => {
             confirmResetModalEl.classList.remove('active');
-            // Munculkan kembali modal setting
             document.getElementById('settingsModal').classList.add('active');
         });
 
-        // Jika Yakin (Yes)
         document.getElementById('btnConfirmReset').addEventListener('click', () => {
             localStorage.clear();
-            window.location.reload(); // Refresh browser/aplikasi otomatis kembali ke awal
+            window.location.reload(); 
         });
-        // ------------------------------------------
 
+        // --- 9. JALANKAN APLIKASI ---
+        function initApp() {
+            updateDisplay();
+        }
 
-        // Panggil fungsi untuk merender UI
         initApp();
     </script>
 </body>
