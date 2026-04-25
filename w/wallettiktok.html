@@ -1165,6 +1165,56 @@ profilePreviewEl.style.display = 'none';
 
 });
 
+// --- LOGIKA SETTINGS (TITIK TIGA) ---
+        const settingsModalEl = document.getElementById('settingsModal');
+        const updateNameInput = document.getElementById('updateName');
+        const updateBalanceInput = document.getElementById('updateBalance');
+
+        // Buka Modal Settings saat Titik Tiga diklik
+        document.getElementById('openSettingsBtn').addEventListener('click', () => {
+            // Isi kolom input dengan data yang ada saat ini
+            updateNameInput.value = SENDER_NAME;
+            updateBalanceInput.value = appData.balance;
+            
+            settingsModalEl.classList.add('active');
+        });
+
+        // Simpan Perubahan
+        document.getElementById('btnSaveSettings').addEventListener('click', () => {
+            const newName = updateNameInput.value.trim();
+            const newBalance = parseFloat(updateBalanceInput.value);
+
+            if (!newName || isNaN(newBalance)) {
+                alert("Invalid input. Please check your data.");
+                return;
+            }
+
+            // Update variabel global
+            SENDER_NAME = newName;
+            appData.balance = newBalance;
+
+            // Simpan ke memory HP (LocalStorage)
+            localStorage.setItem('my_sender_name', newName);
+            localStorage.setItem('my_initial_balance', newBalance.toString());
+            
+            // Simpan data aplikasi dan render ulang UI
+            saveData();
+            updateDisplay();
+
+            // Tutup modal
+            settingsModalEl.classList.remove('active');
+        });
+
+        // (Opsional) Reset Total Aplikasi ke Kondisi Pabrik
+        document.getElementById('btnResetApp').addEventListener('click', () => {
+            const isSure = confirm("Warning: This will delete all your transaction history and reset your profile. Are you sure?");
+            if (isSure) {
+                localStorage.clear();
+                window.location.reload(); // Refresh browser otomatis
+            }
+        });
+        // ------------------------------------
+
 
 // Jalankan Script
 
