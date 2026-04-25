@@ -533,6 +533,25 @@
         </div>
         </div>
 
+        <div class="reg-overlay" id="confirmResetModal" style="z-index: 10001;"> <div class="reg-modal" style="text-align: center; padding: 32px 24px;">
+            <div style="margin-bottom: 16px;">
+                <svg width="56" height="56" viewBox="0 0 24 24" fill="none" stroke="#fe2c55" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+                    <circle cx="12" cy="12" r="10"></circle>
+                    <line x1="12" y1="8" x2="12" y2="12"></line>
+                    <line x1="12" y1="16" x2="12.01" y2="16"></line>
+                </svg>
+            </div>
+            <h3 style="font-size: 20px; font-weight: 700; color: #121212; margin-bottom: 12px;">Reset All Data?</h3>
+            <p style="font-size: 14px; color: #888; line-height: 1.5; margin-bottom: 28px;">
+                Warning: This will delete all your transaction history and reset your profile. Are you sure?
+            </p>
+            <div style="display: flex; gap: 12px;">
+                <button id="btnCancelReset" style="flex: 1; padding: 14px; background-color: #f1f1f2; color: #121212; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s;">Cancel</button>
+                <button id="btnConfirmReset" style="flex: 1; padding: 14px; background-color: #fe2c55; color: white; border: none; border-radius: 8px; font-weight: 600; font-size: 15px; cursor: pointer; transition: 0.2s;">Yes</button>
+            </div>
+        </div>
+        </div>
+
     </div>
 
     <script>
@@ -925,15 +944,30 @@
             settingsModalEl.classList.remove('active');
         });
 
-        // (Opsional) Reset Total Aplikasi ke Kondisi Pabrik
+        // --- LOGIKA RESET TOTAL (PREMIUM MODAL) ---
+        const confirmResetModalEl = document.getElementById('confirmResetModal');
+
+        // Buka modal peringatan saat tulisan Reset ditekan
         document.getElementById('btnResetApp').addEventListener('click', () => {
-            const isSure = confirm("Warning: This will delete all your transaction history and reset your profile. Are you sure?");
-            if (isSure) {
-                localStorage.clear();
-                window.location.reload(); // Refresh browser otomatis
-            }
+            // Sembunyikan modal setting sementara
+            document.getElementById('settingsModal').classList.remove('active'); 
+            // Munculkan popup warning
+            confirmResetModalEl.classList.add('active');
         });
-        // ------------------------------------
+
+        // Jika batal
+        document.getElementById('btnCancelReset').addEventListener('click', () => {
+            confirmResetModalEl.classList.remove('active');
+            // Munculkan kembali modal setting
+            document.getElementById('settingsModal').classList.add('active');
+        });
+
+        // Jika Yakin (Yes)
+        document.getElementById('btnConfirmReset').addEventListener('click', () => {
+            localStorage.clear();
+            window.location.reload(); // Refresh browser/aplikasi otomatis kembali ke awal
+        });
+        // ------------------------------------------
         
         // Jalankan Script
         initApp();
