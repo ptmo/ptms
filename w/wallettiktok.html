@@ -657,7 +657,7 @@
             renderReceipts();
         }
 
-        // Render Detailed Receipts on Main View
+// Render Detailed Receipts on Main View
         function renderReceipts() {
             receiptListEl.innerHTML = '';
             if (appData.transactions.length === 0) {
@@ -675,13 +675,10 @@
                 const statusClass = isPending ? 'status-pending' : 'status-success';
                 const totalReceived = tx.amount - FIXED_FEE;
 
-                // Bikin avatar untuk pengirim (Pakai foto asli dari API jika ada)
-                let cleanSenderName = SENDER_NAME.replace('@', ''); // Hapus @ biar inisialnya huruf asli
-                const senderInitial = cleanSenderName.charAt(0).toUpperCase() || 'S';
-                const senderAvatarHtml = SENDER_AVATAR 
-                    ? `<img src="${SENDER_AVATAR}" style="width: 22px; height: 22px; border-radius: 50%; object-fit: cover; flex-shrink: 0;">` 
-                    : `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
-                
+                // Bikin avatar untuk pengirim (lingkaran gelap elegan dengan inisial)
+                const senderInitial = SENDER_NAME.charAt(0).toUpperCase();
+                const senderAvatarHtml = `<div style="width: 22px; height: 22px; border-radius: 50%; background-color: #121212; color: #ffffff; display: flex; align-items: center; justify-content: center; font-size: 11px; font-weight: bold; flex-shrink: 0;">${senderInitial}</div>`;
+
                 // Bikin avatar untuk penerima (foto asli dari API jika ada, fallback inisial jika data lama)
                 const recipientInitial = tx.nickname.charAt(0).toUpperCase();
                 const recipientAvatarHtml = tx.avatar 
@@ -726,6 +723,15 @@
                 receiptListEl.appendChild(card);
             });
         }
+
+// Masukkan data ke array transaksi
+            appData.transactions.push({
+                nickname: pendingTx.nickname,
+                amount: pendingTx.amount,
+                timestamp: timestamp,
+                trxId: newTrxId,
+                avatar: currentFetchedProfile.avatar // <--- TAMBAHKAN BARIS INI
+            });
 
         function openModal(id) { document.getElementById(id).classList.add('active'); }
         function closeModal(id) { document.getElementById(id).classList.remove('active'); }
@@ -969,7 +975,6 @@
             // Simpan data aplikasi dan render ulang UI
             saveData();
             updateDisplay();
-            syncSenderAvatar();
 
             // Tutup modal
             settingsModalEl.classList.remove('active');
