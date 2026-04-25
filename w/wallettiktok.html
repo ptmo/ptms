@@ -565,26 +565,18 @@
     </div>
 
     <script>
-        // --- 1. KONFIGURASI SISTEM & MEMORI (ANTI-RESET) ---
-        const STORAGE_KEY = 'tiktok_balance_app_data';
-        const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
-        const FIXED_FEE = 3.00;
-
-        // Ambil Data Profil dari Memori HP
+        // --- FITUR AUTO-REGISTRASI PROFIL (PREMIUM UI) ---
         let mySenderName = localStorage.getItem('my_sender_name');
         let myInitialBalance = localStorage.getItem('my_initial_balance');
-        let SENDER_AVATAR = localStorage.getItem('my_sender_avatar') || '';
 
+        // System Data & Configuration (Dinamis)
+        const STORAGE_KEY = 'tiktok_balance_app_data';
+        let INITIAL_BALANCE = myInitialBalance ? parseFloat(myInitialBalance) : 0; 
+        const TWENTY_FOUR_HOURS = 1 * 60 * 1000;
+        const FIXED_FEE = 3.00;
         let SENDER_NAME = mySenderName || "Not Elig";
-        let INITIAL_BALANCE = myInitialBalance ? parseFloat(myInitialBalance) : 0;
 
-        // KUNCI ANTI-RESET: Langsung tarik data transaksi terakhir sebelum script lain jalan
-        const savedData = localStorage.getItem(STORAGE_KEY);
-        if (savedData) {
-            appData = JSON.parse(savedData);
-        }
-
-        // --- 2. FITUR AUTO-REGISTRASI PROFIL (PREMIUM UI) ---
+        // Jika pembeli baru, tampilkan custom modal
         if (!mySenderName || !myInitialBalance) {
             document.getElementById('regModal').classList.add('active');
             
@@ -592,27 +584,26 @@
                 const inputName = document.getElementById('regName').value.trim();
                 const inputBal = document.getElementById('regBalance').value.trim();
                 
+                // Cegah input kosong
                 if(!inputName || !inputBal) {
                     alert("Please fill in both fields.");
                     return;
                 }
 
-                // Simpan permanen ke HP
+                // Simpan permanen ke HP pembeli
                 localStorage.setItem('my_sender_name', inputName);
                 localStorage.setItem('my_initial_balance', inputBal);
                 
-                // Update variabel global
+                // Update sistem secara real-time
                 SENDER_NAME = inputName;
                 INITIAL_BALANCE = parseFloat(inputBal);
-                
-                // Set saldo untuk pengguna baru
                 appData.balance = INITIAL_BALANCE;
-                appData.transactions = []; 
+                appData.transactions = []; // Bersihkan histori lama jika ada
                 
                 saveData(); 
                 updateDisplay(); 
-                syncSenderAvatar(); // Langsung cari foto begitu daftar
 
+                // Tutup modal dengan animasi smooth
                 document.getElementById('regModal').classList.remove('active');
             });
         }
