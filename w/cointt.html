@@ -932,7 +932,7 @@
     let typingTimer;
     let selectedProfileData = null; // Menyimpan data asli untuk dikirim ke struk
 
-    // Fungsi untuk mencari profil ke Backend Node.js
+    // Fungsi untuk mencari profil (Menggunakan layanan pihak ketiga)
     const searchTikTokProfile = async (query) => {
         if (query.startsWith('@')) query = query.substring(1);
         if (query.length < 2) {
@@ -944,24 +944,64 @@
         profileResult.innerHTML = '<div class="pr-loading">Mencari profil asli...</div>';
 
         try {
-            const response = await fetch(`https://backendcoin.onrender.com/api/tiktok-profile?username=${query}`);
-            if (!response.ok) throw new Error('Not found');
+            // Kita menggunakan API pihak ketiga (tokcount) yang lebih stabil
+            // API ini biasa dipakai untuk live follower counter dan aman dari blokir CORS
+            const response = await fetch(`https://tokcount.com/?user=${query}`);
             
-            const user = await response.json();
-            selectedProfileData = user; // Simpan data untuk struk
+            if (!response.ok) throw new Error('Network response was not ok');
+            
+            // Karena ini scraping langsung dari HTML web tokcount, kita ambil text-nya
+            const htmlText = await response.text();
+            
+            // Parsing data manual dari HTML yang didapat
+            const parser = new DOMParser();
+            const doc = parser.parseFromString(htmlText, "text/html");
+            
+            // Mencari elemen gambar dan nama di dalam struktur web tokcount
+            const avatarImg = doc.querySelector('.profile-pic');
+            const nameEl = doc.querySelector('.name');
+            const followersEl = doc.querySelector('.followerCount');
+
+            if (!avatarImg || !nameEl) {
+                throw new Error('Data tidak ditemukan');
+            }
+
+            const avatarUrl = avatarImg.src;
+            const name = nameEl.innerText.trim();
+            // Format angka followers (misal: 1200000 -> 1.2M)
+            let followersCount = followersEl ? followersEl.innerText.replace(/,/g, '') : "0";
+            let followers = formatFollowers(followersCount);
+
+            // Simpan data untuk struk
+            selectedProfileData = {
+                username: query,
+                name: name,
+                avatarUrl: avatarUrl,
+                followers: followers
+            };
             
             profileResult.innerHTML = `
-                <img src="${user.avatarUrl}" class="pr-avatar" alt="Avatar">
+                <img src="${avatarUrl}" class="pr-avatar" alt="Avatar">
                 <div class="pr-info">
-                    <div class="pr-name">${user.name}</div>
-                    <div class="pr-followers">${user.followers} Pengikut</div>
+                    <div class="pr-name">${name}</div>
+                    <div class="pr-followers">${followers} Pengikut</div>
                 </div>
             `;
         } catch (error) {
+            console.error(error);
             profileResult.innerHTML = '<div class="pr-loading">Profil tidak ditemukan / Private.</div>';
             selectedProfileData = null;
         }
     };
+
+    // Fungsi kecil pembantu untuk meringkas angka followers
+    function formatFollowers(numStr) {
+        let num = parseInt(numStr, 10);
+        if (isNaN(num)) return "0";
+        if (num >= 1000000) return (num / 1000000).toFixed(1).replace(/\.0$/, '') + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1).replace(/\.0$/, '') + 'K';
+        return num.toString();
+            }
 
     // Deteksi saat mengetik (Otomatis cari setelah 1 detik)
     inputUsername.addEventListener('input', function() {
