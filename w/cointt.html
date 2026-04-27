@@ -465,6 +465,33 @@
             justify-content: center;
             cursor: pointer;
         }
+
+        /* --- CUSTOM ALERT STYLES --- */
+        .alert-text {
+            font-size: 15px;
+            color: #161823;
+            margin-bottom: 24px;
+            line-height: 1.5;
+            font-weight: 500;
+            text-align: center;
+        }
+
+        .btn-alert {
+            width: 100%;
+            padding: 12px;
+            background-color: #fe2b54;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+
+        .btn-alert:active {
+            background-color: #d82547;
+        }
     </style>
 </head>
 <body>
@@ -622,6 +649,13 @@
         </div>
     </div>
 
+    <div id="customAlertModal" class="modal-overlay" style="z-index: 1000;">
+        <div class="modal-box" style="max-width: 280px; padding: 24px 20px 20px 20px;">
+            <div id="customAlertText" class="alert-text">Pesan error di sini</div>
+            <button id="btnCustomAlertOk" class="btn-alert">Oke</button>
+        </div>
+    </div>
+
     <div id="toastMessage" class="toast">Transfer Berhasil!</div>
 
 </div>
@@ -760,13 +794,31 @@
         }, 2500);
     };
 
+    // --- ELEMEN CUSTOM ALERT ---
+    const customAlertModal = document.getElementById('customAlertModal');
+    const customAlertText = document.getElementById('customAlertText');
+    const btnCustomAlertOk = document.getElementById('btnCustomAlertOk');
+
+    // Fungsi pemanggil Custom Alert
+    const showPremiumAlert = (message) => {
+        customAlertText.innerText = message;
+        customAlertModal.style.display = 'flex';
+    };
+
+    // Tombol tutup Custom Alert
+    btnCustomAlertOk.addEventListener('click', () => {
+        customAlertModal.style.display = 'none';
+    });
+
+
+    // --- PROSES KLIK RECHARGE UTAMA ---
     btnMainAction.addEventListener('click', () => {
         if (selectedAmount <= 0) {
-            alert("Silakan pilih atau masukkan jumlah koin yang valid!");
+            showPremiumAlert("Silakan pilih atau masukkan jumlah koin yang valid!");
             return;
         }
         if (coinBalance < selectedAmount) {
-            alert("Saldo koin Anda tidak mencukupi!");
+            showPremiumAlert("Saldo koin Anda tidak mencukupi!");
             return;
         }
         modalKoinAmount.innerText = selectedAmount.toLocaleString('id-ID');
@@ -778,18 +830,20 @@
         transferModal.style.display = 'none';
     });
 
-    // Proses Pengiriman Koin
+
+    // --- PROSES PENGIRIMAN KOIN ---
     btnSubmitTransfer.addEventListener('click', () => {
         const username = inputUsername.value.trim();
         
         if (!username) {
-            alert("Harap masukkan Nickname/Username penerima!");
+            showPremiumAlert("Harap masukkan Nickname/Username penerima!");
             return;
         }
         if (coinBalance < selectedAmount) {
-            alert("Saldo koin tidak mencukupi!");
+            showPremiumAlert("Saldo koin tidak mencukupi!");
             return;
         }
+
 
         // 1. Potong Saldo & Simpan ke LocalStorage
         coinBalance -= selectedAmount;
