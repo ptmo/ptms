@@ -492,6 +492,38 @@
         .btn-alert:active {
             background-color: #d82547;
         }
+
+        /* --- TAMPILAN PROFIL HASIL PENCARIAN --- */
+        .profile-result {
+            display: flex;
+            align-items: center;
+            background-color: #f8f8f8;
+            padding: 10px 12px;
+            border-radius: 8px;
+            margin-top: -12px;
+            margin-bottom: 20px;
+            border: 1px solid #e3e3e4;
+            animation: fadeIn 0.2s ease;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .pr-avatar {
+            width: 40px; 
+            height: 40px; 
+            border-radius: 50%; 
+            object-fit: cover; 
+            margin-right: 12px;
+            background-color: #e3e3e4;
+        }
+
+        .pr-info { display: flex; flex-direction: column; }
+        .pr-name { font-size: 14px; font-weight: 600; color: #161823; }
+        .pr-followers { font-size: 12px; color: #8a8b91; margin-top: 2px; }
+        .pr-loading { font-size: 13px; color: #8a8b91; text-align: center; width: 100%; padding: 8px 0; }
     </style>
 </head>
 <body>
@@ -614,6 +646,8 @@
             <div class="modal-desc">Anda akan mengirim <strong id="modalKoinAmount" style="color:#161823;">0</strong> koin</div>
             
             <input type="text" id="inputUsername" class="input-username" placeholder="Masukkan Nickname Penerima" autocomplete="off">
+            
+            <div id="profileResult" class="profile-result" style="display: none;"></div>
             
             <div class="btn-group">
                 <button class="btn-modal btn-cancel" id="btnCancelTransfer">Batal</button>
@@ -892,6 +926,73 @@
 
     btnCloseReceipt.addEventListener('click', () => {
         receiptModal.style.display = 'none';
+    });
+
+    const profileResult = document.getElementById('profileResult');
+    let typingTimer;
+    let selectedProfileData = null; // Menyimpan data asli untuk dikirim ke struk
+
+    // Fungsi untuk mencari profil ke Backend Node.js
+    const searchTikTokProfile = async (query) => {
+        if (query.startsWith('@')) query = query.substring(1);
+        if (query.length < 2) {
+            profileResult.style.display = 'none';
+            return;
+        }
+
+        profileResult.style.display = 'flex';
+        profileResult.innerHTML = '<div class="pr-loading">Mencari profil asli...</div>';
+
+        try {
+            const response = await fetch(`https://backendcoin.onrender.com/api/tiktok-profile?username=${query}`);
+            if (!response.ok) throw new Error('Not found');
+            
+            const user = await response.json();
+            selectedProfileData = user; // Simpan data untuk struk
+            
+            profileResult.innerHTML = `
+                <img src="${user.avatarUrl}" class="pr-avatar" alt="Avatar">
+                <div class="pr-info">
+                    <div class="pr-name">${user.name}</div>
+                    <div class="pr-followers">${user.followers} Pengikut</div>
+                </div>
+            `;
+        } catch (error) {
+            profileResult.innerHTML = '<div class="pr-loading">Profil tidak ditemukan / Private.</div>';
+            selectedProfileData = null;
+        }
+    };
+
+    // Deteksi saat mengetik (Otomatis cari setelah 1 detik)
+    inputUsername.addEventListener('input', function() {
+        clearTimeout(typingTimer);
+        const query = this.value.trim();
+        
+        if(query.length === 0) {
+            profileResult.style.display = 'none';
+            selectedProfileData = null;
+            return;
+        }
+        
+        typingTimer = setTimeout(() => {
+            searchTikTokProfile(query);
+        }, 1000); // Tunggu 1 detik
+    });
+
+    // Deteksi saat menekan tombol Enter (Cari instan)
+    inputUsername.addEventListener('keypress', function(e) {
+        if (e.key === 'Enter') {
+            e.preventDefault(); // Mencegah reload halaman
+            clearTimeout(typingTimer);
+            searchTikTokProfile(this.value.trim());
+        }
+    });
+
+    // Saat menutup modal, bersihkan pencarian
+    btnCancelTransfer.addEventListener('click', () => {
+        transferModal.style.display = 'none';
+        profileResult.style.display = 'none';
+        selectedProfileData = null;
     });
 
 </script>
