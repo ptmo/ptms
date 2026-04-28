@@ -683,6 +683,22 @@
         </div>
     </div>
 
+    <div id="confirmModal" class="modal-overlay" style="z-index: 105;">
+        <div class="modal-box">
+            <div class="modal-title">Konfirmasi Pengiriman</div>
+            <div class="modal-desc" style="margin-bottom: 16px;">
+                Apakah anda akan mengirim <strong id="confirmAmount" style="color:#161823;">0</strong> koin ke <strong id="confirmUsername" style="color:#161823;">@nickname</strong>?
+            </div>
+            
+            <div id="confirmProfile" class="profile-result" style="display: flex; justify-content: flex-start; margin-top: 0; margin-bottom: 20px;"></div>
+            
+            <div class="btn-group">
+                <button class="btn-modal btn-cancel" id="btnCancelConfirm">Batal</button>
+                <button class="btn-modal btn-submit" id="btnSubmitConfirm">Ya</button>
+            </div>
+        </div>
+    </div>
+
     <div id="receiptModal" class="modal-overlay">
         <div class="modal-box">
             <div class="receipt-icon">✓</div>
@@ -891,12 +907,19 @@
         transferModal.style.display = 'none';
     });
 
+    // --- ELEMEN MODAL KONFIRMASI ---
+    const confirmModal = document.getElementById('confirmModal');
+    const confirmAmount = document.getElementById('confirmAmount');
+    const confirmUsername = document.getElementById('confirmUsername');
+    const confirmProfile = document.getElementById('confirmProfile');
+    const btnCancelConfirm = document.getElementById('btnCancelConfirm');
+    const btnSubmitConfirm = document.getElementById('btnSubmitConfirm');
 
-    // --- PROSES PENGIRIMAN KOIN ---
+    // --- PROSES KLIK KIRIM DI MODAL PERTAMA (Tampilkan Konfirmasi) ---
     btnSubmitTransfer.addEventListener('click', () => {
-        const username = inputUsername.value.trim();
+        const usernameInput = inputUsername.value.trim();
         
-        if (!username) {
+        if (!usernameInput) {
             showPremiumAlert("Harap masukkan Nickname penerima!");
             return;
         }
@@ -905,6 +928,44 @@
             return;
         }
 
+        // Siapkan teks konfirmasi
+        confirmAmount.innerText = selectedAmount.toLocaleString('id-ID');
+        confirmUsername.innerText = "@" + usernameInput;
+
+        // Siapkan foto profil dan nama di modal konfirmasi
+        if (selectedProfileData) {
+            confirmProfile.innerHTML = `
+                <img src="${selectedProfileData.avatarUrl}" class="pr-avatar" alt="Avatar">
+                <div class="pr-info" style="text-align: left;">
+                    <div class="pr-name">${selectedProfileData.name}</div>
+                    <div class="pr-followers">${selectedProfileData.followers} Pengikut</div>
+                </div>
+            `;
+        } else {
+            // Jika diketik manual tanpa klik/tunggu profil muncul
+            confirmProfile.innerHTML = `
+                <div class="pr-avatar" style="display:flex; justify-content:center; align-items:center; font-weight:bold; color:white;">${usernameInput.charAt(0).toUpperCase()}</div>
+                <div class="pr-info" style="text-align: left;">
+                    <div class="pr-name">${usernameInput}</div>
+                    <div class="pr-followers">Data tidak dicek</div>
+                </div>
+            `;
+        }
+
+        // Sembunyikan modal awal, tampilkan konfirmasi
+        transferModal.style.display = 'none';
+        confirmModal.style.display = 'flex';
+    });
+
+    // --- TOMBOL BATAL KONFIRMASI ---
+    btnCancelConfirm.addEventListener('click', () => {
+        confirmModal.style.display = 'none';
+        transferModal.style.display = 'flex'; // Kembali ke modal isi nickname
+    });
+
+    // --- TOMBOL YA (EKSEKUSI TRANSAKSI FINAL) ---
+    btnSubmitConfirm.addEventListener('click', () => {
+        const usernameInput = inputUsername.value.trim();
 
         // 1. Potong Saldo & Simpan ke LocalStorage
         coinBalance -= selectedAmount;
@@ -923,11 +984,16 @@
         const ss = String(now.getSeconds()).padStart(2, '0');
         const dateRiwayat = `${dd}/${mm}/${yyyy} ${hh}:${min}:${ss}`;
 
+        const finalName = selectedProfileData ? selectedProfileData.name : usernameInput;
+        const finalAvatar = selectedProfileData ? selectedProfileData.avatarUrl : null;
+
         // 2. Simpan Data Asli ke Riwayat & LocalStorage
         const randomColor = "#" + Math.floor(Math.random()*16777215).toString(16).padStart(6, '0');
         historyData.unshift({
             title: "Hadiah Terkirim",
-            user: username,         
+            user: usernameInput,
+            name: finalName,
+            avatar: finalAvatar,         
             date: dateRiwayat,
             amount: -selectedAmount, 
             color: randomColor
@@ -939,11 +1005,12 @@
         renderHistory(); 
 
         // 4. Siapkan Struk
-        strukNickname.innerText = username;
+        strukNickname.innerText = finalName;
         strukAmount.innerText = selectedAmount.toLocaleString('id-ID') + " Koin";
         strukDate.innerText = `${dateStruk}, ${hh}:${min}`;
 
-        transferModal.style.display = 'none';
+        // Tutup Modal Konfirmasi & Tampilkan Struk
+        confirmModal.style.display = 'none';
         showToast("Transfer Berhasil!");
         
         setTimeout(() => {
