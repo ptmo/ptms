@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NexusScan - The Multi-Chain Explorer</title>
+  
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/@phosphor-icons/web"></script>
+
+  <style>
+    /* --- CSS VARIABLES (COLOR PALETTE) --- */
+    :root {
+      --bg-body: #f8fafc;
+      --bg-card: #ffffff;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --border-color: #e2e8f0;
+      --success: #10b981;
+      --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
+      --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+      --radius-md: 0.75rem;
+      --radius-lg: 1rem;
+    }
+
+    /* --- RESET & BASE --- */
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: var(--bg-body);
+      color: var(--text-main);
+      line-height: 1.5;
+    }
+    a {
+      text-decoration: none;
+      color: var(--primary);
+      transition: color 0.2s ease;
+    }
+    a:hover { color: var(--primary-hover); }
+
+    /* --- NAVBAR --- */
+    nav {
+      position: sticky;
+      top: 0;
+      z-index: 50;
+      background-color: rgba(255, 255, 255, 0.85);
+      backdrop-filter: blur(12px);
+      border-bottom: 1px solid var(--border-color);
+    }
+    .nav-container {
+      max-width: 1200px;
+      margin: 0 auto;
+      padding: 0 1.5rem;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      height: 4rem;
+    }
+    .logo {
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      font-size: 1.25rem;
+      font-weight: 700;
+      color: var(--text-main);
+    }
+    .logo-icon {
+      background-color: var(--primary);
+      color: white;
+      padding: 0.4rem;
+      border-radius: 0.5rem;
+      display: flex;
+      align-items: center;
+    }
+    .nav-links {
+      display: flex;
+      gap: 2rem;
+      font-weight: 500;
+      font-size: 0.875rem;
+    }
+    .nav-links a { color: var(--text-muted); }
+    .nav-links a:hover { color: var(--primary); }
+    .menu-toggle {
+      display: none;
+      font-size: 1.5rem;
+      cursor: pointer;
+      color: var(--text-muted);
+    }
+
+    /* --- HERO & SEARCH --- */
+    .hero {
+      background: linear-gradient(135deg, #1e1b4b 0%, #0f172a 100%);
+      padding: 4rem 1.5rem;
+      text-align: center;
+      color: white;
+    }
+    .hero h1 {
+      font-size: 2rem;
+      font-weight: 600;
+      margin-bottom: 2rem;
+    }
+    .search-bar {
+      max-width: 800px;
+      margin: 0 auto;
+      position: relative;
+      display: flex;
+      align-items: center;
+    }
+    .search-icon {
+      position: absolute;
+      left: 1rem;
+      color: #94a3b8;
+      font-size: 1.25rem;
+    }
+    .search-input {
+      width: 100%;
+      padding: 1rem 8rem 1rem 3rem;
+      border-radius: var(--radius-md);
+      border: none;
+      font-size: 1rem;
+      outline: none;
+      box-shadow: var(--shadow-lg);
+      transition: box-shadow 0.2s ease;
+    }
+    .search-input:focus {
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
+    }
+    .search-btn {
+      position: absolute;
+      right: 0.5rem;
+      background-color: var(--primary);
+      color: white;
+      border: none;
+      padding: 0.6rem 1.5rem;
+      border-radius: 0.5rem;
+      font-weight: 500;
+      cursor: pointer;
+      transition: background-color 0.2s ease;
+    }
+    .search-btn:hover { background-color: var(--primary-hover); }
+
+    /* --- MAIN LAYOUT --- */
+    main {
+      max-width: 1200px;
+      margin: -2rem auto 3rem auto; /* Overlap with hero */
+      padding: 0 1.5rem;
+      position: relative;
+      z-index: 10;
+    }
+
+    /* --- STATS GRID --- */
+    .stats-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+      gap: 1rem;
+      margin-bottom: 2rem;
+    }
+    .stat-card {
+      background-color: var(--bg-card);
+      padding: 1.25rem;
+      border-radius: var(--radius-md);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-color);
+      display: flex;
+      align-items: center;
+      gap: 1rem;
+      transition: transform 0.2s ease;
+    }
+    .stat-card:hover { transform: translateY(-3px); }
+    .stat-icon {
+      background-color: var(--bg-body);
+      color: var(--text-muted);
+      padding: 0.75rem;
+      border-radius: 50%;
+      font-size: 1.5rem;
+      display: flex;
+    }
+    .stat-info p:first-child {
+      font-size: 0.75rem;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+      color: var(--text-muted);
+      font-weight: 600;
+      margin-bottom: 0.25rem;
+    }
+    .stat-info p:last-child {
+      font-size: 1.125rem;
+      font-weight: 600;
+    }
+    .text-success { color: var(--success); font-size: 0.875rem; margin-left: 0.25rem;}
+
+    /* --- TABLES GRID --- */
+    .tables-container {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 1.5rem;
+    }
+    .table-card {
+      background-color: var(--bg-card);
+      border-radius: var(--radius-lg);
+      box-shadow: var(--shadow-sm);
+      border: 1px solid var(--border-color);
+      overflow: hidden;
+    }
+    .table-header {
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--border-color);
+      background-color: #f8fafc;
+      font-weight: 600;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    
+    /* --- LIST ROWS --- */
+    .list-row {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 1.25rem;
+      border-bottom: 1px solid var(--bg-body);
+      transition: background-color 0.2s ease;
+    }
+    .list-row:last-child { border-bottom: none; }
+    .list-row:hover { background-color: var(--bg-body); }
+    
+    .row-left, .row-right { display: flex; align-items: center; gap: 1rem; }
+    .row-right { flex-direction: column; align-items: flex-end; text-align: right; }
+    
+    .item-icon {
+      background-color: var(--bg-body);
+      padding: 0.75rem;
+      border-radius: 0.5rem;
+      color: var(--text-muted);
+      font-size: 1.25rem;
+    }
+    .item-title { font-weight: 500; }
+    .item-subtitle { font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem; }
+    .badge {
+      background-color: #f1f5f9;
+      padding: 0.25rem 0.5rem;
+      border-radius: 0.25rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      color: var(--text-muted);
+      border: 1px solid var(--border-color);
+    }
+
+    .view-all {
+      display: block;
+      text-align: center;
+      padding: 1rem;
+      background-color: #f8fafc;
+      border-top: 1px solid var(--border-color);
+      font-size: 0.875rem;
+      font-weight: 500;
+      text-transform: uppercase;
+      letter-spacing: 0.05em;
+    }
+
+    /* --- RESPONSIVE MOBILE --- */
+    @media (max-width: 768px) {
+      .nav-links { display: none; }
+      .menu-toggle { display: block; }
+      .hero h1 { font-size: 1.5rem; }
+      .search-btn { display: none; } /* Hide button on mobile, user uses enter */
+      .search-input { padding-right: 1.5rem; }
+      .tables-container { grid-template-columns: 1fr; }
+      .row-right { align-items: flex-start; text-align: left; margin-top: 0.5rem; }
+      .list-row { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+      .badge { display: none; }
+    }
+  </style>
+</head>
+<body>
+
+  <nav>
+    <div class="nav-container">
+      <div class="logo">
+        <div class="logo-icon"><i class="ph ph-cube"></i></div>
+        <span>Nexus<span style="color: var(--primary);">Scan</span></span>
+      </div>
+      <div class="nav-links" id="navLinks">
+        <a href="#">Home</a>
+        <a href="#">Blockchain</a>
+        <a href="#">Tokens</a>
+        <a href="#">Developers</a>
+      </div>
+      <div class="menu-toggle" id="mobileMenuBtn">
+        <i class="ph ph-list"></i>
+      </div>
+    </div>
+  </nav>
+
+  <header class="hero">
+    <h1>The Multi-Chain Explorer</h1>
+    <div class="search-bar">
+      <i class="ph ph-magnifying-glass search-icon"></i>
+      <input type="text" class="search-input" placeholder="Search by Address / Txn Hash / Block / Token...">
+      <button class="search-btn">Search</button>
+    </div>
+  </header>
+
+  <main>
+    
+    <section class="stats-grid">
+      <div class="stat-card">
+        <div class="stat-icon"><i class="ph ph-currency-dollar"></i></div>
+        <div class="stat-info">
+          <p>NEXUS Price</p>
+          <p>$3,421.50 <span class="text-success">+2.4%</span></p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="ph ph-activity"></i></div>
+        <div class="stat-info">
+          <p>Transactions</p>
+          <p>2,451.2 M</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="ph ph-cube"></i></div>
+        <div class="stat-info">
+          <p>Latest Block</p>
+          <p>19428501</p>
+        </div>
+      </div>
+      <div class="stat-card">
+        <div class="stat-icon"><i class="ph ph-gas-pump"></i></div>
+        <div class="stat-info">
+          <p>Safe Gas Price</p>
+          <p>12 Gwei</p>
+        </div>
+      </div>
+    </section>
+
+    <section class="tables-container">
+      
+      <div class="table-card">
+        <div class="table-header">
+          Latest Blocks
+        </div>
+        
+        <div class="list-row">
+          <div class="row-left">
+            <div class="item-icon"><i class="ph ph-cube"></i></div>
+            <div>
+              <a href="#" class="item-title">19428501</a>
+              <div class="item-subtitle">12 secs ago</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div style="font-size: 0.875rem;">
+              <span style="color: var(--text-muted);">Fee Recipient:</span> <a href="#">0xFlash...4bA9</a>
+            </div>
+            <div class="item-subtitle">0.045 NEXUS</div>
+          </div>
+        </div>
+
+        <div class="list-row">
+          <div class="row-left">
+            <div class="item-icon"><i class="ph ph-cube"></i></div>
+            <div>
+              <a href="#" class="item-title">19428500</a>
+              <div class="item-subtitle">24 secs ago</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div style="font-size: 0.875rem;">
+              <span style="color: var(--text-muted);">Fee Recipient:</span> <a href="#">TitanBuilder</a>
+            </div>
+            <div class="item-subtitle">0.031 NEXUS</div>
+          </div>
+        </div>
+
+        <a href="#" class="view-all">View All Blocks</a>
+      </div>
+
+      <div class="table-card">
+        <div class="table-header">
+          Latest Transactions
+        </div>
+        
+        <div class="list-row">
+          <div class="row-left">
+            <div class="item-icon"><i class="ph ph-file-text"></i></div>
+            <div>
+              <a href="#" class="item-title">0x8f2a...9c1d</a>
+              <div class="item-subtitle">12 secs ago</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div style="font-size: 0.875rem;">
+              <span style="color: var(--text-muted);">From</span> <a href="#">0x12a...3b4c</a>
+            </div>
+            <div style="font-size: 0.875rem; margin-top: 0.25rem;">
+              <span style="color: var(--text-muted);">To</span> <a href="#">Uniswap V3</a>
+            </div>
+          </div>
+          <div class="badge">1.24 NEXUS</div>
+        </div>
+
+        <div class="list-row">
+          <div class="row-left">
+            <div class="item-icon"><i class="ph ph-file-text"></i></div>
+            <div>
+              <a href="#" class="item-title">0x3b1c...4d5e</a>
+              <div class="item-subtitle">14 secs ago</div>
+            </div>
+          </div>
+          <div class="row-right">
+            <div style="font-size: 0.875rem;">
+              <span style="color: var(--text-muted);">From</span> <a href="#">0x45b...6c7d</a>
+            </div>
+            <div style="font-size: 0.875rem; margin-top: 0.25rem;">
+              <span style="color: var(--text-muted);">To</span> <a href="#">Tether: USDT</a>
+            </div>
+          </div>
+          <div class="badge">0.00 NEXUS</div>
+        </div>
+
+        <a href="#" class="view-all">View All Transactions</a>
+      </div>
+
+    </section>
+
+  </main>
+
+  <script>
+    const mobileBtn = document.getElementById('mobileMenuBtn');
+    const navLinks = document.getElementById('navLinks');
+
+    mobileBtn.addEventListener('click', () => {
+      // Toggle logic sederhana untuk menu di mobile
+      if (navLinks.style.display === 'flex') {
+        navLinks.style.display = 'none';
+      } else {
+        navLinks.style.display = 'flex';
+        navLinks.style.flexDirection = 'column';
+        navLinks.style.position = 'absolute';
+        navLinks.style.top = '4rem';
+        navLinks.style.left = '0';
+        navLinks.style.right = '0';
+        navLinks.style.backgroundColor = 'white';
+        navLinks.style.padding = '1rem';
+        navLinks.style.borderBottom = '1px solid var(--border-color)';
+        navLinks.style.boxShadow = 'var(--shadow-md)';
+      }
+    });
+  </script>
+</body>
+                                  </html>
