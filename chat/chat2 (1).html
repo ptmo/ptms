@@ -1,0 +1,806 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Premium Interactive Chat UI</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --bg-base: #F4F7F8;
+            --text-main: #1C222B;
+            --text-muted: #7E8796;
+            --accent-primary: #5C9EAD;
+            --glass-bg: rgba(255, 255, 255, 0.7);
+            --glass-border: rgba(255, 255, 255, 0.9);
+            --glass-shadow: 0 12px 32px rgba(28, 34, 43, 0.04);
+            --glass-shadow-hover: 0 16px 40px rgba(28, 34, 43, 0.08);
+            --transition-smooth: opacity 0.04s linear, transform 0.04s linear;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            font-family: 'Plus Jakarta Sans', sans-serif;
+            background-color: var(--bg-base);
+            color: var(--text-main);
+            width: 100vw;
+            height: 100dvh; 
+            overflow: hidden; 
+        }
+
+        .app-container {
+            position: relative;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            justify-content: center;
+        }
+
+        .app-wrapper {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            height: 100%;
+            background-color: var(--bg-base);
+            overflow: hidden;
+            box-shadow: 0 0 50px rgba(0,0,0,0.05);
+        }
+
+        .bg-blob-1 {
+            position: absolute;
+            top: -10%;
+            right: -20%;
+            width: 400px;
+            height: 400px;
+            background: linear-gradient(135deg, #D6E4E2, #E8F0EE);
+            border-radius: 50%;
+            filter: blur(60px);
+            z-index: 0;
+        }
+
+        .bg-blob-2 {
+            position: absolute;
+            bottom: 0;
+            left: -20%;
+            width: 500px;
+            height: 500px;
+            background: linear-gradient(135deg, #E6E2F0, #F4F2F8);
+            border-radius: 50%;
+            filter: blur(80px);
+            z-index: 0;
+        }
+
+        .view {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            z-index: 10;
+            transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
+        }
+
+        /* --- LAYAR 0: AUTENTIKASI (BARU) --- */
+        .auth-view {
+            z-index: 50; /* Paling atas menutupi aplikasi */
+            background-color: var(--bg-base);
+            justify-content: center;
+            align-items: center;
+            padding: 24px;
+        }
+
+        .auth-card {
+            width: 100%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px);
+            border: 1px solid var(--glass-border);
+            border-radius: 32px;
+            padding: 40px 24px;
+            box-shadow: var(--glass-shadow);
+            text-align: center;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 24px;
+        }
+
+        .auth-card h2 { font-size: 24px; font-weight: 700; color: var(--text-main); }
+        .auth-card p { font-size: 14px; color: var(--text-muted); margin-top: -16px; }
+
+        .auth-btn {
+            width: 100%;
+            height: 56px;
+            border-radius: 20px;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 600;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+            border: none;
+        }
+
+        .google-btn {
+            background: #FFFFFF;
+            color: var(--text-main);
+            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
+            border: 1px solid #E2E8F0;
+        }
+        .google-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
+
+        .primary-btn {
+            background: var(--accent-primary);
+            color: #FFFFFF;
+            box-shadow: 0 8px 24px rgba(92, 158, 173, 0.3);
+        }
+        .primary-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(92, 158, 173, 0.4); }
+
+        .auth-input {
+            width: 100%;
+            height: 56px;
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 0 20px;
+            font-family: inherit;
+            font-size: 15px;
+            color: var(--text-main);
+            text-align: center;
+            outline: none;
+            transition: all 0.25s ease;
+        }
+        .auth-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px rgba(92, 158, 173, 0.1); }
+
+        .avatar-upload {
+            width: 90px;
+            height: 90px;
+            border-radius: 50%;
+            background: #E2E8F0;
+            border: 3px solid #FFFFFF;
+            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
+            position: relative;
+            cursor: pointer;
+            overflow: hidden;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            background-size: cover;
+            background-position: center;
+        }
+        .avatar-upload input { display: none; }
+        .avatar-overlay {
+            position: absolute;
+            bottom: 0; left: 0; right: 0;
+            background: rgba(0,0,0,0.5);
+            height: 30px;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            color: white;
+        }
+
+        /* State display controls */
+        .setup-state { display: none; }
+        .auth-view.hidden { opacity: 0; pointer-events: none; }
+
+        /* --- LAYAR 1: DAFTAR OBROLAN --- */
+        .list-view { transform: translateX(0); height: 100%; overflow: hidden; }
+
+        .top-nav { padding: 20px 12px 12px; display: flex; gap: 12px; align-items: center; flex-shrink: 0; z-index: 15; }
+
+        .search-container { flex: 1; height: 52px; background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 20px; display: flex; align-items: center; padding: 0 16px; box-shadow: var(--glass-shadow); transition: var(--transition-smooth); }
+        .search-container:focus-within { box-shadow: 0 0 0 2px var(--accent-primary), var(--glass-shadow-hover); background: rgba(255, 255, 255, 0.95); }
+        .search-container input { border: none; background: transparent; outline: none; width: 100%; font-family: inherit; font-size: 15px; color: var(--text-main); font-weight: 500; margin-left: 12px; }
+
+        .settings-btn { width: 52px; height: 52px; background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 50px; display: flex; justify-content: center; align-items: center; box-shadow: var(--glass-shadow); cursor: pointer; transition: var(--transition-smooth); }
+        .settings-btn:hover { transform: rotate(15deg) scale(1.05); }
+
+        .chat-list { flex: 1; min-height: 0; padding: 4px 12px 120px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 4px; z-index: 10; }
+        .chat-list::-webkit-scrollbar { display: none; }
+
+        .chat-card { display: flex; align-items: center; padding: 10px 12px; background: var(--glass-bg); backdrop-filter: blur(16px); -webkit-backdrop-filter: blur(16px); border: 1px solid var(--glass-border); border-radius: 16px; box-shadow: 0 4px 12px rgba(28, 34, 43, 0.02); transition: var(--transition-smooth); cursor: pointer; }
+        .chat-card:hover { transform: translateY(-2px) scale(1.005); box-shadow: var(--glass-shadow-hover); background: rgba(255, 255, 255, 0.9); }
+
+        .avatar { width: 48px; height: 48px; border-radius: 50px; margin-right: 12px; flex-shrink: 0; border: 2px solid #FFFFFF; box-shadow: 0 4px 10px rgba(0,0,0,0.05); background-size: cover; background-position: center; }
+
+        .chat-info { flex: 1; display: flex; flex-direction: column; gap: 2px; overflow: hidden; }
+        .chat-header { display: flex; justify-content: space-between; align-items: center; }
+        .chat-name { font-size: 16px; font-weight: 700; }
+        .chat-time { font-size: 12px; color: var(--text-muted); font-weight: 600; }
+        .chat-message { font-size: 14px; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-weight: 500; }
+        .unread .chat-message { color: var(--text-main); font-weight: 600; }
+        .unread-badge { background-color: var(--accent-primary); color: #FFFFFF; font-size: 11px; font-weight: 700; padding: 4px 8px; border-radius: 50px; margin-left: 8px; }
+
+        .floating-nav { position: absolute; bottom: 30px; left: 50%; transform: translateX(-50%); width: 290px; height: 68px; background: rgba(255, 255, 255, 0.75); backdrop-filter: blur(24px); -webkit-backdrop-filter: blur(24px); border: 1px solid var(--glass-border); border-radius: 34px; display: flex; justify-content: space-around; align-items: center; box-shadow: 0 24px 48px rgba(0, 0, 0, 0.08); z-index: 20; padding: 0 8px; }
+        .nav-item { width: 50px; height: 50px; border-radius: 50%; display: flex; justify-content: center; align-items: center; color: #A0AEC0; transition: var(--transition-smooth); cursor: pointer; position: relative; }
+        .nav-item:hover { color: var(--text-main); transform: translateY(-2px); }
+        .nav-item.active { background-color: #FFFFFF; color: var(--accent-primary); box-shadow: 0 8px 24px rgba(28, 34, 43, 0.06); border: 1px solid rgba(255, 255, 255, 0.8); }
+        .nav-item.active::after { content: ''; position: absolute; bottom: 6px; width: 4px; height: 4px; background-color: var(--accent-primary); border-radius: 50%; }
+
+        /* --- LAYAR 2: RUANG OBROLAN --- */
+        .chat-room-view { transform: translateX(100%); background-color: var(--bg-base); z-index: 30; }
+        .chat-room-view.active { transform: translateX(0); }
+        .room-header { padding: 20px 24px; display: flex; align-items: center; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-bottom: 1px solid var(--glass-border); gap: 16px; z-index: 21; }
+        .back-btn { width: 40px; height: 40px; border-radius: 50px; background: var(--bg-base); display: flex; justify-content: center; align-items: center; cursor: pointer; border: 1px solid var(--glass-border); transition: var(--transition-smooth); }
+        .back-btn:hover { background: #E2E8F0; }
+        .room-title { flex: 1; }
+        .room-title h2 { font-size: 16px; font-weight: 700; }
+        .room-title p { font-size: 12px; color: var(--accent-primary); font-weight: 600; }
+
+        .messages-container {
+            flex: 1; min-height: 0; padding: 24px; overflow-y: auto; -webkit-overflow-scrolling: touch; display: flex; flex-direction: column; gap: 16px; background-color: var(--bg-base);
+            background-image: url("img/dd.png"), linear-gradient(135deg, rgba(214, 228, 226, 0.85) 0%, rgba(232, 240, 238, 0) 60%), linear-gradient(135deg, rgba(230, 226, 240, 0.9) 0%, rgba(244, 242, 248, 0.9) 100%);
+            background-size: 50% auto, 100% 100%, 100% 100%; background-repeat: repeat, no-repeat, no-repeat; background-blend-mode: normal, normal, normal;
+        }
+        .messages-container::-webkit-scrollbar { display: none; }
+
+        .bubble { max-width: 75%; padding: 14px 18px; font-size: 14px; line-height: 1.5; box-shadow: var(--glass-shadow); position: relative; animation: slideUp 0.3s cubic-bezier(0.16, 1, 0.3, 1) forwards; opacity: 0; transform: translateY(10px); }
+        @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
+        .bubble.received { align-self: flex-start; background: var(--glass-bg); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px); border: 1px solid var(--glass-border); color: var(--text-main); border-radius: 20px 20px 20px 4px; }
+        .bubble.sent { align-self: flex-end; background: var(--accent-primary); color: #FFFFFF; border-radius: 20px 20px 4px 20px; box-shadow: 0 10px 24px rgba(92, 158, 173, 0.3); }
+        .message-time { font-size: 10px; margin-top: 6px; display: block; opacity: 0.7; text-align: right; }
+
+        .input-area { padding: 16px 24px 24px; background: rgba(255, 255, 255, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border-top: 1px solid var(--glass-border); display: flex; gap: 12px; align-items: center; }
+        .input-box { flex: 1; height: 52px; background: var(--bg-base); border-radius: 20px; padding: 0 20px; border: 1px solid var(--glass-border); display: flex; align-items: center; }
+        .input-box input { width: 100%; border: none; background: transparent; outline: none; font-family: inherit; font-size: 14px; color: var(--text-main); }
+        .send-btn { width: 52px; height: 52px; background: var(--accent-primary); color: #FFFFFF; border-radius: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 8px 20px rgba(92, 158, 173, 0.4); transition: var(--transition-smooth); }
+        .send-btn:hover { transform: scale(1.05); }
+
+        /* --- LAYAR 3: PROFIL SAYA --- */
+        .profile-view {
+            transform: translateX(100%);
+            background-color: var(--bg-base);
+            z-index: 35; /* Pastikan berada di atas layar chat */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .profile-view.active {
+            transform: translateX(0);
+        }
+
+        .profile-content {
+            flex: 1;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            gap: 24px;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #E2E8F0;
+            border: 4px solid #FFFFFF;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+            background-size: cover;
+            background-position: center;
+        }
+
+        .profile-info-card {
+            width: 100%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 16px 24px;
+            box-shadow: var(--glass-shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 0;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .info-divider {
+            height: 1px;
+            background-color: var(--glass-border);
+            width: 100%;
+        }
+
+        .logout-btn {
+            width: 100%;
+            height: 56px;
+            background: #FFE5E5;
+            color: #E53E3E;
+            border-radius: 20px;
+            border: 1px solid #FFD1D1;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(229, 62, 62, 0.1);
+            transition: var(--transition-smooth);
+            margin-top: auto; 
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(229, 62, 62, 0.2);
+            background: #FFD1D1;
+        }
+    </style>
+</head>
+<body>
+
+<div class="app-container">
+    <div class="app-wrapper">
+        <div class="bg-blob-1"></div>
+        <div class="bg-blob-2"></div>
+
+        <div class="view auth-view" id="authView">
+            
+            <div class="auth-card" id="loginState">
+                <div style="width: 80px; height: 80px; background: var(--accent-primary); border-radius: 24px; display: flex; justify-content: center; align-items: center; color: white;">
+                    <svg width="40" height="40" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div>
+                    <h2>Selamat Datang</h2>
+                    <p>Masuk untuk memulai percakapan</p>
+                </div>
+                
+                <button class="auth-btn google-btn" onclick="startGoogleLogin()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/><path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/><path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/><path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/></svg>
+                    Masuk dengan Google
+                </button>
+            </div>
+
+            <div class="auth-card setup-state" id="setupState">
+                <div>
+                    <h2>Buat Profilmu</h2>
+                    <p>Pilih foto dan nickname yang unik</p>
+                </div>
+                
+                <label class="avatar-upload" id="avatarUploadArea">
+                    <input type="file" accept="image/*" onchange="previewAvatar(event)">
+                    <svg width="30" height="30" viewBox="0 0 24 24" fill="none" stroke="#7E8796" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect><circle cx="8.5" cy="8.5" r="1.5"></circle><polyline points="21 15 16 10 5 21"></polyline></svg>
+                    <div class="avatar-overlay"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="17 8 12 3 7 8"></polyline><line x1="12" y1="3" x2="12" y2="15"></line></svg></div>
+                </label>
+
+                <input type="text" class="auth-input" id="nicknameSetup" placeholder="Ketik Nickname Kamu...">
+                
+                <button class="auth-btn primary-btn" onclick="finishSetup()">
+                    Buat Akun & Mulai
+                </button>
+            </div>
+        </div>
+
+        <div class="view list-view" id="listView">
+            <div class="top-nav">
+                <div class="search-container">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#7E8796" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
+                    <input type="text" placeholder="Cari pesan atau kontak...">
+                </div>
+                <div class="settings-btn">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+                </div>
+            </div>
+
+            <div class="chat-list" id="chatListContainer">
+                </div>
+
+            <div class="floating-nav">
+                <div class="nav-item active">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+                </div>
+                <div class="nav-item" onclick="openProfile()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                </div>
+                <div class="nav-item">
+                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
+                </div>
+            </div>
+        </div>
+
+        <div class="view chat-room-view" id="chatRoomView">
+            <div class="room-header">
+                <div class="back-btn" onclick="closeChat()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </div>
+                <div class="avatar" id="activeAvatar" style="width: 44px; height: 44px; margin-right: 0;"></div>
+                <div class="room-title">
+                    <h2 id="activeName">Nama Kontak</h2>
+                    <p>Sedang mengetik...</p>
+                </div>
+            </div>
+
+            <div class="messages-container" id="messagesContainer">
+            </div>
+
+            <div class="input-area">
+                <div class="input-box">
+                    <input type="text" placeholder="Ketik pesan..." id="messageInput" onkeypress="handleKeyPress(event)">
+                </div>
+                <button class="send-btn" onclick="sendMessage()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
+                </button>
+            </div>
+        </div>
+
+        <!-- LAYAR 3: PROFIL SAYA -->
+        <div class="view profile-view" id="profileView">
+            <div class="room-header">
+                <div class="back-btn" onclick="closeProfile()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </div>
+                <div class="room-title" style="text-align: center; margin-right: 40px;">
+                    <h2>Profil Saya</h2>
+                </div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-avatar" id="profileAvatarDisplay"></div>
+                
+                <div class="profile-info-card">
+                    <div class="info-row">
+                        <span class="info-label">Nama Akun Google</span>
+                        <span class="info-value" id="profileNameDisplay">-</span>
+                    </div>
+                    <div class="info-divider"></div>
+                    <div class="info-row">
+                        <span class="info-label">Nickname Aplikasi</span>
+                        <span class="info-value" id="profileNicknameDisplay">-</span>
+                    </div>
+                    <div class="info-divider"></div>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-value" id="profileEmailDisplay">-</span>
+                    </div>
+                </div>
+
+                <button class="logout-btn" onclick="logoutAccount()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Keluar Akun
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<script type="module">
+    // 1. Import Firebase SDK (Versi 10)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    // 2. Firebase Configuration
+    const firebaseConfig = {
+      apiKey: "AIzaSyAHQgvaa8P3XDDf8d3wDMMFMuoHTfykk2A",
+      authDomain: "chat-37551.firebaseapp.com",
+      projectId: "chat-37551",
+      storageBucket: "chat-37551.firebasestorage.app",
+      messagingSenderId: "557115133564",
+      appId: "1:557115133564:web:75616cfd1d6f13087083f9",
+      measurementId: "G-WJD577VJEC"
+    };
+
+    // Inisialisasi Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // 3. Konfigurasi Socket.io Render
+    const socket = io("https://chat-9gbz.onrender.com");
+    
+    // Variabel Global
+    let myNickname = ""; 
+    let currentFriend = "";
+    let tempGoogleUser = null; 
+    let tempAvatarData = ""; 
+
+    // --- FUNGSI LOCAL STORAGE (6 BULAN) ---
+    
+    function saveSessionToLocal(user, nickname, avatar) {
+        const now = new Date();
+        now.setMonth(now.getMonth() + 6); // Set waktu kedaluwarsa 6 bulan
+        
+        const sessionData = {
+            uid: user.uid,
+            displayName: user.displayName,
+            email: user.email,
+            nickname: nickname,
+            avatar: avatar,
+            expiredAt: now.getTime()
+        };
+        localStorage.setItem('premiumChatSession', JSON.stringify(sessionData));
+    }
+
+    function checkAutoLogin() {
+        const sessionString = localStorage.getItem('premiumChatSession');
+        if (sessionString) {
+            const sessionData = JSON.parse(sessionString);
+            
+            if (new Date().getTime() < sessionData.expiredAt) {
+                myNickname = sessionData.nickname;
+                tempAvatarData = sessionData.avatar;
+                tempGoogleUser = {
+                    uid: sessionData.uid,
+                    displayName: sessionData.displayName,
+                    email: sessionData.email
+                };
+                
+                document.getElementById('authView').classList.add('hidden');
+                console.log("Auto-login sukses via LocalStorage: " + myNickname);
+                return true;
+            } else {
+                localStorage.removeItem('premiumChatSession');
+            }
+        }
+        return false;
+    }
+
+    checkAutoLogin();
+
+    // --- LOGIKA AUTENTIKASI FIREBASE ---
+
+    window.startGoogleLogin = async function() {
+        try {
+            const result = await signInWithPopup(auth, provider);
+            tempGoogleUser = result.user;
+            
+            const userRef = doc(db, "users", tempGoogleUser.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                myNickname = userSnap.data().nickname;
+                tempAvatarData = userSnap.data().avatar || tempGoogleUser.photoURL;
+                
+                saveSessionToLocal(tempGoogleUser, myNickname, tempAvatarData);
+
+                document.getElementById('authView').classList.add('hidden');
+                console.log("Login sukses: " + myNickname);
+            } else {
+                document.getElementById('loginState').style.display = 'none';
+                document.getElementById('setupState').style.display = 'flex';
+                tempAvatarData = tempGoogleUser.photoURL;
+            }
+        } catch (error) {
+            console.error("Error Login:", error);
+            alert("Gagal login: " + error.message);
+        }
+    }
+
+    // --- MESIN KOMPRESI GAMBAR OTOMATIS (< 25KB) ---
+    window.previewAvatar = function(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = function(e) {
+            // Buat objek gambar virtual untuk mengambil dimensi aslinya
+            const img = new Image();
+            img.onload = function() {
+                // Siapkan kanvas virtual
+                const canvas = document.createElement('canvas');
+                let width = img.width;
+                let height = img.height;
+
+                // Tahap 1: Kompresi Dimensi (Maksimal resolusi 300x300 pixel)
+                const MAX_SIZE = 300;
+                if (width > height) {
+                    if (width > MAX_SIZE) {
+                        height *= MAX_SIZE / width;
+                        width = MAX_SIZE;
+                    }
+                } else {
+                    if (height > MAX_SIZE) {
+                        width *= MAX_SIZE / height;
+                        height = MAX_SIZE;
+                    }
+                }
+                
+                canvas.width = width;
+                canvas.height = height;
+                const ctx = canvas.getContext('2d');
+                ctx.drawImage(img, 0, 0, width, height);
+
+                // Tahap 2: Kompresi Kualitas (Target di bawah 25 KB)
+                let quality = 0.9;
+                let compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                // Hitung estimasi ukuran Base64 dalam Kilobytes (KB)
+                let fileSizeKB = Math.round((compressedBase64.length * 3) / 4) / 1024;
+
+                // Terus turunkan kualitas sebesar 10% sampai ukurannya tembus di bawah 25KB
+                while (fileSizeKB > 25 && quality > 0.1) {
+                    quality -= 0.1;
+                    compressedBase64 = canvas.toDataURL('image/jpeg', quality);
+                    fileSizeKB = Math.round((compressedBase64.length * 3) / 4) / 1024;
+                }
+
+                console.log(`Selesai kompresi! Ukuran final: ${fileSizeKB.toFixed(2)} KB`);
+
+                // Tahap 3: Tampilkan di antarmuka dan simpan ke memori sementara
+                const area = document.getElementById('avatarUploadArea');
+                area.style.backgroundImage = `url(${compressedBase64})`;
+                area.innerHTML = ''; 
+                tempAvatarData = compressedBase64; 
+            };
+            img.src = e.target.result;
+        }
+        reader.readAsDataURL(file);
+    }
+
+    window.finishSetup = async function() {
+        const nickInput = document.getElementById('nicknameSetup').value.trim();
+        
+        if(nickInput === "") {
+            alert("Silakan isi nickname kamu!");
+            return;
+        }
+
+        try {
+            const btn = document.querySelector('.primary-btn');
+            btn.innerText = "Menyimpan...";
+            btn.disabled = true;
+
+            await setDoc(doc(db, "users", tempGoogleUser.uid), {
+                nickname: nickInput,
+                email: tempGoogleUser.email,
+                avatar: tempAvatarData, 
+                created_at: new Date().toISOString()
+            });
+
+            myNickname = nickInput;
+            saveSessionToLocal(tempGoogleUser, myNickname, tempAvatarData);
+            
+            document.getElementById('authView').classList.add('hidden');
+            console.log("Akun berhasil dibuat: " + myNickname);
+
+        } catch (error) {
+            console.error("Error menyimpan profil:", error);
+            alert("Gagal membuat profil. Coba lagi.");
+            btn.innerText = "Buat Akun & Mulai";
+            btn.disabled = false;
+        }
+    }
+
+
+    // --- LOGIKA CHAT SOCKET.IO & SUPABASE ---
+    
+    socket.on("connect", () => console.log("Terhubung ke server chat!"));
+
+    socket.on('load_history', (history) => {
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = ""; 
+        history.forEach(msg => {
+            const type = msg.sender_nickname === myNickname ? 'sent' : 'received';
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            appendMessage(msg.content, time, type);
+        });
+    });
+
+    socket.on('receive_message', (data) => {
+        if(data.sender === currentFriend) {
+            appendMessage(data.text, data.time, 'received');
+        }
+    });
+
+    window.openChat = function(name, avatarUrl) {
+        currentFriend = name; 
+        document.getElementById('activeName').innerText = name;
+        document.getElementById('activeAvatar').style.backgroundImage = `url('${avatarUrl}')`;
+        document.getElementById('chatRoomView').classList.add('active');
+
+        socket.emit('get_history', { me: myNickname, friend: currentFriend });
+    }
+
+    window.closeChat = function() {
+        document.getElementById('chatRoomView').classList.remove('active');
+        currentFriend = ""; 
+    }
+
+    window.sendMessage = function() {
+        const input = document.getElementById('messageInput');
+        const text = input.value.trim();
+        
+        if(text !== "" && currentFriend !== "") {
+            const now = new Date();
+            const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
+            
+            appendMessage(text, timeStr, 'sent');
+            socket.emit('send_message', {
+                sender: myNickname, recipient: currentFriend, text: text, time: timeStr
+            });
+            input.value = "";
+        }
+    }
+
+    window.appendMessage = function(text, timeStr, type) {
+        const container = document.getElementById('messagesContainer');
+        const newBubble = document.createElement('div');
+        newBubble.className = `bubble ${type}`;
+        newBubble.innerHTML = `${text}<span class="message-time">${timeStr}</span>`;
+        container.appendChild(newBubble);
+        container.scrollTop = container.scrollHeight;
+    }
+
+    window.handleKeyPress = function(e) {
+        if(e.key === 'Enter') sendMessage();
+    }
+
+    // --- FUNGSI PROFIL & LOGOUT ---
+
+    window.openProfile = function() {
+        if (tempGoogleUser) {
+            document.getElementById('profileNameDisplay').innerText = tempGoogleUser.displayName || 'Pengguna Tanpa Nama';
+            document.getElementById('profileEmailDisplay').innerText = tempGoogleUser.email || '-';
+            document.getElementById('profileNicknameDisplay').innerText = myNickname;
+            
+            const avatarArea = document.getElementById('profileAvatarDisplay');
+            if(tempAvatarData) {
+                avatarArea.style.backgroundImage = `url('${tempAvatarData}')`;
+            }
+        }
+        
+        document.getElementById('profileView').classList.add('active');
+    }
+
+    window.closeProfile = function() {
+        document.getElementById('profileView').classList.remove('active');
+    }
+
+    window.logoutAccount = async function() {
+        try {
+            await signOut(auth);
+            localStorage.removeItem('premiumChatSession');
+            
+            myNickname = "";
+            tempGoogleUser = null;
+            tempAvatarData = "";
+            currentFriend = "";
+            
+            closeProfile();
+            document.getElementById('authView').classList.remove('hidden');
+            document.getElementById('setupState').style.display = 'none';
+            document.getElementById('loginState').style.display = 'flex';
+            
+            console.log("Logout sukses, kembali ke pintu depan.");
+        } catch (error) {
+            console.error("Gagal keluar:", error);
+            alert("Maaf, proses logout gagal. Silakan coba lagi.");
+        }
+    }
+        </script>
+</body>
+</html>
