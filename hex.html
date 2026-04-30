@@ -218,6 +218,54 @@
             transform: translateX(-50%) translateY(0);
             opacity: 1;
         }
+
+        /* =========================================
+           PALETTE & HARMONY MODULE
+           ========================================= */
+        .palette-section {
+            width: 100%;
+            margin-bottom: 24px;
+        }
+
+        .section-title {
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .mt-4 { margin-top: 24px; }
+
+        .color-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
+            gap: 8px;
+        }
+
+        .color-swatch {
+            height: 48px;
+            border-radius: var(--radius-md);
+            cursor: pointer;
+            transition: var(--transition-smooth);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: transparent;
+            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
+            position: relative;
+            overflow: hidden;
+        }
+
+        .color-swatch:hover {
+            transform: translateY(-4px) scale(1.05);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+            color: #ffffff;
+            text-shadow: 0 1px 3px rgba(0,0,0,0.5); /* Pastikan teks terbaca */
+        }
     </style>
 </head>
 <body>
@@ -239,6 +287,14 @@
             <button class="btn-preview" id="btnPreview">Interactive Button</button>
         </section>
 
+        <section class="palette-section">
+            <h3 class="section-title">Tints & Shades (&plusmn;10%)</h3>
+            <div class="color-grid" id="shadesGrid"></div>
+            
+            <h3 class="section-title mt-4">Harmoni Warna (Matching)</h3>
+            <div class="color-grid" id="harmonyGrid"></div>
+        </section>
+
         <section class="export-section">
             <button class="btn-export" id="btnExport">Copy CSS Variables</button>
         </section>
@@ -246,93 +302,156 @@
 
     <div class="toast" id="toast">CSS berhasil disalin!</div>
 
-    <script>
-        /* =========================================
-           CORE ENGINE (Logika Warna & Interaksi)
-           ========================================= */
-        const colorPicker = document.getElementById('colorPicker');
-        const hexInput = document.getElementById('hexInput');
-        const root = document.documentElement;
-        const wcagStatus = document.getElementById('wcagStatus');
-        const btnExport = document.getElementById('btnExport');
-        const toast = document.getElementById('toast');
-        const metaTheme = document.getElementById('metaTheme');
+    <script>  
+     // =========================================
+// CORE ENGINE & CONVERTERS
+// =========================================
+const colorPicker = document.getElementById('colorPicker');
+const hexInput = document.getElementById('hexInput');
+const root = document.documentElement;
+const wcagStatus = document.getElementById('wcagStatus');
+const btnExport = document.getElementById('btnExport');
+const toast = document.getElementById('toast');
+const metaTheme = document.getElementById('metaTheme');
 
-        // Fungsi mengubah HEX ke RGB
-        function hexToRgb(hex) {
-            let h = hex.replace('#', '');
-            if(h.length === 3) h = h.split('').map(x => x + x).join('');
-            const r = parseInt(h.substring(0, 2), 16);
-            const g = parseInt(h.substring(2, 4), 16);
-            const b = parseInt(h.substring(4, 6), 16);
-            return {r, g, b};
+function hexToRgb(hex) {
+    let h = hex.replace('#', '');
+    if(h.length === 3) h = h.split('').map(x => x + x).join('');
+    const r = parseInt(h.substring(0, 2), 16);
+    const g = parseInt(h.substring(2, 4), 16);
+    const b = parseInt(h.substring(4, 6), 16);
+    return {r, g, b};
+}
+
+function getLuminance(r, g, b) {
+    const a = [r, g, b].map(function (v) {
+        v /= 255;
+        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+    });
+    return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+}
+
+function adjustColor(hex, percent) {
+    const {r, g, b} = hexToRgb(hex);
+    const adjust = (c) => Math.max(0, Math.min(255, Math.round(c * (1 + percent/100))));
+    return '#' + [adjust(r), adjust(g), adjust(b)].map(x => {
+        const h = x.toString(16);
+        return h.length === 1 ? '0' + h : h;
+    }).join('');
+}
+
+// Konversi HEX ke HSL (Penting untuk Harmoni & Shades)
+function hexToHSL(hex) {
+    let {r, g, b} = hexToRgb(hex);
+    r /= 255, g /= 255, b /= 255;
+    let max = Math.max(r, g, b), min = Math.min(r, g, b);
+    let h, s, l = (max + min) / 2;
+    if (max === min) { h = s = 0; }
+    else {
+        let d = max - min;
+        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+        switch(max) {
+            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+            case g: h = (b - r) / d + 2; break;
+            case b: h = (r - g) / d + 4; break;
         }
+        h /= 6;
+    }
+    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+}
 
-        // Fungsi menghitung luminansi untuk Aksesibilitas Teks (WCAG)
-        function getLuminance(r, g, b) {
-            const a = [r, g, b].map(function (v) {
-                v /= 255;
-                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-            });
-            return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
-        }
+// Konversi HSL kembali ke HEX
+function hslToHex(h, s, l) {
+    l /= 100;
+    const a = s * Math.min(l, 1 - l) / 100;
+    const f = n => {
+        const k = (n + h / 30) % 12;
+        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+        return Math.round(255 * color).toString(16).padStart(2, '0');
+    };
+    return `#${f(0)}${f(8)}${f(4)}`;
+}
 
-        // Fungsi membuat variasi warna (Light/Dark)
-        function adjustColor(hex, percent) {
-            const {r, g, b} = hexToRgb(hex);
-            const adjust = (c) => Math.max(0, Math.min(255, Math.round(c * (1 + percent/100))));
-            const newHex = '#' + [adjust(r), adjust(g), adjust(b)].map(x => {
-                const h = x.toString(16);
-                return h.length === 1 ? '0' + h : h;
-            }).join('');
-            return newHex;
-        }
+// =========================================
+// MAIN RENDER ENGINE
+// =========================================
+function updateDesignSystem(hex) {
+    if(!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return;
 
-        // Mesin Utama untuk update seluruh UI
-        function updateDesignSystem(hex) {
-            // Validasi hex
-            if(!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return;
+    const {r, g, b} = hexToRgb(hex);
+    const luminance = getLuminance(r, g, b);
+    
+    const textColor = luminance > 0.179 ? '#0f172a' : '#ffffff';
+    const statusText = luminance > 0.179 ? 'Teks Gelap (Kontras Baik)' : 'Teks Terang (Kontras Baik)';
 
-            const {r, g, b} = hexToRgb(hex);
-            const luminance = getLuminance(r, g, b);
-            
-            // Hitung kontras: jika background gelap, teks putih. Jika terang, teks gelap.
-            const textColor = luminance > 0.179 ? '#0f172a' : '#ffffff';
-            const statusText = luminance > 0.179 ? 'Teks Gelap (Kontras Baik)' : 'Teks Terang (Kontras Baik)';
+    // --- MODUL TINTS, SHADES & HARMONY ---
+    const {h, s, l: l_hsl} = hexToHSL(hex); // Ekstrak nilai L sebagai l_hsl
+    const shadesGrid = document.getElementById('shadesGrid');
+    const harmonyGrid = document.getElementById('harmonyGrid');
+    
+    // 1. Tints & Shades
+    shadesGrid.innerHTML = '';
+    for (let i = -30; i <= 30; i += 10) {
+        let newL = Math.max(0, Math.min(100, l_hsl + i)); 
+        let shadeHex = hslToHex(h, s, newL);
+        let label = i === 0 ? 'Base' : (i > 0 ? `+${i}%` : `${i}%`);
+        shadesGrid.innerHTML += `
+            <div class="color-swatch" style="background-color: ${shadeHex};" 
+                 onclick="navigator.clipboard.writeText('${shadeHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
+                 title="Copy ${shadeHex}">
+                ${label}
+            </div>`;
+    }
 
-            // Generate Palette
-            const lightColor = adjustColor(hex, 30); // Terangkan 30%
-            const darkColor = adjustColor(hex, -20); // Gelapkan 20%
+    // 2. Harmoni Warna
+    const harmonies = [
+        { name: 'Comp', hue: (h + 180) % 360 },
+        { name: 'Ana R', hue: (h + 30) % 360 },
+        { name: 'Ana L', hue: (h + 330) % 360 },
+        { name: 'Tri R', hue: (h + 120) % 360 },
+        { name: 'Tri L', hue: (h + 240) % 360 }
+    ];
+    
+    harmonyGrid.innerHTML = '';
+    harmonies.forEach(color => {
+        let harmHex = hslToHex(color.hue, s, l_hsl);
+        harmonyGrid.innerHTML += `
+            <div class="color-swatch" style="background-color: ${harmHex};" 
+                 onclick="navigator.clipboard.writeText('${harmHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
+                 title="${color.name}: ${harmHex}">
+                ${harmHex.replace('#','').toUpperCase()}
+            </div>`;
+    });
 
-            // Terapkan ke CSS Variables secara Real-Time
-            root.style.setProperty('--primary', hex);
-            root.style.setProperty('--primary-light', lightColor);
-            root.style.setProperty('--primary-dark', darkColor);
-            root.style.setProperty('--text-on-primary', textColor);
-            
-            // Update Meta Theme untuk PWA Mobile
-            metaTheme.setAttribute('content', hex);
+    // 3. Update Variabel CSS & UI Utama
+    const lightColor = adjustColor(hex, 30); 
+    const darkColor = adjustColor(hex, -20); 
 
-            // Update UI teks
-            wcagStatus.textContent = statusText;
-            
-            // Sync input
-            if(hexInput.value !== hex) hexInput.value = hex.toUpperCase();
-            if(colorPicker.value !== hex) colorPicker.value = hex;
-        }
+    root.style.setProperty('--primary', hex);
+    root.style.setProperty('--primary-light', lightColor);
+    root.style.setProperty('--primary-dark', darkColor);
+    root.style.setProperty('--text-on-primary', textColor);
+    
+    metaTheme.setAttribute('content', hex);
+    wcagStatus.textContent = statusText;
+    
+    if(hexInput.value !== hex) hexInput.value = hex.toUpperCase();
+    if(colorPicker.value !== hex) colorPicker.value = hex;
+}
 
-        // Event Listeners
-        colorPicker.addEventListener('input', (e) => updateDesignSystem(e.target.value));
-        
-        hexInput.addEventListener('input', (e) => {
-            let val = e.target.value;
-            if(!val.startsWith('#')) val = '#' + val;
-            if(val.length === 7) updateDesignSystem(val);
-        });
+// =========================================
+// EVENT LISTENERS
+// =========================================
+colorPicker.addEventListener('input', (e) => updateDesignSystem(e.target.value));
 
-        // Ekspor ke Clipboard
-        btnExport.addEventListener('click', () => {
-            const cssOutput = `
+hexInput.addEventListener('input', (e) => {
+    let val = e.target.value;
+    if(!val.startsWith('#')) val = '#' + val;
+    if(val.length === 7) updateDesignSystem(val);
+});
+
+btnExport.addEventListener('click', () => {
+    const cssOutput = `
 /* Auto-generated by Premium Hex Studio */
 :root {
   --primary: ${root.style.getPropertyValue('--primary') || '#6366f1'};
@@ -340,16 +459,16 @@
   --primary-dark: ${root.style.getPropertyValue('--primary-dark') || '#4f46e5'};
   --text-on-primary: ${root.style.getPropertyValue('--text-on-primary') || '#ffffff'};
 }
-            `.trim();
+    `.trim();
 
-            navigator.clipboard.writeText(cssOutput).then(() => {
-                toast.classList.add('show');
-                setTimeout(() => toast.classList.remove('show'), 3000);
-            });
-        });
+    navigator.clipboard.writeText(cssOutput).then(() => {
+        toast.classList.add('show');
+        setTimeout(() => toast.classList.remove('show'), 3000);
+    });
+});
 
-        // Inisialisasi awal
-        updateDesignSystem('#6366f1');
+// Inisialisasi awal
+updateDesignSystem('#6366f1');   
     </script>
 </body>
 </html>
