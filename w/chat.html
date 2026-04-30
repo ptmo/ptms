@@ -625,36 +625,80 @@
 </div>
 
 <script>
-    // Menghubungkan frontend ke server Node.js lokal Anda
+    // Menghubungkan frontend ke server Node.js Render Anda
     const socket = io("https://chat-8r8m.onrender.com");
+
+    // Identitas utama untuk testing (Nanti akan diganti dinamis dari Login Google)
+    let myNickname = "putra_permana_bhakti"; 
+    
+    // Variabel untuk melacak siapa yang sedang kita ajak *chat* saat ini
+    let currentFriend = "";
 
     socket.on("connect", () => {
         console.log("Terhubung ke server chat!");
     });
 
+    // 1. MENDENGARKAN RIWAYAT CHAT DARI DATABASE
+    socket.on('load_history', (history) => {
+        const container = document.getElementById('messagesContainer');
+        container.innerHTML = ""; // Bersihkan layar dari chat sebelumnya
+        
+        history.forEach(msg => {
+            // Tentukan apakah pesan ini milik kita (sent) atau teman (received)
+            const type = msg.sender_nickname === myNickname ? 'sent' : 'received';
+            
+            // Format waktu dari database agar rapi (misal: 09:41)
+            const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            
+            appendMessage(msg.content, time, type);
+        });
+    });
+
+    // 2. MENDENGARKAN PESAN BARU SECARA REAL-TIME
+    socket.on('receive_message', (data) => {
+        // Filter: Hanya munculkan pesan jika pengirimnya adalah kontak yang sedang kita buka
+        if(data.sender === currentFriend) {
+            appendMessage(data.text, data.time, 'received');
+        }
+    });
+
+    // 3. FUNGSI MEMBUKA RUANG OBROLAN
     function openChat(name, avatarUrl) {
+        currentFriend = name; // Set teman yang sedang diajak chat
+        
         document.getElementById('activeName').innerText = name;
         document.getElementById('activeAvatar').style.backgroundImage = `url('${avatarUrl}')`;
         document.getElementById('chatRoomView').classList.add('active');
+
+        // Minta riwayat chat ke server (yang akan mengecek ke Supabase)
+        socket.emit('get_history', { 
+            me: myNickname, 
+            friend: currentFriend 
+        });
     }
 
     function closeChat() {
         document.getElementById('chatRoomView').classList.remove('active');
+        currentFriend = ""; // Reset teman saat keluar dari room
     }
 
+    // 4. FUNGSI MENGIRIM PESAN BARU
     function sendMessage() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         
-        if(text !== "") {
+        // Pastikan input tidak kosong dan kita sedang berada di dalam room chat
+        if(text !== "" && currentFriend !== "") {
             const now = new Date();
             const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             
-            // 1. Tampilkan di layar sendiri (sebagai pesan 'sent')
+            // Tampilkan pesan di layar sendiri
             appendMessage(text, timeStr, 'sent');
             
-            // 2. KIRIM KE SERVER SOCKET.IO
+            // Kirim pesan ke server beserta identitas pengirim dan penerima
             socket.emit('send_message', {
+                sender: myNickname,
+                recipient: currentFriend,
                 text: text,
                 time: timeStr
             });
@@ -663,13 +707,7 @@
         }
     }
 
-    // Mendengarkan pesan masuk dari server
-    socket.on('receive_message', (data) => {
-        // Tampilkan di layar sebagai pesan 'received'
-        appendMessage(data.text, data.time, 'received');
-    });
-
-    // Fungsi bantuan untuk menempelkan elemen bubble chat ke layar
+    // 5. FUNGSI BANTUAN UNTUK MENEMPEL BUBBLE CHAT
     function appendMessage(text, timeStr, type) {
         const container = document.getElementById('messagesContainer');
         const newBubble = document.createElement('div');
@@ -681,6 +719,7 @@
         `;
         
         container.appendChild(newBubble);
+        // Otomatis scroll ke bawah setiap ada pesan baru
         container.scrollTop = container.scrollHeight;
     }
 
