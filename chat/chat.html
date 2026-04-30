@@ -619,29 +619,58 @@
     }
 
     window.renderSavedContacts = function() {
-        const container = document.getElementById('savedContactsList');
-        container.innerHTML = "";
+        // Ambil elemen dari kedua layar
+        const contactContainer = document.getElementById('savedContactsList');
+        const homeContainer = document.getElementById('chatListContainer'); 
+        
+        if(contactContainer) contactContainer.innerHTML = "";
+        if(homeContainer) homeContainer.innerHTML = "";
 
         // URUTKAN KONTAK SECARA ALFABETIS (A-Z / 0-9)
         const sortedContacts = mySavedContacts.sort((a, b) => a.nickname.localeCompare(b.nickname));
 
         sortedContacts.forEach(contact => {
-            const card = document.createElement('div');
-            card.className = 'chat-card';
-            card.onclick = function() {
-                // JIKA KONTAK DIKLIK: Buka layar chat dan tutup layar kontak
-                openChat(contact.nickname, contact.avatar);
-                closeContacts();
-            };
-            card.innerHTML = `
-                <div class="avatar" style="background-image: url('${contact.avatar}'); width: 44px; height: 44px; margin-right: 16px;"></div>
-                <div class="chat-info" style="justify-content: center;">
-                    <span class="chat-name" style="font-size: 16px;">${contact.nickname}</span>
-                </div>
-            `;
-            container.appendChild(card);
+            // 1. Render untuk layar "Tambahan Kontak"
+            if(contactContainer) {
+                const card = document.createElement('div');
+                card.className = 'chat-card';
+                card.onclick = function() {
+                    openChat(contact.nickname, contact.avatar);
+                    closeContacts(); // Tutup layar kontak otomatis
+                };
+                card.innerHTML = `
+                    <div class="avatar" style="background-image: url('${contact.avatar}'); width: 44px; height: 44px; margin-right: 16px;"></div>
+                    <div class="chat-info" style="justify-content: center;">
+                        <span class="chat-name" style="font-size: 16px;">${contact.nickname}</span>
+                    </div>
+                `;
+                contactContainer.appendChild(card);
+            }
+
+            // 2. Render juga ke layar utama (Beranda)
+            if(homeContainer) {
+                const homeCard = document.createElement('div');
+                homeCard.className = 'chat-card';
+                homeCard.onclick = function() {
+                    openChat(contact.nickname, contact.avatar);
+                };
+                homeCard.innerHTML = `
+                    <div class="avatar" style="background-image: url('${contact.avatar}');"></div>
+                    <div class="chat-info">
+                        <div class="chat-header">
+                            <span class="chat-name">${contact.nickname}</span>
+                        </div>
+                        <span class="chat-message">Klik untuk memulai obrolan</span>
+                    </div>
+                `;
+                homeContainer.appendChild(homeCard);
+            }
         });
     }
+
+    // PENTING: Eksekusi fungsi ini segera setelah halaman selesai dimuat
+    // agar layar Beranda Anda tidak kosong!
+    renderSavedContacts();
 </script>
 </body>
 </html>
