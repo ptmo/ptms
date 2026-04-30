@@ -52,10 +52,25 @@
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         @keyframes rippleAnim { to { transform: translate(-50%, -50%) scale(25); opacity: 0; } }
         #imagePreviewContainer {
-    touch-action: none;
+    width: 100%;
+    max-height: 70vh; /* Maksimal 70% dari tinggi layar agar sisa 30% bisa untuk scroll body */
+    overflow: auto;   /* Munculkan scroll internal jika gambar lebih besar dari kontainer */
+    touch-action: none; 
     -webkit-user-select: none;
     user-select: none;
-        }
+    border: 2px solid #e2e8f0;
+    border-radius: 12px;
+    background: #f1f5f9;
+    position: relative;
+    cursor: crosshair;
+    margin-bottom: 20px;
+}
+
+#sourceImage {
+    width: 100%;
+    height: auto;
+    display: block;
+}
     </style>
 </head>
 <body>
@@ -312,34 +327,39 @@ imageUpload.addEventListener('change', function(e) {
 
 // 2. Fungsi Ambil Warna dari Koordinat Tap/Klik
 function pickColorFromImage(e) {
+    // Mencegah scroll halaman saat menyentuh gambar
     if (e.cancelable) e.preventDefault();
 
     const rect = sourceImage.getBoundingClientRect();
+    
+    // Support Touch & Mouse
     const clientX = e.touches ? e.touches[0].clientX : e.clientX;
     const clientY = e.touches ? e.touches[0].clientY : e.clientY;
 
-    // Hitung rasio antara ukuran tampilan (CSS) dan ukuran asli (Natural)
-    const x = (clientX - rect.left) * (sourceImage.naturalWidth / rect.width);
-    const y = (clientY - rect.top) * (sourceImage.naturalHeight / rect.height);
+    // Hitung posisi relatif terhadap elemen gambar (bukan kontainer)
+    const offsetX = clientX - rect.left;
+    const offsetY = clientY - rect.top;
 
-    const pixel = hCtx.getImageData(x, y, 1, 1).data;
-    const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+    // Konversi ke koordinat piksel asli (Natural)
+    const x = Math.floor(offsetX * (sourceImage.naturalWidth / rect.width));
+    const y = Math.floor(offsetY * (sourceImage.naturalHeight / rect.height));
 
-    // Update UI & Picker
-    const hsl = hexToHSL(hex);
-    currentHue = hsl.h;
-    
-    // Sinkronkan posisi kursor SL & Hue
-    const w = slCanvas.width;
-    const h = slCanvas.height;
-    // (Estimasi posisi kursor SL berdasarkan Saturation & Lightness)
-    slCursor.style.left = (hsl.s * w / 100) + 'px';
-    slCursor.style.top = ((100 - hsl.l) * h / 100) + 'px';
-    hueCursor.style.left = (currentHue / 360 * document.getElementById('hueContainer').offsetWidth) + 'px';
-    
-    drawPicker();
-    updateDesignSystem(hex);
-    showToast("Warna dipetik: " + hex);
+    // Validasi agar tidak mengambil data di luar area gambar
+    if (x >= 0 && x < hiddenCanvas.width && y >= 0 && y < hiddenCanvas.height) {
+        const pixel = hCtx.getImageData(x, y, 1, 1).data;
+        const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+
+        // Sinkronisasi ke sistem utama
+        updateDesignSystem(hex);
+        
+        // Update posisi kursor manual agar sinkron
+        const hsl = hexToHSL(hex);
+        currentHue = hsl.h;
+        hueCursor.style.left = (currentHue / 360 * document.getElementById('hueContainer').offsetWidth) + 'px';
+        
+        drawPicker();
+        showToast("Warna dipetik: " + hex);
+    }
 }
 
 // 3. Event Listeners untuk Image Tap
