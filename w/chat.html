@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Premium Interactive Chat UI</title>
+    <script src="https://cdn.socket.io/4.7.4/socket.io.min.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -636,6 +637,13 @@
 </div>
 
 <script>
+    // Menghubungkan frontend ke server Node.js lokal Anda
+    const socket = io("https://chat-server-premium.onrender.com");
+
+    socket.on("connect", () => {
+        console.log("Terhubung ke server chat!");
+    });
+
     function openChat(name, avatarUrl) {
         document.getElementById('activeName').innerText = name;
         document.getElementById('activeAvatar').style.backgroundImage = `url('${avatarUrl}')`;
@@ -651,21 +659,41 @@
         const text = input.value.trim();
         
         if(text !== "") {
-            const container = document.getElementById('messagesContainer');
-            const newBubble = document.createElement('div');
-            newBubble.className = 'bubble sent';
             const now = new Date();
             const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             
-            newBubble.innerHTML = `
-                ${text}
-                <span class="message-time">${timeStr}</span>
-            `;
+            // 1. Tampilkan di layar sendiri (sebagai pesan 'sent')
+            appendMessage(text, timeStr, 'sent');
             
-            container.appendChild(newBubble);
+            // 2. KIRIM KE SERVER SOCKET.IO
+            socket.emit('send_message', {
+                text: text,
+                time: timeStr
+            });
+
             input.value = "";
-            container.scrollTop = container.scrollHeight;
         }
+    }
+
+    // Mendengarkan pesan masuk dari server
+    socket.on('receive_message', (data) => {
+        // Tampilkan di layar sebagai pesan 'received'
+        appendMessage(data.text, data.time, 'received');
+    });
+
+    // Fungsi bantuan untuk menempelkan elemen bubble chat ke layar
+    function appendMessage(text, timeStr, type) {
+        const container = document.getElementById('messagesContainer');
+        const newBubble = document.createElement('div');
+        newBubble.className = `bubble ${type}`;
+        
+        newBubble.innerHTML = `
+            ${text}
+            <span class="message-time">${timeStr}</span>
+        `;
+        
+        container.appendChild(newBubble);
+        container.scrollTop = container.scrollHeight;
     }
 
     function handleKeyPress(e) {
@@ -674,6 +702,5 @@
         }
     }
 </script>
-
 </body>
 </html>
