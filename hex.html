@@ -4,35 +4,27 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="theme-color" content="#ffffff" id="metaTheme">
-    <title>Premium Hex Studio</title>
+    <title>Premium Hex Studio Pro</title>
     <style>
         /* =========================================
-           ROOT VARIABLES & RESET (Standard Industri)
+           ROOT VARIABLES & RESET
            ========================================= */
         :root {
             --primary: #6366f1;
             --primary-light: #818cf8;
             --primary-dark: #4f46e5;
             --text-on-primary: #ffffff;
-            
             --bg-body: #f8fafc;
             --surface: #ffffff;
             --text-main: #0f172a;
             --text-muted: #64748b;
-            
             --shadow-soft: 0 20px 40px rgba(0, 0, 0, 0.04);
             --radius-lg: 24px;
             --radius-md: 16px;
-            --transition-smooth: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+            --transition-smooth: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
         }
 
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-            -webkit-tap-highlight-color: transparent;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: sans-serif; -webkit-tap-highlight-color: transparent; }
 
         body {
             background-color: var(--bg-body);
@@ -41,81 +33,61 @@
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
-            padding: 20px;
-            overflow-x: hidden;
+            padding: 40px 20px;
             transition: var(--transition-smooth);
         }
 
-        /* =========================================
-           UI COMPONENTS (Premium & Soft)
-           ========================================= */
         .app-container {
             width: 100%;
-            max-width: 480px; /* Mobile-first optimized */
+            max-width: 480px;
             background: var(--surface);
             border-radius: var(--radius-lg);
             box-shadow: var(--shadow-soft);
             padding: 32px 24px;
-            transition: var(--transition-smooth);
         }
 
-        .header {
-            text-align: center;
-            margin-bottom: 32px;
+        .header { text-align: center; margin-bottom: 24px; }
+        .header h1 { font-size: 24px; margin-bottom: 4px; }
+        .header p { font-size: 14px; color: var(--text-muted); }
+
+        /* Magic Tap Area */
+        .magic-tap {
+            width: 100%; height: 60px; background: #1e293b; border-radius: var(--radius-md);
+            margin-bottom: 20px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: white; font-weight: 600; position: relative; overflow: hidden;
+            border: 1px solid rgba(255,255,255,0.1);
         }
 
-        .header h1 {
-            font-size: 24px;
-            font-weight: 700;
-            letter-spacing: -0.5px;
-            margin-bottom: 8px;
+        /* Advanced Picker (Sesuai Gambar) */
+        .advanced-picker { margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
+        .sl-container { 
+            width: 100%; height: 220px; position: relative; border-radius: 12px; 
+            overflow: hidden; cursor: crosshair; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        #slCanvas { width: 100%; height: 100%; display: block; }
+        .sl-cursor {
+            position: absolute; width: 20px; height: 20px; border: 3px solid white;
+            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+        .hue-container {
+            width: 100%; height: 18px; position: relative; border-radius: 10px; cursor: pointer;
+            background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+        }
+        .hue-cursor {
+            position: absolute; top: 50%; width: 24px; height: 24px; background: white;
+            border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white;
         }
 
-        .header p {
-            font-size: 14px;
-            color: var(--text-muted);
+        .hex-display-row { display: flex; gap: 12px; align-items: center; }
+        .hex-input-premium {
+            flex: 1; padding: 14px; border: 1px solid #e2e8f0; border-radius: 12px;
+            font-size: 18px; font-weight: 700; outline: none; text-align: center;
         }
+        .current-color-preview { width: 54px; height: 54px; border-radius: 12px; border: 1px solid rgba(0,0,0,0.1); transition: background 0.2s; }
 
-        /* Color Input Controls */
-        .controls {
-            display: flex;
-            gap: 16px;
-            margin-bottom: 32px;
-            align-items: center;
-            justify-content: center;
-            background: var(--bg-body);
-            padding: 12px;
-            border-radius: var(--radius-md);
-        }
-
-        .color-picker {
-            -webkit-appearance: none;
-            border: none;
-            width: 48px;
-            height: 48px;
-            border-radius: 50%;
-            cursor: pointer;
-            overflow: hidden;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-            transition: var(--transition-smooth);
-        }
-        
-        .color-picker::-webkit-color-swatch-wrapper { padding: 0; }
-        .color-picker::-webkit-color-swatch { border: none; }
-
-        .hex-input {
-            border: none;
-            background: transparent;
-            font-size: 20px;
-            font-weight: 600;
-            color: var(--text-main);
-            width: 120px;
-            text-transform: uppercase;
-            outline: none;
-        }
-
-        /* Live Preview Card */
+        /* Preview Card */
         .preview-card {
             background-color: var(--primary);
             color: var(--text-on-primary);
@@ -124,189 +96,38 @@
             text-align: center;
             margin-bottom: 24px;
             transition: var(--transition-smooth);
-            position: relative;
-            overflow: hidden;
         }
-
-        .preview-card::before {
-            content: '';
-            position: absolute;
-            top: 0; left: 0; right: 0; height: 50%;
-            background: linear-gradient(180deg, rgba(255,255,255,0.1) 0%, rgba(255,255,255,0) 100%);
-        }
-
-        .preview-status {
-            font-size: 12px;
-            font-weight: 600;
-            letter-spacing: 1px;
-            text-transform: uppercase;
-            opacity: 0.8;
-            margin-bottom: 16px;
-            display: block;
-        }
-
-        .preview-title {
-            font-size: 28px;
-            font-weight: 700;
-            margin-bottom: 24px;
-            position: relative;
-            z-index: 1;
-        }
-
+        .preview-status { font-size: 12px; font-weight: 700; text-transform: uppercase; margin-bottom: 12px; display: block; opacity: 0.9; }
+        .preview-title { font-size: 26px; margin-bottom: 20px; }
         .btn-preview {
-            background-color: var(--primary-light);
-            color: var(--text-on-primary);
-            border: none;
-            padding: 12px 32px;
-            border-radius: 30px;
-            font-size: 16px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            position: relative;
-            z-index: 1;
+            background-color: var(--primary-light); color: var(--text-on-primary);
+            border: none; padding: 12px 28px; border-radius: 30px; font-weight: 600; cursor: pointer;
         }
 
-        .btn-preview:hover {
-            transform: translateY(-2px);
-            background-color: var(--primary-dark);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.2);
+        /* Palette Grid */
+        .palette-section { margin-bottom: 24px; }
+        .section-title { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; text-transform: uppercase; letter-spacing: 1px; }
+        .color-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(38px, 1fr)); gap: 6px; }
+        .color-swatch {
+            height: 38px; border-radius: 8px; cursor: pointer; transition: 0.2s;
+            display: flex; align-items: center; justify-content: center; font-size: 9px; font-weight: 700; color: transparent;
         }
-
-        /* Export Section */
-        .export-section {
-            display: flex;
-            flex-direction: column;
-            gap: 12px;
-        }
+        .color-swatch:hover { transform: scale(1.1); color: white; text-shadow: 0 1px 2px rgba(0,0,0,0.5); z-index: 2; }
 
         .btn-export {
-            background-color: var(--text-main);
-            color: var(--surface);
-            border: none;
-            padding: 16px;
-            border-radius: var(--radius-md);
-            font-size: 15px;
-            font-weight: 600;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            width: 100%;
+            width: 100%; padding: 16px; background: var(--text-main); color: white;
+            border: none; border-radius: var(--radius-md); font-weight: 600; cursor: pointer;
         }
 
-        .btn-export:active {
-            transform: scale(0.98);
-        }
-
+        /* Toast Message */
         .toast {
-            position: fixed;
-            bottom: 30px;
-            left: 50%;
-            transform: translateX(-50%) translateY(100px);
-            background: var(--text-main);
-            color: var(--surface);
-            padding: 12px 24px;
-            border-radius: 30px;
-            font-size: 14px;
-            font-weight: 500;
-            opacity: 0;
-            transition: var(--transition-smooth);
-            z-index: 1000;
+            position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px);
+            background: #000; color: #fff; padding: 12px 24px; border-radius: 50px; font-size: 14px;
+            opacity: 0; transition: 0.4s; z-index: 9999;
         }
+        .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
 
-        .toast.show {
-            transform: translateX(-50%) translateY(0);
-            opacity: 1;
-        }
-
-        /* =========================================
-           PALETTE & HARMONY MODULE
-           ========================================= */
-        .palette-section {
-            width: 100%;
-            margin-bottom: 24px;
-        }
-
-        .section-title {
-            font-size: 13px;
-            font-weight: 700;
-            color: var(--text-muted);
-            margin-bottom: 12px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-
-        .mt-4 { margin-top: 24px; }
-
-        .color-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(35px, 1fr));
-            gap: 6px; /* Jarak diperkecil agar rapat namun rapi */
-        }
-
-        .color-swatch {
-            height: 38px; /* Tinggi disesuaikan */
-            border-radius: 8px;
-            cursor: pointer;
-            transition: var(--transition-smooth);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-size: 9px; /* Font diperkecil agar angka muat */
-            font-weight: 700;
-            color: transparent;
-            box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
-            position: relative;
-            overflow: hidden;
-        }
-
-        .color-swatch:hover {
-            transform: translateY(-3px) scale(1.1);
-            box-shadow: 0 8px 16px rgba(0,0,0,0.12);
-            color: #ffffff;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
-            z-index: 2; /* Memastikan saat membesar tidak tertutup kotak lain */
-        }
-
-        /* Styling khusus Custom Picker sesuai Gambar */
-        .advanced-picker { margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
-        
-        .sl-container { 
-            width: 100%; height: 200px; position: relative; border-radius: 12px; 
-            overflow: hidden; cursor: crosshair; box-shadow: var(--shadow-soft);
-        }
-        
-        #slCanvas { width: 100%; height: 100%; display: block; }
-        
-        .sl-cursor {
-            position: absolute; width: 18px; height: 18px; border: 3px solid white;
-            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3);
-            transform: translate(-50%, -50%); pointer-events: none;
-        }
-
-        .hue-container {
-            width: 100%; height: 16px; position: relative; border-radius: 10px; cursor: pointer;
-            background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
-        }
-
-        .hue-cursor {
-            position: absolute; top: 50%; width: 22px; height: 22px; background: white;
-            border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
-            transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white;
-        }
-
-        .hex-display-row { display: flex; gap: 12px; align-items: center; }
-        .hex-input-premium {
-            flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px;
-            font-size: 18px; font-weight: 700; outline: none;
-        }
-        .current-color-preview { width: 45px; height: 45px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); }
-        
-        .magic-tap {
-            width: 100%; height: 60px; background: #1e293b; border-radius: var(--radius-md);
-            margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
-            cursor: pointer; color: white; font-weight: 600; position: relative; overflow: hidden;
-        }
+        @keyframes rippleAnim { to { transform: translate(-50%, -50%) scale(25); opacity: 0; } }
     </style>
 </head>
 <body>
@@ -317,13 +138,11 @@
             <p>Premium Design System Generator</p>
         </header>
 
-        <!-- Magic Tap Area -->
         <div id="magicTapArea" class="magic-tap">
             <span>TAP UNTUK INSPIRASI ✨</span>
             <div id="rippleContainer"></div>
         </div>
 
-        <!-- Advanced Picker (Berdasarkan Gambar) -->
         <div class="advanced-picker">
             <div class="sl-container" id="slContainer">
                 <canvas id="slCanvas"></canvas>
@@ -340,314 +159,200 @@
             </div>
         </div>
 
-        <!-- Preview Card (DI PERTAHANKAN) -->
         <section class="preview-card" id="previewCard">
             <span class="preview-status" id="wcagStatus">Teks Terang (Kontras Baik)</span>
             <h2 class="preview-title">UI Preview</h2>
             <button class="btn-preview" id="btnPreview">Interactive Button</button>
         </section>
 
-        <!-- Tints, Shades & Harmony -->
         <section class="palette-section">
             <h3 class="section-title">Tints & Shades (±10% x 20)</h3>
             <div class="color-grid" id="shadesGrid"></div>
-            
-            <h3 class="section-title mt-4">Harmoni Warna</h3>
+            <h3 class="section-title" style="margin-top:20px">Harmoni Warna</h3>
             <div class="color-grid" id="harmonyGrid"></div>
         </section>
 
         <button class="btn-export" id="btnExport">Copy CSS Variables</button>
     </div>
-    
-    <script>  
-     // =========================================
-// CORE ENGINE & CONVERTERS
-// =========================================
-const colorPicker = document.getElementById('colorPicker');
-const hexInput = document.getElementById('hexInput');
-const root = document.documentElement;
-const wcagStatus = document.getElementById('wcagStatus');
-const btnExport = document.getElementById('btnExport');
-const toast = document.getElementById('toast');
-const metaTheme = document.getElementById('metaTheme');
 
-function hexToRgb(hex) {
-    let h = hex.replace('#', '');
-    if(h.length === 3) h = h.split('').map(x => x + x).join('');
-    const r = parseInt(h.substring(0, 2), 16);
-    const g = parseInt(h.substring(2, 4), 16);
-    const b = parseInt(h.substring(4, 6), 16);
-    return {r, g, b};
-}
+    <div class="toast" id="toast">Berhasil disalin!</div>
 
-function getLuminance(r, g, b) {
-    const a = [r, g, b].map(function (v) {
-        v /= 255;
-        return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
-    });
-    return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
-}
-
-function adjustColor(hex, percent) {
-    const {r, g, b} = hexToRgb(hex);
-    const adjust = (c) => Math.max(0, Math.min(255, Math.round(c * (1 + percent/100))));
-    return '#' + [adjust(r), adjust(g), adjust(b)].map(x => {
-        const h = x.toString(16);
-        return h.length === 1 ? '0' + h : h;
-    }).join('');
-}
-
-// Konversi HEX ke HSL (Penting untuk Harmoni & Shades)
-function hexToHSL(hex) {
-    let {r, g, b} = hexToRgb(hex);
-    r /= 255, g /= 255, b /= 255;
-    let max = Math.max(r, g, b), min = Math.min(r, g, b);
-    let h, s, l = (max + min) / 2;
-    if (max === min) { h = s = 0; }
-    else {
-        let d = max - min;
-        s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
-        switch(max) {
-            case r: h = (g - b) / d + (g < b ? 6 : 0); break;
-            case g: h = (b - r) / d + 2; break;
-            case b: h = (r - g) / d + 4; break;
-        }
-        h /= 6;
-    }
-    return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
-}
-
-// Konversi HSL kembali ke HEX
-function hslToHex(h, s, l) {
-    l /= 100;
-    const a = s * Math.min(l, 1 - l) / 100;
-    const f = n => {
-        const k = (n + h / 30) % 12;
-        const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
-        return Math.round(255 * color).toString(16).padStart(2, '0');
-    };
-    return `#${f(0)}${f(8)}${f(4)}`;
-}
-
-// =========================================
-// MAIN RENDER ENGINE
-// =========================================
-function updateDesignSystem(hex) {
-    if(!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return;
-
-    const {r, g, b} = hexToRgb(hex);
-    const luminance = getLuminance(r, g, b);
-    
-    const textColor = luminance > 0.179 ? '#0f172a' : '#ffffff';
-    const statusText = luminance > 0.179 ? 'Teks Gelap (Kontras Baik)' : 'Teks Terang (Kontras Baik)';
-
-    // --- MODUL TINTS, SHADES & HARMONY ---
-    const {h, s, l: l_hsl} = hexToHSL(hex); // Ekstrak nilai L sebagai l_hsl
-    const shadesGrid = document.getElementById('shadesGrid');
-    const harmonyGrid = document.getElementById('harmonyGrid');
-    
-    // 1. Tints & Shades (Rentang penuh ±100% per 10% step)
-    shadesGrid.innerHTML = '';
-    
-    // Looping dari -100 sampai 100 dengan jarak 10
-    // Ini menghasilkan 10 warna lebih gelap, 1 warna base, dan 10 warna lebih terang
-    for (let i = -100; i <= 100; i += 10) {
-        let newL = Math.max(0, Math.min(100, l_hsl + i)); 
-        let shadeHex = hslToHex(h, s, newL);
-        
-        // Label teks: Base di tengah, sisanya angka persentase
-        let label = i === 0 ? 'Base' : (i > 0 ? `+${i}` : `${i}`);
-        
-        // Lewati duplikasi (jika newL mencapai 0 atau 100 berkali-kali)
-        // Opsional: jika ingin grid selalu tetap 21 kotak, hapus pengecekan duplikasi
-        shadesGrid.innerHTML += `
-            <div class="color-swatch" style="background-color: ${shadeHex};" 
-                 onclick="navigator.clipboard.writeText('${shadeHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
-                 title="Copy ${shadeHex} (${label}%)">
-                ${label}
-            </div>`;
-    }
-
-    // 2. Harmoni Warna
-    const harmonies = [
-        { name: 'Comp', hue: (h + 180) % 360 },
-        { name: 'Ana R', hue: (h + 30) % 360 },
-        { name: 'Ana L', hue: (h + 330) % 360 },
-        { name: 'Tri R', hue: (h + 120) % 360 },
-        { name: 'Tri L', hue: (h + 240) % 360 }
-    ];
-    
-    harmonyGrid.innerHTML = '';
-    harmonies.forEach(color => {
-        let harmHex = hslToHex(color.hue, s, l_hsl);
-        harmonyGrid.innerHTML += `
-            <div class="color-swatch" style="background-color: ${harmHex};" 
-                 onclick="navigator.clipboard.writeText('${harmHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
-                 title="${color.name}: ${harmHex}">
-                ${harmHex.replace('#','').toUpperCase()}
-            </div>`;
-    });
-
-    // 3. Update Variabel CSS & UI Utama
-    const lightColor = adjustColor(hex, 30); 
-    const darkColor = adjustColor(hex, -20); 
-
-    root.style.setProperty('--primary', hex);
-    root.style.setProperty('--primary-light', lightColor);
-    root.style.setProperty('--primary-dark', darkColor);
-    root.style.setProperty('--text-on-primary', textColor);
-    
-    metaTheme.setAttribute('content', hex);
-    wcagStatus.textContent = statusText;
-    
-    if(hexInput.value !== hex) hexInput.value = hex.toUpperCase();
-    if(colorPicker.value !== hex) colorPicker.value = hex;
-}
-
-// =========================================
-// EVENT LISTENERS
-// =========================================
-colorPicker.addEventListener('input', (e) => updateDesignSystem(e.target.value));
-
-hexInput.addEventListener('input', (e) => {
-    let val = e.target.value;
-    if(!val.startsWith('#')) val = '#' + val;
-    if(val.length === 7) updateDesignSystem(val);
-});
-
-btnExport.addEventListener('click', () => {
-    const cssOutput = `
-/* Auto-generated by Premium Hex Studio */
-:root {
-  --primary: ${root.style.getPropertyValue('--primary') || '#6366f1'};
-  --primary-light: ${root.style.getPropertyValue('--primary-light') || '#818cf8'};
-  --primary-dark: ${root.style.getPropertyValue('--primary-dark') || '#4f46e5'};
-  --text-on-primary: ${root.style.getPropertyValue('--text-on-primary') || '#ffffff'};
-}
-    `.trim();
-
-    navigator.clipboard.writeText(cssOutput).then(() => {
-        toast.classList.add('show');
-        setTimeout(() => toast.classList.remove('show'), 3000);
-    });
-});
-
-const magicTapArea = document.getElementById('magicTapArea');
-        const rippleContainer = document.getElementById('rippleContainer');
-
-        // Fungsi menghasilkan warna hex acak yang "aman" (tidak terlalu pucat/gelap)
-        function generateMagicColor() {
-            const h = Math.floor(Math.random() * 360);
-            const s = Math.floor(Math.random() * 30) + 60; // Saturation 60-90%
-            const l = Math.floor(Math.random() * 20) + 40; // Lightness 40-60%
-            return hslToHex(h, s, l);
-        }
-
-        magicTapArea.addEventListener('click', (e) => {
-            const newColor = generateMagicColor();
-            
-            // 1. Update sistem warna
-            updateDesignSystem(newColor);
-
-            // 2. Efek visual Ripple (Premium Feel)
-            const ripple = document.createElement('div');
-            const rect = magicTapArea.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
-
-            ripple.style.cssText = `
-                position: absolute;
-                left: ${x}px;
-                top: ${y}px;
-                width: 20px;
-                height: 20px;
-                background: rgba(255,255,255,0.4);
-                border-radius: 50%;
-                transform: translate(-50%, -50%) scale(0);
-                animation: rippleAnim 0.6s ease-out;
-                pointer-events: none;
-            `;
-
-            rippleContainer.appendChild(ripple);
-            setTimeout(() => ripple.remove(), 600);
-            
-            // 3. Feedback Getar (Haptic) jika di mobile
-            if (navigator.vibrate) navigator.vibrate(10);
-        });
-
-        // Tambahkan animasi ripple ke style tag secara dinamis jika belum ada
-        const styleSheet = document.createElement("style");
-        styleSheet.innerText = `
-            @keyframes rippleAnim {
-                to { transform: translate(-50%, -50%) scale(25); opacity: 0; }
-            }
-        `;
-        document.head.appendChild(styleSheet);
-
-        let currentHue = 240;
+    <script>
+        const root = document.documentElement;
+        const hexInput = document.getElementById('hexInput');
+        const wcagStatus = document.getElementById('wcagStatus');
+        const mainPreviewBox = document.getElementById('mainPreviewBox');
+        const toast = document.getElementById('toast');
         const slCanvas = document.getElementById('slCanvas');
         const slCtx = slCanvas.getContext('2d');
         const slCursor = document.getElementById('slCursor');
         const hueCursor = document.getElementById('hueCursor');
+        let currentHue = 240;
 
-        // Fungsi menggambar gradien kotak SL
+        // --- CONVERTERS ---
+        function hexToRgb(hex) {
+            let h = hex.replace('#', '');
+            if(h.length === 3) h = h.split('').map(x => x + x).join('');
+            const r = parseInt(h.substring(0, 2), 16);
+            const g = parseInt(h.substring(2, 4), 16);
+            const b = parseInt(h.substring(4, 6), 16);
+            return {r, g, b};
+        }
+
+        function rgbToHex(r, g, b) {
+            return "#" + ((1 << 24) + (r << 16) + (g << 8) + b).toString(16).slice(1).toUpperCase();
+        }
+
+        function hexToHSL(hex) {
+            let {r, g, b} = hexToRgb(hex);
+            r /= 255; g /= 255; b /= 255;
+            const max = Math.max(r, g, b), min = Math.min(r, g, b);
+            let h, s, l = (max + min) / 2;
+            if (max === min) h = s = 0;
+            else {
+                const d = max - min;
+                s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+                if (max === r) h = (g - b) / d + (g < b ? 6 : 0);
+                else if (max === g) h = (b - r) / d + 2;
+                else h = (r - g) / d + 4;
+                h /= 6;
+            }
+            return { h: Math.round(h * 360), s: Math.round(s * 100), l: Math.round(l * 100) };
+        }
+
+        function hslToHex(h, s, l) {
+            l /= 100;
+            const a = s * Math.min(l, 1 - l) / 100;
+            const f = n => {
+                const k = (n + h / 30) % 12;
+                const color = l - a * Math.max(Math.min(k - 3, 9 - k, 1), -1);
+                return Math.round(255 * color).toString(16).padStart(2, '0');
+            };
+            return `#${f(0)}${f(8)}${f(4)}`.toUpperCase();
+        }
+
+        function getLuminance(r, g, b) {
+            const a = [r, g, b].map(v => {
+                v /= 255;
+                return v <= 0.03928 ? v / 12.92 : Math.pow((v + 0.055) / 1.055, 2.4);
+            });
+            return a[0] * 0.2126 + a[1] * 0.7152 + a[2] * 0.0722;
+        }
+
+        function showToast(msg) {
+            toast.textContent = msg;
+            toast.classList.add('show');
+            setTimeout(() => toast.classList.remove('show'), 2000);
+        }
+
+        // --- PICKER ENGINE ---
         function drawPicker() {
             const w = slCanvas.width = slCanvas.offsetWidth;
             const h = slCanvas.height = slCanvas.offsetHeight;
             slCtx.fillStyle = `hsl(${currentHue}, 100%, 50%)`;
             slCtx.fillRect(0,0,w,h);
-            let gW = slCtx.createLinearGradient(0,0,w,0);
+            const gW = slCtx.createLinearGradient(0,0,w,0);
             gW.addColorStop(0, 'white'); gW.addColorStop(1, 'transparent');
             slCtx.fillStyle = gW; slCtx.fillRect(0,0,w,h);
-            let gB = slCtx.createLinearGradient(0,0,0,h);
+            const gB = slCtx.createLinearGradient(0,0,0,h);
             gB.addColorStop(0, 'transparent'); gB.addColorStop(1, 'black');
             slCtx.fillStyle = gB; slCtx.fillRect(0,0,w,h);
         }
 
-        // Ambil warna dari koordinat canvas
         function updateFromPos(x, y) {
-            const imageData = slCtx.getImageData(x, y, 1, 1).data;
-            const hex = rgbToHex(imageData[0], imageData[1], imageData[2]);
-            updateDesignSystem(hex); // Ini akan mengupdate UI Preview, Status WCAG, dan Palet
+            x = Math.max(0, Math.min(x, slCanvas.width - 1));
+            y = Math.max(0, Math.min(y, slCanvas.height - 1));
+            const imgData = slCtx.getImageData(x, y, 1, 1).data;
+            const hex = rgbToHex(imgData[0], imgData[1], imgData[2]);
             slCursor.style.left = x + 'px';
             slCursor.style.top = y + 'px';
+            updateDesignSystem(hex);
         }
 
-        // Logic Drag & Click SL
+        // --- RENDER ENGINE ---
+        function updateDesignSystem(hex) {
+            if(!/^#[0-9A-Fa-f]{6}$/i.test(hex)) return;
+            const {r, g, b} = hexToRgb(hex);
+            const lum = getLuminance(r, g, b);
+            const textColor = lum > 0.179 ? '#0f172a' : '#ffffff';
+            
+            // Update UI
+            root.style.setProperty('--primary', hex);
+            root.style.setProperty('--primary-light', hslToHex(hexToHSL(hex).h, hexToHSL(hex).s, Math.min(100, hexToHSL(hex).l + 15)));
+            root.style.setProperty('--text-on-primary', textColor);
+            mainPreviewBox.style.backgroundColor = hex;
+            hexInput.value = hex;
+            wcagStatus.textContent = lum > 0.179 ? 'Teks Gelap (Kontras Baik)' : 'Teks Terang (Kontras Baik)';
+
+            // Grids
+            const {h, s, l} = hexToHSL(hex);
+            const shadesGrid = document.getElementById('shadesGrid');
+            shadesGrid.innerHTML = '';
+            for (let i = -100; i <= 100; i += 10) {
+                const shadeHex = hslToHex(h, s, Math.max(0, Math.min(100, l + i)));
+                shadesGrid.innerHTML += `<div class="color-swatch" style="background:${shadeHex}" onclick="copy('${shadeHex}')">${i === 0 ? 'Base' : (i > 0 ? '+'+i : i)}</div>`;
+            }
+
+            const harmonyGrid = document.getElementById('harmonyGrid');
+            const harmList = [(h+180)%360, (h+30)%360, (h+330)%360, (h+120)%360, (h+240)%360];
+            harmonyGrid.innerHTML = '';
+            harmList.forEach(hue => {
+                const hHex = hslToHex(hue, s, l);
+                harmonyGrid.innerHTML += `<div class="color-swatch" style="background:${hHex}" onclick="copy('${hHex}')">${hHex}</div>`;
+            });
+        }
+
+        window.copy = (hex) => { navigator.clipboard.writeText(hex); showToast('Hex ' + hex + ' disalin!'); }
+
+        // --- EVENTS ---
         let isDragging = false;
-        const slArea = document.getElementById('slContainer');
-        
-        slArea.onmousedown = (e) => { isDragging = true; updateFromPos(e.offsetX, e.offsetY); }
+        document.getElementById('slContainer').onmousedown = (e) => { isDragging = true; updateFromPos(e.offsetX, e.offsetY); };
         window.onmousemove = (e) => {
             if(!isDragging) return;
-            const rect = slArea.getBoundingClientRect();
-            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
-            let y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
-            updateFromPos(x, y);
-        }
+            const rect = slCanvas.getBoundingClientRect();
+            updateFromPos(e.clientX - rect.left, e.clientY - rect.top);
+        };
         window.onmouseup = () => isDragging = false;
 
-        // Logic Slider Hue
-        const hueArea = document.getElementById('hueContainer');
-        hueArea.onmousedown = (e) => {
-            const rect = hueArea.getBoundingClientRect();
-            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+        document.getElementById('hueContainer').onmousedown = (e) => {
+            const rect = e.currentTarget.getBoundingClientRect();
+            const x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
             currentHue = (x / rect.width) * 360;
             hueCursor.style.left = x + 'px';
             drawPicker();
             updateFromPos(parseFloat(slCursor.style.left), parseFloat(slCursor.style.top));
-        }
-
-        // Inisialisasi awal
-        window.onload = () => {
-            slCursor.style.left = '80%'; slCursor.style.top = '20%';
-            hueCursor.style.left = '66%';
-            drawPicker();
-            updateFromPos(slCanvas.offsetWidth * 0.8, slCanvas.offsetHeight * 0.2);
         };
 
-// Inisialisasi awal
-updateDesignSystem('#000000');   
+        hexInput.oninput = (e) => {
+            if(e.target.value.length === 7) updateDesignSystem(e.target.value);
+        };
+
+        document.getElementById('magicTapArea').onclick = (e) => {
+            const h = Math.floor(Math.random() * 360), s = 70, l = 50;
+            const hex = hslToHex(h, s, l);
+            currentHue = h;
+            hueCursor.style.left = (h / 360 * 100) + '%';
+            drawPicker();
+            updateDesignSystem(hex);
+            // Ripple effect
+            const rect = e.currentTarget.getBoundingClientRect();
+            const ripple = document.createElement('div');
+            ripple.style.cssText = `position:absolute; left:${e.clientX - rect.left}px; top:${e.clientY - rect.top}px; width:20px; height:20px; background:rgba(255,255,255,0.3); border-radius:50%; animation:rippleAnim 0.6s; pointer-events:none;`;
+            e.currentTarget.appendChild(ripple);
+            setTimeout(() => ripple.remove(), 600);
+        };
+
+        document.getElementById('btnExport').onclick = () => {
+            const css = `:root {\n --primary: ${hexInput.value};\n}`;
+            navigator.clipboard.writeText(css);
+            showToast('CSS Variables disalin!');
+        };
+
+        window.onload = () => {
+            drawPicker();
+            slCursor.style.left = '50%'; slCursor.style.top = '50%';
+            updateFromPos(slCanvas.offsetWidth/2, slCanvas.offsetHeight/2);
+        };
     </script>
 </body>
 </html>
