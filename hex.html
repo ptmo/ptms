@@ -267,65 +267,98 @@
             text-shadow: 0 1px 3px rgba(0,0,0,0.6);
             z-index: 2; /* Memastikan saat membesar tidak tertutup kotak lain */
         }
+
+        /* Styling khusus Custom Picker sesuai Gambar */
+        .advanced-picker { margin-bottom: 24px; display: flex; flex-direction: column; gap: 16px; }
+        
+        .sl-container { 
+            width: 100%; height: 200px; position: relative; border-radius: 12px; 
+            overflow: hidden; cursor: crosshair; box-shadow: var(--shadow-soft);
+        }
+        
+        #slCanvas { width: 100%; height: 100%; display: block; }
+        
+        .sl-cursor {
+            position: absolute; width: 18px; height: 18px; border: 3px solid white;
+            border-radius: 50%; box-shadow: 0 0 5px rgba(0,0,0,0.3);
+            transform: translate(-50%, -50%); pointer-events: none;
+        }
+
+        .hue-container {
+            width: 100%; height: 16px; position: relative; border-radius: 10px; cursor: pointer;
+            background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+        }
+
+        .hue-cursor {
+            position: absolute; top: 50%; width: 22px; height: 22px; background: white;
+            border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+            transform: translate(-50%, -50%); pointer-events: none; border: 2px solid white;
+        }
+
+        .hex-display-row { display: flex; gap: 12px; align-items: center; }
+        .hex-input-premium {
+            flex: 1; padding: 12px; border: 1px solid #e2e8f0; border-radius: 10px;
+            font-size: 18px; font-weight: 700; outline: none;
+        }
+        .current-color-preview { width: 45px; height: 45px; border-radius: 10px; border: 1px solid rgba(0,0,0,0.1); }
+        
+        .magic-tap {
+            width: 100%; height: 60px; background: #1e293b; border-radius: var(--radius-md);
+            margin-bottom: 16px; display: flex; align-items: center; justify-content: center;
+            cursor: pointer; color: white; font-weight: 600; position: relative; overflow: hidden;
+        }
     </style>
 </head>
 <body>
 
     <div class="app-container">
         <header class="header">
-            <h1>Hex Studio</h1>
+            <h1>Hex Studio Pro</h1>
             <p>Premium Design System Generator</p>
         </header>
 
-        <div class="controls">
-            <input type="color" class="color-picker" id="colorPicker" value="#6366f1">
-            <input type="text" class="hex-input" id="hexInput" value="#6366f1" maxlength="7">
+        <!-- Magic Tap Area -->
+        <div id="magicTapArea" class="magic-tap">
+            <span>TAP UNTUK INSPIRASI ✨</span>
+            <div id="rippleContainer"></div>
         </div>
 
-        <!-- Magic Tap Area (Canva Style) -->
-        <div id="magicTapArea" style="
-            width: 100%; 
-            height: 120px; 
-            background: linear-gradient(45deg, var(--primary), var(--primary-light)); 
-            border-radius: var(--radius-md); 
-            margin-bottom: 24px; 
-            cursor: pointer; 
-            display: flex; 
-            align-items: center; 
-            justify-content: center; 
-            position: relative;
-            overflow: hidden;
-            transition: var(--transition-smooth);
-            border: 2px dashed rgba(255,255,255,0.3);
-        ">
-            <span style="color: white; font-weight: 700; font-size: 14px; pointer-events: none; text-shadow: 0 2px 4px rgba(0,0,0,0.2);">
-                TAP UNTUK INSPIRASI ✨
-            </span>
-            <!-- Ripple Effect Container -->
-            <div id="rippleContainer" style="position: absolute; inset: 0; pointer-events: none;"></div>
+        <!-- Advanced Picker (Berdasarkan Gambar) -->
+        <div class="advanced-picker">
+            <div class="sl-container" id="slContainer">
+                <canvas id="slCanvas"></canvas>
+                <div class="sl-cursor" id="slCursor"></div>
+            </div>
+            
+            <div class="hue-container" id="hueContainer">
+                <div class="hue-cursor" id="hueCursor"></div>
+            </div>
+
+            <div class="hex-display-row">
+                <input type="text" class="hex-input-premium" id="hexInput" value="#6366F1" maxlength="7">
+                <div class="current-color-preview" id="mainPreviewBox"></div>
+            </div>
         </div>
 
+        <!-- Preview Card (DI PERTAHANKAN) -->
         <section class="preview-card" id="previewCard">
-            <span class="preview-status" id="wcagStatus">WCAG AAA (Sangat Jelas)</span>
+            <span class="preview-status" id="wcagStatus">Teks Terang (Kontras Baik)</span>
             <h2 class="preview-title">UI Preview</h2>
             <button class="btn-preview" id="btnPreview">Interactive Button</button>
         </section>
 
+        <!-- Tints, Shades & Harmony -->
         <section class="palette-section">
-            <h3 class="section-title">Tints & Shades (&plusmn;10%)</h3>
+            <h3 class="section-title">Tints & Shades (±10% x 20)</h3>
             <div class="color-grid" id="shadesGrid"></div>
             
-            <h3 class="section-title mt-4">Harmoni Warna (Matching)</h3>
+            <h3 class="section-title mt-4">Harmoni Warna</h3>
             <div class="color-grid" id="harmonyGrid"></div>
         </section>
 
-        <section class="export-section">
-            <button class="btn-export" id="btnExport">Copy CSS Variables</button>
-        </section>
+        <button class="btn-export" id="btnExport">Copy CSS Variables</button>
     </div>
-
-    <div class="toast" id="toast">CSS berhasil disalin!</div>
-
+    
     <script>  
      // =========================================
 // CORE ENGINE & CONVERTERS
@@ -550,6 +583,68 @@ const magicTapArea = document.getElementById('magicTapArea');
             }
         `;
         document.head.appendChild(styleSheet);
+
+        let currentHue = 240;
+        const slCanvas = document.getElementById('slCanvas');
+        const slCtx = slCanvas.getContext('2d');
+        const slCursor = document.getElementById('slCursor');
+        const hueCursor = document.getElementById('hueCursor');
+
+        // Fungsi menggambar gradien kotak SL
+        function drawPicker() {
+            const w = slCanvas.width = slCanvas.offsetWidth;
+            const h = slCanvas.height = slCanvas.offsetHeight;
+            slCtx.fillStyle = `hsl(${currentHue}, 100%, 50%)`;
+            slCtx.fillRect(0,0,w,h);
+            let gW = slCtx.createLinearGradient(0,0,w,0);
+            gW.addColorStop(0, 'white'); gW.addColorStop(1, 'transparent');
+            slCtx.fillStyle = gW; slCtx.fillRect(0,0,w,h);
+            let gB = slCtx.createLinearGradient(0,0,0,h);
+            gB.addColorStop(0, 'transparent'); gB.addColorStop(1, 'black');
+            slCtx.fillStyle = gB; slCtx.fillRect(0,0,w,h);
+        }
+
+        // Ambil warna dari koordinat canvas
+        function updateFromPos(x, y) {
+            const imageData = slCtx.getImageData(x, y, 1, 1).data;
+            const hex = rgbToHex(imageData[0], imageData[1], imageData[2]);
+            updateDesignSystem(hex); // Ini akan mengupdate UI Preview, Status WCAG, dan Palet
+            slCursor.style.left = x + 'px';
+            slCursor.style.top = y + 'px';
+        }
+
+        // Logic Drag & Click SL
+        let isDragging = false;
+        const slArea = document.getElementById('slContainer');
+        
+        slArea.onmousedown = (e) => { isDragging = true; updateFromPos(e.offsetX, e.offsetY); }
+        window.onmousemove = (e) => {
+            if(!isDragging) return;
+            const rect = slArea.getBoundingClientRect();
+            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            let y = Math.max(0, Math.min(e.clientY - rect.top, rect.height));
+            updateFromPos(x, y);
+        }
+        window.onmouseup = () => isDragging = false;
+
+        // Logic Slider Hue
+        const hueArea = document.getElementById('hueContainer');
+        hueArea.onmousedown = (e) => {
+            const rect = hueArea.getBoundingClientRect();
+            let x = Math.max(0, Math.min(e.clientX - rect.left, rect.width));
+            currentHue = (x / rect.width) * 360;
+            hueCursor.style.left = x + 'px';
+            drawPicker();
+            updateFromPos(parseFloat(slCursor.style.left), parseFloat(slCursor.style.top));
+        }
+
+        // Inisialisasi awal
+        window.onload = () => {
+            slCursor.style.left = '80%'; slCursor.style.top = '20%';
+            hueCursor.style.left = '66%';
+            drawPicker();
+            updateFromPos(slCanvas.offsetWidth * 0.8, slCanvas.offsetHeight * 0.2);
+        };
 
 // Inisialisasi awal
 updateDesignSystem('#000000');   
