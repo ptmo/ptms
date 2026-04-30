@@ -240,19 +240,19 @@
 
         .color-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(45px, 1fr));
-            gap: 8px;
+            grid-template-columns: repeat(auto-fit, minmax(35px, 1fr));
+            gap: 6px; /* Jarak diperkecil agar rapat namun rapi */
         }
 
         .color-swatch {
-            height: 48px;
-            border-radius: var(--radius-md);
+            height: 38px; /* Tinggi disesuaikan */
+            border-radius: 8px;
             cursor: pointer;
             transition: var(--transition-smooth);
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 9px; /* Font diperkecil agar angka muat */
             font-weight: 700;
             color: transparent;
             box-shadow: inset 0 0 0 1px rgba(0,0,0,0.05);
@@ -261,10 +261,11 @@
         }
 
         .color-swatch:hover {
-            transform: translateY(-4px) scale(1.05);
-            box-shadow: 0 10px 20px rgba(0,0,0,0.12);
+            transform: translateY(-3px) scale(1.1);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.12);
             color: #ffffff;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.5); /* Pastikan teks terbaca */
+            text-shadow: 0 1px 3px rgba(0,0,0,0.6);
+            z-index: 2; /* Memastikan saat membesar tidak tertutup kotak lain */
         }
     </style>
 </head>
@@ -389,16 +390,21 @@ function updateDesignSystem(hex) {
     const shadesGrid = document.getElementById('shadesGrid');
     const harmonyGrid = document.getElementById('harmonyGrid');
     
-    // 1. Tints & Shades
+    // 1. Tints & Shades (-50% hingga +50% per 5%)
     shadesGrid.innerHTML = '';
-    for (let i = -30; i <= 30; i += 10) {
+    
+    // Looping dari -50 sampai 50 dengan jarak 5
+    for (let i = -50; i <= 50; i += 5) {
         let newL = Math.max(0, Math.min(100, l_hsl + i)); 
         let shadeHex = hslToHex(h, s, newL);
-        let label = i === 0 ? 'Base' : (i > 0 ? `+${i}%` : `${i}%`);
+        
+        // Label teks: Base, +5, -5, dst.
+        let label = i === 0 ? 'Base' : (i > 0 ? `+${i}` : `${i}`);
+        
         shadesGrid.innerHTML += `
             <div class="color-swatch" style="background-color: ${shadeHex};" 
                  onclick="navigator.clipboard.writeText('${shadeHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
-                 title="Copy ${shadeHex}">
+                 title="Copy ${shadeHex} (${label}%)">
                 ${label}
             </div>`;
     }
