@@ -258,6 +258,106 @@
         .input-box input { width: 100%; border: none; background: transparent; outline: none; font-family: inherit; font-size: 14px; color: var(--text-main); }
         .send-btn { width: 52px; height: 52px; background: var(--accent-primary); color: #FFFFFF; border-radius: 50px; display: flex; justify-content: center; align-items: center; cursor: pointer; border: none; box-shadow: 0 8px 20px rgba(92, 158, 173, 0.4); transition: var(--transition-smooth); }
         .send-btn:hover { transform: scale(1.05); }
+
+        /* --- LAYAR 3: PROFIL SAYA --- */
+        .profile-view {
+            transform: translateX(100%);
+            background-color: var(--bg-base);
+            z-index: 35; /* Pastikan berada di atas layar chat */
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .profile-view.active {
+            transform: translateX(0);
+        }
+
+        .profile-content {
+            flex: 1;
+            padding: 32px 24px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-y: auto;
+            gap: 24px;
+        }
+
+        .profile-avatar {
+            width: 100px;
+            height: 100px;
+            border-radius: 50%;
+            background-color: #E2E8F0;
+            border: 4px solid #FFFFFF;
+            box-shadow: 0 12px 24px rgba(0,0,0,0.08);
+            background-size: cover;
+            background-position: center;
+        }
+
+        .profile-info-card {
+            width: 100%;
+            background: var(--glass-bg);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            padding: 16px 24px;
+            box-shadow: var(--glass-shadow);
+            display: flex;
+            flex-direction: column;
+        }
+
+        .info-row {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            padding: 12px 0;
+        }
+
+        .info-label {
+            font-size: 12px;
+            color: var(--text-muted);
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .info-value {
+            font-size: 15px;
+            color: var(--text-main);
+            font-weight: 700;
+        }
+
+        .info-divider {
+            height: 1px;
+            background-color: var(--glass-border);
+            width: 100%;
+        }
+
+        .logout-btn {
+            width: 100%;
+            height: 56px;
+            background: #FFE5E5;
+            color: #E53E3E;
+            border-radius: 20px;
+            border: 1px solid #FFD1D1;
+            font-family: inherit;
+            font-size: 16px;
+            font-weight: 700;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 12px;
+            cursor: pointer;
+            box-shadow: 0 8px 16px rgba(229, 62, 62, 0.1);
+            transition: var(--transition-smooth);
+            margin-top: auto; 
+        }
+
+        .logout-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 24px rgba(229, 62, 62, 0.2);
+            background: #FFD1D1;
+        }
     </style>
 </head>
 <body>
@@ -322,8 +422,8 @@
                 <div class="nav-item active">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
                 </div>
-                <div class="nav-item">
-                    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+                <div class="nav-item" onclick="openProfile()">
+    <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
                 </div>
                 <div class="nav-item">
                     <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12V7H5a2 2 0 0 1 0-4h14v4"></path><path d="M3 5v14a2 2 0 0 0 2 2h16v-5"></path><path d="M18 12a2 2 0 0 0 0 4h4v-4Z"></path></svg>
@@ -356,13 +456,51 @@
             </div>
         </div>
 
+        <!-- LAYAR 3: PROFIL SAYA -->
+        <div class="view profile-view" id="profileView">
+            <div class="room-header">
+                <div class="back-btn" onclick="closeProfile()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </div>
+                <div class="room-title" style="text-align: center; margin-right: 40px;">
+                    <h2>Profil Saya</h2>
+                </div>
+            </div>
+
+            <div class="profile-content">
+                <div class="profile-avatar" id="profileAvatarDisplay"></div>
+                
+                <div class="profile-info-card">
+                    <div class="info-row">
+                        <span class="info-label">Nama Akun Google</span>
+                        <span class="info-value" id="profileNameDisplay">-</span>
+                    </div>
+                    <div class="info-divider"></div>
+                    <div class="info-row">
+                        <span class="info-label">Nickname Aplikasi</span>
+                        <span class="info-value" id="profileNicknameDisplay">-</span>
+                    </div>
+                    <div class="info-divider"></div>
+                    <div class="info-row">
+                        <span class="info-label">Email</span>
+                        <span class="info-value" id="profileEmailDisplay">-</span>
+                    </div>
+                </div>
+
+                <button class="logout-btn" onclick="logoutAccount()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"></path><polyline points="16 17 21 12 16 7"></polyline><line x1="21" y1="12" x2="9" y2="12"></line></svg>
+                    Keluar Akun
+                </button>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script type="module">
     // 1. Import Firebase SDK (Versi 10)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
     import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
     // For Firebase JS SDK v7.20.0 and later, measurementId is optional
@@ -538,6 +676,54 @@ const firebaseConfig = {
 
     window.handleKeyPress = function(e) {
         if(e.key === 'Enter') sendMessage();
+    }
+
+    // --- FUNGSI PROFIL & LOGOUT ---
+
+    window.openProfile = function() {
+        if (tempGoogleUser) {
+            // Tembak data ke HTML
+            document.getElementById('profileNameDisplay').innerText = tempGoogleUser.displayName || 'Pengguna Tanpa Nama';
+            document.getElementById('profileEmailDisplay').innerText = tempGoogleUser.email || '-';
+            document.getElementById('profileNicknameDisplay').innerText = myNickname;
+            
+            // Atur foto avatar
+            const avatarArea = document.getElementById('profileAvatarDisplay');
+            if(tempAvatarData) {
+                avatarArea.style.backgroundImage = `url('${tempAvatarData}')`;
+            }
+        }
+        
+        // Panggil layar masuk dengan animasi smooth
+        document.getElementById('profileView').classList.add('active');
+    }
+
+    window.closeProfile = function() {
+        document.getElementById('profileView').classList.remove('active');
+    }
+
+    window.logoutAccount = async function() {
+        try {
+            // Perintahkan Firebase Auth untuk memutuskan sesi
+            await signOut(auth);
+            
+            // Bersihkan data yang tersangkut di memori
+            myNickname = "";
+            tempGoogleUser = null;
+            tempAvatarData = "";
+            currentFriend = "";
+            
+            // Tutup layar profil dan paksa kembali ke layar autentikasi utama
+            closeProfile();
+            document.getElementById('authView').classList.remove('hidden');
+            document.getElementById('setupState').style.display = 'none';
+            document.getElementById('loginState').style.display = 'flex';
+            
+            console.log("Logout sukses, kembali ke pintu depan.");
+        } catch (error) {
+            console.error("Gagal keluar:", error);
+            alert("Maaf, proses logout gagal. Silakan coba lagi.");
+        }
     }
         </script>
 </body>
