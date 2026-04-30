@@ -63,6 +63,9 @@
         .sl-container { 
             width: 100%; height: 220px; position: relative; border-radius: 12px; 
             overflow: hidden; cursor: crosshair; box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+            touch-action: none; 
+    user-select: none;
+    -webkit-user-select: none;
         }
         #slCanvas { width: 100%; height: 100%; display: block; }
         .sl-cursor {
@@ -73,6 +76,9 @@
         .hue-container {
             width: 100%; height: 18px; position: relative; border-radius: 10px; cursor: pointer;
             background: linear-gradient(to right, #f00 0%, #ff0 17%, #0f0 33%, #0ff 50%, #00f 67%, #f0f 83%, #f00 100%);
+            touch-action: none; 
+    user-select: none;
+    -webkit-user-select: none;
         }
         .hue-cursor {
             position: absolute; top: 50%; width: 24px; height: 24px; background: white;
@@ -353,6 +359,69 @@
             slCursor.style.left = '50%'; slCursor.style.top = '50%';
             updateFromPos(slCanvas.offsetWidth/2, slCanvas.offsetHeight/2);
         };
+
+        // Helper untuk mendapatkan koordinat baik dari Mouse maupun Touch
+function getPointerPos(e, element) {
+    const rect = element.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+    
+    return {
+        x: Math.max(0, Math.min(clientX - rect.left, rect.width)),
+        y: Math.max(0, Math.min(clientY - rect.top, rect.height))
+    };
+}
+
+// Handler untuk SL Container (Kotak Besar)
+const slArea = document.getElementById('slContainer');
+const handleSLMove = (e) => {
+    // Jalankan hanya jika sedang klik kiri atau sedang disentuh
+    if (!isDragging && e.type !== 'touchstart' && e.type !== 'touchmove') return;
+    
+    // Mencegah scroll halaman saat menggeser
+    if (e.cancelable) e.preventDefault(); 
+    
+    const pos = getPointerPos(e, slArea);
+    updateFromPos(pos.x, pos.y);
+};
+
+slArea.addEventListener('mousedown', (e) => { isDragging = true; handleSLMove(e); });
+slArea.addEventListener('touchstart', (e) => { isDragging = true; handleSLMove(e); }, {passive: false});
+
+window.addEventListener('mousemove', handleSLMove);
+window.addEventListener('touchmove', handleSLMove, {passive: false});
+
+window.addEventListener('mouseup', () => isDragging = false);
+window.addEventListener('touchend', () => isDragging = false);
+
+// Handler untuk Hue Slider (Pelangi)
+const hueArea = document.getElementById('hueContainer');
+const handleHueMove = (e) => {
+    if (!isHueDragging && e.type !== 'touchstart' && e.type !== 'touchmove') return;
+    if (e.cancelable) e.preventDefault();
+
+    const rect = hueArea.getBoundingClientRect();
+    const pos = getPointerPos(e, hueArea);
+    
+    currentHue = (pos.x / rect.width) * 360;
+    hueCursor.style.left = pos.x + 'px';
+    drawPicker();
+    
+    // Update warna berdasarkan posisi kursor SL yang sekarang
+    const curX = parseFloat(slCursor.style.left);
+    const curY = parseFloat(slCursor.style.top);
+    updateFromPos(curX, curY);
+};
+
+let isHueDragging = false;
+hueArea.addEventListener('mousedown', (e) => { isHueDragging = true; handleHueMove(e); });
+hueArea.addEventListener('touchstart', (e) => { isHueDragging = true; handleHueMove(e); }, {passive: false});
+
+window.addEventListener('mousemove', handleHueMove);
+window.addEventListener('touchmove', handleHueMove, {passive: false});
+
+window.addEventListener('mouseup', () => isHueDragging = false);
+window.addEventListener('touchend', () => isHueDragging = false);
     </script>
 </body>
 </html>
