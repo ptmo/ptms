@@ -368,8 +368,8 @@
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
     import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
-    // IMPORT FIRESTORE WAJIB UNTUK MENCARI KONTAK
-    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+    // TAMBAHAN: Import doc, getDoc, updateDoc, dan arrayUnion untuk simpan kontak permanen
+    import { getFirestore, collection, query, where, getDocs, doc, getDoc, updateDoc, arrayUnion } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
     // 1. MIDDLEWARE: Pengecekan Akses (Tembok Keamanan)
     const sessionString = localStorage.getItem('premiumChatSession');
@@ -378,21 +378,17 @@
 
     if (sessionString) {
         sessionData = JSON.parse(sessionString);
-        // Cek apakah sesi masih berlaku (belum kedaluwarsa)
         if (new Date().getTime() < sessionData.expiredAt) {
             sessionValid = true;
         } else {
-            // Sesi kedaluwarsa, hapus dari memori
             localStorage.removeItem('premiumChatSession');
         }
     }
     
     if (!sessionValid) {
-        // JIKA TIDAK VALID: Tampilkan Tembok Keamanan
         document.getElementById('unauthorizedBlocker').style.display = 'flex';
         throw new Error("Akses ditolak: Pengguna belum login.");
     } else {
-        // JIKA VALID: Sembunyikan Tembok, Munculkan Aplikasi Chat
         document.getElementById('unauthorizedBlocker').style.display = 'none';
         document.getElementById('mainAppContainer').style.display = 'flex';
     }
@@ -414,7 +410,161 @@
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
-    const db = getFirestore(app); // Akses database dibuka
+    const db = getFirestore(app); 
+
+    // --- LOGIKA BUKU KONTAK DINAMIS & PERMANEN (FIRESTORE) ---
+    
+    let mySavedContacts = []; // Memori utama ditarik dari Firebase
+
+    // Fungsi otomatis menarik kontak dari database permanen Firebase
+    async function loadContactsFromFirebase() {
+        try {
+            const userRef = doc(db, "users", tempGoogleUser.uid);
+            const userSnap = await getDoc(userRef);
+            
+            if (userSnap.exists() && userSnap.data().contacts) {
+                // Jika data ditemukan di Firebase, gunakan data itu
+                mySavedContacts = userSnap.data().contacts;
+                // Simpan ke local storage untuk akses lebih cepat selanjutnya
+                localStorage.setItem('premiumContactsList', JSON.stringify(mySavedContacts));
+            } else {
+                // Jika baru pertama kali, kosong atau ambil dari cache sisa
+                mySavedContacts = JSON.parse(localStorage.getItem('premiumContactsList')) || [];
+            }
+            renderSavedContacts(); // Munculkan ke layar
+        } catch (error) {
+            console.error("Gagal menarik kontak dari Firebase:", error);
+            mySavedContacts = JSON.parse(localStorage.getItem('premiumContactsList')) || [];
+            renderSavedContacts();
+        }
+    }
+
+    // Eksekusi fungsi load dari Firebase segera setelah halaman dimuat
+    loadContactsFromFirebase();
+
+    window.openContacts = function() {
+        document.getElementById('contactView').classList.add('active');
+        renderSavedContacts(); 
+    }
+
+    window.closeContacts = function() {
+        document.getElementById('contactView').classList.remove('active');
+        const navHome = document.getElementById('navHome');
+        if (navHome) window.setActiveNav(navHome); 
+    }
+
+    window.validateContactInput = function(input) {
+        input.value = input.value.replace(/[^a-zA-Z0-9@_]/g, '');
+        document.getElementById('contactErrorMsg').style.display = 'none'; 
+    }
+
+    window.addNewContact = async function() {
+        const inputEl = document.getElementById('newContactInput');
+        const errorMsg = document.getElementById('contactErrorMsg');
+        const btn = document.getElementById('addContactBtn');
+        const targetNickname = inputEl.value.trim();
+
+        if (!targetNickname) return;
+        
+        if (targetNickname === myNickname) {
+            errorMsg.innerText = "Tidak bisa menambahkan diri sendiri";
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        try {
+            btn.innerText = "Mencari...";
+            btn.disabled = true;
+
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("nickname", "==", targetNickname));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                errorMsg.innerText = "Pengguna tidak ada";
+                errorMsg.style.display = 'block';
+            } else {
+                let foundUserData = {};
+                querySnapshot.forEach((doc) => { foundUserData = doc.data(); });
+
+                const isAlreadySaved = mySavedContacts.some(c => c.nickname === targetNickname);
+                if (!isAlreadySaved) {
+                    const newContact = {
+                        nickname: targetNickname,
+                        avatar: foundUserData.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${targetNickname}`
+                    };
+
+                    mySavedContacts.push(newContact);
+                    
+                    // SIMPAN PERMANEN KE FIRESTORE
+                    const currentUserRef = doc(db, "users", tempGoogleUser.uid);
+                    await updateDoc(currentUserRef, {
+                        contacts: arrayUnion(newContact)
+                    });
+                    
+                    localStorage.setItem('premiumContactsList', JSON.stringify(mySavedContacts));
+                    inputEl.value = ""; 
+                    renderSavedContacts(); 
+                } else {
+                    errorMsg.innerText = "Kontak sudah ada di daftarmu";
+                    errorMsg.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error("Error mencari kontak:", error);
+            errorMsg.innerText = "Terjadi kesalahan koneksi";
+            errorMsg.style.display = 'block';
+        } finally {
+            btn.innerText = "Tambahkan Kontak";
+            btn.disabled = false;
+        }
+    }
+
+    window.renderSavedContacts = function() {
+        const contactContainer = document.getElementById('savedContactsList');
+        const homeContainer = document.getElementById('chatListContainer'); 
+        
+        if(contactContainer) contactContainer.innerHTML = "";
+        if(homeContainer) homeContainer.innerHTML = "";
+
+        const sortedContacts = mySavedContacts.sort((a, b) => a.nickname.localeCompare(b.nickname));
+
+        sortedContacts.forEach(contact => {
+            if(contactContainer) {
+                const card = document.createElement('div');
+                card.className = 'chat-card';
+                card.onclick = function() {
+                    openChat(contact.nickname, contact.avatar);
+                    closeContacts(); 
+                };
+                card.innerHTML = `
+                    <div class="avatar" style="background-image: url('${contact.avatar}'); width: 44px; height: 44px; margin-right: 16px;"></div>
+                    <div class="chat-info" style="justify-content: center;">
+                        <span class="chat-name" style="font-size: 16px;">${contact.nickname}</span>
+                    </div>
+                `;
+                contactContainer.appendChild(card);
+            }
+
+            if(homeContainer) {
+                const homeCard = document.createElement('div');
+                homeCard.className = 'chat-card';
+                homeCard.onclick = function() {
+                    openChat(contact.nickname, contact.avatar);
+                };
+                homeCard.innerHTML = `
+                    <div class="avatar" style="background-image: url('${contact.avatar}');"></div>
+                    <div class="chat-info">
+                        <div class="chat-header">
+                            <span class="chat-name">${contact.nickname}</span>
+                        </div>
+                        <span class="chat-message">Klik untuk memulai obrolan</span>
+                    </div>
+                `;
+                homeContainer.appendChild(homeCard);
+            }
+        });
+    }
 
     // 4. LOGIKA CHAT SOCKET.IO
     const socket = io("https://chat-9gbz.onrender.com");
@@ -496,181 +646,30 @@
 
     window.closeProfile = function() {
         document.getElementById('profileView').classList.remove('active');
+        const navHome = document.getElementById('navHome');
+        if (navHome) window.setActiveNav(navHome);
     }
 
     window.logoutAccount = async function() {
         try {
-            // Putuskan dari Firebase
             await signOut(auth);
-            // Bersihkan memori HP
             localStorage.removeItem('premiumChatSession');
-            // Lempar kembali ke halaman Login
-            window.location.href = 'login';
+            localStorage.removeItem('premiumContactsList'); // Bersihkan kontak saat logout
+            window.location.href = 'login.html';
         } catch (error) {
             console.error("Gagal keluar:", error);
-            // Tetap paksa keluar memori meskipun firebase error
             localStorage.removeItem('premiumChatSession');
-            window.location.href = 'login';
+            localStorage.removeItem('premiumContactsList');
+            window.location.href = 'login.html';
         }
     }
 
     // --- FUNGSI NAVIGASI DINAMIS ---
     window.setActiveNav = function(element) {
-        // 1. Cari semua elemen yang memiliki class 'nav-item'
         const navItems = document.querySelectorAll('.nav-item');
-        
-        // 2. Bersihkan/hapus class 'active' dari semuanya
         navItems.forEach(item => item.classList.remove('active'));
-        
-        // 3. Tambahkan class 'active' hanya ke elemen yang sedang diklik
         element.classList.add('active');
     }
-
-    window.closeProfile = function() {
-        // Sembunyikan layar profil
-        document.getElementById('profileView').classList.remove('active');
-        
-        // Kembalikan status navigasi aktif ke ikon Beranda secara paksa
-        const navHome = document.getElementById('navHome');
-        if (navHome) {
-            window.setActiveNav(navHome);
-        }
-    }
-
-    // --- LOGIKA BUKU KONTAK DINAMIS ---
-    
-    // Simpan daftar kontak teman di memori HP agar hemat kuota database
-    let mySavedContacts = JSON.parse(localStorage.getItem('premiumContactsList')) || [];
-
-    window.openContacts = function() {
-        document.getElementById('contactView').classList.add('active');
-        renderSavedContacts(); // Muat daftar kontak saat layar dibuka
-    }
-
-    window.closeContacts = function() {
-        document.getElementById('contactView').classList.remove('active');
-        const navHome = document.getElementById('navHome');
-        if (navHome) window.setActiveNav(navHome); // Kembalikan indikator ke Beranda
-    }
-
-    window.validateContactInput = function(input) {
-        // FILTER: Hanya izinkan huruf, angka, @, dan _ (Otomatis menghapus simbol lain/spasi)
-        input.value = input.value.replace(/[^a-zA-Z0-9@_]/g, '');
-        document.getElementById('contactErrorMsg').style.display = 'none'; // Sembunyikan error saat mengetik ulang
-    }
-
-    window.addNewContact = async function() {
-        const inputEl = document.getElementById('newContactInput');
-        const errorMsg = document.getElementById('contactErrorMsg');
-        const btn = document.getElementById('addContactBtn');
-        const targetNickname = inputEl.value.trim();
-
-        if (!targetNickname) return;
-        
-        // Cek jika mencoba menambahkan diri sendiri
-        if (targetNickname === myNickname) {
-            errorMsg.innerText = "Tidak bisa menambahkan diri sendiri";
-            errorMsg.style.display = 'block';
-            return;
-        }
-
-        try {
-            btn.innerText = "Mencari...";
-            btn.disabled = true;
-
-            // Minta Firebase mencari pengguna dengan nickname tersebut
-            const usersRef = collection(db, "users");
-            const q = query(usersRef, where("nickname", "==", targetNickname));
-            const querySnapshot = await getDocs(q);
-
-            if (querySnapshot.empty) {
-                // PENGGUNA TIDAK DITEMUKAN
-                errorMsg.innerText = "Pengguna tidak ada";
-                errorMsg.style.display = 'block';
-            } else {
-                // PENGGUNA DITEMUKAN!
-                let foundUserData = {};
-                querySnapshot.forEach((doc) => { foundUserData = doc.data(); });
-
-                // Cegah duplikasi kontak yang sudah ada di daftar
-                const isAlreadySaved = mySavedContacts.some(c => c.nickname === targetNickname);
-                if (!isAlreadySaved) {
-                    mySavedContacts.push({
-                        nickname: targetNickname,
-                        avatar: foundUserData.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${targetNickname}`
-                    });
-                    
-                    localStorage.setItem('premiumContactsList', JSON.stringify(mySavedContacts));
-                    inputEl.value = ""; // Bersihkan kolom
-                    renderSavedContacts(); // Refresh UI
-                } else {
-                    errorMsg.innerText = "Kontak sudah ada di daftarmu";
-                    errorMsg.style.display = 'block';
-                }
-            }
-        } catch (error) {
-            console.error("Error mencari kontak:", error);
-            errorMsg.innerText = "Terjadi kesalahan koneksi";
-            errorMsg.style.display = 'block';
-        } finally {
-            btn.innerText = "Tambahkan Kontak";
-            btn.disabled = false;
-        }
-    }
-
-    window.renderSavedContacts = function() {
-        // Ambil elemen dari kedua layar
-        const contactContainer = document.getElementById('savedContactsList');
-        const homeContainer = document.getElementById('chatListContainer'); 
-        
-        if(contactContainer) contactContainer.innerHTML = "";
-        if(homeContainer) homeContainer.innerHTML = "";
-
-        // URUTKAN KONTAK SECARA ALFABETIS (A-Z / 0-9)
-        const sortedContacts = mySavedContacts.sort((a, b) => a.nickname.localeCompare(b.nickname));
-
-        sortedContacts.forEach(contact => {
-            // 1. Render untuk layar "Tambahan Kontak"
-            if(contactContainer) {
-                const card = document.createElement('div');
-                card.className = 'chat-card';
-                card.onclick = function() {
-                    openChat(contact.nickname, contact.avatar);
-                    closeContacts(); // Tutup layar kontak otomatis
-                };
-                card.innerHTML = `
-                    <div class="avatar" style="background-image: url('${contact.avatar}'); width: 44px; height: 44px; margin-right: 16px;"></div>
-                    <div class="chat-info" style="justify-content: center;">
-                        <span class="chat-name" style="font-size: 16px;">${contact.nickname}</span>
-                    </div>
-                `;
-                contactContainer.appendChild(card);
-            }
-
-            // 2. Render juga ke layar utama (Beranda)
-            if(homeContainer) {
-                const homeCard = document.createElement('div');
-                homeCard.className = 'chat-card';
-                homeCard.onclick = function() {
-                    openChat(contact.nickname, contact.avatar);
-                };
-                homeCard.innerHTML = `
-                    <div class="avatar" style="background-image: url('${contact.avatar}');"></div>
-                    <div class="chat-info">
-                        <div class="chat-header">
-                            <span class="chat-name">${contact.nickname}</span>
-                        </div>
-                        <span class="chat-message">Klik untuk memulai obrolan</span>
-                    </div>
-                `;
-                homeContainer.appendChild(homeCard);
-            }
-        });
-    }
-
-    // PENTING: Eksekusi fungsi ini segera setelah halaman selesai dimuat
-    // agar layar Beranda Anda tidak kosong!
-    renderSavedContacts();
 </script>
 </body>
 </html>
