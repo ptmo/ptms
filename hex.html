@@ -51,6 +51,11 @@
         .toast { position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%) translateY(100px); background: #000; color: #fff; padding: 12px 24px; border-radius: 50px; font-size: 14px; opacity: 0; transition: 0.4s; z-index: 9999; }
         .toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
         @keyframes rippleAnim { to { transform: translate(-50%, -50%) scale(25); opacity: 0; } }
+        #imagePreviewContainer {
+    touch-action: none;
+    -webkit-user-select: none;
+    user-select: none;
+        }
     </style>
 </head>
 <body>
@@ -65,6 +70,19 @@
             <span>TAP UNTUK INSPIRASI ✨</span>
             <div id="rippleContainer"></div>
         </div>
+
+        <!-- Fitur Upload Gambar -->
+<div class="image-uploader-section" style="margin-bottom: 20px;">
+    <label for="imageUpload" class="magic-tap" style="background: var(--primary); margin-bottom: 10px;">
+        UPLOAD GAMBAR (EYE DROPPER) 📷
+    </label>
+    <input type="file" id="imageUpload" accept="image/*" style="display: none;">
+    
+    <div id="imagePreviewContainer" style="width: 100%; border-radius: 12px; overflow: hidden; display: none; position: relative; cursor: crosshair; box-shadow: var(--shadow-soft);">
+        <img id="sourceImage" style="width: 100%; display: block;">
+        <canvas id="hiddenCanvas" style="display: none;"></canvas>
+    </div>
+</div>
 
         <div class="advanced-picker">
             <div class="sl-container" id="slContainer">
@@ -268,6 +286,65 @@
             navigator.clipboard.writeText(`:root {\n --primary: ${hexInput.value};\n}`);
             showToast('CSS Variables disalin!');
         };
+
+        const imageUpload = document.getElementById('imageUpload');
+const imagePreviewContainer = document.getElementById('imagePreviewContainer');
+const sourceImage = document.getElementById('sourceImage');
+const hiddenCanvas = document.getElementById('hiddenCanvas');
+const hCtx = hiddenCanvas.getContext('2d', { willReadFrequently: true });
+
+// 1. Handle Upload & Draw to Hidden Canvas
+imageUpload.addEventListener('change', function(e) {
+    const reader = new FileReader();
+    reader.onload = function(event) {
+        sourceImage.src = event.target.result;
+        imagePreviewContainer.style.display = 'block';
+        
+        sourceImage.onload = function() {
+            // Sinkronkan ukuran canvas dengan gambar asli
+            hiddenCanvas.width = sourceImage.naturalWidth;
+            hiddenCanvas.height = sourceImage.naturalHeight;
+            hCtx.drawImage(sourceImage, 0, 0);
+        };
+    };
+    reader.readAsDataURL(e.target.files[0]);
+});
+
+// 2. Fungsi Ambil Warna dari Koordinat Tap/Klik
+function pickColorFromImage(e) {
+    if (e.cancelable) e.preventDefault();
+
+    const rect = sourceImage.getBoundingClientRect();
+    const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+    const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+
+    // Hitung rasio antara ukuran tampilan (CSS) dan ukuran asli (Natural)
+    const x = (clientX - rect.left) * (sourceImage.naturalWidth / rect.width);
+    const y = (clientY - rect.top) * (sourceImage.naturalHeight / rect.height);
+
+    const pixel = hCtx.getImageData(x, y, 1, 1).data;
+    const hex = rgbToHex(pixel[0], pixel[1], pixel[2]);
+
+    // Update UI & Picker
+    const hsl = hexToHSL(hex);
+    currentHue = hsl.h;
+    
+    // Sinkronkan posisi kursor SL & Hue
+    const w = slCanvas.width;
+    const h = slCanvas.height;
+    // (Estimasi posisi kursor SL berdasarkan Saturation & Lightness)
+    slCursor.style.left = (hsl.s * w / 100) + 'px';
+    slCursor.style.top = ((100 - hsl.l) * h / 100) + 'px';
+    hueCursor.style.left = (currentHue / 360 * document.getElementById('hueContainer').offsetWidth) + 'px';
+    
+    drawPicker();
+    updateDesignSystem(hex);
+    showToast("Warna dipetik: " + hex);
+}
+
+// 3. Event Listeners untuk Image Tap
+imagePreviewContainer.addEventListener('mousedown', pickColorFromImage);
+imagePreviewContainer.addEventListener('touchstart', pickColorFromImage, { passive: false });
 
         window.onload = () => {
             drawPicker();
