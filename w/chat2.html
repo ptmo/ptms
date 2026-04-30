@@ -359,37 +359,88 @@
     </div>
 </div>
 
-<script>
+<script type="module">
+    // 1. Import Firebase SDK (Versi 10)
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
+    import { getAuth, signInWithPopup, GoogleAuthProvider } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+
+    // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+const firebaseConfig = {
+  apiKey: "AIzaSyAHQgvaa8P3XDDf8d3wDMMFMuoHTfykk2A",
+  authDomain: "chat-37551.firebaseapp.com",
+  projectId: "chat-37551",
+  storageBucket: "chat-37551.firebasestorage.app",
+  messagingSenderId: "557115133564",
+  appId: "1:557115133564:web:75616cfd1d6f13087083f9",
+  measurementId: "G-WJD577VJEC"
+};
+
+    // Inisialisasi Firebase
+    const app = initializeApp(firebaseConfig);
+    const auth = getAuth(app);
+    const db = getFirestore(app);
+    const provider = new GoogleAuthProvider();
+
+    // 3. Konfigurasi Socket.io Render
     const socket = io("https://chat-9gbz.onrender.com");
+    
+    // Variabel Global
     let myNickname = ""; 
     let currentFriend = "";
+    let tempGoogleUser = null; // Menyimpan data Google sementara
+    let tempAvatarData = ""; // Menyimpan foto base64 jika user upload manual
 
-    // --- LOGIKA UI AUTENTIKASI ---
-    
-    // 1. Tombol Google diklik -> Transisi ke layar buat profil
-    function startGoogleLogin() {
-        // Nanti di sini kita jalankan Supabase Auth JS. 
-        // Sementara kita simulasikan transisi UI-nya:
-        document.getElementById('loginState').style.display = 'none';
-        document.getElementById('setupState').style.display = 'flex';
+    // --- LOGIKA AUTENTIKASI FIREBASE NYATA ---
+
+    window.startGoogleLogin = async function() {
+        try {
+            // Memanggil Pop-up Google Asli
+            const result = await signInWithPopup(auth, provider);
+            tempGoogleUser = result.user;
+            
+            // Cek di Firestore apakah user ini sudah punya profil (nickname)
+            const userRef = doc(db, "users", tempGoogleUser.uid);
+            const userSnap = await getDoc(userRef);
+
+            if (userSnap.exists()) {
+                // JIKA SUDAH PUNYA AKUN: Langsung masuk ke chat
+                myNickname = userSnap.data().nickname;
+                document.getElementById('authView').classList.add('hidden');
+                console.log("Login sukses, selamat datang kembali: " + myNickname);
+                
+                // (Opsional) Tampilkan foto profilnya di pojok UI jika ada
+            } else {
+                // JIKA PENGGUNA BARU: Sembunyikan tombol login, tampilkan form profil
+                document.getElementById('loginState').style.display = 'none';
+                document.getElementById('setupState').style.display = 'flex';
+                
+                // Jadikan foto Google sebagai foto default jika dia tidak upload
+                tempAvatarData = tempGoogleUser.photoURL;
+            }
+        } catch (error) {
+            console.error("Error Login Google:", error);
+            alert("Gagal login: " + error.message);
+        }
     }
 
-    // 2. Pratinjau Foto Profil yang diupload
-    function previewAvatar(event) {
+    window.previewAvatar = function(event) {
         const file = event.target.files[0];
         if (file) {
             const reader = new FileReader();
             reader.onload = function(e) {
                 const area = document.getElementById('avatarUploadArea');
                 area.style.backgroundImage = `url(${e.target.result})`;
-                area.innerHTML = ''; // Sembunyikan ikon kamera setelah foto terpilih
+                area.innerHTML = ''; // Sembunyikan ikon kamera
+                
+                // Simpan gambar dalam bentuk teks Base64 untuk disimpan ke Firestore
+                tempAvatarData = e.target.result; 
             }
             reader.readAsDataURL(file);
         }
     }
 
-    // 3. Simpan Profil & Masuk ke Aplikasi
-    function finishSetup() {
+    window.finishSetup = async function() {
         const nickInput = document.getElementById('nicknameSetup').value.trim();
         
         if(nickInput === "") {
@@ -397,25 +448,42 @@
             return;
         }
 
-        myNickname = nickInput;
-        
-        // Sembunyikan layar login agar layar daftar chat muncul
-        document.getElementById('authView').classList.add('hidden');
-        
-        // (Opsional) Panggil data kontak dari database di sini
+        try {
+            // Ubah tombol jadi loading agar user tidak klik 2 kali
+            const btn = document.querySelector('.primary-btn');
+            btn.innerText = "Menyimpan...";
+            btn.disabled = true;
+
+            // Simpan Data Profil ke Firebase Firestore
+            await setDoc(doc(db, "users", tempGoogleUser.uid), {
+                nickname: nickInput,
+                email: tempGoogleUser.email,
+                avatar: tempAvatarData, // Berisi base64 atau URL Google
+                created_at: new Date().toISOString()
+            });
+
+            myNickname = nickInput;
+            
+            // Tutup layar autentikasi dan masuk ke aplikasi
+            document.getElementById('authView').classList.add('hidden');
+            console.log("Akun berhasil dibuat: " + myNickname);
+
+        } catch (error) {
+            console.error("Error menyimpan profil:", error);
+            alert("Gagal membuat profil. Coba lagi.");
+            btn.innerText = "Buat Akun & Mulai";
+            btn.disabled = false;
+        }
     }
 
 
-    // --- LOGIKA CHAT (SUDAH ADA) ---
+    // --- LOGIKA CHAT SOCKET.IO & SUPABASE (TETAP SAMA) ---
     
-    socket.on("connect", () => {
-        console.log("Terhubung ke server chat!");
-    });
+    socket.on("connect", () => console.log("Terhubung ke server chat!"));
 
     socket.on('load_history', (history) => {
         const container = document.getElementById('messagesContainer');
         container.innerHTML = ""; 
-        
         history.forEach(msg => {
             const type = msg.sender_nickname === myNickname ? 'sent' : 'received';
             const time = new Date(msg.created_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -429,25 +497,21 @@
         }
     });
 
-    function openChat(name, avatarUrl) {
+    window.openChat = function(name, avatarUrl) {
         currentFriend = name; 
-        
         document.getElementById('activeName').innerText = name;
         document.getElementById('activeAvatar').style.backgroundImage = `url('${avatarUrl}')`;
         document.getElementById('chatRoomView').classList.add('active');
 
-        socket.emit('get_history', { 
-            me: myNickname, 
-            friend: currentFriend 
-        });
+        socket.emit('get_history', { me: myNickname, friend: currentFriend });
     }
 
-    function closeChat() {
+    window.closeChat = function() {
         document.getElementById('chatRoomView').classList.remove('active');
         currentFriend = ""; 
     }
 
-    function sendMessage() {
+    window.sendMessage = function() {
         const input = document.getElementById('messageInput');
         const text = input.value.trim();
         
@@ -456,19 +520,14 @@
             const timeStr = now.getHours().toString().padStart(2, '0') + ':' + now.getMinutes().toString().padStart(2, '0');
             
             appendMessage(text, timeStr, 'sent');
-            
             socket.emit('send_message', {
-                sender: myNickname,
-                recipient: currentFriend,
-                text: text,
-                time: timeStr
+                sender: myNickname, recipient: currentFriend, text: text, time: timeStr
             });
-
             input.value = "";
         }
     }
 
-    function appendMessage(text, timeStr, type) {
+    window.appendMessage = function(text, timeStr, type) {
         const container = document.getElementById('messagesContainer');
         const newBubble = document.createElement('div');
         newBubble.className = `bubble ${type}`;
@@ -477,9 +536,9 @@
         container.scrollTop = container.scrollHeight;
     }
 
-    function handleKeyPress(e) {
+    window.handleKeyPress = function(e) {
         if(e.key === 'Enter') sendMessage();
     }
-</script>
+        </script>
 </body>
 </html>
