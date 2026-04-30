@@ -89,113 +89,6 @@
             transition: transform 0.35s cubic-bezier(0.16, 1, 0.3, 1), opacity 0.35s ease;
         }
 
-        /* --- LAYAR 0: AUTENTIKASI (BARU) --- */
-        .auth-view {
-            z-index: 50; /* Paling atas menutupi aplikasi */
-            background-color: var(--bg-base);
-            justify-content: center;
-            align-items: center;
-            padding: 24px;
-        }
-
-        .auth-card {
-            width: 100%;
-            background: var(--glass-bg);
-            backdrop-filter: blur(24px);
-            -webkit-backdrop-filter: blur(24px);
-            border: 1px solid var(--glass-border);
-            border-radius: 32px;
-            padding: 40px 24px;
-            box-shadow: var(--glass-shadow);
-            text-align: center;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 24px;
-        }
-
-        .auth-card h2 { font-size: 24px; font-weight: 700; color: var(--text-main); }
-        .auth-card p { font-size: 14px; color: var(--text-muted); margin-top: -16px; }
-
-        .auth-btn {
-            width: 100%;
-            height: 56px;
-            border-radius: 20px;
-            font-family: inherit;
-            font-size: 16px;
-            font-weight: 600;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            gap: 12px;
-            cursor: pointer;
-            transition: all 0.25s cubic-bezier(0.16, 1, 0.3, 1);
-            border: none;
-        }
-
-        .google-btn {
-            background: #FFFFFF;
-            color: var(--text-main);
-            box-shadow: 0 4px 12px rgba(0,0,0,0.05);
-            border: 1px solid #E2E8F0;
-        }
-        .google-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 16px rgba(0,0,0,0.08); }
-
-        .primary-btn {
-            background: var(--accent-primary);
-            color: #FFFFFF;
-            box-shadow: 0 8px 24px rgba(92, 158, 173, 0.3);
-        }
-        .primary-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(92, 158, 173, 0.4); }
-
-        .auth-input {
-            width: 100%;
-            height: 56px;
-            background: rgba(255, 255, 255, 0.8);
-            border: 1px solid var(--glass-border);
-            border-radius: 20px;
-            padding: 0 20px;
-            font-family: inherit;
-            font-size: 15px;
-            color: var(--text-main);
-            text-align: center;
-            outline: none;
-            transition: all 0.25s ease;
-        }
-        .auth-input:focus { border-color: var(--accent-primary); box-shadow: 0 0 0 4px rgba(92, 158, 173, 0.1); }
-
-        .avatar-upload {
-            width: 90px;
-            height: 90px;
-            border-radius: 50%;
-            background: #E2E8F0;
-            border: 3px solid #FFFFFF;
-            box-shadow: 0 8px 16px rgba(0,0,0,0.08);
-            position: relative;
-            cursor: pointer;
-            overflow: hidden;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            background-size: cover;
-            background-position: center;
-        }
-        .avatar-upload input { display: none; }
-        .avatar-overlay {
-            position: absolute;
-            bottom: 0; left: 0; right: 0;
-            background: rgba(0,0,0,0.5);
-            height: 30px;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            color: white;
-        }
-
-        /* State display controls */
-        .setup-state { display: none; }
-        .auth-view.hidden { opacity: 0; pointer-events: none; }
-
         /* --- LAYAR 1: DAFTAR OBROLAN --- */
         .list-view { transform: translateX(0); height: 100%; overflow: hidden; }
 
@@ -498,29 +391,25 @@
 </div>
 
 <script type="module">
-    // 1. Import Firebase SDK (Versi 10)
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
-    import { getAuth, signInWithPopup, GoogleAuthProvider, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
-    import { getFirestore, doc, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
+    import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
 
-    // 2. Firebase Configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyAHQgvaa8P3XDDf8d3wDMMFMuoHTfykk2A",
-      authDomain: "chat-37551.firebaseapp.com",
-      projectId: "chat-37551",
-      storageBucket: "chat-37551.firebasestorage.app",
-      messagingSenderId: "557115133564",
-      appId: "1:557115133564:web:75616cfd1d6f13087083f9",
-      measurementId: "G-WJD577VJEC"
-    };
+    // Middleware: Proteksi Halaman
+    const sessionString = localStorage.getItem('premiumChatSession');
+    if (!sessionString) {
+        window.location.href = 'login.html';
+    }
+    const session = JSON.parse(sessionString);
+    if (new Date().getTime() > session.expiredAt) {
+        localStorage.removeItem('premiumChatSession');
+        window.location.href = 'login.html';
+    }
 
-    // Inisialisasi Firebase
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const provider = new GoogleAuthProvider();
+    // Gunakan data dari session
+    let myNickname = session.nickname;
+    let tempAvatarData = session.avatar;
+    let tempGoogleUser = { uid: session.uid, displayName: session.displayName, email: session.email };
 
-    // 3. Konfigurasi Socket.io Render
     const socket = io("https://chat-9gbz.onrender.com");
     
     // Variabel Global
@@ -571,130 +460,6 @@
     }
 
     checkAutoLogin();
-
-    // --- LOGIKA AUTENTIKASI FIREBASE ---
-
-    window.startGoogleLogin = async function() {
-        try {
-            const result = await signInWithPopup(auth, provider);
-            tempGoogleUser = result.user;
-            
-            const userRef = doc(db, "users", tempGoogleUser.uid);
-            const userSnap = await getDoc(userRef);
-
-            if (userSnap.exists()) {
-                myNickname = userSnap.data().nickname;
-                tempAvatarData = userSnap.data().avatar || tempGoogleUser.photoURL;
-                
-                saveSessionToLocal(tempGoogleUser, myNickname, tempAvatarData);
-
-                document.getElementById('authView').classList.add('hidden');
-                console.log("Login sukses: " + myNickname);
-            } else {
-                document.getElementById('loginState').style.display = 'none';
-                document.getElementById('setupState').style.display = 'flex';
-                tempAvatarData = tempGoogleUser.photoURL;
-            }
-        } catch (error) {
-            console.error("Error Login:", error);
-            alert("Gagal login: " + error.message);
-        }
-    }
-
-    // --- MESIN KOMPRESI GAMBAR OTOMATIS (< 25KB) ---
-    window.previewAvatar = function(event) {
-        const file = event.target.files[0];
-        if (!file) return;
-
-        const reader = new FileReader();
-        reader.onload = function(e) {
-            // Buat objek gambar virtual untuk mengambil dimensi aslinya
-            const img = new Image();
-            img.onload = function() {
-                // Siapkan kanvas virtual
-                const canvas = document.createElement('canvas');
-                let width = img.width;
-                let height = img.height;
-
-                // Tahap 1: Kompresi Dimensi (Maksimal resolusi 300x300 pixel)
-                const MAX_SIZE = 300;
-                if (width > height) {
-                    if (width > MAX_SIZE) {
-                        height *= MAX_SIZE / width;
-                        width = MAX_SIZE;
-                    }
-                } else {
-                    if (height > MAX_SIZE) {
-                        width *= MAX_SIZE / height;
-                        height = MAX_SIZE;
-                    }
-                }
-                
-                canvas.width = width;
-                canvas.height = height;
-                const ctx = canvas.getContext('2d');
-                ctx.drawImage(img, 0, 0, width, height);
-
-                // Tahap 2: Kompresi Kualitas (Target di bawah 25 KB)
-                let quality = 0.9;
-                let compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-                // Hitung estimasi ukuran Base64 dalam Kilobytes (KB)
-                let fileSizeKB = Math.round((compressedBase64.length * 3) / 4) / 1024;
-
-                // Terus turunkan kualitas sebesar 10% sampai ukurannya tembus di bawah 25KB
-                while (fileSizeKB > 25 && quality > 0.1) {
-                    quality -= 0.1;
-                    compressedBase64 = canvas.toDataURL('image/jpeg', quality);
-                    fileSizeKB = Math.round((compressedBase64.length * 3) / 4) / 1024;
-                }
-
-                console.log(`Selesai kompresi! Ukuran final: ${fileSizeKB.toFixed(2)} KB`);
-
-                // Tahap 3: Tampilkan di antarmuka dan simpan ke memori sementara
-                const area = document.getElementById('avatarUploadArea');
-                area.style.backgroundImage = `url(${compressedBase64})`;
-                area.innerHTML = ''; 
-                tempAvatarData = compressedBase64; 
-            };
-            img.src = e.target.result;
-        }
-        reader.readAsDataURL(file);
-    }
-
-    window.finishSetup = async function() {
-        const nickInput = document.getElementById('nicknameSetup').value.trim();
-        
-        if(nickInput === "") {
-            alert("Silakan isi nickname kamu!");
-            return;
-        }
-
-        try {
-            const btn = document.querySelector('.primary-btn');
-            btn.innerText = "Menyimpan...";
-            btn.disabled = true;
-
-            await setDoc(doc(db, "users", tempGoogleUser.uid), {
-                nickname: nickInput,
-                email: tempGoogleUser.email,
-                avatar: tempAvatarData, 
-                created_at: new Date().toISOString()
-            });
-
-            myNickname = nickInput;
-            saveSessionToLocal(tempGoogleUser, myNickname, tempAvatarData);
-            
-            document.getElementById('authView').classList.add('hidden');
-            console.log("Akun berhasil dibuat: " + myNickname);
-
-        } catch (error) {
-            console.error("Error menyimpan profil:", error);
-            alert("Gagal membuat profil. Coba lagi.");
-            btn.innerText = "Buat Akun & Mulai";
-            btn.disabled = false;
-        }
-    }
-
 
     // --- LOGIKA CHAT SOCKET.IO & SUPABASE ---
     
@@ -800,6 +565,14 @@
             console.error("Gagal keluar:", error);
             alert("Maaf, proses logout gagal. Silakan coba lagi.");
         }
+    }
+
+    window.logoutAccount = async function() {
+        const app = initializeApp({ /* config anda */ });
+        const auth = getAuth(app);
+        await signOut(auth);
+        localStorage.removeItem('premiumChatSession');
+        window.location.href = 'login';
     }
         </script>
 </body>
