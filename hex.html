@@ -390,17 +390,20 @@ function updateDesignSystem(hex) {
     const shadesGrid = document.getElementById('shadesGrid');
     const harmonyGrid = document.getElementById('harmonyGrid');
     
-    // 1. Tints & Shades (-50% hingga +50% per 5%)
+    // 1. Tints & Shades (Rentang penuh ±100% per 10% step)
     shadesGrid.innerHTML = '';
     
-    // Looping dari -50 sampai 50 dengan jarak 5
-    for (let i = -50; i <= 50; i += 5) {
+    // Looping dari -100 sampai 100 dengan jarak 10
+    // Ini menghasilkan 10 warna lebih gelap, 1 warna base, dan 10 warna lebih terang
+    for (let i = -100; i <= 100; i += 10) {
         let newL = Math.max(0, Math.min(100, l_hsl + i)); 
         let shadeHex = hslToHex(h, s, newL);
         
-        // Label teks: Base, +5, -5, dst.
+        // Label teks: Base di tengah, sisanya angka persentase
         let label = i === 0 ? 'Base' : (i > 0 ? `+${i}` : `${i}`);
         
+        // Lewati duplikasi (jika newL mencapai 0 atau 100 berkali-kali)
+        // Opsional: jika ingin grid selalu tetap 21 kotak, hapus pengecekan duplikasi
         shadesGrid.innerHTML += `
             <div class="color-swatch" style="background-color: ${shadeHex};" 
                  onclick="navigator.clipboard.writeText('${shadeHex}'); toast.classList.add('show'); setTimeout(() => toast.classList.remove('show'), 2000);" 
