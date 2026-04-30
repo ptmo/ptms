@@ -193,6 +193,22 @@
         #unauthorizedBlocker p { color: #7E8796; margin-bottom: 32px; font-size: 15px; max-width: 300px; line-height: 1.5; }
         .blocker-btn { background: var(--accent-primary); color: #FFFFFF; border: none; border-radius: 20px; padding: 16px 32px; font-size: 16px; font-weight: 600; cursor: pointer; box-shadow: 0 8px 24px rgba(92, 158, 173, 0.3); font-family: inherit; transition: 0.2s; }
         .blocker-btn:hover { transform: translateY(-2px); box-shadow: 0 12px 32px rgba(92, 158, 173, 0.4); }
+
+        /* --- LAYAR 4: TAMBAHAN KONTAK --- */
+        .contact-view {
+            transform: translateX(100%);
+            background-color: var(--bg-base);
+            z-index: 35;
+            display: flex;
+            flex-direction: column;
+        }
+        .contact-view.active { transform: translateX(0); }
+        .contact-content { flex: 1; padding: 24px; display: flex; flex-direction: column; overflow-y: auto; gap: 24px; }
+        .contact-add-card {
+            background: var(--glass-bg); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 24px; box-shadow: var(--glass-shadow); text-align: center;
+        }
+        .contact-list-header { font-size: 14px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: -12px; padding-left: 8px; }
+        .saved-contacts-container { display: flex; flex-direction: column; gap: 8px; }
     </style>
 </head>
 <body>
@@ -247,7 +263,7 @@
     </div>
 
     <!-- Ikon 4: Buku Kontak -->
-    <div class="nav-item" onclick="setActiveNav(this);">
+    <div class="nav-item" onclick="setActiveNav(this); openContacts();">
         <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
             <path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"></path>
             <path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"></path>
@@ -319,12 +335,41 @@
             </div>
         </div>
 
+        <!-- LAYAR 4: TAMBAHAN KONTAK -->
+        <div class="view contact-view" id="contactView">
+            <div class="room-header">
+                <div class="back-btn" onclick="closeContacts()">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="15 18 9 12 15 6"></polyline></svg>
+                </div>
+                <div class="room-title" style="text-align: center; margin-right: 40px;">
+                    <h2>Tambahan Kontak</h2>
+                </div>
+            </div>
+
+            <div class="contact-content">
+                <!-- Form Pencarian & Tambah Kontak -->
+                <div class="contact-add-card">
+                    <input type="text" id="newContactInput" class="auth-input" placeholder="Ketik username (@ / _ diizinkan)..." oninput="validateContactInput(this)">
+                    <span id="contactErrorMsg" style="color: #E53E3E; font-size: 13px; font-weight: 600; display: none; margin-top: 12px;">Pengguna tidak ada</span>
+                    <button class="auth-btn primary-btn" style="margin-top: 16px;" onclick="addNewContact()" id="addContactBtn">Tambahkan Kontak</button>
+                </div>
+
+                <!-- Daftar Kontak Disimpan -->
+                <div class="contact-list-header">Daftar Kontak</div>
+                <div class="saved-contacts-container" id="savedContactsList">
+                    <!-- List kontak akan muncul berurutan di sini -->
+                </div>
+            </div>
+        </div>
+
     </div>
 </div>
 
 <script type="module">
     import { initializeApp } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-app.js";
     import { getAuth, signOut } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-auth.js";
+    // IMPORT FIRESTORE WAJIB UNTUK MENCARI KONTAK
+    import { getFirestore, collection, query, where, getDocs } from "https://www.gstatic.com/firebasejs/10.9.0/firebase-firestore.js";
 
     // 1. MIDDLEWARE: Pengecekan Akses (Tembok Keamanan)
     const sessionString = localStorage.getItem('premiumChatSession');
@@ -341,9 +386,9 @@
             localStorage.removeItem('premiumChatSession');
         }
     }
-
+    
     if (!sessionValid) {
-        // JIKA TIDAK VALID: Baru kita nyalakan (tampilkan) Tembok Keamanannya
+        // JIKA TIDAK VALID: Tampilkan Tembok Keamanan
         document.getElementById('unauthorizedBlocker').style.display = 'flex';
         throw new Error("Akses ditolak: Pengguna belum login.");
     } else {
@@ -358,7 +403,7 @@
     let tempGoogleUser = { uid: sessionData.uid, displayName: sessionData.displayName, email: sessionData.email };
     let currentFriend = "";
 
-    // 3. INISIALISASI FIREBASE (Hanya untuk Logout)
+    // 3. INISIALISASI FIREBASE & FIRESTORE
     const firebaseConfig = {
       apiKey: "AIzaSyAHQgvaa8P3XDDf8d3wDMMFMuoHTfykk2A",
       authDomain: "chat-37551.firebaseapp.com",
@@ -369,6 +414,7 @@
     };
     const app = initializeApp(firebaseConfig);
     const auth = getAuth(app);
+    const db = getFirestore(app); // Akses database dibuka
 
     // 4. LOGIKA CHAT SOCKET.IO
     const socket = io("https://chat-9gbz.onrender.com");
@@ -489,6 +535,112 @@
         if (navHome) {
             window.setActiveNav(navHome);
         }
+    }
+
+    // --- LOGIKA BUKU KONTAK DINAMIS ---
+    
+    // Simpan daftar kontak teman di memori HP agar hemat kuota database
+    let mySavedContacts = JSON.parse(localStorage.getItem('premiumContactsList')) || [];
+
+    window.openContacts = function() {
+        document.getElementById('contactView').classList.add('active');
+        renderSavedContacts(); // Muat daftar kontak saat layar dibuka
+    }
+
+    window.closeContacts = function() {
+        document.getElementById('contactView').classList.remove('active');
+        const navHome = document.getElementById('navHome');
+        if (navHome) window.setActiveNav(navHome); // Kembalikan indikator ke Beranda
+    }
+
+    window.validateContactInput = function(input) {
+        // FILTER: Hanya izinkan huruf, angka, @, dan _ (Otomatis menghapus simbol lain/spasi)
+        input.value = input.value.replace(/[^a-zA-Z0-9@_]/g, '');
+        document.getElementById('contactErrorMsg').style.display = 'none'; // Sembunyikan error saat mengetik ulang
+    }
+
+    window.addNewContact = async function() {
+        const inputEl = document.getElementById('newContactInput');
+        const errorMsg = document.getElementById('contactErrorMsg');
+        const btn = document.getElementById('addContactBtn');
+        const targetNickname = inputEl.value.trim();
+
+        if (!targetNickname) return;
+        
+        // Cek jika mencoba menambahkan diri sendiri
+        if (targetNickname === myNickname) {
+            errorMsg.innerText = "Tidak bisa menambahkan diri sendiri";
+            errorMsg.style.display = 'block';
+            return;
+        }
+
+        try {
+            btn.innerText = "Mencari...";
+            btn.disabled = true;
+
+            // Minta Firebase mencari pengguna dengan nickname tersebut
+            const usersRef = collection(db, "users");
+            const q = query(usersRef, where("nickname", "==", targetNickname));
+            const querySnapshot = await getDocs(q);
+
+            if (querySnapshot.empty) {
+                // PENGGUNA TIDAK DITEMUKAN
+                errorMsg.innerText = "Pengguna tidak ada";
+                errorMsg.style.display = 'block';
+            } else {
+                // PENGGUNA DITEMUKAN!
+                let foundUserData = {};
+                querySnapshot.forEach((doc) => { foundUserData = doc.data(); });
+
+                // Cegah duplikasi kontak yang sudah ada di daftar
+                const isAlreadySaved = mySavedContacts.some(c => c.nickname === targetNickname);
+                if (!isAlreadySaved) {
+                    mySavedContacts.push({
+                        nickname: targetNickname,
+                        avatar: foundUserData.avatar || `https://api.dicebear.com/7.x/notionists/svg?seed=${targetNickname}`
+                    });
+                    
+                    localStorage.setItem('premiumContactsList', JSON.stringify(mySavedContacts));
+                    inputEl.value = ""; // Bersihkan kolom
+                    renderSavedContacts(); // Refresh UI
+                } else {
+                    errorMsg.innerText = "Kontak sudah ada di daftarmu";
+                    errorMsg.style.display = 'block';
+                }
+            }
+        } catch (error) {
+            console.error("Error mencari kontak:", error);
+            errorMsg.innerText = "Terjadi kesalahan koneksi";
+            errorMsg.style.display = 'block';
+        } finally {
+            btn.innerText = "Tambahkan Kontak";
+            btn.disabled = false;
+        }
+    }
+
+    window.renderSavedContacts = function() {
+        const container = document.getElementById('savedContactsList');
+        container.innerHTML = "";
+
+        // URUTKAN KONTAK SECARA ALFABETIS (A-Z / 0-9)
+        const sortedContacts = mySavedContacts.sort((a, b) => a.nickname.localeCompare(b.nickname));
+
+        sortedContacts.forEach(contact => {
+            const card = document.createElement('div');
+            card.className = 'chat-card';
+            card.onclick = function() {
+                // JIKA KONTAK DIKLIK: Buka layar chat dan tutup layar kontak
+                openChat(contact.nickname, contact.avatar);
+                closeContacts();
+            };
+            card.innerHTML = `
+                <div class="avatar" style="background-image: url('${contact.avatar}'); width: 44px; height: 44px; margin-right: 16px;"></div>
+                <div class="chat-info" style="justify-content: center;">
+                    <span class="chat-name" style="font-size: 16px;">${contact.nickname}</span>
+                </div>
+            `;
+            container.appendChild(card);
+        });
     }
 </script>
 </body>
