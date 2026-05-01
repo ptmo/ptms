@@ -5,7 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
     <title>Premium Holographic Main Page</title>
     <style>
-        /* === VARIABLES & RESET (Konsisten dengan Room Chat) === */
+        /* === VARIABLES & RESET === */
         :root {
             --glass-bg: rgba(25, 25, 35, 0.4);
             --glass-card: rgba(255, 255, 255, 0.07);
@@ -54,19 +54,20 @@
         .search-box input { flex: 1; background: transparent; border: none; outline: none; color: #fff; font-size: 15px; }
         .search-box input::placeholder { color: var(--text-muted); }
 
-        /* === ONLINE STATUS ROW (STORY STYLE) === */
+        /* === ONLINE STATUS ROW === */
         .status-scroll { display: flex; gap: 16px; padding: 5px 20px 20px; overflow-x: auto; scroll-behavior: smooth; z-index: 10; }
         .status-scroll::-webkit-scrollbar { display: none; }
         .status-item { display: flex; flex-direction: column; align-items: center; gap: 8px; flex-shrink: 0; animation: fadeRight 0.5s var(--bezier-smooth) forwards; opacity: 0; transform: translateX(20px); }
         
         .status-avatar { width: 64px; height: 64px; border-radius: 50%; padding: 3px; background: linear-gradient(45deg, #00f2fe, #7f00ff); position: relative; }
-        .status-avatar img, .status-avatar .avatar-placeholder { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #12141a; background: var(--glass-bg); display: flex; justify-content: center; align-items: center; font-weight: bold; color: #fff; font-size: 20px; }
+        .status-avatar .avatar-placeholder { width: 100%; height: 100%; border-radius: 50%; border: 3px solid #12141a; background: var(--glass-bg); display: flex; justify-content: center; align-items: center; font-weight: bold; color: #fff; font-size: 20px; }
         .status-name { font-size: 11px; color: var(--text-muted); font-weight: 500; }
 
         @keyframes fadeRight { to { opacity: 1; transform: translateX(0); } }
 
         /* === CHAT LIST AREA === */
-        .chat-list { flex: 1; overflow-y: auto; padding: 0 20px calc(env(safe-area-inset-bottom) + 80px); display: flex; flex-direction: column; gap: 12px; }
+        /* Padding bawah ditambah agar list tidak terpotong Navbar dan FAB */
+        .chat-list { flex: 1; overflow-y: auto; padding: 0 20px calc(env(safe-area-inset-bottom) + 160px); display: flex; flex-direction: column; gap: 12px; }
         .chat-list::-webkit-scrollbar { display: none; }
 
         .chat-card { display: flex; align-items: center; gap: 15px; padding: 16px; background: var(--glass-card); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; box-shadow: var(--glass-shadow); position: relative; overflow: hidden; transition: 0.3s var(--bezier-smooth); animation: slideUp 0.5s var(--bezier-smooth) forwards; opacity: 0; transform: translateY(20px); }
@@ -90,9 +91,87 @@
         @keyframes slideUp { to { opacity: 1; transform: translateY(0); } }
 
         /* === FLOATING ACTION BUTTON (FAB) === */
-        .fab { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 20px); right: 20px; width: 60px; height: 60px; border-radius: 30px; background: linear-gradient(135deg, #00f2fe, #4facfe); border: none; display: flex; justify-content: center; align-items: center; box-shadow: 0 8px 25px rgba(0, 242, 254, 0.4); z-index: 100; transition: 0.3s var(--bezier-smooth); }
+        /* Posisi FAB dinaikkan agar berada di atas Navbar */
+        .fab { position: fixed; bottom: calc(env(safe-area-inset-bottom) + 90px); right: 20px; width: 60px; height: 60px; border-radius: 30px; background: linear-gradient(135deg, #00f2fe, #4facfe); border: none; display: flex; justify-content: center; align-items: center; box-shadow: 0 8px 25px rgba(0, 242, 254, 0.4); z-index: 99; transition: 0.3s var(--bezier-smooth); }
         .fab svg { width: 24px; height: 24px; stroke: #fff; fill: none; stroke-width: 2.5; stroke-linecap: round; stroke-linejoin: round; }
         .fab:active { transform: scale(0.9) translateY(4px); box-shadow: 0 4px 15px rgba(0, 242, 254, 0.3); }
+
+        /* === BOTTOM NAVIGATION === */
+        .bottom-nav {
+            position: absolute;
+            bottom: 0;
+            left: 0;
+            width: 100%;
+            height: calc(env(safe-area-inset-bottom) + 70px);
+            background: linear-gradient(to top, rgba(10, 10, 15, 0.95) 50%, rgba(10, 10, 15, 0.3));
+            backdrop-filter: blur(25px);
+            -webkit-backdrop-filter: blur(25px);
+            border-top: 1px solid var(--glass-border);
+            display: flex;
+            justify-content: space-around;
+            align-items: center;
+            padding-bottom: env(safe-area-inset-bottom);
+            z-index: 100;
+        }
+
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 6px;
+            color: var(--text-muted);
+            cursor: pointer;
+            transition: 0.4s var(--bezier-smooth);
+            position: relative;
+            padding: 10px;
+        }
+
+        .nav-item svg {
+            width: 24px;
+            height: 24px;
+            stroke: currentColor;
+            fill: none;
+            stroke-width: 2;
+            stroke-linecap: round;
+            stroke-linejoin: round;
+            transition: 0.4s var(--bezier-smooth);
+        }
+
+        .nav-item span {
+            font-size: 11px;
+            font-weight: 600;
+            opacity: 0.8;
+        }
+
+        /* Indikator Titik Menyala (Glowing Dot) */
+        .nav-item::before {
+            content: '';
+            position: absolute;
+            top: -2px;
+            width: 4px;
+            height: 4px;
+            background: var(--accent);
+            border-radius: 50%;
+            box-shadow: 0 0 10px var(--accent), 0 0 20px var(--accent);
+            opacity: 0;
+            transform: translateY(-10px) scale(0);
+            transition: 0.4s var(--bezier-smooth);
+        }
+
+        /* State Aktif */
+        .nav-item.active {
+            color: var(--accent);
+        }
+
+        .nav-item.active svg {
+            transform: translateY(-4px);
+            filter: drop-shadow(0 4px 6px rgba(0, 242, 254, 0.4));
+        }
+
+        .nav-item.active::before {
+            opacity: 1;
+            transform: translateY(0) scale(1);
+        }
 
         /* Staggered Animations Delay */
         .status-item:nth-child(1) { animation-delay: 0.1s; }
@@ -136,7 +215,7 @@
         </div>
     </div>
 
-    <!-- Active Status Area (Horizontal Scroll) -->
+    <!-- Active Status Area -->
     <div class="status-scroll">
         <div class="status-item">
             <div class="status-avatar"><div class="avatar-placeholder">+</div></div>
@@ -233,7 +312,48 @@
         <svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
     </button>
 
+    <!-- Bottom Navigation Bar -->
+    <nav class="bottom-nav">
+        <!-- Tab 1: Chats (Active) -->
+        <div class="nav-item active" onclick="switchNav(this)">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path></svg>
+            <span>Chats</span>
+        </div>
+        
+        <!-- Tab 2: Nodes / Server -->
+        <div class="nav-item" onclick="switchNav(this)">
+            <svg viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="8" rx="2" ry="2"></rect><rect x="2" y="14" width="20" height="8" rx="2" ry="2"></rect><line x1="6" y1="6" x2="6.01" y2="6"></line><line x1="6" y1="18" x2="6.01" y2="18"></line></svg>
+            <span>Nodes</span>
+        </div>
+        
+        <!-- Tab 3: Contacts / Network -->
+        <div class="nav-item" onclick="switchNav(this)">
+            <svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+            <span>Network</span>
+        </div>
+        
+        <!-- Tab 4: Settings -->
+        <div class="nav-item" onclick="switchNav(this)">
+            <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"></circle><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path></svg>
+            <span>Settings</span>
+        </div>
+    </nav>
+
 </div>
+
+<script>
+    // JS sederhana untuk memberikan efek aktif pada tab nav yang di-klik
+    function switchNav(element) {
+        // Hapus class 'active' dari semua menu
+        const navItems = document.querySelectorAll('.nav-item');
+        navItems.forEach(item => {
+            item.classList.remove('active');
+        });
+        
+        // Tambahkan class 'active' ke menu yang baru saja di-tap
+        element.classList.add('active');
+    }
+</script>
 
 </body>
 </html>
