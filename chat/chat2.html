@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Orbital Timeline Chat</title>
+    <style>
+        /* === VARIABLES & RESET === */
+        :root {
+            --bg-deep: #050508;
+            --stream-core: #00f2fe;
+            --stream-glow: rgba(0, 242, 254, 0.6);
+            --node-me: #00ff88;
+            --node-other: #b300ff;
+            --card-bg: rgba(15, 15, 20, 0.75);
+            --card-border: rgba(255, 255, 255, 0.1);
+            --text-main: #e2e8f0;
+            --text-muted: #94a3b8;
+            --bezier-spring: cubic-bezier(0.175, 0.885, 0.32, 1.15); /* Bouncy smooth */
+            --bezier-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: "SF Pro Display", -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; -webkit-tap-highlight-color: transparent; }
+        body, html { width: 100%; height: 100%; background-color: var(--bg-deep); overflow: hidden; color: var(--text-main); }
+
+        /* === FLUID BACKGROUND ANIMATION === */
+        .ambient-bg { position: absolute; top: 0; left: 0; width: 100vw; height: 100vh; overflow: hidden; z-index: 0; pointer-events: none; }
+        .ambient-glow { position: absolute; width: 60vh; height: 60vh; background: radial-gradient(circle, rgba(0, 242, 254, 0.05) 0%, transparent 70%); top: 20%; left: 50%; transform: translateX(-50%); filter: blur(40px); animation: pulseGlow 8s infinite alternate; }
+        
+        @keyframes pulseGlow {
+            0% { transform: translateX(-50%) scale(0.8); opacity: 0.5; }
+            100% { transform: translateX(-50%) scale(1.2); opacity: 1; }
+        }
+
+        /* === APP CONTAINER === */
+        .app-container { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100vh; height: 100dvh; }
+
+        /* === MINIMALIST HEADER === */
+        .stream-header { padding: calc(env(safe-area-inset-top) + 15px) 20px 15px; display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid rgba(255,255,255,0.05); background: rgba(5, 5, 8, 0.8); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); z-index: 20; }
+        .stream-status { display: flex; align-items: center; gap: 10px; }
+        .pulse-dot { width: 8px; height: 8px; background: var(--stream-core); border-radius: 50%; box-shadow: 0 0 10px var(--stream-core); animation: blink 1.5s infinite; }
+        .stream-title { font-size: 13px; font-weight: 600; letter-spacing: 2px; text-transform: uppercase; color: var(--stream-core); }
+        .stream-hash { font-family: monospace; font-size: 11px; color: var(--text-muted); opacity: 0.5; }
+
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+        /* === THE ORBITAL TIMELINE === */
+        .timeline-scroll { flex: 1; overflow-y: auto; overflow-x: hidden; position: relative; padding: 40px 0; scroll-behavior: smooth; display: flex; flex-direction: column; gap: 30px; }
+        .timeline-scroll::-webkit-scrollbar { display: none; }
+
+        /* The Fluid Center Line */
+        .stream-core-line { position: absolute; top: 0; bottom: 0; left: 50%; width: 2px; transform: translateX(-50%); background: linear-gradient(180deg, transparent, var(--stream-core), transparent); background-size: 100% 200%; animation: dataFlow 3s linear infinite; box-shadow: 0 0 15px var(--stream-glow); z-index: 1; opacity: 0.6; }
+        
+        @keyframes dataFlow { 0% { background-position: 0% -100%; } 100% { background-position: 0% 100%; } }
+
+        /* === NODE ITEMS === */
+        .data-node { position: relative; width: 100%; display: flex; justify-content: center; z-index: 5; }
+        
+        /* The Glowing Orb */
+        .orb { width: 16px; height: 16px; border-radius: 50%; border: 3px solid var(--bg-deep); cursor: pointer; transition: 0.4s var(--bezier-smooth); position: relative; z-index: 10; box-shadow: 0 0 0px transparent; }
+        .data-node.me .orb { background: var(--node-me); }
+        .data-node.other .orb { background: var(--node-other); }
+        
+        /* Pulse Rings */
+        .orb::before { content: ""; position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); width: 100%; height: 100%; border-radius: 50%; border: 1px solid inherit; opacity: 0.5; transition: 0.4s; }
+        
+        /* Expand State of Orb */
+        .data-node.active .orb { transform: scale(0.6); box-shadow: 0 0 20px currentColor; }
+        .data-node.active.me .orb { color: var(--node-me); }
+        .data-node.active.other .orb { color: var(--node-other); }
+
+        /* === DATA CARD (HIDDEN CONTENT) === */
+        .data-card { position: absolute; top: 24px; width: calc(100vw - 40px); max-width: 340px; background: var(--card-bg); backdrop-filter: blur(15px); -webkit-backdrop-filter: blur(15px); border: 1px solid var(--card-border); border-radius: 16px; padding: 18px; opacity: 0; visibility: hidden; transform: translateY(-20px) scale(0.9); transition: 0.5s var(--bezier-spring); z-index: 20; box-shadow: 0 10px 40px rgba(0,0,0,0.5); transform-origin: top center; }
+        
+        /* Inner Styling */
+        .card-meta { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; font-family: monospace; font-size: 11px; color: var(--stream-core); text-transform: uppercase; }
+        .card-text { font-size: 14.5px; line-height: 1.5; color: var(--text-main); letter-spacing: 0.3px; }
+        
+        /* Directional accents on cards */
+        .data-node.me .data-card { border-top: 2px solid var(--node-me); }
+        .data-node.other .data-card { border-top: 2px solid var(--node-other); }
+
+        /* Active Card State */
+        .data-node.active .data-card { opacity: 1; visibility: visible; transform: translateY(0) scale(1); }
+
+        /* Connecting Lines from Orb to Card (Visible only when active) */
+        .connector { position: absolute; top: 12px; left: 50%; width: 2px; height: 12px; background: rgba(255,255,255,0.3); transform: translateX(-50%) scaleY(0); transform-origin: top; transition: 0.3s var(--bezier-smooth); opacity: 0; z-index: 5; }
+        .data-node.active .connector { transform: translateX(-50%) scaleY(1); opacity: 1; transition-delay: 0.1s; }
+
+        /* Entry Animation for new nodes */
+        .data-node { animation: nodeEnter 0.6s var(--bezier-smooth) forwards; opacity: 0; transform: translateY(30px); }
+        @keyframes nodeEnter { to { opacity: 1; transform: translateY(0); } }
+
+        /* === BOTTOM INPUT CONSOLE === */
+        .input-console { padding: 15px 20px calc(env(safe-area-inset-bottom) + 15px); background: #050508; border-top: 1px solid rgba(0, 242, 254, 0.2); position: relative; z-index: 20; display: flex; align-items: center; gap: 15px; }
+        .input-console::before { content: ""; position: absolute; top: 0; left: 0; width: 100%; height: 1px; background: linear-gradient(90deg, transparent, var(--stream-core), transparent); opacity: 0.5; }
+
+        .console-field { flex: 1; background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.1); border-radius: 12px; padding: 14px 16px; color: var(--text-main); font-size: 14px; outline: none; transition: 0.3s; font-family: monospace; }
+        .console-field:focus { border-color: var(--stream-core); background: rgba(0, 242, 254, 0.05); box-shadow: 0 0 15px rgba(0, 242, 254, 0.1); }
+        .console-field::placeholder { color: var(--text-muted); opacity: 0.5; }
+
+        .btn-inject { background: transparent; border: 1px solid var(--text-muted); width: 46px; height: 46px; border-radius: 12px; display: flex; justify-content: center; align-items: center; transition: 0.3s var(--bezier-smooth); color: var(--text-muted); }
+        .btn-inject svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; transition: 0.3s; }
+        
+        .btn-inject.ready { border-color: var(--stream-core); background: rgba(0, 242, 254, 0.1); color: var(--stream-core); box-shadow: 0 0 15px rgba(0, 242, 254, 0.2); cursor: pointer; }
+        .btn-inject.ready:active { transform: scale(0.9); background: var(--stream-core); color: #000; }
+
+    </style>
+</head>
+<body>
+
+<div class="ambient-bg">
+    <div class="ambient-glow"></div>
+</div>
+
+<div class="app-container">
+    
+    <!-- Minimalist Data Stream Header -->
+    <header class="stream-header">
+        <div class="stream-status">
+            <div class="pulse-dot"></div>
+            <div class="stream-title">Sync_Node_01</div>
+        </div>
+        <div class="stream-hash">0x8F...3A2</div>
+    </header>
+
+    <!-- The Orbital Timeline Area -->
+    <main class="timeline-scroll" id="timelineContainer">
+        <!-- Center glowing fiber optic line -->
+        <div class="stream-core-line"></div>
+
+        <!-- Node 1 -->
+        <div class="data-node other" onclick="toggleNode(this)" style="animation-delay: 0.1s">
+            <div class="orb"></div>
+            <div class="connector"></div>
+            <div class="data-card">
+                <div class="card-meta"><span>SYS.IN</span> <span>18:30:12</span></div>
+                <div class="card-text">Shadow Ledger connected to live event feed. Listening for incoming payload.</div>
+            </div>
+        </div>
+
+        <!-- Node 2 (Default Expanded) -->
+        <div class="data-node me active" onclick="toggleNode(this)" style="animation-delay: 0.2s">
+            <div class="orb"></div>
+            <div class="connector"></div>
+            <div class="data-card">
+                <div class="card-meta"><span>USR.OUT</span> <span>18:35:44</span></div>
+                <div class="card-text">Deploying Base Testnet for the smart contract layer. Sultan_db.json is optimized.</div>
+            </div>
+        </div>
+
+        <!-- Node 3 -->
+        <div class="data-node other" onclick="toggleNode(this)" style="animation-delay: 0.3s">
+            <div class="orb"></div>
+            <div class="connector"></div>
+            <div class="data-card">
+                <div class="card-meta"><span>SYS.IN</span> <span>18:36:01</span></div>
+                <div class="card-text">Tukang Sapu script running in background. Old cache cleared successfully.</div>
+            </div>
+        </div>
+    </main>
+
+    <!-- Bottom Console -->
+    <footer class="input-console">
+        <input type="text" id="consoleInput" class="console-field" placeholder="> Inject payload..." autocomplete="off">
+        <button class="btn-inject" id="injectBtn">
+            <svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"></polyline></svg>
+        </button>
+    </footer>
+
+</div>
+
+<script>
+    const consoleInput = document.getElementById('consoleInput');
+    const injectBtn = document.getElementById('injectBtn');
+    const timelineContainer = document.getElementById('timelineContainer');
+
+    // 1. Toggle Logic untuk Nodes (Hanya satu kartu yang terbuka di satu waktu)
+    function toggleNode(element) {
+        // Jika element sudah aktif, tutup
+        if (element.classList.contains('active')) {
+            element.classList.remove('active');
+            return;
+        }
+
+        // Tutup semua node lain terlebih dahulu
+        document.querySelectorAll('.data-node').forEach(node => {
+            node.classList.remove('active');
+        });
+
+        // Buka node yang diklik
+        element.classList.add('active');
+
+        // Scroll agar node tepat berada di tengah pandangan (opsional, memberikan UX premium)
+        setTimeout(() => {
+            element.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 100);
+    }
+
+    // 2. Logic Input Terminal
+    consoleInput.addEventListener('input', () => {
+        if(consoleInput.value.trim().length > 0) {
+            injectBtn.classList.add('ready');
+        } else {
+            injectBtn.classList.remove('ready');
+        }
+    });
+
+    // 3. Fungsi Inject Node Baru
+    function injectPayload() {
+        const text = consoleInput.value.trim();
+        if(!text) return;
+
+        // Tutup node yang sedang aktif saat ada pesan baru masuk
+        document.querySelectorAll('.data-node').forEach(node => {
+            node.classList.remove('active');
+        });
+
+        // Format waktu ala sistem
+        const now = new Date();
+        const timeString = now.getHours().toString().padStart(2, '0') + ':' + 
+                           now.getMinutes().toString().padStart(2, '0') + ':' + 
+                           now.getSeconds().toString().padStart(2, '0');
+
+        // Buat elemen node baru
+        const newNode = document.createElement('div');
+        newNode.className = 'data-node me active'; // Langsung terbuka saat dikirim
+        newNode.onclick = function() { toggleNode(this) };
+        newNode.innerHTML = `
+            <div class="orb"></div>
+            <div class="connector"></div>
+            <div class="data-card">
+                <div class="card-meta"><span style="color:#00ff88;">USR.OUT</span> <span>${timeString}</span></div>
+                <div class="card-text">${text}</div>
+            </div>
+        `;
+
+        timelineContainer.appendChild(newNode);
+        
+        // Bersihkan input
+        consoleInput.value = '';
+        injectBtn.classList.remove('ready');
+
+        // Auto-scroll ke bawah dengan mulus
+        setTimeout(() => {
+            newNode.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }, 50);
+    }
+
+    // Trigger klik dan enter
+    injectBtn.addEventListener('click', injectPayload);
+    consoleInput.addEventListener('keypress', (e) => {
+        if(e.key === 'Enter') {
+            injectPayload();
+        }
+    });
+</script>
+
+</body>
+</html>
