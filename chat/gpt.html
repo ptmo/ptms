@@ -2,174 +2,220 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Spatial Depth Chat UI</title>
+  <title>Spatial Premium Chat</title>
   <style>
-    * { margin:0; padding:0; box-sizing:border-box; }
-    body {
-      font-family: Inter, Arial, sans-serif;
-      background: #050816;
-      overflow: hidden;
-      height: 100vh;
-      color: white;
-    }.bg-layer {
+    :root {
+      --glass: rgba(255,255,255,0.08);
+      --glass-strong: rgba(255,255,255,0.14);
+      --border: rgba(255,255,255,0.12);
+      --text-soft: rgba(255,255,255,0.7);
+      --shadow: 0 24px 80px rgba(0,0,0,0.45);
+      --radius-xl: 28px;
+      --radius-lg: 22px;
+    }* { box-sizing: border-box; margin:0; padding:0; }
+
+body {
+  height: 100vh;
+  overflow: hidden;
+  font-family: Inter, system-ui, sans-serif;
+  background: #060913;
+  color: white;
+}
+
+.ambient {
   position: fixed;
   inset: 0;
   background:
-    radial-gradient(circle at 20% 20%, rgba(255,255,255,0.08), transparent 35%),
-    radial-gradient(circle at 80% 70%, rgba(0,255,255,0.08), transparent 40%),
-    radial-gradient(circle at 50% 40%, rgba(128,0,255,0.08), transparent 35%);
-  animation: drift 18s ease-in-out infinite alternate;
-  filter: blur(20px);
+    radial-gradient(circle at 15% 20%, rgba(99,102,241,.22), transparent 35%),
+    radial-gradient(circle at 85% 70%, rgba(34,211,238,.18), transparent 35%),
+    radial-gradient(circle at 50% 50%, rgba(255,255,255,.05), transparent 45%);
+  filter: blur(40px);
+  animation: floatAura 18s ease-in-out infinite alternate;
   transform: scale(1.2);
 }
 
-@keyframes drift {
-  from { transform: scale(1.2) translate(0,0); }
-  to { transform: scale(1.3) translate(-20px, 20px); }
+@keyframes floatAura {
+  from { transform: scale(1.15) translate(0,0); }
+  to { transform: scale(1.28) translate(-20px, 18px); }
 }
 
 .app {
   position: relative;
-  width: 100%;
-  height: 100vh;
+  z-index: 2;
   display: flex;
   justify-content: center;
   align-items: center;
-  perspective: 1200px;
+  height: 100vh;
+  padding: 16px;
+  perspective: 1600px;
 }
 
-.chat-shell {
-  width: min(420px, 96vw);
-  height: 92vh;
-  border-radius: 28px;
-  background: rgba(255,255,255,0.06);
-  backdrop-filter: blur(24px);
-  border: 1px solid rgba(255,255,255,0.1);
-  box-shadow: 0 20px 60px rgba(0,0,0,0.45);
+.shell {
+  width: min(430px, 100%);
+  height: 94vh;
+  border-radius: var(--radius-xl);
+  background: linear-gradient(180deg, rgba(255,255,255,0.09), rgba(255,255,255,0.03));
+  backdrop-filter: blur(28px) saturate(160%);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
   display: flex;
   flex-direction: column;
   overflow: hidden;
   transform-style: preserve-3d;
-  transition: transform 0.15s ease-out;
+  transition: transform .15s ease-out;
+  position: relative;
+}
+
+.glow-line {
+  position: absolute;
+  top: 0;
+  left: 12%;
+  width: 76%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,.5), transparent);
 }
 
 .header {
-  padding: 16px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  padding: 18px;
   display: flex;
-  justify-content: space-between;
   align-items: center;
+  justify-content: space-between;
+  border-bottom: 1px solid rgba(255,255,255,0.06);
 }
 
-.title { font-size: 18px; font-weight: 600; }
-.status { font-size: 12px; opacity: 0.6; }
+.meta h1 { font-size: 18px; font-weight: 600; }
+.meta p { font-size: 12px; color: var(--text-soft); margin-top: 3px; }
+
+.actions {
+  width: 38px;
+  height: 38px;
+  border-radius: 14px;
+  background: rgba(255,255,255,0.06);
+  display: grid;
+  place-items: center;
+  border: 1px solid rgba(255,255,255,0.08);
+}
 
 .messages {
   flex: 1;
-  padding: 16px;
-  overflow-y: auto;
+  padding: 20px 16px;
   display: flex;
   flex-direction: column;
-  gap: 12px;
+  gap: 14px;
+  overflow-y: auto;
 }
 
 .bubble {
   max-width: 78%;
-  padding: 12px 14px;
-  border-radius: 22px;
-  backdrop-filter: blur(18px);
+  padding: 14px 16px;
+  border-radius: 24px;
+  line-height: 1.45;
+  font-size: 14px;
   border: 1px solid rgba(255,255,255,0.08);
-  animation: emerge 0.55s cubic-bezier(0.16,1,0.3,1);
-  transform-origin: center;
+  box-shadow: 0 12px 30px rgba(0,0,0,0.18);
+  animation: rise .6s cubic-bezier(.16,1,.3,1);
+  backdrop-filter: blur(18px);
 }
 
-.left { align-self: flex-start; background: rgba(255,255,255,0.06); }
-.right { align-self: flex-end; background: rgba(255,255,255,0.14); }
-
-@keyframes emerge {
-  from { opacity: 0; transform: scale(0.82) translateZ(-80px); }
-  to { opacity: 1; transform: scale(1) translateZ(0); }
+.left {
+  align-self: flex-start;
+  background: rgba(255,255,255,0.05);
 }
 
-.input-bar {
-  padding: 14px;
-  border-top: 1px solid rgba(255,255,255,0.08);
+.right {
+  align-self: flex-end;
+  background: rgba(255,255,255,0.14);
 }
 
-.input-wrap {
+@keyframes rise {
+  from { opacity: 0; transform: translateY(20px) scale(.9); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+.composer {
+  padding: 16px;
+  border-top: 1px solid rgba(255,255,255,0.06);
+  background: rgba(255,255,255,0.02);
+}
+
+.bar {
   display: flex;
-  gap: 10px;
   align-items: center;
-  background: rgba(255,255,255,0.08);
-  border-radius: 20px;
-  padding: 10px 14px;
+  gap: 12px;
+  padding: 10px 12px;
+  border-radius: 22px;
+  background: rgba(255,255,255,0.07);
   border: 1px solid rgba(255,255,255,0.08);
 }
 
 input {
   flex: 1;
-  background: transparent;
   border: none;
-  outline: none;
+  background: transparent;
   color: white;
+  outline: none;
   font-size: 14px;
 }
 
-button {
+input::placeholder { color: rgba(255,255,255,0.45); }
+
+.send {
+  width: 42px;
+  height: 42px;
+  border-radius: 16px;
   border: none;
-  border-radius: 14px;
-  padding: 10px 14px;
-  cursor: pointer;
-  background: rgba(255,255,255,0.15);
+  background: linear-gradient(180deg, rgba(255,255,255,.22), rgba(255,255,255,.08));
   color: white;
+  cursor: pointer;
+  box-shadow: 0 8px 20px rgba(0,0,0,0.25);
 }
 
   </style>
 </head>
 <body>
-  <div class="bg-layer"></div>
-  <div class="app">
-    <div class="chat-shell" id="chatShell">
-      <div class="header">
-        <div>
-          <div class="title">Spatial Connect</div>
-          <div class="status">Immersive Secure Chat</div>
-        </div>
-        <div>⋮</div>
-      </div><div class="messages" id="messages">
-    <div class="bubble left">Welcome to the holographic channel.</div>
-    <div class="bubble right">This feels smooth and premium.</div>
+  <div class="ambient"></div>  <div class="app">
+    <div class="shell" id="shell">
+      <div class="glow-line"></div><div class="header">
+    <div class="meta">
+      <h1>Spatial Connect</h1>
+      <p>Encrypted • Premium Layer</p>
+    </div>
+    <div class="actions">⋮</div>
   </div>
 
-  <div class="input-bar">
-    <div class="input-wrap">
-      <input id="chatInput" placeholder="Type message..." />
-      <button onclick="sendMessage()">➤</button>
+  <div class="messages" id="messages">
+    <div class="bubble left">Your immersive communication layer is active.</div>
+    <div class="bubble right">Now this feels refined, elegant, and worthy.</div>
+  </div>
+
+  <div class="composer">
+    <div class="bar">
+      <input id="chatInput" placeholder="Write with intention..." />
+      <button class="send" onclick="sendMessage()">➜</button>
     </div>
   </div>
 </div>
 
   </div>  <script>
-    const shell = document.getElementById('chatShell');
+    const shell = document.getElementById('shell');
 
     if (window.DeviceOrientationEvent) {
       window.addEventListener('deviceorientation', e => {
-        const x = (e.gamma || 0) / 8;
-        const y = (e.beta || 0) / 12;
+        const x = (e.gamma || 0) / 10;
+        const y = (e.beta || 0) / 14;
         shell.style.transform = `rotateY(${x}deg) rotateX(${-y}deg)`;
       });
     }
 
     function sendMessage() {
       const input = document.getElementById('chatInput');
+      const box = document.getElementById('messages');
       const text = input.value.trim();
       if (!text) return;
 
       const msg = document.createElement('div');
       msg.className = 'bubble right';
       msg.textContent = text;
-
-      const box = document.getElementById('messages');
       box.appendChild(msg);
       box.scrollTop = box.scrollHeight;
       input.value = '';
