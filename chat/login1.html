@@ -3,14 +3,13 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
-    <title>Premium Holographic Login</title>
+    <title>Premium Holographic Auth</title>
     <style>
         /* === VARIABLES & RESET === */
         :root {
             --glass-bg: rgba(25, 25, 35, 0.4);
             --glass-card: rgba(20, 22, 30, 0.6);
             --glass-border: rgba(255, 255, 255, 0.15);
-            --glass-highlight: rgba(255, 255, 255, 0.05);
             --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4);
             --text-main: #ffffff;
             --text-muted: rgba(255, 255, 255, 0.6);
@@ -34,32 +33,36 @@
             100% { transform: translate(-20px, -40px) scale(0.9); }
         }
 
-        /* === LOGIN CONTAINER === */
-        .login-wrapper { position: relative; z-index: 1; width: 100%; max-width: 400px; padding: 20px; animation: fadeUp 0.8s var(--bezier-smooth) forwards; opacity: 0; transform: translateY(30px); }
-        
+        /* === AUTH CONTAINER === */
+        .auth-wrapper { position: relative; z-index: 1; width: 100%; max-width: 400px; padding: 20px; animation: fadeUp 0.8s var(--bezier-smooth) forwards; opacity: 0; transform: translateY(30px); }
         @keyframes fadeUp { to { opacity: 1; transform: translateY(0); } }
 
-        .glass-panel { background: var(--glass-card); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 30px; padding: 40px 30px; box-shadow: var(--glass-shadow); position: relative; overflow: hidden; }
+        .glass-panel { background: var(--glass-card); backdrop-filter: blur(25px); -webkit-backdrop-filter: blur(25px); border: 1px solid var(--glass-border); border-radius: 30px; padding: 40px 30px; box-shadow: var(--glass-shadow); position: relative; overflow: hidden; transition: height 0.4s var(--bezier-smooth); }
         .glass-panel::before { content: ""; position: absolute; top: 0; left: 0; right: 0; height: 1px; background: linear-gradient(90deg, transparent, rgba(255,255,255,0.2), transparent); }
 
-        /* === LOGO & BRANDING === */
-        .brand-header { text-align: center; margin-bottom: 35px; }
-        .brand-icon { width: 60px; height: 60px; border-radius: 20px; background: linear-gradient(135deg, #00f2fe, #4facfe); margin: 0 auto 15px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4); }
+        /* === BRANDING === */
+        .brand-header { text-align: center; margin-bottom: 30px; transition: 0.3s var(--bezier-smooth); }
+        .brand-icon { width: 60px; height: 60px; border-radius: 20px; background: linear-gradient(135deg, #00f2fe, #4facfe); margin: 0 auto 15px; display: flex; justify-content: center; align-items: center; box-shadow: 0 10px 25px rgba(0, 242, 254, 0.4); transition: transform 0.4s var(--bezier-smooth); }
         .brand-icon svg { width: 32px; height: 32px; stroke: #fff; fill: none; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
         
         .brand-header h1 { font-size: 24px; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 5px; }
         .brand-header p { font-size: 13px; color: var(--text-muted); }
 
-        /* === FORM INPUTS === */
+        /* === FORM VIEWS (SIGN IN & SIGN UP) === */
+        .form-view { display: none; opacity: 0; transform: translateX(20px); }
+        .form-view.active { display: block; animation: slideIn 0.4s var(--bezier-smooth) forwards; }
+        @keyframes slideIn { to { opacity: 1; transform: translateX(0); } }
+
         .input-group { margin-bottom: 15px; }
         .glass-input { width: 100%; background: rgba(0,0,0,0.3); border: 1px solid var(--glass-border); border-radius: 16px; padding: 16px 20px; color: #fff; font-size: 14px; outline: none; box-shadow: inset 0 2px 10px rgba(0,0,0,0.2); transition: 0.3s; }
         .glass-input:focus { border-color: rgba(0, 242, 254, 0.5); background: rgba(0,0,0,0.5); box-shadow: inset 0 2px 10px rgba(0,0,0,0.2), 0 0 15px rgba(0, 242, 254, 0.1); }
         .glass-input::placeholder { color: var(--text-muted); }
 
-        .forgot-link { display: block; text-align: right; font-size: 12px; color: var(--accent); text-decoration: none; margin-top: 10px; font-weight: 500; }
+        .forgot-link { display: block; text-align: right; font-size: 12px; color: var(--accent); text-decoration: none; margin-top: 10px; font-weight: 500; transition: 0.2s; }
+        .forgot-link:active { opacity: 0.7; }
 
         /* === PRIMARY BUTTON === */
-        .btn-primary { width: 100%; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, #00f2fe, #4facfe); border: none; color: #fff; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; margin-top: 20px; box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3); cursor: pointer; transition: 0.3s var(--bezier-smooth); position: relative; overflow: hidden; }
+        .btn-primary { width: 100%; padding: 16px; border-radius: 16px; background: linear-gradient(135deg, #00f2fe, #4facfe); border: none; color: #fff; font-size: 15px; font-weight: 600; letter-spacing: 0.5px; margin-top: 20px; box-shadow: 0 8px 20px rgba(0, 242, 254, 0.3); cursor: pointer; transition: 0.3s var(--bezier-smooth); }
         .btn-primary:active { transform: scale(0.97); box-shadow: 0 4px 10px rgba(0, 242, 254, 0.2); }
 
         /* === DIVIDER === */
@@ -80,80 +83,139 @@
 
         /* === FOOTER TEXT === */
         .footer-text { text-align: center; font-size: 12px; color: var(--text-muted); margin-top: 25px; }
-        .footer-text a { color: #fff; font-weight: 600; text-decoration: none; }
+        .footer-text span { color: #fff; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .footer-text span:active { color: var(--accent); }
+
     </style>
 </head>
 <body>
 
-<!-- Holographic Background Elements -->
+<!-- Holographic Background -->
 <div class="holographic-bg">
     <div class="orb orb-1"></div>
     <div class="orb orb-2"></div>
     <div class="orb orb-3"></div>
 </div>
 
-<div class="login-wrapper">
-    <div class="glass-panel">
+<div class="auth-wrapper">
+    <div class="glass-panel" id="authPanel">
         
-        <!-- Branding -->
+        <!-- Dynamic Header -->
         <div class="brand-header">
-            <div class="brand-icon">
+            <div class="brand-icon" id="brandIcon">
                 <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"></path><path d="M12 15l-4-4h8z" fill="#fff" stroke="none"></path></svg>
             </div>
-            <h1>Welcome Back</h1>
-            <p>Sign in to access your secure network</p>
+            <h1 id="authTitle">Welcome Back</h1>
+            <p id="authSubtitle">Sign in to access your secure network</p>
         </div>
 
-        <!-- Form Inputs -->
-        <div class="input-group">
-            <input type="email" class="glass-input" placeholder="Email address" autocomplete="off">
-        </div>
-        <div class="input-group">
-            <input type="password" class="glass-input" placeholder="Password">
-            <a href="#" class="forgot-link">Forgot password?</a>
+        <!-- VIEW: SIGN IN -->
+        <div id="viewSignIn" class="form-view active">
+            <div class="input-group">
+                <input type="email" class="glass-input" placeholder="Email address" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <input type="password" class="glass-input" placeholder="Password">
+                <a href="#" class="forgot-link">Forgot password?</a>
+            </div>
+            <button class="btn-primary" onclick="simulateAction('Sign In')">Sign In</button>
         </div>
 
-        <button class="btn-primary">Sign In</button>
+        <!-- VIEW: SIGN UP -->
+        <div id="viewSignUp" class="form-view">
+            <div class="input-group">
+                <input type="text" class="glass-input" placeholder="Full Name" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <input type="email" class="glass-input" placeholder="Email address" autocomplete="off">
+            </div>
+            <div class="input-group">
+                <input type="password" class="glass-input" placeholder="Create Password">
+            </div>
+            <button class="btn-primary" onclick="simulateAction('Create Account')">Create Account</button>
+        </div>
 
-        <!-- Divider -->
+        <!-- Shared Bottom Elements -->
         <div class="divider">
-            <span>OR CONTINUE WITH</span>
+            <span id="dividerText">OR CONTINUE WITH</span>
         </div>
 
-        <!-- Google Premium Button -->
         <button class="btn-google" id="googleBtn" onclick="simulateGoogleLogin()">
-            <!-- Official Google 'G' SVG Path -->
             <svg class="g-logo" viewBox="0 0 48 48">
                 <path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>
                 <path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>
                 <path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>
                 <path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>
             </svg>
-            <span>Sign in with Google</span>
+            <span id="googleBtnText">Sign in with Google</span>
             <div class="spinner"></div>
         </button>
 
-        <!-- Footer -->
-        <div class="footer-text">
-            Don't have an account? <a href="#">Request access</a>
+        <!-- Dynamic Footer -->
+        <div class="footer-text" id="footerText">
+            Don't have an account? <span onclick="toggleAuthMode('signup')">Sign up</span>
         </div>
 
     </div>
 </div>
 
 <script>
-    // Animasi simulasi loading untuk tombol Google
+    const viewSignIn = document.getElementById('viewSignIn');
+    const viewSignUp = document.getElementById('viewSignUp');
+    const authTitle = document.getElementById('authTitle');
+    const authSubtitle = document.getElementById('authSubtitle');
+    const footerText = document.getElementById('footerText');
+    const googleBtnText = document.getElementById('googleBtnText');
+    const brandIcon = document.getElementById('brandIcon');
+
+    // Fungsi Toggle antara Sign In dan Sign Up
+    function toggleAuthMode(mode) {
+        // Efek putar kecil pada logo saat transisi
+        brandIcon.style.transform = 'scale(0.9) rotate(10deg)';
+        setTimeout(() => brandIcon.style.transform = 'scale(1) rotate(0deg)', 200);
+
+        if (mode === 'signup') {
+            // Ubah Header & Text
+            authTitle.innerText = "Create Account";
+            authSubtitle.innerText = "Join our secure network today";
+            googleBtnText.innerText = "Sign up with Google";
+            
+            // Swap Form
+            viewSignIn.classList.remove('active');
+            viewSignUp.classList.add('active');
+            
+            // Ubah Footer
+            footerText.innerHTML = `Already have an account? <span onclick="toggleAuthMode('signin')">Sign in</span>`;
+            
+        } else {
+            // Ubah Header & Text
+            authTitle.innerText = "Welcome Back";
+            authSubtitle.innerText = "Sign in to access your secure network";
+            googleBtnText.innerText = "Sign in with Google";
+            
+            // Swap Form
+            viewSignUp.classList.remove('active');
+            viewSignIn.classList.add('active');
+            
+            // Ubah Footer
+            footerText.innerHTML = `Don't have an account? <span onclick="toggleAuthMode('signup')">Sign up</span>`;
+        }
+    }
+
+    // Simulasi Tombol Primary
+    function simulateAction(actionName) {
+        alert("Proses " + actionName + " sedang berjalan...");
+    }
+
+    // Simulasi Tombol Google
     function simulateGoogleLogin() {
         const btn = document.getElementById('googleBtn');
         btn.classList.add('loading');
         
-        // Simulasi proses redirect/auth (2.5 detik)
         setTimeout(() => {
             btn.classList.remove('loading');
-            // Biasanya di sini Anda redirect ke halaman utama
-            // window.location.href = "halaman-utama.html";
-            alert("Login Google Berhasil! Mengalihkan ke Halaman Utama...");
-        }, 2500);
+            alert("Autentikasi Google Berhasil!");
+        }, 2000);
     }
 </script>
 
