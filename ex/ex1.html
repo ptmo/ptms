@@ -391,6 +391,10 @@
             let nodes = [];
             const nodeSpacing = 120;
 
+            const nodeIcon = new Image();
+            // Ganti URL ini dengan path ke file PNG Anda, misalnya 'assets/logo.png'
+            nodeIcon.src = 'img/block.svg';
+
             class NodeBlock {
                 constructor(index, blockData) {
                     this.targetX = canvas.width - 60 - (index * nodeSpacing);
@@ -405,13 +409,28 @@
                     this.radius = lerp(this.radius, this.targetRadius, 0.1);
                 }
                 draw() {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                    ctx.shadowBlur = 12; ctx.shadowColor = "#00ffcc";
-                    ctx.fillStyle = "#00ffcc"; ctx.fill();
-                    ctx.shadowBlur = 0;
+                    // Berikan efek glow/neon pada gambar PNG Anda
+                    ctx.shadowBlur = 15; 
+                    ctx.shadowColor = "#00ffcc";
+
+                    // Karena ukuran 'this.radius' aslinya kecil (6 untuk normal, 10 untuk hover),
+                    // kita kalikan agar ukuran gambarnya proporsional.
+                    const size = this.radius * 4; 
+
+                    // Pastikan gambar sudah selesai di-load oleh browser sebelum digambar
+                    if (nodeIcon.complete) {
+                        // Menggambar PNG tepat di titik tengah kordinat x dan y
+                        ctx.drawImage(nodeIcon, this.x - (size / 2), this.y - (size / 2), size, size);
+                    } else {
+                        // Fallback: Jika gambar sedang loading, tampilkan titik hijau seperti biasa
+                        ctx.beginPath();
+                        ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                        ctx.fillStyle = "#00ffcc"; 
+                        ctx.fill();
+                    }
+                    
+                    ctx.shadowBlur = 0; // Reset shadow agar tidak bocor ke elemen lain
                 }
-            }
 
             function renderCanvas() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
