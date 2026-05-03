@@ -469,34 +469,57 @@
 
             }
 
+            const chainIcon = new Image();
+chainIcon.src = 'img/chain.svg'; // Path ke file SVG yang baru saja dibuat
+
             function renderCanvas() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.beginPath(); ctx.strokeStyle = "rgba(0, 255, 204, 0.25)"; ctx.lineWidth = 2;
-                nodes.forEach((n, i) => { n.update(); if (i === 0) ctx.moveTo(n.x, n.y); else ctx.lineTo(n.x, n.y); });
-                ctx.stroke();
-                nodes.forEach(n => n.draw());
-                requestAnimationFrame(renderCanvas);
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+    // MENGGAMBAR RANTAI (Pengganti Line)
+    if (nodes.length > 1 && chainIcon.complete) {
+        for (let i = 0; i < nodes.length - 1; i++) {
+            const startNode = nodes[i];
+            const endNode = nodes[i + 1];
+
+            // Hitung jarak dan sudut kemiringan antar dua node
+            const dx = endNode.x - startNode.x;
+            const dy = endNode.y - startNode.y;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            const angle = Math.atan2(dy, dx);
+
+            ctx.save();
+            // Pindahkan 'titik gambar' ke posisi node awal
+            ctx.translate(startNode.x, startNode.y);
+            // Putar kanvas mengikuti arah node berikutnya
+            ctx.rotate(angle);
+
+            // Buat pola pengulangan horizontal
+            const pattern = ctx.createPattern(chainIcon, 'repeat-x');
+            ctx.fillStyle = pattern;
+
+            // Atur tinggi visual rantai (disarankan 18px agar proporsional)
+            const chainHeight = 18; 
+            
+            // Tambahkan efek Glow/Neon agar rantai menyala
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = "#00ffcc";
+            
+            // Gambar persegi panjang sepanjang 'distance' yang diisi pola rantai
+            ctx.fillRect(0, -chainHeight / 2, distance, chainHeight);
+            
+            ctx.restore();
+        }
+    }
+
+    // TETAP GAMBAR IKON BLOK (Node) DI ATAS RANTAI
+    nodes.forEach(n => {
+        n.update();
+        n.draw();
+    });
+
+    requestAnimationFrame(renderCanvas);
             }
-            renderCanvas();
-
-            canvas.addEventListener("mousemove", (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-                let found = false;
-
-                nodes.forEach(n => {
-                    if (Math.hypot(n.x - mx, n.y - my) < 25) {
-                        found = true; n.targetRadius = 10;
-                        document.getElementById("tt-block").innerText = `#${n.data.number}`;
-                        document.getElementById("tt-tx").innerText = n.data.txCount;
-                        document.getElementById("tt-hash").innerText = `${n.data.hash.substring(0, 10)}...`;
-                        tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
-                        tooltip.classList.add("show");
-                    } else { n.targetRadius = 6; }
-                });
-                if (!found) tooltip.classList.remove("show");
-            });
-
+            
             // ==========================================
             // 5. LIVE BLOCKCHAIN FEED (REAL-TIME ENGINE)
             // ==========================================
