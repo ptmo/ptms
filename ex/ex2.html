@@ -1007,34 +1007,34 @@ window.copyHash = function(btn) {
                                 case 'ens':
                                 case 'address':
                                     pAddr.style.display = 'grid';
-                                    document.getElementById('detail-address-hash').innerText = "Resolving...";
+                                    
+                                    // 1. Langsung tampilkan alamatnya, JANGAN ditimpa error nanti
+                                    document.getElementById('detail-address-hash').innerText = query;
+                                    document.getElementById('detail-address-balance').innerText = "Loading...";
+                                    
                                     try {
                                         let targetAddr = query;
                                         if(searchType === 'ens') {
                                             targetAddr = await provider.resolveName(query);
                                             if(!targetAddr) throw new Error("ENS Not Found");
+                                            document.getElementById('detail-address-hash').innerText = targetAddr;
                                         }
-                                        document.getElementById('detail-address-hash').innerText = targetAddr;
+                                        
                                         const isContract = (await provider.getCode(targetAddr)) !== "0x";
                                         const badge = document.getElementById('detail-address-type');
                                         badge.innerText = isContract ? "Contract" : "Wallet";
                                         badge.className = isContract ? "tx-badge type-deploy" : "tx-badge type-call";
+                                        
                                         const bal = await provider.getBalance(targetAddr);
                                         document.getElementById('detail-address-balance').innerText = `${parseFloat(ethers.formatEther(bal)).toFixed(4)} ETH`;
-                                    } catch (e) { document.getElementById('detail-address-hash').innerText = "Address Not Found"; }
-                                    break;
-
-                                case 'block':
-                                    pBlock.style.display = 'grid';
-                                    document.getElementById('detail-block-number').innerText = "Loading...";
-                                    try {
-                                        const bData = await provider.getBlock(parseInt(query), false);
-                                        if(!bData) throw new Error("Block Not Found");
-                                        document.getElementById('detail-block-number').innerText = `#${bData.number}`;
-                                        document.getElementById('detail-block-hash').innerText = bData.hash;
-                                        document.getElementById('detail-block-txcount').innerText = bData.transactions.length;
-                                        document.getElementById('detail-block-time').innerText = new Date(bData.timestamp * 1000).toLocaleString();
-                                    } catch (e) { document.getElementById('detail-block-number').innerText = "Block Not Found"; }
+                                        document.getElementById('detail-address-balance').style.fontSize = "2.8rem"; // Kembalikan ukuran font
+                                        
+                                    } catch (e) { 
+                                        console.error("Gagal menarik data dompet:", e);
+                                        // 2. Jika gagal (biasanya karena limit RPC), cukup beri peringatan di bagian saldo
+                                        document.getElementById('detail-address-balance').innerText = "RPC Error / Rate Limit";
+                                        document.getElementById('detail-address-balance').style.fontSize = "1.2rem";
+                                    }
                                     break;
                                     
                                 default:
