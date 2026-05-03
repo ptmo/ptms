@@ -469,74 +469,30 @@
 
             }
 
-            // ... (Kode Inisialisasi Canvas dan NodeBlock tetap sama) ...
-
-            const chainIcon = new Image();
-            chainIcon.src = 'img/chain.svg'; // <--- PASTIKAN NAMA FILE SESUAI
-
-            function renderCanvas() {
+          function renderCanvas() {
                 ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-                // 1. GAMBAR RANTAI
-                if (nodes.length > 1 && chainIcon.complete) {
-                    for (let i = 0; i < nodes.length - 1; i++) {
-                        const startNode = nodes[i];
-                        const endNode = nodes[i + 1];
-
-                        const dx = endNode.x - startNode.x;
-                        const dy = endNode.y - startNode.y;
-                        const distance = Math.sqrt(dx * dx + dy * dy);
-                        const angle = Math.atan2(dy, dx);
-
-                        ctx.save();
-                        ctx.translate(startNode.x, startNode.y);
-                        ctx.rotate(angle);
-
-                        const pattern = ctx.createPattern(chainIcon, 'repeat-x');
-                        ctx.fillStyle = pattern;
-
-                        const chainHeight = 18; 
-                        ctx.shadowBlur = 15;
-                        ctx.shadowColor = "#00ffcc";
-                        
-                        ctx.fillRect(0, -chainHeight / 2, distance, chainHeight);
-                        ctx.restore();
-                    }
-                }
-
-                // 2. GAMBAR NODE (ICON BLOCK)
-                nodes.forEach(n => {
-                    n.update();
-                    n.draw();
-                });
-
-                // 3. LOOPING ANIMASI
+                ctx.beginPath(); ctx.strokeStyle = "rgba(0, 255, 204, 0.25)"; ctx.lineWidth = 2;
+                nodes.forEach((n, i) => { n.update(); if (i === 0) ctx.moveTo(n.x, n.y); else ctx.lineTo(n.x, n.y); });
+                ctx.stroke();
+                nodes.forEach(n => n.draw());
                 requestAnimationFrame(renderCanvas);
             }
-
-            // --- CRITICAL FIX: PANGGIL FUNGSINYA AGAR JALAN ---
             renderCanvas();
 
-            // 4. MOUSEMOVE DETECTOR (Pindahkan ke sini agar tidak hilang)
             canvas.addEventListener("mousemove", (e) => {
                 const rect = canvas.getBoundingClientRect();
                 const mx = e.clientX - rect.left, my = e.clientY - rect.top;
                 let found = false;
 
                 nodes.forEach(n => {
-                    if (Math.hypot(n.x - mx, n.y - my) < 30) {
-                        found = true; 
-                        n.targetRadius = 10;
+                    if (Math.hypot(n.x - mx, n.y - my) < 25) {
+                        found = true; n.targetRadius = 10;
                         document.getElementById("tt-block").innerText = `#${n.data.number}`;
                         document.getElementById("tt-tx").innerText = n.data.txCount;
                         document.getElementById("tt-hash").innerText = `${n.data.hash.substring(0, 10)}...`;
-                        
-                        tooltip.style.left = `${n.x}px`; 
-                        tooltip.style.top = `${n.y - 25}px`;
+                        tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
                         tooltip.classList.add("show");
-                    } else { 
-                        n.targetRadius = 6; 
-                    }
+                    } else { n.targetRadius = 6; }
                 });
                 if (!found) tooltip.classList.remove("show");
             });
