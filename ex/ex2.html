@@ -286,6 +286,47 @@
     
     /* Tambahkan baris ini untuk animasi harga turun */
     .m-change.negative { color: #ff4444; font-size: 0.8rem; background: rgba(255, 68, 68, 0.1); padding: 2px 6px; border-radius: 4px; transition: all 0.3s; }
+
+    /* === DETAIL TRANSAKSI & BADGES === */
+.tx-hash-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.tx-block {
+    font-size: 0.65rem;
+    color: var(--text-muted);
+    background: rgba(255, 255, 255, 0.05);
+    padding: 2px 6px;
+    border-radius: 4px;
+    letter-spacing: 0.5px;
+}
+
+.tx-details {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 4px;
+}
+
+/* Badge (Pill) untuk Jenis Transaksi */
+.tx-badge {
+    font-size: 0.65rem;
+    font-weight: 600;
+    padding: 3px 8px;
+    border-radius: 50px;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border: 1px solid transparent;
+}
+
+/* Warna Spesifik Berdasarkan Jenis Transaksi */
+.type-send { background: rgba(0, 255, 136, 0.1); color: #00ff88; border-color: rgba(0, 255, 136, 0.2); }
+.type-deploy { background: rgba(187, 102, 255, 0.1); color: #bb66ff; border-color: rgba(187, 102, 255, 0.2); }
+.type-claim { background: rgba(255, 170, 0, 0.1); color: #ffaa00; border-color: rgba(255, 170, 0, 0.2); }
+.type-approve { background: rgba(0, 204, 255, 0.1); color: #00ccff; border-color: rgba(0, 204, 255, 0.2); }
+.type-call { background: rgba(139, 148, 158, 0.1); color: var(--text-muted); border-color: rgba(139, 148, 158, 0.2); }
 </style>
 </head>
 <body>
@@ -536,24 +577,76 @@
         }
     }
 
-    // Fungsi memunculkan transaksi di Live Feed (UI)
-    function spawnLiveTransactionUI(txHash, txValue) {
-        const shortHash = `${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}`;
-        const amountEth = ethers.formatEther(txValue);
+    // Fungsi memunculkan transaksi di Live Feed dengan Deteksi Tipe (EVM Asli)
+    // Sekarang menerima objek 'tx' secara utuh dan 'blockNumber'
+    function spawnLiveTransactionUI(tx, blockNumber) {
+        // 1. Format Hash Transaksi
+        const shortHash = `${tx.hash.substring(0, 8)}...${tx.hash.substring(tx.hash.length - 6)}`;
         
-        // Jika Value 0, tampilkan sebagai Contract Call agar lebih informatif
+        // 2. Konversi Value (Nominal ETH/L2 Token)
+        const amountEth = ethers.formatEther(tx.value);
         const displayAmount = parseFloat(amountEth) > 0 
-            ? `${parseFloat(amountEth).toFixed(4)} ETH` 
-            : `<span style="color:var(--text-muted); font-size:0.75rem;">Contract Call</span>`;
+            ? `<span style="color:#fff;">${parseFloat(amountEth).toFixed(4)} ETH</span>` 
+            : ``; // Kosongkan nominal jika 0, fokus ke Badge
 
+        // 3. LOGIKA DETEKSI JENIS TRANSAKSI (EVM)
+        let txType = "Contract Call";
+        let badgeClass = "type-call";
+
+        if (tx.to === null) {
+            // Jika tujuan (to) adalah null, ini pasti pembuatan smart contract baru
+            txType = "Deploy Contract";
+            badgeClass = "type-deploy";
+        } else if (tx.data === "0x") {
+            // Jika data payload kosong ("0x") dan value > 0, ini murni kirim ETH antar wallet
+            txType = "Send ETH";
+            badgeClass = "type-send";
+        } else {
+            // Jika ada payload data, kita baca 4-byte pertama (Function Selector)
+            const selector = tx.data.substring(0, 10);
+            
+            // Mencocokkan dengan Function Selector standar industri (ERC20/DeFi)
+            switch (selector) {
+                case "0xa9059cbb": // transfer(address,uint256)
+                    txType = "Transfer";
+                    badgeClass = "type-send";
+                    break;
+                case "0x095ea7b3": // approve(address,uint256)
+                    txType = "Approve";
+                    badgeClass = "type-approve";
+                    break;
+                case "0x4e71d92d": // claim() - Umum di banyak protokol
+                case "0x34e19907": // claimTokens()
+                case "0xb460af94": // claimRewards()
+                    txType = "Claim";
+                    badgeClass = "type-claim";
+                    break;
+                case "0x38ed1739": // swapExactTokensForTokens (DEX)
+                case "0x7ff36ab5": // swapExactETHForTokens
+                    txType = "Swap";
+                    badgeClass = "type-claim";
+                    break;
+                default:
+                    txType = "Contract Call";
+                    badgeClass = "type-call";
+            }
+        }
+
+        // 4. Bangun Elemen Baris UI
         const row = document.createElement("div");
         row.className = "tx-row";
         row.innerHTML = `
             <div class="tx-info">
-                <a href="#" class="tx-hash-link">${shortHash}</a>
+                <div class="tx-hash-wrap">
+                    <a href="#" class="tx-hash-link">${shortHash}</a>
+                    <span class="tx-block">Block #${blockNumber}</span>
+                </div>
                 <span class="tx-time">Just now</span>
             </div>
-            <div class="tx-amount">${displayAmount}</div>
+            <div class="tx-details">
+                <span class="tx-badge ${badgeClass}">${txType}</span>
+                <div class="tx-amount">${displayAmount}</div>
+            </div>
         `;
 
         txFeed.prepend(row);
@@ -591,9 +684,9 @@
                 // 2. Ambil 3-5 transaksi teratas dari blok ini untuk di-render ke Live Feed
                 const displayTxs = block.prefetchedTransactions.slice(0, 4);
                 displayTxs.forEach((tx, index) => {
-                    // Beri sedikit jeda (delay) antar transaksi agar efek slide-in terlihat berurutan
                     setTimeout(() => {
-                        spawnLiveTransactionUI(tx.hash, tx.value);
+                        // Pass objek 'tx' secara utuh dan 'block.number'
+                        spawnLiveTransactionUI(tx, block.number); 
                     }, index * 400);
                 });
             }
