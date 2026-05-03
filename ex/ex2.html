@@ -281,6 +281,11 @@
         .omni-search { font-size: 0.85rem; padding-left: 45px; }
         .search-icon { left: 15px; width: 18px; }
     }
+
+    .m-change.positive { color: var(--accent-cyan); font-size: 0.8rem; background: rgba(0, 255, 204, 0.1); padding: 2px 6px; border-radius: 4px; transition: all 0.3s; }
+    
+    /* Tambahkan baris ini untuk animasi harga turun */
+    .m-change.negative { color: #ff4444; font-size: 0.8rem; background: rgba(255, 68, 68, 0.1); padding: 2px 6px; border-radius: 4px; transition: all 0.3s; }
 </style>
 </head>
 <body>
@@ -296,16 +301,19 @@
             <!-- Market Data LED Panel -->
             <div class="market-data-panel">
                 <div class="market-item">
-                    <span class="m-label">L2 TOKEN</span>
-                    <span class="m-value">$2.45 <span class="m-change positive">+4.2%</span></span>
+                    <span class="m-label">NATIVE TOKEN (ETH)</span>
+                    <span class="m-value">
+                        <span id="market-price-val">$0.00</span> 
+                        <span class="m-change positive" id="market-change">0.0%</span>
+                    </span>
                 </div>
                 <div class="market-item">
                     <span class="m-label">MARKET CAP</span>
-                    <span class="m-value">$1.2B</span>
+                    <span class="m-value" id="market-cap-val">$0</span>
                 </div>
                 <div class="market-item">
                     <span class="m-label">L1 SYNC STATUS</span>
-                    <span class="m-value sync-active">Batching...</span>
+                    <span class="m-value sync-active" id="sync-status">Batching...</span>
                 </div>
             </div>
 
@@ -687,6 +695,63 @@ window.copyHash = function(btn) {
         btn.innerHTML = oldIcon;
     }, 600);
 };
+
+        // =====================================================================
+    // 9. DYNAMIC MARKET DATA (COINGECKO API)
+    // =====================================================================
+    const priceEl = document.getElementById('market-price-val');
+    const changeEl = document.getElementById('market-change');
+    const marketCapEl = document.getElementById('market-cap-val');
+
+    // Fungsi untuk menyingkat angka besar (contoh: 400.000.000.000 menjadi $400B)
+    function formatMarketCap(num) {
+        if (num >= 1e12) return '$' + (num / 1e12).toFixed(2) + 'T'; // Trillion
+        if (num >= 1e9) return '$' + (num / 1e9).toFixed(2) + 'B';  // Billion
+        if (num >= 1e6) return '$' + (num / 1e6).toFixed(2) + 'M';  // Million
+        return '$' + num.toLocaleString();
+    }
+
+    async function fetchLiveMarketData() {
+        try {
+            // Kita gunakan ID 'ethereum' untuk contoh native L2 gas token. 
+            // Jika token Anda Solana, ganti 'ethereum' menjadi 'solana'.
+            const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_market_cap=true&include_24hr_change=true');
+            const data = await response.json();
+            
+            const coinData = data.ethereum; // Pastikan ini sesuai dengan ID di URL
+            const currentPrice = coinData.usd;
+            const priceChange24h = coinData.usd_24h_change;
+            const marketCap = coinData.usd_market_cap;
+
+            // 1. Update Harga Token
+            priceEl.innerText = `$${currentPrice.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+            
+            // 2. Update Market Cap
+            marketCapEl.innerText = formatMarketCap(marketCap);
+
+            // 3. Update Persentase & Warna (Naik/Turun)
+            changeEl.innerText = `${priceChange24h > 0 ? '+' : ''}${priceChange24h.toFixed(2)}%`;
+            
+            if (priceChange24h < 0) {
+                changeEl.classList.remove('positive');
+                changeEl.classList.add('negative');
+            } else {
+                changeEl.classList.remove('negative');
+                changeEl.classList.add('positive');
+            }
+
+        } catch (error) {
+            console.error("Gagal mengambil data market CoinGecko:", error);
+            // Opsional: Jika API gagal/terkena rate limit, biarkan nilai terakhir yang tampil
+        }
+    }
+
+    // Tarik data saat web pertama kali dibuka
+    fetchLiveMarketData();
+    
+    // Perbarui data harga setiap 60 detik (1 menit)
+    // Jangan dibuat terlalu cepat (misal 1 detik) karena API publik akan langsung memblokir IP Anda (Rate Limit).
+    setInterval(fetchLiveMarketData, 60000);
     </script>
 </body>
 </html>
