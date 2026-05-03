@@ -3,267 +3,266 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Block Explorer</title>
-    <link rel="stylesheet" href="style.css">
-<style>
-  /* style.css */
-:root {
-    --bg-color: #050505;
-    --card-bg: rgba(255, 255, 255, 0.03);
-    --card-border: rgba(255, 255, 255, 0.06);
-    --card-hover-border: rgba(255, 255, 255, 0.15);
-    --text-primary: #ffffff;
-    --text-secondary: #8b949e;
-    --accent-color: #00ffcc; /* Aksen warna cyan futuristik */
-    --glow-spread: rgba(0, 255, 204, 0.1);
-}
+    <title>Omni-Search SPA Component</title>
+    <!-- WAJIB: Ethers.js agar provider.getTransaction dll bisa berjalan -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-abyss: #070709;
+            --glass-bg: rgba(20, 20, 25, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --accent-cyan: #00ffcc;
+            --text-main: #f8f9fa;
+            --text-muted: #8b949e;
+        }
 
-* {
-    margin: 0;
-    padding: 0;
-    box-sizing: border-box;
-    font-family: 'Inter', -apple-system, sans-serif;
-}
+        body {
+            background-color: var(--bg-abyss);
+            color: var(--text-main);
+            font-family: 'Inter', sans-serif;
+            padding: 2rem;
+            display: flex;
+            justify-content: center;
+        }
 
-body {
-    background-color: var(--bg-color);
-    color: var(--text-primary);
-    min-height: 100vh;
-    padding: 2rem;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    /* Efek cahaya radial samar di background */
-    background-image: radial-gradient(circle at 50% -20%, #1a2333 0%, var(--bg-color) 70%);
-}
+        .container { width: 100%; max-width: 800px; }
 
-.explorer-container {
-    width: 100%;
-    max-width: 1200px;
-}
+        /* === 1. CSS SEARCH BAR & SCANNER === */
+        .search-wrapper {
+            position: relative;
+            width: 100%;
+            height: 60px;
+            background: rgba(10, 10, 15, 0.6);
+            border: 1px solid var(--glass-border);
+            border-radius: 16px;
+            overflow: hidden;
+            margin-bottom: 2rem;
+        }
+        
+        .omni-search {
+            width: 100%;
+            height: 100%;
+            background: transparent;
+            border: none;
+            padding: 0 20px;
+            color: #fff;
+            font-size: 1rem;
+            outline: none;
+        }
 
-.explorer-header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    margin-bottom: 2rem;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+        /* Animasi Garis Scanner */
+        .scan-line {
+            position: absolute;
+            left: -100%; top: 0;
+            width: 50%; height: 100%;
+            background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.4), transparent);
+            pointer-events: none; opacity: 0;
+        }
+        .search-wrapper.scanning .scan-line {
+            opacity: 1;
+            animation: sciFiScan 1s cubic-bezier(0.86, 0, 0.07, 1) infinite;
+        }
+        @keyframes sciFiScan { 0% { left: -50%; } 100% { left: 100%; } }
 
-.status-dot {
-    width: 10px;
-    height: 10px;
-    background-color: var(--accent-color);
-    border-radius: 50%;
-    box-shadow: 0 0 10px var(--accent-color);
-    animation: pulse 2s infinite ease-in-out;
-}
+        /* === 2. CSS BENTO PANEL SPA === */
+        .bento-grid {
+            display: grid; /* Default-nya grid, JS akan merubahnya ke 'none' saat disembunyikan */
+            gap: 1rem;
+        }
 
-/* --- LOGIKA CSS GRID (BENTO BOX) --- */
-.bento-grid {
-    display: grid;
-    /* Mode PC: 4 kolom sama besar */
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 180px; /* Tinggi standar tiap card */
-    gap: 1.25rem;
-}
+        .bento-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            border-radius: 20px;
+            padding: 2rem;
+            backdrop-filter: blur(10px);
+        }
 
-/* --- STYLING KARTU (GLASSMORPHISM) --- */
-.bento-card {
-    background: var(--card-bg);
-    border: 1px solid var(--card-border);
-    border-radius: 20px;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    backdrop-filter: blur(16px);
-    -webkit-backdrop-filter: blur(16px);
-    position: relative;
-    overflow: hidden;
-    /* Transisi sangat soft */
-    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
-                border-color 0.4s ease, 
-                box-shadow 0.4s ease;
-}
-
-.bento-card:hover {
-    transform: translateY(-4px); /* Mengambang saat di-hover */
-    border-color: var(--card-hover-border);
-    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-}
-
-/* --- MANIPULASI BENTUK CARD DI GRID --- */
-.card-main {
-    grid-column: span 2; /* Melebar 2 kolom */
-    grid-row: span 2;    /* Memanjang 2 baris */
-}
-
-.card-wide {
-    grid-column: span 2; /* Melebar 2 kolom untuk grafik */
-}
-
-/* --- TYPOGRAPHY & ELEMEN DALAM KARTU --- */
-.card-label {
-    font-size: 0.85rem;
-    color: var(--text-secondary);
-    text-transform: uppercase;
-    letter-spacing: 1px;
-}
-
-.card-value {
-    font-size: 3.5rem;
-    font-weight: 700;
-    line-height: 1.1;
-    background: linear-gradient(to right, #fff, #a1a1aa);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-}
-
-.card-value-small {
-    font-size: 2rem;
-    font-weight: 600;
-}
-
-.status-success { color: var(--accent-color); }
-
-/* --- KOMPONEN PILL UNTUK HASH (UX) --- */
-.hash-pill {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(0, 0, 0, 0.3);
-    border: 1px solid rgba(255, 255, 255, 0.05);
-    border-radius: 50px;
-    padding: 0.5rem 1rem;
-    width: fit-content;
-    gap: 1rem;
-}
-
-.hash-pill span {
-    font-family: monospace;
-    color: var(--text-secondary);
-}
-
-.copy-btn {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: #fff;
-    padding: 4px 10px;
-    border-radius: 20px;
-    font-size: 0.75rem;
-    cursor: pointer;
-    transition: background 0.3s;
-}
-
-.copy-btn:hover {
-    background: rgba(255, 255, 255, 0.2);
-}
-
-/* Animasi Denyut Jaringan */
-@keyframes pulse {
-    0% { transform: scale(0.95); opacity: 0.8; }
-    50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 15px var(--accent-color); }
-    100% { transform: scale(0.95); opacity: 0.8; }
-}
-
-/* --- RESPONSIVITAS MOBILE & TABLET --- */
-@media (max-width: 1024px) {
-    .bento-grid {
-        grid-template-columns: repeat(2, 1fr); /* Tablet: 2 Kolom */
-    }
-}
-
-@media (max-width: 600px) {
-    body { padding: 1rem; }
-    .bento-grid {
-        display: flex; /* Beralih ke flex column di HP agar tidak memaksakan tinggi baris */
-        flex-direction: column;
-        gap: 1rem;
-    }
-    .bento-card {
-        min-height: 150px; /* Tinggi minimum di HP */
-    }
-    .card-value { font-size: 2.5rem; }
-}
-</style>
+        .label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; }
+        .value { font-size: 1.5rem; word-break: break-all; margin: 10px 0; }
+        
+        /* Badge & Tombol */
+        .tx-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; border: 1px solid transparent; }
+        .type-call { background: rgba(139, 148, 158, 0.1); color: var(--text-muted); }
+        .type-deploy { background: rgba(187, 102, 255, 0.1); color: #bb66ff; }
+        
+        .back-btn {
+            margin-top: 1.5rem; padding: 10px 20px;
+            background: rgba(0,255,204,0.1); border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan); border-radius: 8px; cursor: pointer;
+        }
+    </style>
 </head>
 <body>
 
-    <div class="explorer-container">
-        <header class="explorer-header">
-            <h1>L2 Network <span class="status-dot"></span></h1>
-        </header>
-
-        <main class="bento-grid">
-            <!-- Card 1: Utama / Block Utama (Makan 2 Kolom, 2 Baris di PC) -->
-            <div class="bento-card card-main hover-glow">
-                <span class="card-label">Latest Block</span>
-                <h2 class="card-value">#18,293,041</h2>
-                <div class="hash-pill">
-                    <span>0x8f2A...3b1C</span>
-                    <button class="copy-btn">Copy</button>
-                </div>
-            </div>
-
-            <!-- Card 2: Metrik TPS -->
-            <div class="bento-card hover-glow">
-                <span class="card-label">Live TPS</span>
-                <h3 class="card-value-small">4,210</h3>
-            </div>
-
-            <!-- Card 3: Gas Fee -->
-            <div class="bento-card hover-glow">
-                <span class="card-label">Avg Gas Fee</span>
-                <h3 class="card-value-small">0.002 Gwei</h3>
-            </div>
-
-            <!-- Card 4: Chart/Grafik (Melebar 2 kolom) -->
-            <div class="bento-card card-wide hover-glow">
-                <span class="card-label">Network Activity (24H)</span>
-                <div class="chart-placeholder">
-                    <!-- Area untuk render Canvas/Chart.js nantinya -->
-                    <div class="mock-line"></div>
-                </div>
-            </div>
-
-            <!-- Card 5: Finality Status -->
-            <div class="bento-card hover-glow">
-                <span class="card-label">Finality</span>
-                <h3 class="card-value-small status-success">Finalized</h3>
-            </div>
-        </main>
+<div class="container">
+    
+    <!-- === SEARCH BAR KOMPONEN === -->
+    <div class="search-wrapper">
+        <input type="text" class="omni-search" placeholder="Cari Tx Hash / Address / Block / ENS..." id="searchInput">
+        <div class="scan-line"></div>
     </div>
 
-    <script>
-      // script.js
-document.addEventListener("DOMContentLoaded", () => {
-    const cards = document.querySelectorAll(".hover-glow");
+    <!-- === PANEL 1: DASHBOARD (Tampil Awal) === -->
+    <main class="bento-grid" id="panel-dashboard">
+        <div class="bento-card">
+            <span class="label">Home Dashboard</span>
+            <p style="margin-top: 10px; color: var(--text-muted);">Coba masukkan Hash Transaksi, Alamat Dompet, atau Nomor Blok di atas lalu tekan Enter.</p>
+        </div>
+    </main>
 
-    cards.forEach((card) => {
-        card.addEventListener("mousemove", (e) => {
-            const rect = card.getBoundingClientRect();
-            // Kalkulasi posisi kursor relatif terhadap kartu
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+    <!-- === PANEL 2: TX DETAIL === -->
+    <main class="bento-grid" id="panel-tx-detail" style="display: none;">
+        <div class="bento-card">
+            <span class="label">Transaction Found</span>
+            <h2 class="value" id="detail-tx-hash">0x...</h2>
+            <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 10px;">
+                <div><span class="label">Status:</span> <span id="detail-tx-status">...</span></div>
+                <div><span class="label">Block:</span> <span id="detail-tx-block">...</span></div>
+                <div><span class="label">Value:</span> <span id="detail-tx-value">...</span></div>
+            </div>
+            <button class="back-btn" onclick="goHome()">Kembali ke Dashboard</button>
+        </div>
+    </main>
 
-            // Terapkan efek radial gradient sebagai background tambahan yang mengikuti mouse
-            card.style.background = `
-                radial-gradient(
-                    800px circle at ${x}px ${y}px, 
-                    rgba(255, 255, 255, 0.06),
-                    transparent 40%
-                ),
-                var(--card-bg)
-            `;
-        });
+    <!-- === PANEL 3: ADDRESS DETAIL === -->
+    <main class="bento-grid" id="panel-address-detail" style="display: none;">
+        <div class="bento-card">
+            <div style="display: flex; gap: 10px; align-items: center;">
+                <span class="tx-badge" id="detail-address-type">Wallet</span>
+                <span class="label">Address Found</span>
+            </div>
+            <h2 class="value" id="detail-address-hash">0x...</h2>
+            <div>
+                <span class="label">Balance:</span>
+                <span id="detail-address-balance" style="font-size: 1.2rem; color: var(--accent-cyan);">0.00 ETH</span>
+            </div>
+            <button class="back-btn" onclick="goHome()">Kembali ke Dashboard</button>
+        </div>
+    </main>
 
-        // Kembalikan ke background semula saat mouse keluar dari kartu
-        card.addEventListener("mouseleave", () => {
-            card.style.background = `var(--card-bg)`;
+    <!-- === PANEL 4: BLOCK DETAIL === -->
+    <main class="bento-grid" id="panel-block-detail" style="display: none;">
+        <div class="bento-card">
+            <span class="label">Block Data</span>
+            <h2 class="value" id="detail-block-number">#0</h2>
+            <div style="margin-top: 1rem; display: flex; flex-direction: column; gap: 10px;">
+                <div><span class="label">Hash:</span> <span id="detail-block-hash">...</span></div>
+                <div><span class="label">Tx Count:</span> <span id="detail-block-txcount">0</span></div>
+                <div><span class="label">Time:</span> <span id="detail-block-time">...</span></div>
+            </div>
+            <button class="back-btn" onclick="goHome()">Kembali ke Dashboard</button>
+        </div>
+    </main>
+
+</div>
+
+<script>
+    // 1. Fungsi kembali ke Dashboard (Terkait atribut onclick pada tombol)
+    window.goHome = function() {
+        document.getElementById('panel-tx-detail').style.display = 'none';
+        document.getElementById('panel-address-detail').style.display = 'none';
+        document.getElementById('panel-block-detail').style.display = 'none';
+        document.getElementById('panel-dashboard').style.display = 'grid'; // Kembalikan ke format grid
+    }
+
+    document.addEventListener("DOMContentLoaded", () => {
+        // 2. Deklarasi Provider Wajib (Agar provider.getTransaction dkk tidak error)
+        const RPC_URL = "wss://base-rpc.publicnode.com"; 
+        const provider = new ethers.WebSocketProvider(RPC_URL);
+
+        // ==========================================
+        // SCRIPT OMNI-SEARCH ENGINE (PASANGAN JS ANDA)
+        // ==========================================
+        const searchInput = document.getElementById('searchInput');
+        const searchWrapper = document.querySelector('.search-wrapper');
+
+        function getSearchType(query) {
+            if (/^0x([A-Fa-f0-9]{64})$/.test(query)) return 'tx';
+            if (/^0x([A-Fa-f0-9]{40})$/.test(query)) return 'address';
+            if (/^\d+$/.test(query)) return 'block';
+            if (/.*\.eth$/.test(query)) return 'ens';
+            return 'unknown';
+        }
+
+        searchInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    searchWrapper.classList.add('scanning');
+                    searchInput.blur();
+                    
+                    const searchType = getSearchType(query);
+
+                    setTimeout(async () => {
+                        searchWrapper.classList.remove('scanning');
+                        
+                        const pDash = document.getElementById('panel-dashboard');
+                        const pTx = document.getElementById('panel-tx-detail');
+                        const pAddr = document.getElementById('panel-address-detail');
+                        const pBlock = document.getElementById('panel-block-detail');
+
+                        pDash.style.display = 'none'; pTx.style.display = 'none'; pAddr.style.display = 'none'; pBlock.style.display = 'none';
+
+                        switch (searchType) {
+                            case 'tx':
+                                pTx.style.display = 'grid';
+                                document.getElementById('detail-tx-hash').innerText = "Loading...";
+                                try {
+                                    const txData = await provider.getTransaction(query);
+                                    const txReceipt = await provider.getTransactionReceipt(query);
+                                    if(!txData) throw new Error("Not Found");
+                                    document.getElementById('detail-tx-hash').innerText = query;
+                                    document.getElementById('detail-tx-status').innerText = txReceipt && txReceipt.status === 1 ? "Success" : "Failed / Pending";
+                                    document.getElementById('detail-tx-status').style.color = txReceipt && txReceipt.status === 1 ? "#00ffcc" : "#ff4444";
+                                    document.getElementById('detail-tx-block').innerText = txData.blockNumber;
+                                    document.getElementById('detail-tx-value').innerText = `${ethers.formatEther(txData.value)} ETH`;
+                                } catch (e) { document.getElementById('detail-tx-hash').innerText = "Transaction Not Found."; }
+                                break;
+
+                            case 'ens':
+                            case 'address':
+                                pAddr.style.display = 'grid';
+                                document.getElementById('detail-address-hash').innerText = "Resolving...";
+                                try {
+                                    let targetAddr = query;
+                                    if(searchType === 'ens') {
+                                        targetAddr = await provider.resolveName(query);
+                                        if(!targetAddr) throw new Error("ENS Not Found");
+                                    }
+                                    document.getElementById('detail-address-hash').innerText = targetAddr;
+                                    const isContract = (await provider.getCode(targetAddr)) !== "0x";
+                                    const badge = document.getElementById('detail-address-type');
+                                    badge.innerText = isContract ? "Contract" : "Wallet";
+                                    badge.className = isContract ? "tx-badge type-deploy" : "tx-badge type-call";
+                                    const bal = await provider.getBalance(targetAddr);
+                                    document.getElementById('detail-address-balance').innerText = `${parseFloat(ethers.formatEther(bal)).toFixed(4)} ETH`;
+                                } catch (e) { document.getElementById('detail-address-hash').innerText = "Address Not Found"; }
+                                break;
+
+                            case 'block':
+                                pBlock.style.display = 'grid';
+                                document.getElementById('detail-block-number').innerText = "Loading...";
+                                try {
+                                    const bData = await provider.getBlock(parseInt(query), false);
+                                    if(!bData) throw new Error("Block Not Found");
+                                    document.getElementById('detail-block-number').innerText = `#${bData.number}`;
+                                    document.getElementById('detail-block-hash').innerText = bData.hash;
+                                    document.getElementById('detail-block-txcount').innerText = bData.transactions.length;
+                                    document.getElementById('detail-block-time').innerText = new Date(bData.timestamp * 1000).toLocaleString();
+                                } catch (e) { document.getElementById('detail-block-number').innerText = "Block Not Found"; }
+                                break;
+                                
+                            default:
+                                alert('Format tidak valid. Harap masukkan Hash, Address, atau Block.');
+                                pDash.style.display = 'grid';
+                        }
+                        searchInput.value = '';
+                    }, 1000); 
+                }
+            }
         });
     });
-});
-    </script>
+</script>
 </body>
-  </html>
+</html>
