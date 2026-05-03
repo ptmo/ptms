@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Premium Web3 Explorer</title>
+    <!-- Menggunakan Ethers.js versi 6 via CDN -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
 <style>
     :root {
         --bg-abyss: #070709;
@@ -366,203 +368,325 @@
     </div>
 
     <script>
-        document.addEventListener("DOMContentLoaded", () => {
-            // === 3. ANIMASI LERP UNTUK DATA (Angka Smooth) ===
-            const lerp = (start, end, factor) => start + (end - start) * factor;
-            
-            let currentTps = 0, targetTps = 4210;
-            let currentGas = 0, targetGas = 0.002;
-            const tpsEl = document.getElementById("tps-value");
-            const gasEl = document.getElementById("gas-value");
+        document.addEventListener("DOMContentLoaded", async () => {
+    // =====================================================================
+    // 1. INISIALISASI WEB3 & PROVIDER (ETHERS.JS V6)
+    // =====================================================================
+    // Menggunakan Base Mainnet WSS publik sebagai contoh jaringan L2.
+    // Untuk production, ganti dengan WSS dari Alchemy, Infura, atau QuickNode Anda sendiri.
+    const RPC_URL = "wss://base-rpc.publicnode.com"; 
+    const provider = new ethers.WebSocketProvider(RPC_URL);
 
-            function updateNumbers() {
-                currentTps = lerp(currentTps, targetTps, 0.05);
-                currentGas = lerp(currentGas, targetGas, 0.05);
+    // =====================================================================
+    // 2. ELEMEN DOM GLOBAL
+    // =====================================================================
+    const tpsEl = document.getElementById("tps-value");
+    const gasEl = document.getElementById("gas-value");
+    const txFeed = document.getElementById("tx-feed");
+    const blockLabel = document.getElementById("tt-block");
+    const txLabel = document.getElementById("tt-tx");
+    const hashLabel = document.getElementById("tt-hash");
+    
+    // Status Sinkronisasi
+    const syncStatusEl = document.querySelector(".sync-active");
+
+    // =====================================================================
+    // 3. ANIMASI LERP UNTUK DATA ANGKA (SMOOTH NUMBER TRANSITION)
+    // =====================================================================
+    const lerp = (start, end, factor) => start + (end - start) * factor;
+    
+    let currentTps = 0, targetTps = 0;
+    let currentGas = 0, targetGas = 0;
+
+    function animateNumbers() {
+        // Interpolasi pergerakan angka agar tidak melompat kasar
+        currentTps = lerp(currentTps, targetTps, 0.05);
+        currentGas = lerp(currentGas, targetGas, 0.05);
+        
+        // Render ke UI
+        tpsEl.innerText = Math.floor(currentTps).toLocaleString();
+        gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
+        
+        requestAnimationFrame(animateNumbers);
+    }
+    animateNumbers();
+
+    // =====================================================================
+    // 4. CANVAS NODE VISUALIZER ENGINE
+    // =====================================================================
+    const canvas = document.getElementById("nodeCanvas");
+    const ctx = canvas.getContext("2d");
+    const tooltip = document.getElementById("nodeTooltip");
+    
+    function resizeCanvas() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resizeCanvas);
+    resizeCanvas();
+
+    let nodes = [];
+    const nodeSpacing = 120; // Jarak antar blok/node
+
+    class NodeBlock {
+        constructor(index, blockData) {
+            this.targetX = canvas.width - 60 - (index * nodeSpacing);
+            this.x = this.targetX + 150; // Posisi awal dari luar layar (kanan) untuk efek slide-in
+            this.y = canvas.height / 2 + 10;
+            this.radius = 0; // Mulai dari 0 untuk efek pop-up
+            this.targetRadius = 6;
+            this.data = blockData; // Menyimpan data Ethers.js asli
+        }
+
+        update() {
+            // Pergerakan Node yang sangat smooth
+            this.x = lerp(this.x, this.targetX, 0.06);
+            this.radius = lerp(this.radius, this.targetRadius, 0.1);
+        }
+
+        draw() {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            ctx.shadowBlur = 12; 
+            ctx.shadowColor = "#00ffcc";
+            ctx.fillStyle = "#00ffcc"; 
+            ctx.fill();
+            ctx.shadowBlur = 0;
+        }
+    }
+
+    function renderCanvas() {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        // 1. Gambar Garis Koneksi antar Node
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.25)";
+        ctx.lineWidth = 2;
+        nodes.forEach((n, i) => {
+            n.update();
+            if (i === 0) ctx.moveTo(n.x, n.y);
+            else ctx.lineTo(n.x, n.y);
+        });
+        ctx.stroke();
+        
+        // 2. Gambar Bulatan Node di atas garis
+        nodes.forEach(n => n.draw());
+        requestAnimationFrame(renderCanvas);
+    }
+    renderCanvas(); // Mulai loop render kanvas
+
+    // Logika Hover/Tooltip pada Canvas
+    canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        const mx = e.clientX - rect.left;
+        const my = e.clientY - rect.top;
+        let found = false;
+
+        nodes.forEach(n => {
+            // Hitbox deteksi hover (radius 25px)
+            if (Math.hypot(n.x - mx, n.y - my) < 25) {
+                found = true;
+                n.targetRadius = 10; // Perbesar node yang di-hover
                 
-                tpsEl.innerText = Math.floor(currentTps).toLocaleString();
-                gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
+                // Update isi tooltip dengan data blok asli
+                blockLabel.innerText = `#${n.data.number}`;
+                txLabel.innerText = n.data.txCount;
+                hashLabel.innerText = `${n.data.hash.substring(0, 10)}...`;
                 
-                requestAnimationFrame(updateNumbers);
-            }
-            updateNumbers();
-
-            setInterval(() => { targetTps = 4000 + Math.random() * 500; }, 3000);
-            setInterval(() => { targetGas = 0.001 + Math.random() * 0.003; }, 4000);
-
-            // === 2. VISUALISASI BLOK BERBASIS NODE (CANVAS) ===
-            const canvas = document.getElementById("nodeCanvas");
-            const ctx = canvas.getContext("2d");
-            const tooltip = document.getElementById("nodeTooltip");
-            
-            function resize() {
-                canvas.width = canvas.parentElement.clientWidth;
-                canvas.height = canvas.parentElement.clientHeight;
-            }
-            window.addEventListener('resize', resize);
-            resize();
-
-            let nodes = [];
-            const nodeSpacing = 100;
-
-            class NodeBlock {
-                constructor(index) {
-                    this.targetX = canvas.width - 50 - (index * nodeSpacing);
-                    this.x = this.targetX + 100;
-                    this.y = canvas.height / 2 + 20;
-                    this.radius = 0;
-                    this.targetRadius = 6;
-                    this.data = {
-                        id: Math.floor(Math.random() * 90000) + 10000,
-                        tx: Math.floor(Math.random() * 300),
-                        hash: "0x" + Math.random().toString(16).substr(2, 8) + "..."
-                    };
-                }
-                update() {
-                    this.x = lerp(this.x, this.targetX, 0.08);
-                    this.radius = lerp(this.radius, this.targetRadius, 0.1);
-                }
-                draw() {
-                    ctx.beginPath();
-                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-                    ctx.shadowBlur = 10; ctx.shadowColor = "#00ffcc";
-                    ctx.fillStyle = "#00ffcc"; ctx.fill();
-                    ctx.shadowBlur = 0;
-                }
-            }
-
-            function animateNodes() {
-                ctx.clearRect(0, 0, canvas.width, canvas.height);
-                ctx.beginPath();
-                ctx.strokeStyle = "rgba(0, 255, 204, 0.2)";
-                ctx.lineWidth = 2;
-                nodes.forEach((n, i) => {
-                    n.update();
-                    if (i === 0) ctx.moveTo(n.x, n.y);
-                    else ctx.lineTo(n.x, n.y);
-                });
-                ctx.stroke();
-                nodes.forEach(n => n.draw());
-                requestAnimationFrame(animateNodes);
-            }
-
-            for(let i=0; i<6; i++) nodes.push(new NodeBlock(i));
-            animateNodes();
-
-            setInterval(() => {
-                nodes.forEach(n => n.targetX -= nodeSpacing);
-                nodes.unshift(new NodeBlock(0));
-                if (nodes.length > 8) nodes.pop();
-            }, 3000);
-
-            canvas.addEventListener("mousemove", (e) => {
-                const rect = canvas.getBoundingClientRect();
-                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-                let found = false;
-
-                nodes.forEach(n => {
-                    if (Math.hypot(n.x - mx, n.y - my) < 20) {
-                        found = true;
-                        n.targetRadius = 10;
-                        document.getElementById("tt-block").innerText = `#${n.data.id}`;
-                        document.getElementById("tt-tx").innerText = n.data.tx;
-                        document.getElementById("tt-hash").innerText = n.data.hash;
-                        tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
-                        tooltip.classList.add("show");
-                    } else {
-                        n.targetRadius = 6;
-                    }
-                });
-                if (!found) tooltip.classList.remove("show");
-            });
-
-            // === EFEK KEDALAMAN (TILT & GIROSKOP) ===
-            const cards = document.querySelectorAll('.tilt-effect');
-            
-            document.addEventListener("mousemove", (e) => {
-                if(window.innerWidth < 900) return;
-                const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
-                const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
-                cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
-            });
-
-            if (window.DeviceOrientationEvent) {
-                window.addEventListener('deviceorientation', (e) => {
-                    if(window.innerWidth >= 900) return;
-                    const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2;
-                    const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
-                    cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
-                });
+                // Posisikan tooltip
+                tooltip.style.left = `${n.x}px`; 
+                tooltip.style.top = `${n.y}px`;
+                tooltip.classList.add("show");
+            } else {
+                n.targetRadius = 6; // Kembalikan ke ukuran normal
             }
         });
+        if (!found) tooltip.classList.remove("show");
+    });
 
-        // === 5. DYNAMIC TRANSACTION FEED GENERATOR (10 TRANSAKSI) ===
-        const txFeed = document.getElementById("tx-feed");
+    // =====================================================================
+    // 5. PENARIKAN DATA BLOCKCHAIN (REAL-TIME LOGIC)
+    // =====================================================================
 
-        function generateRandomHash() {
-            const chars = 'abcdef0123456789';
-            let hash = '0x';
-            for(let i=0; i<32; i++) hash += chars[Math.floor(Math.random() * chars.length)];
-            return hash;
-        }
-
-        function spawnTransaction() {
-            const fullHash = generateRandomHash();
-            const shortHash = `${fullHash.substring(0, 8)}...${fullHash.substring(30)}`;
-            const amount = (Math.random() * 2.5).toFixed(4);
-
-            const row = document.createElement("div");
-            row.className = "tx-row";
-            row.innerHTML = `
-                <div class="tx-info">
-                    <a href="#" class="tx-hash-link">${shortHash}</a>
-                    <span class="tx-time">Just now</span>
-                </div>
-                <div class="tx-amount">${amount} L2</span></div>
-            `;
-
-            txFeed.prepend(row);
-
-            // Manajemen DOM: Maksimal 10 transaksi secara bersamaan
-            if (txFeed.children.length > 10) {
-                const lastTx = txFeed.lastElementChild;
-                lastTx.classList.add("fade-out");
-                setTimeout(() => {
-                    if (lastTx.parentNode) lastTx.remove();
-                }, 400);
+    // Fungsi memperbarui Gas Fee
+    async function fetchNetworkMacroData() {
+        try {
+            const feeData = await provider.getFeeData();
+            const gasPriceGwei = ethers.formatUnits(feeData.gasPrice, "gwei");
+            targetGas = parseFloat(gasPriceGwei); // Update target LERP
+            
+            if(syncStatusEl) {
+                syncStatusEl.innerText = "Synced";
+                syncStatusEl.style.color = "#00ffcc";
+            }
+        } catch (error) {
+            console.error("Gagal mengambil Gas:", error);
+            if(syncStatusEl) {
+                syncStatusEl.innerText = "Reconnecting...";
+                syncStatusEl.style.color = "#ff4444";
             }
         }
+    }
 
-        // Inisialisasi awal: Isi langsung layar dengan 10 transaksi
-        for(let i=0; i<10; i++) {
-            spawnTransaction();
-            txFeed.children[0].querySelector('.tx-time').innerText = `${(i+1) * 2} secs ago`;
+    // Fungsi memunculkan transaksi di Live Feed (UI)
+    function spawnLiveTransactionUI(txHash, txValue) {
+        const shortHash = `${txHash.substring(0, 8)}...${txHash.substring(txHash.length - 6)}`;
+        const amountEth = ethers.formatEther(txValue);
+        
+        // Jika Value 0, tampilkan sebagai Contract Call agar lebih informatif
+        const displayAmount = parseFloat(amountEth) > 0 
+            ? `${parseFloat(amountEth).toFixed(4)} ETH` 
+            : `<span style="color:var(--text-muted); font-size:0.75rem;">Contract Call</span>`;
+
+        const row = document.createElement("div");
+        row.className = "tx-row";
+        row.innerHTML = `
+            <div class="tx-info">
+                <a href="#" class="tx-hash-link">${shortHash}</a>
+                <span class="tx-time">Just now</span>
+            </div>
+            <div class="tx-amount">${displayAmount}</div>
+        `;
+
+        txFeed.prepend(row);
+
+        // Batasi maksimal 10 transaksi di layar agar DOM tidak lambat
+        if (txFeed.children.length > 10) {
+            const lastTx = txFeed.lastElementChild;
+            lastTx.classList.add("fade-out");
+            setTimeout(() => { if (lastTx.parentNode) lastTx.remove(); }, 400);
         }
+    }
 
-        setInterval(() => {
-            spawnTransaction();
-        }, Math.floor(Math.random() * 1500) + 1500);
+    // Fungsi memproses Blok Baru
+    async function processNewBlock(blockNumber) {
+        try {
+            // Ambil data blok beserta detail transaksinya (true)
+            const block = await provider.getBlock(blockNumber, true);
+            
+            if (block && block.prefetchedTransactions) {
+                const txCount = block.prefetchedTransactions.length;
+                
+                // Estimasi kasar TPS (Tx Count dibagi estimasi block time L2 ~2 detik)
+                targetTps = Math.floor(txCount / 2); 
 
-        // === OMNI-SEARCH SIMULATOR ===
+                // 1. Dorong node lama ke kiri, masukkan node baru ke array Canvas
+                nodes.forEach(n => n.targetX -= nodeSpacing);
+                nodes.unshift(new NodeBlock(0, {
+                    number: block.number,
+                    hash: block.hash,
+                    txCount: txCount
+                }));
+                // Batasi memori canvas maksimal 8 node
+                if (nodes.length > 8) nodes.pop();
+
+                // 2. Ambil 3-5 transaksi teratas dari blok ini untuk di-render ke Live Feed
+                const displayTxs = block.prefetchedTransactions.slice(0, 4);
+                displayTxs.forEach((tx, index) => {
+                    // Beri sedikit jeda (delay) antar transaksi agar efek slide-in terlihat berurutan
+                    setTimeout(() => {
+                        spawnLiveTransactionUI(tx.hash, tx.value);
+                    }, index * 400);
+                });
+            }
+        } catch (error) {
+            console.error(`Gagal memproses blok #${blockNumber}`, error);
+        }
+    }
+
+    // Inisialisasi awal saat halaman dimuat
+    fetchNetworkMacroData();
+    provider.getBlockNumber().then(latestBlock => {
+        // Render blok terakhir secara instan agar canvas tidak kosong saat pertama dibuka
+        processNewBlock(latestBlock); 
+    });
+
+    // EVENT LISTENER: Berjalan otomatis setiap kali Node L2 mencetak blok baru
+    provider.on("block", (blockNumber) => {
+        console.log("Block Mined:", blockNumber);
+        fetchNetworkMacroData(); // Perbarui gas fee
+        processNewBlock(blockNumber); // Perbarui canvas dan tx feed
+    });
+
+
+    // =====================================================================
+    // 6. EFEK KEDALAMAN (TILT 3D) & GIROSKOP MOBILE
+    // =====================================================================
+    const cards = document.querySelectorAll('.tilt-effect');
+    
+    // PC: Mouse Tilt
+    document.addEventListener("mousemove", (e) => {
+        if(window.innerWidth < 900) return; 
+        const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
+        const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
+        cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
+    });
+
+    // Mobile: Giroskop
+    if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (e) => {
+            if(window.innerWidth >= 900) return;
+            const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2;
+            const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
+            cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
+        });
+    }
+
+    // =====================================================================
+    // 7. INTERAKSI OMNI-SEARCH BAR
+    // =====================================================================
     const searchInput = document.getElementById('searchInput');
     const searchWrapper = document.querySelector('.search-wrapper');
 
-    searchInput.addEventListener('keypress', function (e) {
-        if (e.key === 'Enter') {
-            const query = this.value.trim();
-            if (query) {
-                // Aktifkan animasi scanner
-                searchWrapper.classList.add('scanning');
-                searchInput.blur(); // Hilangkan fokus keyboard
-                
-                // Matikan animasi setelah simulasi loading 1.5 detik
-                setTimeout(() => {
-                    searchWrapper.classList.remove('scanning');
-                    // Di sini nanti Anda arahkan ke URL hasil pencarian
-                    // window.location.href = `/tx/${query}`;
-                }, 1500);
+    if(searchInput) {
+        searchInput.addEventListener('keypress', function (e) {
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                if (query) {
+                    searchWrapper.classList.add('scanning');
+                    searchInput.blur(); 
+                    
+                    setTimeout(() => {
+                        searchWrapper.classList.remove('scanning');
+                        // Logika pencarian asli bisa ditambahkan di sini, contoh:
+                        // window.open(`https://basescan.org/search?q=${query}`, '_blank');
+                    }, 1200);
+                }
             }
-        }
-    });
+        });
+    }
+
+});
+
+// =====================================================================
+// 8. FUNGSI COPY HASH (BERADA DI LUAR DOMContentLoaded AGAR BISA DIPANGGIL ONCLICK)
+// =====================================================================
+window.copyHash = function(btn) {
+    const pill = btn.closest('.hash-pill');
+    const text = pill.querySelector('.hash-text').innerText;
+    
+    navigator.clipboard.writeText(text);
+
+    // Animasi Ripple
+    const ripple = document.createElement("span");
+    ripple.classList.add("ripple");
+    
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(pill.clientWidth, pill.clientHeight);
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${rect.left - pill.getBoundingClientRect().left - size/2 + rect.width/2}px`;
+    ripple.style.top = `${rect.top - pill.getBoundingClientRect().top - size/2 + rect.height/2}px`;
+    
+    pill.appendChild(ripple);
+    
+    const oldIcon = btn.innerHTML;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    
+    setTimeout(() => {
+        ripple.remove();
+        btn.innerHTML = oldIcon;
+    }, 600);
+};
     </script>
 </body>
 </html>
