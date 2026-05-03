@@ -4,234 +4,149 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Premium Web3 Explorer</title>
-    <link rel="stylesheet" href="style.css">
 <style>
     :root {
-    --bg-abyss: #070709;
-    --glass-bg: rgba(20, 20, 25, 0.4);
-    --glass-border: rgba(255, 255, 255, 0.05);
-    --glass-hover: rgba(0, 255, 204, 0.15);
-    --text-main: #f8f9fa;
-    --text-muted: #8b949e;
-    --accent-cyan: #00ffcc;
-}
-
-* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
-
-body {
-    background-color: var(--bg-abyss);
-    color: var(--text-main);
-    min-height: 100vh;
-    display: flex;
-    justify-content: center;
-    padding: 2rem 1rem;
-    overflow-x: hidden;
-    /* Pencahayaan radial cyber-minimalist */
-    background-image: radial-gradient(circle at 50% 0%, #121c22 0%, var(--bg-abyss) 60%);
-    perspective: 1000px; /* Diperlukan untuk efek 3D Tilt */
-}
-
-.explorer-dashboard { width: 100%; max-width: 1100px; }
-
-.dashboard-header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
-.pulse-dot { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 12px var(--accent-cyan); animation: pulse 2s infinite ease-in-out; }
-
-/* 1. Bento Box Grid System */
-.bento-grid {
-    display: grid;
-    grid-template-columns: repeat(4, 1fr);
-    grid-auto-rows: 160px;
-    gap: 1.25rem;
-}
-
-/* 5. Dark Glassmorphism */
-.bento-card {
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
-    border-radius: 24px;
-    padding: 1.5rem;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    backdrop-filter: blur(20px);
-    -webkit-backdrop-filter: blur(20px);
-    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s; /* Transform cepat untuk giroskop */
-    transform-style: preserve-3d;
-}
-
-.bento-card:hover {
-    border-color: var(--glass-hover);
-    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
-}
-
-.card-visualizer { grid-column: span 2; grid-row: span 2; padding: 0; overflow: hidden; justify-content: flex-start; }
-.card-wide { grid-column: span 2; }
-
-/* Typografi */
-.label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; transform: translateZ(20px); }
-.value { font-size: 3rem; font-weight: 700; transform: translateZ(30px); }
-.value .unit { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
-.gradient-text { background: linear-gradient(90deg, #fff, var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-
-/* 4. Smart Hash Pill UX */
-.smart-pill-container { margin-top: auto; transform: translateZ(25px); }
-.hash-pill {
-    display: inline-flex;
-    align-items: center;
-    background: rgba(0,0,0,0.4);
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 50px;
-    padding: 0.4rem 0.5rem 0.4rem 1.2rem;
-    cursor: pointer;
-    position: relative;
-    overflow: hidden;
-    transition: all 0.3s ease;
-}
-.hash-pill:hover { border-color: var(--accent-cyan); }
-.hash-text { font-family: monospace; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; transition: color 0.3s; }
-.hash-pill:hover .hash-text { color: #fff; }
-
-.copy-btn {
-    background: rgba(255,255,255,0.05);
-    border: none;
-    color: var(--accent-cyan);
-    border-radius: 50%;
-    width: 32px;
-    height: 32px;
-    display: flex;
-    justify-content: center;
-    align-items: center;
-    margin-left: 10px;
-    cursor: pointer;
-    transition: background 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
-}
-.hash-pill:hover .copy-btn { background: rgba(0, 255, 204, 0.2); transform: scale(1.1); }
-
-/* Animasi Ripple Copy */
-.ripple {
-    position: absolute; background: rgba(0, 255, 204, 0.4); border-radius: 50%;
-    transform: scale(0); animation: rippleEffect 0.6s linear; pointer-events: none;
-}
-
-/* Canvas & Tooltip */
-.canvas-container { position: relative; width: 100%; height: 100%; }
-#nodeCanvas { width: 100%; height: 100%; cursor: crosshair; }
-.card-header { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 2; pointer-events: none; }
-
-.glass-tooltip {
-    position: absolute; background: rgba(5, 5, 8, 0.8); border: 1px solid var(--accent-cyan);
-    border-radius: 12px; padding: 1rem; width: 180px; backdrop-filter: blur(10px);
-    opacity: 0; transform: translate(-50%, -120%) scale(0.9);
-    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; z-index: 10;
-}
-.glass-tooltip.show { opacity: 1; transform: translate(-50%, -120%) scale(1); }
-.tt-head { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 8px; }
-.badge { font-size: 0.6rem; background: rgba(0,255,204,0.15); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; }
-.tt-hash { font-family: monospace; font-size: 0.75rem; color: var(--text-muted); }
-
-@keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 15px var(--accent-cyan); } }
-@keyframes rippleEffect { to { transform: scale(4); opacity: 0; } }
-
-/* Mobile Responsiveness (Otomatis beralih ke Stack Vertikal) */
-@media (max-width: 900px) {
-    .bento-grid { grid-template-columns: repeat(2, 1fr); }
-    .card-visualizer, .card-wide { grid-column: span 2; }
-}
-@media (max-width: 600px) {
-    body { padding: 1rem; }
-    .bento-grid { display: flex; flex-direction: column; }
-    .bento-card { min-height: 140px; transform: none !important; /* Nonaktifkan tilt 3D berat di HP lama */ }
-    .card-visualizer { min-height: 250px; }
-    .value { font-size: 2.5rem; }
-    .hash-text { max-width: 150px; }
+        --bg-abyss: #070709;
+        --glass-bg: rgba(20, 20, 25, 0.4);
+        --glass-border: rgba(255, 255, 255, 0.05);
+        --glass-hover: rgba(0, 255, 204, 0.15);
+        --text-main: #f8f9fa;
+        --text-muted: #8b949e;
+        --accent-cyan: #00ffcc;
     }
 
-    /* === 6. LIVE TRANSACTION FEED (DYNAMIC) === */
-.card-header-feed {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1rem;
-    transform: translateZ(20px);
-}
+    * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
-.live-indicator {
-    width: 8px;
-    height: 8px;
-    background: var(--accent-cyan);
-    border-radius: 50%;
-    box-shadow: 0 0 10px var(--accent-cyan);
-    animation: pulse 1.5s infinite ease-in-out;
-}
+    body {
+        background-color: var(--bg-abyss);
+        color: var(--text-main);
+        min-height: 100vh;
+        display: flex;
+        justify-content: center;
+        padding: 2rem 1rem;
+        overflow-x: hidden;
+        /* Pencahayaan radial cyber-minimalist */
+        background-image: radial-gradient(circle at 50% 0%, #121c22 0%, var(--bg-abyss) 60%);
+        perspective: 1000px;
+    }
 
-.tx-feed-container {
-    display: flex;
-    flex-direction: column;
-    gap: 0.6rem;
-    overflow: hidden;
-    height: 140px; /* Mengunci tinggi agar pas untuk 3 baris transaksi */
-    position: relative;
-    transform: translateZ(25px);
-}
+    .explorer-dashboard { width: 100%; max-width: 1100px; }
 
-/* Desain Baris Transaksi */
-.tx-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    background: rgba(255, 255, 255, 0.02);
-    border: 1px solid rgba(255, 255, 255, 0.04);
-    padding: 0.6rem 1rem;
-    border-radius: 12px;
-    /* Animasi saat elemen baru ditambahkan ke DOM */
-    animation: slideInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
-}
+    .dashboard-header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+    .pulse-dot { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 12px var(--accent-cyan); animation: pulse 2s infinite ease-in-out; }
 
-.tx-info {
-    display: flex;
-    flex-direction: column;
-    gap: 4px;
-}
+    /* === 1. BENTO BOX GRID SYSTEM (TATA LETAK 1-2-1) === */
+    .bento-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr); /* 2 Kolom Murni */
+        gap: 1.25rem;
+    }
 
-.tx-hash-link {
-    font-family: monospace;
-    font-size: 0.85rem;
-    color: var(--accent-cyan);
-    text-decoration: none;
-    letter-spacing: 0.5px;
-    transition: text-shadow 0.3s;
-}
+    /* Penempatan Kartu Spesifik */
+    .card-visualizer { grid-column: span 2; min-height: 260px; padding: 0 !important; overflow: hidden; justify-content: flex-start !important; }
+    .card-tps { grid-column: span 1; }
+    .card-gas { grid-column: span 1; }
+    .card-feed { grid-column: span 2; }
 
-.tx-hash-link:hover {
-    text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
-}
+    /* 5. Dark Glassmorphism */
+    .bento-card {
+        background: var(--glass-bg);
+        border: 1px solid var(--glass-border);
+        border-radius: 24px;
+        padding: 1.5rem;
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        backdrop-filter: blur(20px);
+        -webkit-backdrop-filter: blur(20px);
+        transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s;
+        transform-style: preserve-3d;
+    }
 
-.tx-time {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-}
+    .bento-card:hover {
+        border-color: var(--glass-hover);
+        box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+    }
 
-.tx-amount {
-    font-family: monospace;
-    font-weight: 600;
-    font-size: 0.9rem;
-    color: #fff;
-}
+    /* Typografi */
+    .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; transform: translateZ(20px); }
+    .value { font-size: 2.8rem; font-weight: 700; transform: translateZ(30px); }
+    .value .unit { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
+    .gradient-text { background: linear-gradient(90deg, #fff, var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
 
-/* Animasi Masuk (Slide dari atas) */
-@keyframes slideInDown {
-    0% { opacity: 0; transform: translateY(-20px); }
-    100% { opacity: 1; transform: translateY(0); }
-}
+    /* Canvas & Tooltip */
+    .canvas-container { position: relative; width: 100%; height: 100%; }
+    #nodeCanvas { width: 100%; height: 100%; cursor: crosshair; }
+    .card-header { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 2; pointer-events: none; }
 
-/* Animasi Keluar (Pudar ke bawah saat dihapus) */
-.tx-row.fade-out {
-    animation: fadeOutDown 0.4s ease forwards;
-}
+    .glass-tooltip {
+        position: absolute; background: rgba(5, 5, 8, 0.8); border: 1px solid var(--accent-cyan);
+        border-radius: 12px; padding: 1rem; width: 180px; backdrop-filter: blur(10px);
+        opacity: 0; transform: translate(-50%, -120%) scale(0.9);
+        transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; z-index: 10;
+    }
+    .glass-tooltip.show { opacity: 1; transform: translate(-50%, -120%) scale(1); }
+    .tt-head { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 8px; }
+    .badge { font-size: 0.6rem; background: rgba(0,255,204,0.15); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; }
+    .tt-hash { font-family: monospace; font-size: 0.75rem; color: var(--text-muted); }
 
-@keyframes fadeOutDown {
-    to { opacity: 0; transform: translateY(20px); }
-}
+    @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 15px var(--accent-cyan); } }
+
+    /* === 6. LIVE TRANSACTION FEED (DYNAMIC & TALL) === */
+    .card-header-feed {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 1rem;
+        transform: translateZ(20px);
+    }
+
+    .live-indicator { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--accent-cyan); animation: pulse 1.5s infinite ease-in-out; }
+
+    .tx-feed-container {
+        display: flex;
+        flex-direction: column;
+        gap: 0.6rem;
+        overflow: hidden;
+        /* Tinggi diekspansi untuk menampung 10 transaksi dengan sangat lega */
+        height: 600px; 
+        position: relative;
+        transform: translateZ(25px);
+    }
+
+    /* Desain Baris Transaksi */
+    .tx-row {
+        display: flex; justify-content: space-between; align-items: center;
+        background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04);
+        padding: 0.7rem 1.2rem; border-radius: 12px;
+        animation: slideInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+
+    .tx-info { display: flex; flex-direction: column; gap: 4px; }
+    .tx-hash-link { font-family: monospace; font-size: 0.85rem; color: var(--accent-cyan); text-decoration: none; letter-spacing: 0.5px; transition: text-shadow 0.3s; }
+    .tx-hash-link:hover { text-shadow: 0 0 10px rgba(0, 255, 204, 0.5); }
+    .tx-time { font-size: 0.7rem; color: var(--text-muted); }
+    .tx-amount { font-family: monospace; font-weight: 600; font-size: 0.9rem; color: #fff; }
+
+    @keyframes slideInDown { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }
+    .tx-row.fade-out { animation: fadeOutDown 0.4s ease forwards; }
+    @keyframes fadeOutDown { to { opacity: 0; transform: translateY(20px); } }
+
+    /* === Mobile Responsiveness (Grid Tetap Dipertahankan) === */
+    @media (max-width: 600px) {
+        body { padding: 1rem; }
+        .bento-grid { gap: 1rem; }
+        .bento-card { transform: none !important; }
+        .card-visualizer { min-height: 200px; }
+        
+        /* Mengecilkan font agar kartu TPS dan Gas Fee tetap sejajar di HP */
+        .value { font-size: 1.8rem; } 
+        .tx-feed-container { height: 600px; } 
+        
+        /* Mencegah Hash bertumpuk di HP kecil */
+        .tx-hash-link { font-size: 0.75rem; }
+        .tx-row { padding: 0.6rem 0.8rem; }
+    }
 </style>
 </head>
 <body>
@@ -242,7 +157,7 @@ body {
         </header>
 
         <main class="bento-grid">
-            <!-- Card 1: Canvas Visualizer (Spans 2 columns) -->
+            <!-- Card 1: Canvas Visualizer (Full Width) -->
             <div class="bento-card card-visualizer tilt-effect">
                 <div class="card-header">
                     <span class="label">Live Network Nodes</span>
@@ -259,28 +174,27 @@ body {
                 </div>
             </div>
 
-            <!-- Card 2: Live TPS (LERP Animated) -->
-            <div class="bento-card tilt-effect">
+            <!-- Card 2: Live TPS (Half Width) -->
+            <div class="bento-card card-tps tilt-effect">
                 <span class="label">Live TPS</span>
                 <h2 class="value gradient-text" id="tps-value">0</h2>
             </div>
 
-            <!-- Card 3: Gas Fee (LERP Animated) -->
-            <div class="bento-card tilt-effect">
+            <!-- Card 3: Gas Fee (Half Width) -->
+            <div class="bento-card card-gas tilt-effect">
                 <span class="label">Avg Gas Fee</span>
                 <h2 class="value" id="gas-value">0.00 <span class="unit">Gwei</span></h2>
             </div>
 
-            <!-- Card 4: Live Transaction Feed (Dynamic) -->
-            <div class="bento-card card-wide tilt-effect">
+            <!-- Card 4: Live Transaction Feed (Full Width, Very Tall) -->
+            <div class="bento-card card-feed tilt-effect">
                 <div class="card-header-feed">
                     <span class="label">Live Transactions</span>
                     <div class="live-indicator"></div>
                 </div>
                 
-                <!-- Kontainer ini akan diisi secara dinamis oleh JavaScript -->
                 <div class="tx-feed-container" id="tx-feed">
-                    <!-- Baris transaksi masuk ke sini -->
+                    <!-- 10 Baris transaksi akan bergulir di sini -->
                 </div>
             </div>
         </main>
@@ -288,234 +202,180 @@ body {
 
     <script>
         document.addEventListener("DOMContentLoaded", () => {
-    // === 3. ANIMASI LERP UNTUK DATA (Angka Smooth) ===
-    const lerp = (start, end, factor) => start + (end - start) * factor;
-    
-    let currentTps = 0, targetTps = 4210;
-    let currentGas = 0, targetGas = 0.002;
-    const tpsEl = document.getElementById("tps-value");
-    const gasEl = document.getElementById("gas-value");
+            // === 3. ANIMASI LERP UNTUK DATA (Angka Smooth) ===
+            const lerp = (start, end, factor) => start + (end - start) * factor;
+            
+            let currentTps = 0, targetTps = 4210;
+            let currentGas = 0, targetGas = 0.002;
+            const tpsEl = document.getElementById("tps-value");
+            const gasEl = document.getElementById("gas-value");
 
-    function updateNumbers() {
-        currentTps = lerp(currentTps, targetTps, 0.05);
-        currentGas = lerp(currentGas, targetGas, 0.05);
-        
-        tpsEl.innerText = Math.floor(currentTps).toLocaleString();
-        gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
-        
-        requestAnimationFrame(updateNumbers);
-    }
-    updateNumbers();
+            function updateNumbers() {
+                currentTps = lerp(currentTps, targetTps, 0.05);
+                currentGas = lerp(currentGas, targetGas, 0.05);
+                
+                tpsEl.innerText = Math.floor(currentTps).toLocaleString();
+                gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
+                
+                requestAnimationFrame(updateNumbers);
+            }
+            updateNumbers();
 
-    // Simulasi data masuk (Fluktuasi angka)
-    setInterval(() => { targetTps = 4000 + Math.random() * 500; }, 3000);
-    setInterval(() => { targetGas = 0.001 + Math.random() * 0.003; }, 4000);
+            setInterval(() => { targetTps = 4000 + Math.random() * 500; }, 3000);
+            setInterval(() => { targetGas = 0.001 + Math.random() * 0.003; }, 4000);
 
-    // === 2. VISUALISASI BLOK BERBASIS NODE (CANVAS) ===
-    const canvas = document.getElementById("nodeCanvas");
-    const ctx = canvas.getContext("2d");
-    const tooltip = document.getElementById("nodeTooltip");
-    
-    function resize() {
-        canvas.width = canvas.parentElement.clientWidth;
-        canvas.height = canvas.parentElement.clientHeight;
-    }
-    window.addEventListener('resize', resize);
-    resize();
+            // === 2. VISUALISASI BLOK BERBASIS NODE (CANVAS) ===
+            const canvas = document.getElementById("nodeCanvas");
+            const ctx = canvas.getContext("2d");
+            const tooltip = document.getElementById("nodeTooltip");
+            
+            function resize() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            }
+            window.addEventListener('resize', resize);
+            resize();
 
-    let nodes = [];
-    const nodeSpacing = 100;
+            let nodes = [];
+            const nodeSpacing = 100;
 
-    class NodeBlock {
-        constructor(index) {
-            this.targetX = canvas.width - 50 - (index * nodeSpacing);
-            this.x = this.targetX + 100; // Mulai dari kanan (masuk layar)
-            this.y = canvas.height / 2 + 20;
-            this.radius = 0;
-            this.targetRadius = 6;
-            this.data = {
-                id: Math.floor(Math.random() * 90000) + 10000,
-                tx: Math.floor(Math.random() * 300),
-                hash: "0x" + Math.random().toString(16).substr(2, 8) + "..."
-            };
-        }
-        update() {
-            this.x = lerp(this.x, this.targetX, 0.08); // Pergerakan garis yang soft
-            this.radius = lerp(this.radius, this.targetRadius, 0.1);
-        }
-        draw() {
-            ctx.beginPath();
-            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            ctx.shadowBlur = 10; ctx.shadowColor = "#00ffcc";
-            ctx.fillStyle = "#00ffcc"; ctx.fill();
-            ctx.shadowBlur = 0;
-        }
-    }
+            class NodeBlock {
+                constructor(index) {
+                    this.targetX = canvas.width - 50 - (index * nodeSpacing);
+                    this.x = this.targetX + 100;
+                    this.y = canvas.height / 2 + 20;
+                    this.radius = 0;
+                    this.targetRadius = 6;
+                    this.data = {
+                        id: Math.floor(Math.random() * 90000) + 10000,
+                        tx: Math.floor(Math.random() * 300),
+                        hash: "0x" + Math.random().toString(16).substr(2, 8) + "..."
+                    };
+                }
+                update() {
+                    this.x = lerp(this.x, this.targetX, 0.08);
+                    this.radius = lerp(this.radius, this.targetRadius, 0.1);
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.shadowBlur = 10; ctx.shadowColor = "#00ffcc";
+                    ctx.fillStyle = "#00ffcc"; ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
 
-    function animateNodes() {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        
-        // Gambar Garis Penghubung
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(0, 255, 204, 0.2)";
-        ctx.lineWidth = 2;
-        nodes.forEach((n, i) => {
-            n.update();
-            if (i === 0) ctx.moveTo(n.x, n.y);
-            else ctx.lineTo(n.x, n.y);
-        });
-        ctx.stroke();
-        
-        // Gambar Titik Node
-        nodes.forEach(n => n.draw());
-        requestAnimationFrame(animateNodes);
-    }
+            function animateNodes() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath();
+                ctx.strokeStyle = "rgba(0, 255, 204, 0.2)";
+                ctx.lineWidth = 2;
+                nodes.forEach((n, i) => {
+                    n.update();
+                    if (i === 0) ctx.moveTo(n.x, n.y);
+                    else ctx.lineTo(n.x, n.y);
+                });
+                ctx.stroke();
+                nodes.forEach(n => n.draw());
+                requestAnimationFrame(animateNodes);
+            }
 
-    for(let i=0; i<6; i++) nodes.push(new NodeBlock(i));
-    animateNodes();
+            for(let i=0; i<6; i++) nodes.push(new NodeBlock(i));
+            animateNodes();
 
-    // Tambah blok baru tiap 3 detik (Simulasi WebSocket)
-    setInterval(() => {
-        nodes.forEach(n => n.targetX -= nodeSpacing);
-        nodes.unshift(new NodeBlock(0));
-        if (nodes.length > 8) nodes.pop(); // Hapus dari memori
-    }, 3000);
+            setInterval(() => {
+                nodes.forEach(n => n.targetX -= nodeSpacing);
+                nodes.unshift(new NodeBlock(0));
+                if (nodes.length > 8) nodes.pop();
+            }, 3000);
 
-    // Interaksi Hover Canvas
-    canvas.addEventListener("mousemove", (e) => {
-        const rect = canvas.getBoundingClientRect();
-        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
-        let found = false;
+            canvas.addEventListener("mousemove", (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                let found = false;
 
-        nodes.forEach(n => {
-            if (Math.hypot(n.x - mx, n.y - my) < 20) {
-                found = true;
-                n.targetRadius = 10;
-                document.getElementById("tt-block").innerText = `#${n.data.id}`;
-                document.getElementById("tt-tx").innerText = n.data.tx;
-                document.getElementById("tt-hash").innerText = n.data.hash;
-                tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
-                tooltip.classList.add("show");
-            } else {
-                n.targetRadius = 6;
+                nodes.forEach(n => {
+                    if (Math.hypot(n.x - mx, n.y - my) < 20) {
+                        found = true;
+                        n.targetRadius = 10;
+                        document.getElementById("tt-block").innerText = `#${n.data.id}`;
+                        document.getElementById("tt-tx").innerText = n.data.tx;
+                        document.getElementById("tt-hash").innerText = n.data.hash;
+                        tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
+                        tooltip.classList.add("show");
+                    } else {
+                        n.targetRadius = 6;
+                    }
+                });
+                if (!found) tooltip.classList.remove("show");
+            });
+
+            // === EFEK KEDALAMAN (TILT & GIROSKOP) ===
+            const cards = document.querySelectorAll('.tilt-effect');
+            
+            document.addEventListener("mousemove", (e) => {
+                if(window.innerWidth < 900) return;
+                const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
+                const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
+                cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
+            });
+
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', (e) => {
+                    if(window.innerWidth >= 900) return;
+                    const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2;
+                    const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
+                    cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
+                });
             }
         });
-        if (!found) tooltip.classList.remove("show");
-    });
 
-    // === EFEK KEDALAMAN (TILT & GIROSKOP) ===
-    const cards = document.querySelectorAll('.tilt-effect');
-    
-    // PC: Mouse Tilt
-    document.addEventListener("mousemove", (e) => {
-        if(window.innerWidth < 900) return; // Matikan di HP (gunakan giroskop)
-        const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
-        const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
-        cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
-    });
+        // === 5. DYNAMIC TRANSACTION FEED GENERATOR (10 TRANSAKSI) ===
+        const txFeed = document.getElementById("tx-feed");
 
-    // Mobile: Gyroscope Tilt (Device Orientation)
-    if (window.DeviceOrientationEvent) {
-        window.addEventListener('deviceorientation', (e) => {
-            if(window.innerWidth >= 900) return;
-            // Batasi rotasi agar tidak terlalu ekstrem
-            const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2; // Ponsel biasanya digenggam miring 45deg
-            const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
-            cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
-        });
-    }
-});
+        function generateRandomHash() {
+            const chars = 'abcdef0123456789';
+            let hash = '0x';
+            for(let i=0; i<32; i++) hash += chars[Math.floor(Math.random() * chars.length)];
+            return hash;
+        }
 
-// === 4. PENANGANAN HASH CERDAS (UX RIPPLE COPY) ===
-function copyHash(btn) {
-    const pill = btn.closest('.hash-pill');
-    const text = pill.querySelector('.hash-text').innerText;
-    
-    // Salin ke Clipboard
-    navigator.clipboard.writeText(text);
+        function spawnTransaction() {
+            const fullHash = generateRandomHash();
+            const shortHash = `${fullHash.substring(0, 8)}...${fullHash.substring(30)}`;
+            const amount = (Math.random() * 2.5).toFixed(4);
 
-    // Animasi Ripple Soft
-    const ripple = document.createElement("span");
-    ripple.classList.add("ripple");
-    
-    const rect = btn.getBoundingClientRect();
-    const size = Math.max(pill.clientWidth, pill.clientHeight);
-    ripple.style.width = ripple.style.height = `${size}px`;
-    ripple.style.left = `${rect.left - pill.getBoundingClientRect().left - size/2 + rect.width/2}px`;
-    ripple.style.top = `${rect.top - pill.getBoundingClientRect().top - size/2 + rect.height/2}px`;
-    
-    pill.appendChild(ripple);
-    
-    // Ubah Ikon Sementara (Visual Feedback)
-    const oldIcon = btn.innerHTML;
-    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
-    
-    setTimeout(() => {
-        ripple.remove();
-        btn.innerHTML = oldIcon;
-    }, 600);
-                      }
+            const row = document.createElement("div");
+            row.className = "tx-row";
+            row.innerHTML = `
+                <div class="tx-info">
+                    <a href="#" class="tx-hash-link">${shortHash}</a>
+                    <span class="tx-time">Just now</span>
+                </div>
+                <div class="tx-amount">${amount} L2</span></div>
+            `;
 
-        // === 5. DYNAMIC TRANSACTION FEED GENERATOR ===
-const txFeed = document.getElementById("tx-feed");
+            txFeed.prepend(row);
 
-// Fungsi pembantu untuk membuat Hash acak
-function generateRandomHash() {
-    const chars = 'abcdef0123456789';
-    let hash = '0x';
-    for(let i=0; i<32; i++) {
-        hash += chars[Math.floor(Math.random() * chars.length)];
-    }
-    return hash;
-}
-
-// Fungsi untuk menyuntikkan baris transaksi baru
-function spawnTransaction() {
-    const fullHash = generateRandomHash();
-    // Potong hash agar estetik (0x1A2B...9C0D)
-    const shortHash = `${fullHash.substring(0, 8)}...${fullHash.substring(30)}`;
-    const amount = (Math.random() * 2.5).toFixed(4); // Jumlah ETH/SOL acak
-
-    // Buat elemen baris baru
-    const row = document.createElement("div");
-    row.className = "tx-row";
-    row.innerHTML = `
-        <div class="tx-info">
-            <a href="#" class="tx-hash-link">${shortHash}</a>
-            <span class="tx-time">Just now</span>
-        </div>
-        <div class="tx-amount">${amount} L2</span></div>
-    `;
-
-    // Sisipkan di urutan paling atas (Prepend)
-    txFeed.prepend(row);
-
-    // Manajemen DOM: Batasi maksimal 3 baris transaksi yang tampil
-    if (txFeed.children.length > 3) {
-        const lastTx = txFeed.lastElementChild;
-        // Tambahkan class fade-out untuk animasi menghilang
-        lastTx.classList.add("fade-out");
-        
-        // Hapus elemen sepenuhnya dari HTML setelah animasi selesai (400ms)
-        setTimeout(() => {
-            if (lastTx.parentNode) {
-                lastTx.remove();
+            // Manajemen DOM: Maksimal 10 transaksi secara bersamaan
+            if (txFeed.children.length > 10) {
+                const lastTx = txFeed.lastElementChild;
+                lastTx.classList.add("fade-out");
+                setTimeout(() => {
+                    if (lastTx.parentNode) lastTx.remove();
+                }, 400);
             }
-        }, 400);
-    }
-}
+        }
 
-// Inisialisasi awal: Isi langsung dengan 3 transaksi
-for(let i=0; i<3; i++) {
-    spawnTransaction();
-    // Ubah teks 'Just now' untuk data inisialisasi awal agar terlihat realistis
-    txFeed.children[0].querySelector('.tx-time').innerText = `${(i+1) * 2} secs ago`;
-}
+        // Inisialisasi awal: Isi langsung layar dengan 10 transaksi
+        for(let i=0; i<10; i++) {
+            spawnTransaction();
+            txFeed.children[0].querySelector('.tx-time').innerText = `${(i+1) * 2} secs ago`;
+        }
 
-// Jalankan interval: Munculkan transaksi baru secara acak setiap 1,5 hingga 3 detik
-setInterval(() => {
-    spawnTransaction();
-}, Math.floor(Math.random() * 1500) + 1500);
+        setInterval(() => {
+            spawnTransaction();
+        }, Math.floor(Math.random() * 1500) + 1500);
     </script>
 </body>
 </html>
