@@ -294,6 +294,33 @@
             document.getElementById('panel-dashboard').style.display = 'grid';
         }
 
+        // =====================================================================
+    // FITUR: LIVE TIMESTAMP CALCULATOR
+    // =====================================================================
+    function formatTimeAgo(unixTimestamp) {
+        // Hitung selisih waktu sekarang dengan waktu blok (dalam detik)
+        const seconds = Math.floor(Date.now() / 1000) - unixTimestamp;
+        
+        // Mencegah angka minus jika ada jeda sinkronisasi waktu antara PC dan Node
+        const safeSeconds = Math.max(0, seconds); 
+
+        if (safeSeconds <= 5) return "Just now";
+        if (safeSeconds < 60) return `${safeSeconds}s ago`;
+        
+        const minutes = Math.floor(safeSeconds / 60);
+        return `${minutes}m ago`;
+    }
+
+    // Ticker: Perbarui semua teks waktu di layar setiap 1 detik
+    setInterval(() => {
+        document.querySelectorAll('.tx-time.live-time').forEach(el => {
+            const timestamp = parseInt(el.getAttribute('data-time'));
+            if (!isNaN(timestamp)) {
+                el.innerText = formatTimeAgo(timestamp);
+            }
+        });
+    }, 1000);
+
         document.addEventListener("DOMContentLoaded", async () => {
             // ==========================================
             // 1. INISIALISASI WEB3 (Ethers.js v6)
@@ -427,49 +454,51 @@
                 }
             }
 
-            function spawnLiveTransactionUI(tx, blockNumber) {
-                const shortHash = `${tx.hash.substring(0, 8)}...${tx.hash.substring(tx.hash.length - 6)}`;
-                const amountEth = ethers.formatEther(tx.value);
-                const displayAmount = parseFloat(amountEth) > 0 ? `<span style="color:#fff;">${parseFloat(amountEth).toFixed(4)} ETH</span>` : ``; 
+            // Tambahkan parameter 'blockTimestamp'
+    function spawnLiveTransactionUI(tx, blockNumber, blockTimestamp) {
+        const shortHash = `${tx.hash.substring(0, 8)}...${tx.hash.substring(tx.hash.length - 6)}`;
+        const amountEth = ethers.formatEther(tx.value);
+        const displayAmount = parseFloat(amountEth) > 0 ? `<span style="color:#fff;">${parseFloat(amountEth).toFixed(4)} ETH</span>` : ``; 
 
-                let txType = "Contract Call", badgeClass = "type-call";
-                if (tx.to === null) { txType = "Deploy Contract"; badgeClass = "type-deploy"; } 
-                else if (tx.data === "0x") { txType = "Send ETH"; badgeClass = "type-send"; } 
-                else {
-                    const selector = tx.data.substring(0, 10);
-                    switch (selector) {
-                        case "0xa9059cbb": txType = "Transfer"; badgeClass = "type-send"; break;
-                        case "0x095ea7b3": txType = "Approve"; badgeClass = "type-approve"; break;
-                        case "0x4e71d92d": case "0x34e19907": case "0xb460af94": txType = "Claim"; badgeClass = "type-claim"; break;
-                        case "0x38ed1739": case "0x7ff36ab5": txType = "Swap"; badgeClass = "type-claim"; break;
-                    }
-                }
-
-                const row = document.createElement("div");
-                row.className = "tx-row";
-                row.innerHTML = `
-                    <div class="tx-info">
-                        <div class="tx-hash-wrap">
-                            <a href="javascript:void(0)" onclick="document.getElementById('searchInput').value='${tx.hash}'; document.getElementById('searchInput').focus();" class="tx-hash-link">${shortHash}</a>
-                            <span class="tx-block">Block #${blockNumber}</span>
-                        </div>
-                        <span class="tx-time">Just now</span>
-                    </div>
-            <div class="tx-details">
-                        <div class="badge-group">
-                            <span class="tx-badge ${badgeClass}">${txType}</span>
-                        </div>
-                        <div class="tx-amount">${displayAmount}</div>
-                    </div>
-                `;
-                txFeed.prepend(row);
-                if (txFeed.children.length > 10) {
-                    const lastTx = txFeed.lastElementChild;
-                    lastTx.classList.add("fade-out");
-                    setTimeout(() => { if (lastTx.parentNode) lastTx.remove(); }, 400);
-                }
+        let txType = "Contract Call", badgeClass = "type-call";
+        if (tx.to === null) { txType = "Deploy Contract"; badgeClass = "type-deploy"; } 
+        else if (tx.data === "0x") { txType = "Send ETH"; badgeClass = "type-send"; } 
+        else {
+            const selector = tx.data.substring(0, 10);
+            switch (selector) {
+                case "0xa9059cbb": txType = "Transfer"; badgeClass = "type-send"; break;
+                case "0x095ea7b3": txType = "Approve"; badgeClass = "type-approve"; break;
+                case "0x4e71d92d": case "0x34e19907": case "0xb460af94": txType = "Claim"; badgeClass = "type-claim"; break;
+                case "0x38ed1739": case "0x7ff36ab5": txType = "Swap"; badgeClass = "type-claim"; break;
             }
+        }
 
+        const row = document.createElement("div");
+        row.className = "tx-row";
+        
+        // FIX: Tambahkan class 'live-time' dan atribut 'data-time'
+        row.innerHTML = `
+            <div class="tx-info">
+                <div class="tx-hash-wrap">
+                    <a href="javascript:void(0)" onclick="document.getElementById('searchInput').value='${tx.hash}'; document.getElementById('searchInput').focus();" class="tx-hash-link">${shortHash}</a>
+                    <span class="tx-block">Block #${blockNumber}</span>
+                </div>
+                <span class="tx-time live-time" data-time="${blockTimestamp}">${formatTimeAgo(blockTimestamp)}</span>
+            </div>
+            <div class="tx-details">
+                <span class="tx-badge ${badgeClass}">${txType}</span>
+                <div class="tx-amount">${displayAmount}</div>
+            </div>
+        `;
+        
+        txFeed.prepend(row);
+        if (txFeed.children.length > 10) {
+            const lastTx = txFeed.lastElementChild;
+            lastTx.classList.add("fade-out");
+            setTimeout(() => { if (lastTx.parentNode) lastTx.remove(); }, 400);
+        }
+    }
+            
             async function processNewBlock(blockNumber) {
                 try {
                     const block = await provider.getBlock(blockNumber, true);
