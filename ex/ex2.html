@@ -845,6 +845,89 @@ window.copyHash = function(btn) {
     // Perbarui data harga setiap 60 detik (1 menit)
     // Jangan dibuat terlalu cepat (misal 1 detik) karena API publik akan langsung memblokir IP Anda (Rate Limit).
     setInterval(fetchLiveMarketData, 60000);
+
+        // =====================================================================
+// 7. OMNI-SEARCH ENGINE (SMART ROUTING)
+// =====================================================================
+document.addEventListener("DOMContentLoaded", () => {
+    const searchInput = document.getElementById('searchInput');
+    const searchWrapper = document.querySelector('.search-wrapper');
+
+    // Fungsi deteksi jenis input menggunakan RegEx
+    function getSearchType(query) {
+        // Deteksi Transaction Hash: Dimulai dengan 0x, diikuti 64 karakter hex
+        if (/^0x([A-Fa-f0-9]{64})$/.test(query)) {
+            return 'tx';
+        }
+        // Deteksi Wallet / Contract Address: Dimulai dengan 0x, diikuti 40 karakter hex
+        else if (/^0x([A-Fa-f0-9]{40})$/.test(query)) {
+            return 'address';
+        }
+        // Deteksi Block Number: Hanya berisi angka
+        else if (/^\d+$/.test(query)) {
+            return 'block';
+        }
+        // Deteksi ENS Domain: Diakhiri dengan .eth
+        else if (/.*\.eth$/.test(query)) {
+            return 'ens';
+        }
+        // Jika tidak dikenali
+        return 'unknown';
+    }
+
+    if (searchInput && searchWrapper) {
+        searchInput.addEventListener('keypress', function (e) {
+            // Eksekusi saat user menekan tombol Enter
+            if (e.key === 'Enter') {
+                const query = this.value.trim();
+                
+                if (query) {
+                    // 1. Nyalakan Animasi Scanner Sci-Fi
+                    searchWrapper.classList.add('scanning');
+                    searchInput.blur(); // Hilangkan fokus keyboard agar UI rapi
+                    
+                    // 2. Analisis Input
+                    const searchType = getSearchType(query);
+                    
+                    // 3. Jeda 1 detik untuk memutar animasi UI yang "mahal"
+                    setTimeout(() => {
+                        searchWrapper.classList.remove('scanning');
+                        
+                        // 4. Routing URL (Contoh mengarahkan ke BaseScan, sesuaikan dengan chain Anda)
+                        let targetUrl = '';
+                        const baseUrl = 'https://basescan.org';
+
+                        switch (searchType) {
+                            case 'tx':
+                                targetUrl = `${baseUrl}/tx/${query}`;
+                                break;
+                            case 'address':
+                                targetUrl = `${baseUrl}/address/${query}`;
+                                break;
+                            case 'block':
+                                targetUrl = `${baseUrl}/block/${query}`;
+                                break;
+                            case 'ens':
+                                targetUrl = `${baseUrl}/enslookup-search?search=${query}`;
+                                break;
+                            default:
+                                alert('Format tidak dikenali! Harap masukkan Tx Hash, Address, atau Block Number yang valid.');
+                                searchInput.focus();
+                                return;
+                        }
+
+                        // Buka hasil pencarian di tab baru
+                        window.open(targetUrl, '_blank');
+                        
+                        // Bersihkan kolom pencarian setelah sukses
+                        searchInput.value = '';
+
+                    }, 1000); // Durasi animasi scanner 1 detik
+                }
+            }
+        });
+    }
+});
     </script>
 </body>
 </html>
