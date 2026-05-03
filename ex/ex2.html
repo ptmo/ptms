@@ -147,6 +147,138 @@
         .tx-hash-link { font-size: 0.75rem; }
         .tx-row { padding: 0.6rem 0.8rem; }
     }
+
+    /* === 7. OMNI-SEARCH & MARKET DATA BAR === */
+    .top-dashboard-section {
+        display: flex;
+        flex-direction: column;
+        gap: 1.5rem;
+        margin-bottom: 2rem;
+        width: 100%;
+        transform-style: preserve-3d;
+    }
+
+    /* Market Panel */
+    .market-data-panel {
+        display: flex;
+        justify-content: flex-start;
+        gap: 2rem;
+        padding: 0 0.5rem;
+        transform: translateZ(10px);
+    }
+
+    .market-item {
+        display: flex;
+        flex-direction: column;
+        gap: 4px;
+    }
+
+    .m-label {
+        font-size: 0.65rem;
+        color: var(--text-muted);
+        letter-spacing: 1.5px;
+    }
+
+    .m-value {
+        font-size: 1.1rem;
+        font-weight: 600;
+        font-family: monospace;
+        color: #fff;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+    }
+
+    .m-change.positive { color: var(--accent-cyan); font-size: 0.8rem; background: rgba(0, 255, 204, 0.1); padding: 2px 6px; border-radius: 4px; }
+    .sync-active { color: #f5a623; animation: blink 1.5s infinite; }
+    @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+    /* Omni Search Bar */
+    .search-container {
+        width: 100%;
+        transform: translateZ(20px);
+    }
+
+    .search-wrapper {
+        position: relative;
+        width: 100%;
+        height: 60px;
+        background: rgba(10, 10, 15, 0.6);
+        border: 1px solid rgba(255, 255, 255, 0.1);
+        border-radius: 16px;
+        backdrop-filter: blur(10px);
+        overflow: hidden;
+        transition: all 0.3s ease;
+    }
+
+    /* Efek menyala saat form pencarian diklik */
+    .search-wrapper:focus-within {
+        border-color: var(--accent-cyan);
+        box-shadow: 0 0 20px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(0, 255, 204, 0.1);
+    }
+
+    .search-icon {
+        position: absolute;
+        left: 20px;
+        top: 50%;
+        transform: translateY(-50%);
+        width: 20px;
+        height: 20px;
+        color: var(--text-muted);
+        transition: color 0.3s;
+    }
+
+    .search-wrapper:focus-within .search-icon { color: var(--accent-cyan); }
+
+    .omni-search {
+        width: 100%;
+        height: 100%;
+        background: transparent;
+        border: none;
+        padding: 0 20px 0 55px;
+        color: #fff;
+        font-size: 1rem;
+        font-family: monospace;
+        outline: none;
+    }
+
+    .omni-search::placeholder {
+        color: rgba(255, 255, 255, 0.3);
+        font-family: 'Inter', sans-serif;
+    }
+
+    /* Efek Scanner Laser saat mencari data */
+    .scan-line {
+        position: absolute;
+        left: -100%;
+        top: 0;
+        width: 50%;
+        height: 100%;
+        background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.4), transparent);
+        pointer-events: none;
+        opacity: 0;
+    }
+
+    .search-wrapper.scanning .scan-line {
+        opacity: 1;
+        animation: sciFiScan 1.2s cubic-bezier(0.86, 0, 0.07, 1) infinite;
+    }
+
+    @keyframes sciFiScan {
+        0% { left: -50%; }
+        100% { left: 100%; }
+    }
+
+    /* Responsivitas Mobile untuk Top Bar */
+    @media (max-width: 600px) {
+        .market-data-panel {
+            flex-wrap: wrap; /* Agar data turun ke bawah jika layar sempit */
+            gap: 1rem;
+        }
+        .search-wrapper { height: 50px; }
+        .omni-search { font-size: 0.85rem; padding-left: 45px; }
+        .search-icon { left: 15px; width: 18px; }
+    }
 </style>
 </head>
 <body>
@@ -155,6 +287,39 @@
         <header class="dashboard-header">
             <h1>L2 Explorer <span class="pulse-dot"></span></h1>
         </header>
+
+        <!-- === TOP DATA BAR & SEARCH === -->
+        <div class="top-dashboard-section tilt-effect">
+            
+            <!-- Market Data LED Panel -->
+            <div class="market-data-panel">
+                <div class="market-item">
+                    <span class="m-label">L2 TOKEN</span>
+                    <span class="m-value">$2.45 <span class="m-change positive">+4.2%</span></span>
+                </div>
+                <div class="market-item">
+                    <span class="m-label">MARKET CAP</span>
+                    <span class="m-value">$1.2B</span>
+                </div>
+                <div class="market-item">
+                    <span class="m-label">L1 SYNC STATUS</span>
+                    <span class="m-value sync-active">Batching...</span>
+                </div>
+            </div>
+
+            <!-- Omni-Search Bar -->
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="omni-search" placeholder="Search by Txn Hash / Block / Address / ENS..." id="searchInput">
+                    <div class="scan-line"></div> <!-- Efek Scanner Sci-Fi -->
+                </div>
+            </div>
+            
+        </div>
 
         <main class="bento-grid">
             <!-- Card 1: Canvas Visualizer (Full Width) -->
@@ -376,6 +541,28 @@
         setInterval(() => {
             spawnTransaction();
         }, Math.floor(Math.random() * 1500) + 1500);
+
+        // === OMNI-SEARCH SIMULATOR ===
+    const searchInput = document.getElementById('searchInput');
+    const searchWrapper = document.querySelector('.search-wrapper');
+
+    searchInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') {
+            const query = this.value.trim();
+            if (query) {
+                // Aktifkan animasi scanner
+                searchWrapper.classList.add('scanning');
+                searchInput.blur(); // Hilangkan fokus keyboard
+                
+                // Matikan animasi setelah simulasi loading 1.5 detik
+                setTimeout(() => {
+                    searchWrapper.classList.remove('scanning');
+                    // Di sini nanti Anda arahkan ke URL hasil pencarian
+                    // window.location.href = `/tx/${query}`;
+                }, 1500);
+            }
+        }
+    });
     </script>
 </body>
 </html>
