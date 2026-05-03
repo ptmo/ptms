@@ -145,6 +145,93 @@ body {
     .value { font-size: 2.5rem; }
     .hash-text { max-width: 150px; }
     }
+
+    /* === 6. LIVE TRANSACTION FEED (DYNAMIC) === */
+.card-header-feed {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    transform: translateZ(20px);
+}
+
+.live-indicator {
+    width: 8px;
+    height: 8px;
+    background: var(--accent-cyan);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-cyan);
+    animation: pulse 1.5s infinite ease-in-out;
+}
+
+.tx-feed-container {
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+    overflow: hidden;
+    height: 140px; /* Mengunci tinggi agar pas untuk 3 baris transaksi */
+    position: relative;
+    transform: translateZ(25px);
+}
+
+/* Desain Baris Transaksi */
+.tx-row {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid rgba(255, 255, 255, 0.04);
+    padding: 0.6rem 1rem;
+    border-radius: 12px;
+    /* Animasi saat elemen baru ditambahkan ke DOM */
+    animation: slideInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.tx-info {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+}
+
+.tx-hash-link {
+    font-family: monospace;
+    font-size: 0.85rem;
+    color: var(--accent-cyan);
+    text-decoration: none;
+    letter-spacing: 0.5px;
+    transition: text-shadow 0.3s;
+}
+
+.tx-hash-link:hover {
+    text-shadow: 0 0 10px rgba(0, 255, 204, 0.5);
+}
+
+.tx-time {
+    font-size: 0.7rem;
+    color: var(--text-muted);
+}
+
+.tx-amount {
+    font-family: monospace;
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: #fff;
+}
+
+/* Animasi Masuk (Slide dari atas) */
+@keyframes slideInDown {
+    0% { opacity: 0; transform: translateY(-20px); }
+    100% { opacity: 1; transform: translateY(0); }
+}
+
+/* Animasi Keluar (Pudar ke bawah saat dihapus) */
+.tx-row.fade-out {
+    animation: fadeOutDown 0.4s ease forwards;
+}
+
+@keyframes fadeOutDown {
+    to { opacity: 0; transform: translateY(20px); }
+}
 </style>
 </head>
 <body>
@@ -184,16 +271,16 @@ body {
                 <h2 class="value" id="gas-value">0.00 <span class="unit">Gwei</span></h2>
             </div>
 
-            <!-- Card 4: Smart Hash Pill UX -->
+            <!-- Card 4: Live Transaction Feed (Dynamic) -->
             <div class="bento-card card-wide tilt-effect">
-                <span class="label">Latest Contract Deployed</span>
-                <div class="smart-pill-container">
-                    <div class="hash-pill" id="latest-hash">
-                        <span class="hash-text">0x71C95911E9a5D33751bA502B6D4413B2A</span>
-                        <button class="copy-btn" onclick="copyHash(this)">
-                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-                        </button>
-                    </div>
+                <div class="card-header-feed">
+                    <span class="label">Live Transactions</span>
+                    <div class="live-indicator"></div>
+                </div>
+                
+                <!-- Kontainer ini akan diisi secara dinamis oleh JavaScript -->
+                <div class="tx-feed-container" id="tx-feed">
+                    <!-- Baris transaksi masuk ke sini -->
                 </div>
             </div>
         </main>
@@ -368,6 +455,67 @@ function copyHash(btn) {
         btn.innerHTML = oldIcon;
     }, 600);
                       }
+
+        // === 5. DYNAMIC TRANSACTION FEED GENERATOR ===
+const txFeed = document.getElementById("tx-feed");
+
+// Fungsi pembantu untuk membuat Hash acak
+function generateRandomHash() {
+    const chars = 'abcdef0123456789';
+    let hash = '0x';
+    for(let i=0; i<32; i++) {
+        hash += chars[Math.floor(Math.random() * chars.length)];
+    }
+    return hash;
+}
+
+// Fungsi untuk menyuntikkan baris transaksi baru
+function spawnTransaction() {
+    const fullHash = generateRandomHash();
+    // Potong hash agar estetik (0x1A2B...9C0D)
+    const shortHash = `${fullHash.substring(0, 8)}...${fullHash.substring(30)}`;
+    const amount = (Math.random() * 2.5).toFixed(4); // Jumlah ETH/SOL acak
+
+    // Buat elemen baris baru
+    const row = document.createElement("div");
+    row.className = "tx-row";
+    row.innerHTML = `
+        <div class="tx-info">
+            <a href="#" class="tx-hash-link">${shortHash}</a>
+            <span class="tx-time">Just now</span>
+        </div>
+        <div class="tx-amount">${amount} L2</span></div>
+    `;
+
+    // Sisipkan di urutan paling atas (Prepend)
+    txFeed.prepend(row);
+
+    // Manajemen DOM: Batasi maksimal 3 baris transaksi yang tampil
+    if (txFeed.children.length > 3) {
+        const lastTx = txFeed.lastElementChild;
+        // Tambahkan class fade-out untuk animasi menghilang
+        lastTx.classList.add("fade-out");
+        
+        // Hapus elemen sepenuhnya dari HTML setelah animasi selesai (400ms)
+        setTimeout(() => {
+            if (lastTx.parentNode) {
+                lastTx.remove();
+            }
+        }, 400);
+    }
+}
+
+// Inisialisasi awal: Isi langsung dengan 3 transaksi
+for(let i=0; i<3; i++) {
+    spawnTransaction();
+    // Ubah teks 'Just now' untuk data inisialisasi awal agar terlihat realistis
+    txFeed.children[0].querySelector('.tx-time').innerText = `${(i+1) * 2} secs ago`;
+}
+
+// Jalankan interval: Munculkan transaksi baru secara acak setiap 1,5 hingga 3 detik
+setInterval(() => {
+    spawnTransaction();
+}, Math.floor(Math.random() * 1500) + 1500);
     </script>
 </body>
 </html>
