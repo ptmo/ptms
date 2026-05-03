@@ -15,6 +15,11 @@
             --accent-glow: rgba(0, 240, 255, 0.3);
             --card-bg: rgba(255, 255, 255, 0.03);
             --card-border: rgba(255, 255, 255, 0.05);
+            --bg-color: #05050a; /* Pastikan background tetap gelap total */
+    /* Warna Futuristik Baru (Aura/Iridescent) */
+    --futuristic-cyan: rgba(0, 240, 255, 0.2);   /* Soft Teal/Cyan */
+    --futuristic-purple: rgba(148, 0, 255, 0.15); /* Soft Violet/Purple */
+    
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -25,18 +30,46 @@
             line-height: 1.6;
         }
 
-        /* === Efek Cahaya Kursor (Premium LERP) === */
-        .cursor-glow {
-            position: fixed;
-            top: 0; left: 0;
-            width: 400px; height: 400px;
-            background: radial-gradient(circle, var(--accent-glow) 0%, transparent 70%);
-            border-radius: 50%;
-            pointer-events: none;
-            z-index: -1;
-            transform: translate(-50%, -50%);
-            will-change: transform;
-        }
+        /* === Efek Cahaya Kursor Aura Futuristik (Premium LERP + Multi-layer) === */
+.cursor-glow {
+    position: fixed;
+    top: 0; left: 0;
+    /* Ukuran wadah dibuat sedikit lebih besar untuk menampung blur yang luas */
+    width: 600px; 
+    height: 600px;
+    pointer-events: none;
+    z-index: -1; /* Tetap di belakang konten */
+    transform: translate(-50%, -50%); /* Sentralisasi kursor */
+    will-change: transform; /* Optimasi performa LERP */
+    backface-visibility: hidden;
+}
+
+/* Wadah utama untuk memastikan blur tidak memotong *overflow* */
+.cursor-glow::before,
+.cursor-glow::after {
+    content: '';
+    position: absolute;
+    border-radius: 50%;
+    /* Gunakan blur besar untuk kelembutan maksimal (softness) */
+    filter: blur(70px); 
+    will-change: transform;
+}
+
+/* Lapisan 1: Warna Cyan/Teal (Core) - Sedikit lebih kecil & di tengah */
+.cursor-glow::before {
+    inset: 100px; /* Jarak dari tepi wadah */
+    background: radial-gradient(circle at center, var(--futuristic-cyan) 0%, transparent 65%);
+    opacity: 1;
+}
+
+/* Lapisan 2: Warna Violet/Purple (Aura Outer) - Lebih besar & menyebar */
+.cursor-glow::after {
+    inset: 0; /* Penuh mengisi wadah */
+    background: radial-gradient(circle at center, var(--futuristic-purple) 0%, transparent 70%);
+    /* Geser sedikit agar warnanya tidak bertumpuk sempurna, menciptakan efek Iridescent */
+    transform: translate(20px, 20px); 
+    opacity: 0.8;
+}
 
         /* === Layout Container === */
         .container {
