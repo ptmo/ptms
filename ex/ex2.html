@@ -345,6 +345,20 @@
 .type-claim { background: rgba(255, 170, 0, 0.1); color: #ffaa00; border-color: rgba(255, 170, 0, 0.2); }
 .type-approve { background: rgba(0, 204, 255, 0.1); color: #00ccff; border-color: rgba(0, 204, 255, 0.2); }
 .type-call { background: rgba(139, 148, 158, 0.1); color: var(--text-muted); border-color: rgba(139, 148, 158, 0.2); }
+
+.label { font-size: 0.85rem; color: var(--text-muted); text-transform: uppercase; }
+        .value { font-size: 1.5rem; word-break: break-all; margin: 10px 0; }
+        
+        /* Badge & Tombol */
+        .tx-badge { font-size: 0.7rem; padding: 4px 8px; border-radius: 6px; text-transform: uppercase; border: 1px solid transparent; }
+        .type-call { background: rgba(139, 148, 158, 0.1); color: var(--text-muted); }
+        .type-deploy { background: rgba(187, 102, 255, 0.1); color: #bb66ff; }
+        
+        .back-btn {
+            margin-top: 1.5rem; padding: 10px 20px;
+            background: rgba(0,255,204,0.1); border: 1px solid var(--accent-cyan);
+            color: var(--accent-cyan); border-radius: 8px; cursor: pointer;
+        }
 </style>
 </head>
 <body>
@@ -389,6 +403,59 @@
             </div>
             
         </div>
+
+        <!-- ========================================== -->
+<!-- PANEL 2: DETAIL TRANSAKSI (SPA)            -->
+<!-- ========================================== -->
+<main class="bento-grid" id="panel-tx-detail" style="display: none;">
+    <div class="bento-card card-wide tilt-effect">
+        <span class="label">Transaction Details</span>
+        <h2 class="value" id="detail-tx-hash" style="font-size: 1.2rem; word-break: break-all;">0x...</h2>
+        <div class="tx-details-content" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div><span class="label">Status:</span> <span id="detail-tx-status">...</span></div>
+            <div><span class="label">Block:</span> <span id="detail-tx-block" style="color: #fff;">...</span></div>
+            <div><span class="label">Value:</span> <span id="detail-tx-value" style="color: #fff; font-weight: 600;">...</span></div>
+        </div>
+        <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+    </div>
+</main>
+
+        <!-- ========================================== -->
+<!-- PANEL 3: DETAIL ADDRESS/CONTRACT (SPA)     -->
+<!-- ========================================== -->
+<main class="bento-grid" id="panel-address-detail" style="display: none;">
+    <div class="bento-card card-wide tilt-effect">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+            <span class="tx-badge type-call" id="detail-address-type">Wallet</span>
+            <span class="label" style="margin-bottom: 0;">Address Details</span>
+        </div>
+        <h2 class="value" id="detail-address-hash" style="font-size: 1.2rem; word-break: break-all;">0x...</h2>
+        <div style="margin-top: 1.5rem;">
+            <span class="label">ETH Balance:</span>
+            <h2 class="value gradient-text" id="detail-address-balance">0.00</h2>
+        </div>
+        <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+    </div>
+</main>
+
+        <!-- ========================================== -->
+<!-- PANEL 4: DETAIL BLOCK (SPA)                -->
+<!-- ========================================== -->
+<main class="bento-grid" id="panel-block-detail" style="display: none;">
+    <div class="bento-card card-wide tilt-effect">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+            <span class="tx-badge type-deploy">Block</span>
+            <span class="label" style="margin-bottom: 0;">Block Details</span>
+        </div>
+        <h2 class="value" id="detail-block-number" style="font-size: 2rem;">#0</h2>
+        <div class="tx-details-content" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+            <div><span class="label">Block Hash:</span> <span id="detail-block-hash" style="font-family: monospace; color: var(--text-muted); font-size: 0.9rem; word-break: break-all;">0x...</span></div>
+            <div><span class="label">Transactions:</span> <span id="detail-block-txcount" style="color: #fff; font-weight: 600;">0</span> txs</div>
+            <div><span class="label">Timestamp:</span> <span id="detail-block-time" style="color: #fff;">...</span></div>
+        </div>
+        <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+    </div>
+</main>
 
         <main class="bento-grid">
             <!-- Card 1: Canvas Visualizer (Full Width) -->
@@ -864,88 +931,104 @@ window.copyHash = function(btn) {
     // Jangan dibuat terlalu cepat (misal 1 detik) karena API publik akan langsung memblokir IP Anda (Rate Limit).
     setInterval(fetchLiveMarketData, 60000);
 
-        // =====================================================================
-// 7. OMNI-SEARCH ENGINE (SMART ROUTING)
-// =====================================================================
-document.addEventListener("DOMContentLoaded", () => {
-    const searchInput = document.getElementById('searchInput');
-    const searchWrapper = document.querySelector('.search-wrapper');
+        // ==========================================
+            // 6. OMNI-SEARCH ENGINE (DENGAN SPA INTERNAL ROUTING)
+            // ==========================================
+            const searchInput = document.getElementById('searchInput');
+            const searchWrapper = document.querySelector('.search-wrapper');
 
-    // Fungsi deteksi jenis input menggunakan RegEx
-    function getSearchType(query) {
-        // Deteksi Transaction Hash: Dimulai dengan 0x, diikuti 64 karakter hex
-        if (/^0x([A-Fa-f0-9]{64})$/.test(query)) {
-            return 'tx';
-        }
-        // Deteksi Wallet / Contract Address: Dimulai dengan 0x, diikuti 40 karakter hex
-        else if (/^0x([A-Fa-f0-9]{40})$/.test(query)) {
-            return 'address';
-        }
-        // Deteksi Block Number: Hanya berisi angka
-        else if (/^\d+$/.test(query)) {
-            return 'block';
-        }
-        // Deteksi ENS Domain: Diakhiri dengan .eth
-        else if (/.*\.eth$/.test(query)) {
-            return 'ens';
-        }
-        // Jika tidak dikenali
-        return 'unknown';
-    }
-
-    if (searchInput && searchWrapper) {
-        searchInput.addEventListener('keypress', function (e) {
-            // Eksekusi saat user menekan tombol Enter
-            if (e.key === 'Enter') {
-                const query = this.value.trim();
-                
-                if (query) {
-                    // 1. Nyalakan Animasi Scanner Sci-Fi
-                    searchWrapper.classList.add('scanning');
-                    searchInput.blur(); // Hilangkan fokus keyboard agar UI rapi
-                    
-                    // 2. Analisis Input
-                    const searchType = getSearchType(query);
-                    
-                    // 3. Jeda 1 detik untuk memutar animasi UI yang "mahal"
-                    setTimeout(() => {
-                        searchWrapper.classList.remove('scanning');
-                        
-                        // 4. Routing URL (Contoh mengarahkan ke BaseScan, sesuaikan dengan chain Anda)
-                        let targetUrl = '';
-                        const baseUrl = 'https://basescan.org';
-
-                        switch (searchType) {
-                            case 'tx':
-                                targetUrl = `${baseUrl}/tx/${query}`;
-                                break;
-                            case 'address':
-                                targetUrl = `${baseUrl}/address/${query}`;
-                                break;
-                            case 'block':
-                                targetUrl = `${baseUrl}/block/${query}`;
-                                break;
-                            case 'ens':
-                                targetUrl = `${baseUrl}/enslookup-search?search=${query}`;
-                                break;
-                            default:
-                                alert('Format tidak dikenali! Harap masukkan Tx Hash, Address, atau Block Number yang valid.');
-                                searchInput.focus();
-                                return;
-                        }
-
-                        // Buka hasil pencarian di tab baru
-                        window.open(targetUrl, '_blank');
-                        
-                        // Bersihkan kolom pencarian setelah sukses
-                        searchInput.value = '';
-
-                    }, 1000); // Durasi animasi scanner 1 detik
-                }
+            function getSearchType(query) {
+                if (/^0x([A-Fa-f0-9]{64})$/.test(query)) return 'tx';
+                if (/^0x([A-Fa-f0-9]{40})$/.test(query)) return 'address';
+                if (/^\d+$/.test(query)) return 'block';
+                if (/.*\.eth$/.test(query)) return 'ens';
+                return 'unknown';
             }
-        });
-    }
-});
+
+            searchInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    const query = this.value.trim();
+                    if (query) {
+                        searchWrapper.classList.add('scanning');
+                        searchInput.blur();
+                        
+                        const searchType = getSearchType(query);
+
+                        setTimeout(async () => {
+                            searchWrapper.classList.remove('scanning');
+                            
+                            const pDash = document.getElementById('panel-dashboard');
+                            const pTx = document.getElementById('panel-tx-detail');
+                            const pAddr = document.getElementById('panel-address-detail');
+                            const pBlock = document.getElementById('panel-block-detail');
+
+                            pDash.style.display = 'none'; pTx.style.display = 'none'; pAddr.style.display = 'none'; pBlock.style.display = 'none';
+
+                            switch (searchType) {
+                                case 'tx':
+                                    pTx.style.display = 'grid';
+                                    document.getElementById('detail-tx-hash').innerText = "Loading...";
+                                    try {
+                                        const txData = await provider.getTransaction(query);
+                                        const txReceipt = await provider.getTransactionReceipt(query);
+                                        if(!txData) throw new Error("Not Found");
+                                        document.getElementById('detail-tx-hash').innerText = query;
+                                        document.getElementById('detail-tx-status').innerText = txReceipt && txReceipt.status === 1 ? "Success" : "Failed / Pending";
+                                        document.getElementById('detail-tx-status').style.color = txReceipt && txReceipt.status === 1 ? "#00ffcc" : "#ff4444";
+                                        document.getElementById('detail-tx-block').innerText = txData.blockNumber;
+                                        document.getElementById('detail-tx-value').innerText = `${ethers.formatEther(txData.value)} ETH`;
+                                    } catch (e) { document.getElementById('detail-tx-hash').innerText = "Transaction Not Found."; }
+                                    break;
+
+                                case 'ens':
+                                case 'address':
+                                    pAddr.style.display = 'grid';
+                                    document.getElementById('detail-address-hash').innerText = "Resolving...";
+                                    try {
+                                        let targetAddr = query;
+                                        if(searchType === 'ens') {
+                                            targetAddr = await provider.resolveName(query);
+                                            if(!targetAddr) throw new Error("ENS Not Found");
+                                        }
+                                        document.getElementById('detail-address-hash').innerText = targetAddr;
+                                        const isContract = (await provider.getCode(targetAddr)) !== "0x";
+                                        const badge = document.getElementById('detail-address-type');
+                                        badge.innerText = isContract ? "Contract" : "Wallet";
+                                        badge.className = isContract ? "tx-badge type-deploy" : "tx-badge type-call";
+                                        const bal = await provider.getBalance(targetAddr);
+                                        document.getElementById('detail-address-balance').innerText = `${parseFloat(ethers.formatEther(bal)).toFixed(4)} ETH`;
+                                    } catch (e) { document.getElementById('detail-address-hash').innerText = "Address Not Found"; }
+                                    break;
+
+                                case 'block':
+                                    pBlock.style.display = 'grid';
+                                    document.getElementById('detail-block-number').innerText = "Loading...";
+                                    try {
+                                        const bData = await provider.getBlock(parseInt(query), false);
+                                        if(!bData) throw new Error("Block Not Found");
+                                        document.getElementById('detail-block-number').innerText = `#${bData.number}`;
+                                        document.getElementById('detail-block-hash').innerText = bData.hash;
+                                        document.getElementById('detail-block-txcount').innerText = bData.transactions.length;
+                                        document.getElementById('detail-block-time').innerText = new Date(bData.timestamp * 1000).toLocaleString();
+                                    } catch (e) { document.getElementById('detail-block-number').innerText = "Block Not Found"; }
+                                    break;
+                                    
+                                default:
+                                    alert('Format tidak valid. Harap masukkan Hash, Address, atau Block.');
+                                    pDash.style.display = 'grid';
+                            }
+                            searchInput.value = '';
+                        }, 1000); 
+                    }
+                }
+            });
+
+        window.goHome = function() {
+    document.getElementById('panel-tx-detail').style.display = 'none';
+    document.getElementById('panel-address-detail').style.display = 'none';
+    document.getElementById('panel-block-detail').style.display = 'none';
+    document.getElementById('panel-dashboard').style.display = 'grid';
+        }
     </script>
 </body>
 </html>
