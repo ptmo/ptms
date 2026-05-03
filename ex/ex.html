@@ -1,0 +1,269 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Block Explorer</title>
+    <link rel="stylesheet" href="style.css">
+<style>
+  /* style.css */
+:root {
+    --bg-color: #050505;
+    --card-bg: rgba(255, 255, 255, 0.03);
+    --card-border: rgba(255, 255, 255, 0.06);
+    --card-hover-border: rgba(255, 255, 255, 0.15);
+    --text-primary: #ffffff;
+    --text-secondary: #8b949e;
+    --accent-color: #00ffcc; /* Aksen warna cyan futuristik */
+    --glow-spread: rgba(0, 255, 204, 0.1);
+}
+
+* {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+    font-family: 'Inter', -apple-system, sans-serif;
+}
+
+body {
+    background-color: var(--bg-color);
+    color: var(--text-primary);
+    min-height: 100vh;
+    padding: 2rem;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Efek cahaya radial samar di background */
+    background-image: radial-gradient(circle at 50% -20%, #1a2333 0%, var(--bg-color) 70%);
+}
+
+.explorer-container {
+    width: 100%;
+    max-width: 1200px;
+}
+
+.explorer-header h1 {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin-bottom: 2rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.status-dot {
+    width: 10px;
+    height: 10px;
+    background-color: var(--accent-color);
+    border-radius: 50%;
+    box-shadow: 0 0 10px var(--accent-color);
+    animation: pulse 2s infinite ease-in-out;
+}
+
+/* --- LOGIKA CSS GRID (BENTO BOX) --- */
+.bento-grid {
+    display: grid;
+    /* Mode PC: 4 kolom sama besar */
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 180px; /* Tinggi standar tiap card */
+    gap: 1.25rem;
+}
+
+/* --- STYLING KARTU (GLASSMORPHISM) --- */
+.bento-card {
+    background: var(--card-bg);
+    border: 1px solid var(--card-border);
+    border-radius: 20px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    position: relative;
+    overflow: hidden;
+    /* Transisi sangat soft */
+    transition: transform 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                border-color 0.4s ease, 
+                box-shadow 0.4s ease;
+}
+
+.bento-card:hover {
+    transform: translateY(-4px); /* Mengambang saat di-hover */
+    border-color: var(--card-hover-border);
+    box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+}
+
+/* --- MANIPULASI BENTUK CARD DI GRID --- */
+.card-main {
+    grid-column: span 2; /* Melebar 2 kolom */
+    grid-row: span 2;    /* Memanjang 2 baris */
+}
+
+.card-wide {
+    grid-column: span 2; /* Melebar 2 kolom untuk grafik */
+}
+
+/* --- TYPOGRAPHY & ELEMEN DALAM KARTU --- */
+.card-label {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+}
+
+.card-value {
+    font-size: 3.5rem;
+    font-weight: 700;
+    line-height: 1.1;
+    background: linear-gradient(to right, #fff, #a1a1aa);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.card-value-small {
+    font-size: 2rem;
+    font-weight: 600;
+}
+
+.status-success { color: var(--accent-color); }
+
+/* --- KOMPONEN PILL UNTUK HASH (UX) --- */
+.hash-pill {
+    display: inline-flex;
+    align-items: center;
+    background: rgba(0, 0, 0, 0.3);
+    border: 1px solid rgba(255, 255, 255, 0.05);
+    border-radius: 50px;
+    padding: 0.5rem 1rem;
+    width: fit-content;
+    gap: 1rem;
+}
+
+.hash-pill span {
+    font-family: monospace;
+    color: var(--text-secondary);
+}
+
+.copy-btn {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: #fff;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background 0.3s;
+}
+
+.copy-btn:hover {
+    background: rgba(255, 255, 255, 0.2);
+}
+
+/* Animasi Denyut Jaringan */
+@keyframes pulse {
+    0% { transform: scale(0.95); opacity: 0.8; }
+    50% { transform: scale(1.1); opacity: 1; box-shadow: 0 0 15px var(--accent-color); }
+    100% { transform: scale(0.95); opacity: 0.8; }
+}
+
+/* --- RESPONSIVITAS MOBILE & TABLET --- */
+@media (max-width: 1024px) {
+    .bento-grid {
+        grid-template-columns: repeat(2, 1fr); /* Tablet: 2 Kolom */
+    }
+}
+
+@media (max-width: 600px) {
+    body { padding: 1rem; }
+    .bento-grid {
+        display: flex; /* Beralih ke flex column di HP agar tidak memaksakan tinggi baris */
+        flex-direction: column;
+        gap: 1rem;
+    }
+    .bento-card {
+        min-height: 150px; /* Tinggi minimum di HP */
+    }
+    .card-value { font-size: 2.5rem; }
+}
+</style>
+</head>
+<body>
+
+    <div class="explorer-container">
+        <header class="explorer-header">
+            <h1>L2 Network <span class="status-dot"></span></h1>
+        </header>
+
+        <main class="bento-grid">
+            <!-- Card 1: Utama / Block Utama (Makan 2 Kolom, 2 Baris di PC) -->
+            <div class="bento-card card-main hover-glow">
+                <span class="card-label">Latest Block</span>
+                <h2 class="card-value">#18,293,041</h2>
+                <div class="hash-pill">
+                    <span>0x8f2A...3b1C</span>
+                    <button class="copy-btn">Copy</button>
+                </div>
+            </div>
+
+            <!-- Card 2: Metrik TPS -->
+            <div class="bento-card hover-glow">
+                <span class="card-label">Live TPS</span>
+                <h3 class="card-value-small">4,210</h3>
+            </div>
+
+            <!-- Card 3: Gas Fee -->
+            <div class="bento-card hover-glow">
+                <span class="card-label">Avg Gas Fee</span>
+                <h3 class="card-value-small">0.002 Gwei</h3>
+            </div>
+
+            <!-- Card 4: Chart/Grafik (Melebar 2 kolom) -->
+            <div class="bento-card card-wide hover-glow">
+                <span class="card-label">Network Activity (24H)</span>
+                <div class="chart-placeholder">
+                    <!-- Area untuk render Canvas/Chart.js nantinya -->
+                    <div class="mock-line"></div>
+                </div>
+            </div>
+
+            <!-- Card 5: Finality Status -->
+            <div class="bento-card hover-glow">
+                <span class="card-label">Finality</span>
+                <h3 class="card-value-small status-success">Finalized</h3>
+            </div>
+        </main>
+    </div>
+
+    <script>
+      // script.js
+document.addEventListener("DOMContentLoaded", () => {
+    const cards = document.querySelectorAll(".hover-glow");
+
+    cards.forEach((card) => {
+        card.addEventListener("mousemove", (e) => {
+            const rect = card.getBoundingClientRect();
+            // Kalkulasi posisi kursor relatif terhadap kartu
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Terapkan efek radial gradient sebagai background tambahan yang mengikuti mouse
+            card.style.background = `
+                radial-gradient(
+                    800px circle at ${x}px ${y}px, 
+                    rgba(255, 255, 255, 0.06),
+                    transparent 40%
+                ),
+                var(--card-bg)
+            `;
+        });
+
+        // Kembalikan ke background semula saat mouse keluar dari kartu
+        card.addEventListener("mouseleave", () => {
+            card.style.background = `var(--card-bg)`;
+        });
+    });
+});
+    </script>
+</body>
+  </html>
