@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium Block Explorer</title>
+    <link rel="stylesheet" href="style.css">
+<style>
+  /* Container Utama */
+.node-visualizer-container {
+    position: relative;
+    width: 100%;
+    height: 250px; /* Sesuaikan dengan tinggi di dalam Bento Box */
+    background: radial-gradient(circle at 50% 150%, rgba(0, 255, 204, 0.05) 0%, transparent 80%);
+    border-radius: 16px;
+    overflow: hidden;
+}
+
+#networkCanvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    cursor: crosshair;
+}
+
+/* Tooltip Premium (Glassmorphism) */
+.glass-tooltip {
+    position: absolute;
+    top: 0; 
+    left: 0;
+    width: 220px;
+    background: rgba(10, 10, 12, 0.65);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border: 1px solid rgba(0, 255, 204, 0.2);
+    border-radius: 12px;
+    padding: 1rem;
+    color: #fff;
+    pointer-events: none; /* Memastikan kursor tidak tersangkut di tooltip */
+    
+    /* Animasi LERP untuk kemunculan */
+    opacity: 0;
+    transform: translate(-50%, -130%) scale(0.9);
+    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+    z-index: 10;
+}
+
+/* Class trigger saat node disentuh */
+.glass-tooltip.visible {
+    opacity: 1;
+    transform: translate(-50%, -120%) scale(1);
+}
+
+/* Tipografi Tooltip */
+.tooltip-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.block-number {
+    font-weight: 700;
+    color: #00ffcc;
+}
+
+.status-badge {
+    font-size: 0.65rem;
+    background: rgba(0, 255, 204, 0.1);
+    color: #00ffcc;
+    padding: 2px 6px;
+    border-radius: 4px;
+    text-transform: uppercase;
+}
+
+.data-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 6px;
+    font-size: 0.8rem;
+}
+
+.data-label { color: #8b949e; }
+.hash-value { font-family: monospace; }
+</style>
+</head>
+<body>
+
+    <div class="node-visualizer-container">
+    <!-- Area Gambar Jaringan -->
+    <canvas id="networkCanvas"></canvas>
+    
+    <!-- Tooltip yang akan muncul saat node diklik/di-hover -->
+    <div id="blockTooltip" class="glass-tooltip">
+        <div class="tooltip-header">
+            <span class="block-number" id="tt-block">#000000</span>
+            <span class="status-badge">Finalized</span>
+        </div>
+        <div class="tooltip-body">
+            <div class="data-row">
+                <span class="data-label">Hash</span>
+                <span class="data-value hash-value" id="tt-hash">0x...</span>
+            </div>
+            <div class="data-row">
+                <span class="data-label">Transactions</span>
+                <span class="data-value" id="tt-tx">0</span>
+            </div>
+        </div>
+    </div>
+    </div>
+
+    <script>
+      document.addEventListener("DOMContentLoaded", () => {
+    const canvas = document.getElementById("networkCanvas");
+    const ctx = canvas.getContext("2d");
+    const tooltip = document.getElementById("blockTooltip");
+
+    // Elemen Tooltip
+    const ttBlock = document.getElementById("tt-block");
+    const ttHash = document.getElementById("tt-hash");
+    const ttTx = document.getElementById("tt-tx");
+
+    // Setup Resolusi Kanvas agar tidak buram di layar HD/Retina
+    function resizeCanvas() {
+        const rect = canvas.parentElement.getBoundingClientRect();
+        canvas.width = rect.width * window.devicePixelRatio;
+        canvas.height = rect.height * window.devicePixelRatio;
+        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
+        canvas.style.width = `${rect.width}px`;
+        canvas.style.height = `${rect.height}px`;
+    }
+    window.addEventListener("resize", resizeCanvas);
+    resizeCanvas();
+
+    // Fungsi LERP (Linear Interpolation) untuk pergerakan mulus
+    const lerp = (start, end, factor) => start + (end - start) * factor;
+
+    // State Aplikasi
+    let nodes = [];
+    let hoveredNode = null;
+    let mouseX = 0;
+    let mouseY = 0;
+
+    // Konfigurasi Visual
+    const nodeSpacing = 120; // Jarak antar blok
+    const baseRadius = 8;
+    const glowColor = "#00ffcc";
+
+    // Kelas Node (Merepresentasikan 1 Blok)
+    class BlockNode {
+        constructor(index, data) {
+            this.data = data;
+            // Target X adalah posisi tujuan, X adalah posisi aktual saat ini (untuk animasi masuk)
+            this.targetX = canvas.parentElement.clientWidth - 50 - (index * nodeSpacing);
+            this.x = this.targetX + 100; // Mulai sedikit dari kanan untuk efek slide-in
+            this.y = canvas.parentElement.clientHeight / 2;
+            this.radius = 0; // Mulai dari 0 untuk efek membesar
+            this.targetRadius = baseRadius;
+        }
+
+        update() {
+            // Aplikasikan LERP pada sumbu X dan Radius agar pergerakannya soft
+            this.x = lerp(this.x, this.targetX, 0.08);
+            this.radius = lerp(this.radius, this.targetRadius, 0.1);
+        }
+
+        draw(ctx) {
+            ctx.beginPath();
+            ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+            
+            // Efek Node Bercahaya (Glow)
+            ctx.shadowBlur = 15;
+            ctx.shadowColor = glowColor;
+            ctx.fillStyle = glowColor;
+            ctx.fill();
+            
+            // Reset shadow agar tidak bocor ke elemen lain
+            ctx.shadowBlur = 0; 
+        }
+    }
+
+    // Engine Render (Dijalankan 60 FPS)
+    function animate() {
+        // Bersihkan kanvas di setiap frame
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        // 1. Gambar Garis Penghubung terlebih dahulu (agar berada di belakang node)
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.3)";
+        ctx.lineWidth = 2;
+        
+        for (let i = 0; i < nodes.length; i++) {
+            nodes[i].update();
+            if (i === 0) {
+                ctx.moveTo(nodes[i].x, nodes[i].y);
+            } else {
+                ctx.lineTo(nodes[i].x, nodes[i].y);
+            }
+        }
+        ctx.stroke();
+
+        // 2. Gambar Node (Titik/Poligon) di atas garis
+        nodes.forEach(node => node.draw(ctx));
+
+        requestAnimationFrame(animate);
+    }
+
+    // Simulasi Menambahkan Blok Baru
+    function addNewBlock(blockData) {
+        // Geser semua targetX node lama ke kiri
+        nodes.forEach(node => {
+            node.targetX -= nodeSpacing;
+        });
+
+        // Tambahkan node baru di indeks 0 (paling kanan)
+        const newNode = new BlockNode(0, blockData);
+        nodes.unshift(newNode);
+
+        // Hapus memori node yang sudah keluar layar (optimalisasi memori)
+        if (nodes.length > 8) nodes.pop();
+    }
+
+    // --- INTERAKSI MOUSE & TOOLTIP ---
+    canvas.addEventListener("mousemove", (e) => {
+        const rect = canvas.getBoundingClientRect();
+        mouseX = e.clientX - rect.left;
+        mouseY = e.clientY - rect.top;
+
+        let found = false;
+
+        nodes.forEach(node => {
+            // Deteksi tabrakan melingkar (Hitbox)
+            const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
+            
+            if (dist < 20) { // Radius interaksi 20px
+                found = true;
+                if (hoveredNode !== node) {
+                    hoveredNode = node;
+                    node.targetRadius = baseRadius * 1.5; // Node membesar saat di-hover
+                    
+                    // Update Data Tooltip
+                    ttBlock.innerText = `#${node.data.height}`;
+                    ttHash.innerText = `${node.data.hash.slice(0,6)}...${node.data.hash.slice(-4)}`;
+                    ttTx.innerText = node.data.txCount;
+
+                    // Posisikan Tooltip tepat di atas node
+                    tooltip.style.left = `${node.x}px`;
+                    tooltip.style.top = `${node.y}px`;
+                    tooltip.classList.add("visible");
+                }
+            } else {
+                node.targetRadius = baseRadius; // Kembalikan ukuran semula
+            }
+        });
+
+        if (!found) {
+            hoveredNode = null;
+            tooltip.classList.remove("visible");
+        }
+    });
+
+    // Inisialisasi: Buat beberapa blok awal
+    for(let i = 0; i < 5; i++) {
+        addNewBlock({
+            height: 18293040 + i,
+            hash: "0x8f2A9b" + Math.floor(Math.random() * 10000) + "3b1C",
+            txCount: Math.floor(Math.random() * 200) + 50
+        });
+    }
+
+    // Mulai animasi
+    animate();
+
+    // Simulasi WebSocket: Menerima blok baru setiap 3 detik
+    setInterval(() => {
+        const lastHeight = nodes[0].data.height;
+        addNewBlock({
+            height: lastHeight + 1,
+            hash: "0x7aC" + Math.floor(Math.random() * 9999) + "fF0",
+            txCount: Math.floor(Math.random() * 300)
+        });
+    }, 3000);
+});
+    </script>
+</body>
+</html>
