@@ -3,287 +3,371 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Premium Block Explorer</title>
+    <title>Premium Web3 Explorer</title>
     <link rel="stylesheet" href="style.css">
 <style>
-  /* Container Utama */
-.node-visualizer-container {
-    position: relative;
-    width: 100%;
-    height: 250px; /* Sesuaikan dengan tinggi di dalam Bento Box */
-    background: radial-gradient(circle at 50% 150%, rgba(0, 255, 204, 0.05) 0%, transparent 80%);
-    border-radius: 16px;
-    overflow: hidden;
+    :root {
+    --bg-abyss: #070709;
+    --glass-bg: rgba(20, 20, 25, 0.4);
+    --glass-border: rgba(255, 255, 255, 0.05);
+    --glass-hover: rgba(0, 255, 204, 0.15);
+    --text-main: #f8f9fa;
+    --text-muted: #8b949e;
+    --accent-cyan: #00ffcc;
 }
 
-#networkCanvas {
-    display: block;
-    width: 100%;
-    height: 100%;
-    cursor: crosshair;
-}
+* { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
 
-/* Tooltip Premium (Glassmorphism) */
-.glass-tooltip {
-    position: absolute;
-    top: 0; 
-    left: 0;
-    width: 220px;
-    background: rgba(10, 10, 12, 0.65);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border: 1px solid rgba(0, 255, 204, 0.2);
-    border-radius: 12px;
-    padding: 1rem;
-    color: #fff;
-    pointer-events: none; /* Memastikan kursor tidak tersangkut di tooltip */
-    
-    /* Animasi LERP untuk kemunculan */
-    opacity: 0;
-    transform: translate(-50%, -130%) scale(0.9);
-    transition: opacity 0.3s ease, transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
-    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
-    z-index: 10;
-}
-
-/* Class trigger saat node disentuh */
-.glass-tooltip.visible {
-    opacity: 1;
-    transform: translate(-50%, -120%) scale(1);
-}
-
-/* Tipografi Tooltip */
-.tooltip-header {
+body {
+    background-color: var(--bg-abyss);
+    color: var(--text-main);
+    min-height: 100vh;
     display: flex;
-    justify-content: space-between;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-x: hidden;
+    /* Pencahayaan radial cyber-minimalist */
+    background-image: radial-gradient(circle at 50% 0%, #121c22 0%, var(--bg-abyss) 60%);
+    perspective: 1000px; /* Diperlukan untuk efek 3D Tilt */
+}
+
+.explorer-dashboard { width: 100%; max-width: 1100px; }
+
+.dashboard-header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+.pulse-dot { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 12px var(--accent-cyan); animation: pulse 2s infinite ease-in-out; }
+
+/* 1. Bento Box Grid System */
+.bento-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    grid-auto-rows: 160px;
+    gap: 1.25rem;
+}
+
+/* 5. Dark Glassmorphism */
+.bento-card {
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
+    border-radius: 24px;
+    padding: 1.5rem;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s; /* Transform cepat untuk giroskop */
+    transform-style: preserve-3d;
+}
+
+.bento-card:hover {
+    border-color: var(--glass-hover);
+    box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+}
+
+.card-visualizer { grid-column: span 2; grid-row: span 2; padding: 0; overflow: hidden; justify-content: flex-start; }
+.card-wide { grid-column: span 2; }
+
+/* Typografi */
+.label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; transform: translateZ(20px); }
+.value { font-size: 3rem; font-weight: 700; transform: translateZ(30px); }
+.value .unit { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
+.gradient-text { background: linear-gradient(90deg, #fff, var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+/* 4. Smart Hash Pill UX */
+.smart-pill-container { margin-top: auto; transform: translateZ(25px); }
+.hash-pill {
+    display: inline-flex;
     align-items: center;
-    margin-bottom: 12px;
-    padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+    background: rgba(0,0,0,0.4);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 50px;
+    padding: 0.4rem 0.5rem 0.4rem 1.2rem;
+    cursor: pointer;
+    position: relative;
+    overflow: hidden;
+    transition: all 0.3s ease;
 }
+.hash-pill:hover { border-color: var(--accent-cyan); }
+.hash-text { font-family: monospace; color: var(--text-muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 200px; transition: color 0.3s; }
+.hash-pill:hover .hash-text { color: #fff; }
 
-.block-number {
-    font-weight: 700;
-    color: #00ffcc;
-}
-
-.status-badge {
-    font-size: 0.65rem;
-    background: rgba(0, 255, 204, 0.1);
-    color: #00ffcc;
-    padding: 2px 6px;
-    border-radius: 4px;
-    text-transform: uppercase;
-}
-
-.data-row {
+.copy-btn {
+    background: rgba(255,255,255,0.05);
+    border: none;
+    color: var(--accent-cyan);
+    border-radius: 50%;
+    width: 32px;
+    height: 32px;
     display: flex;
-    justify-content: space-between;
-    margin-bottom: 6px;
-    font-size: 0.8rem;
+    justify-content: center;
+    align-items: center;
+    margin-left: 10px;
+    cursor: pointer;
+    transition: background 0.3s, transform 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+.hash-pill:hover .copy-btn { background: rgba(0, 255, 204, 0.2); transform: scale(1.1); }
+
+/* Animasi Ripple Copy */
+.ripple {
+    position: absolute; background: rgba(0, 255, 204, 0.4); border-radius: 50%;
+    transform: scale(0); animation: rippleEffect 0.6s linear; pointer-events: none;
 }
 
-.data-label { color: #8b949e; }
-.hash-value { font-family: monospace; }
+/* Canvas & Tooltip */
+.canvas-container { position: relative; width: 100%; height: 100%; }
+#nodeCanvas { width: 100%; height: 100%; cursor: crosshair; }
+.card-header { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 2; pointer-events: none; }
+
+.glass-tooltip {
+    position: absolute; background: rgba(5, 5, 8, 0.8); border: 1px solid var(--accent-cyan);
+    border-radius: 12px; padding: 1rem; width: 180px; backdrop-filter: blur(10px);
+    opacity: 0; transform: translate(-50%, -120%) scale(0.9);
+    transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; z-index: 10;
+}
+.glass-tooltip.show { opacity: 1; transform: translate(-50%, -120%) scale(1); }
+.tt-head { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 8px; }
+.badge { font-size: 0.6rem; background: rgba(0,255,204,0.15); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; }
+.tt-hash { font-family: monospace; font-size: 0.75rem; color: var(--text-muted); }
+
+@keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 15px var(--accent-cyan); } }
+@keyframes rippleEffect { to { transform: scale(4); opacity: 0; } }
+
+/* Mobile Responsiveness (Otomatis beralih ke Stack Vertikal) */
+@media (max-width: 900px) {
+    .bento-grid { grid-template-columns: repeat(2, 1fr); }
+    .card-visualizer, .card-wide { grid-column: span 2; }
+}
+@media (max-width: 600px) {
+    body { padding: 1rem; }
+    .bento-grid { display: flex; flex-direction: column; }
+    .bento-card { min-height: 140px; transform: none !important; /* Nonaktifkan tilt 3D berat di HP lama */ }
+    .card-visualizer { min-height: 250px; }
+    .value { font-size: 2.5rem; }
+    .hash-text { max-width: 150px; }
+    }
 </style>
 </head>
 <body>
 
-    <div class="node-visualizer-container">
-    <!-- Area Gambar Jaringan -->
-    <canvas id="networkCanvas"></canvas>
-    
-    <!-- Tooltip yang akan muncul saat node diklik/di-hover -->
-    <div id="blockTooltip" class="glass-tooltip">
-        <div class="tooltip-header">
-            <span class="block-number" id="tt-block">#000000</span>
-            <span class="status-badge">Finalized</span>
-        </div>
-        <div class="tooltip-body">
-            <div class="data-row">
-                <span class="data-label">Hash</span>
-                <span class="data-value hash-value" id="tt-hash">0x...</span>
+    <div class="explorer-dashboard">
+        <header class="dashboard-header">
+            <h1>L2 Explorer <span class="pulse-dot"></span></h1>
+        </header>
+
+        <main class="bento-grid">
+            <!-- Card 1: Canvas Visualizer (Spans 2 columns) -->
+            <div class="bento-card card-visualizer tilt-effect">
+                <div class="card-header">
+                    <span class="label">Live Network Nodes</span>
+                </div>
+                <div class="canvas-container">
+                    <canvas id="nodeCanvas"></canvas>
+                    <div id="nodeTooltip" class="glass-tooltip">
+                        <div class="tt-head"><span id="tt-block">#0</span> <span class="badge">Finalized</span></div>
+                        <div class="tt-body">
+                            <div>Tx: <span id="tt-tx">0</span></div>
+                            <div class="tt-hash" id="tt-hash">0x...</div>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="data-row">
-                <span class="data-label">Transactions</span>
-                <span class="data-value" id="tt-tx">0</span>
+
+            <!-- Card 2: Live TPS (LERP Animated) -->
+            <div class="bento-card tilt-effect">
+                <span class="label">Live TPS</span>
+                <h2 class="value gradient-text" id="tps-value">0</h2>
             </div>
-        </div>
-    </div>
+
+            <!-- Card 3: Gas Fee (LERP Animated) -->
+            <div class="bento-card tilt-effect">
+                <span class="label">Avg Gas Fee</span>
+                <h2 class="value" id="gas-value">0.00 <span class="unit">Gwei</span></h2>
+            </div>
+
+            <!-- Card 4: Smart Hash Pill UX -->
+            <div class="bento-card card-wide tilt-effect">
+                <span class="label">Latest Contract Deployed</span>
+                <div class="smart-pill-container">
+                    <div class="hash-pill" id="latest-hash">
+                        <span class="hash-text">0x71C95911E9a5D33751bA502B6D4413B2A</span>
+                        <button class="copy-btn" onclick="copyHash(this)">
+                            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </main>
     </div>
 
     <script>
-      document.addEventListener("DOMContentLoaded", () => {
-    const canvas = document.getElementById("networkCanvas");
-    const ctx = canvas.getContext("2d");
-    const tooltip = document.getElementById("blockTooltip");
-
-    // Elemen Tooltip
-    const ttBlock = document.getElementById("tt-block");
-    const ttHash = document.getElementById("tt-hash");
-    const ttTx = document.getElementById("tt-tx");
-
-    // Setup Resolusi Kanvas agar tidak buram di layar HD/Retina
-    function resizeCanvas() {
-        const rect = canvas.parentElement.getBoundingClientRect();
-        canvas.width = rect.width * window.devicePixelRatio;
-        canvas.height = rect.height * window.devicePixelRatio;
-        ctx.scale(window.devicePixelRatio, window.devicePixelRatio);
-        canvas.style.width = `${rect.width}px`;
-        canvas.style.height = `${rect.height}px`;
-    }
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
-
-    // Fungsi LERP (Linear Interpolation) untuk pergerakan mulus
+        document.addEventListener("DOMContentLoaded", () => {
+    // === 3. ANIMASI LERP UNTUK DATA (Angka Smooth) ===
     const lerp = (start, end, factor) => start + (end - start) * factor;
+    
+    let currentTps = 0, targetTps = 4210;
+    let currentGas = 0, targetGas = 0.002;
+    const tpsEl = document.getElementById("tps-value");
+    const gasEl = document.getElementById("gas-value");
 
-    // State Aplikasi
+    function updateNumbers() {
+        currentTps = lerp(currentTps, targetTps, 0.05);
+        currentGas = lerp(currentGas, targetGas, 0.05);
+        
+        tpsEl.innerText = Math.floor(currentTps).toLocaleString();
+        gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
+        
+        requestAnimationFrame(updateNumbers);
+    }
+    updateNumbers();
+
+    // Simulasi data masuk (Fluktuasi angka)
+    setInterval(() => { targetTps = 4000 + Math.random() * 500; }, 3000);
+    setInterval(() => { targetGas = 0.001 + Math.random() * 0.003; }, 4000);
+
+    // === 2. VISUALISASI BLOK BERBASIS NODE (CANVAS) ===
+    const canvas = document.getElementById("nodeCanvas");
+    const ctx = canvas.getContext("2d");
+    const tooltip = document.getElementById("nodeTooltip");
+    
+    function resize() {
+        canvas.width = canvas.parentElement.clientWidth;
+        canvas.height = canvas.parentElement.clientHeight;
+    }
+    window.addEventListener('resize', resize);
+    resize();
+
     let nodes = [];
-    let hoveredNode = null;
-    let mouseX = 0;
-    let mouseY = 0;
+    const nodeSpacing = 100;
 
-    // Konfigurasi Visual
-    const nodeSpacing = 120; // Jarak antar blok
-    const baseRadius = 8;
-    const glowColor = "#00ffcc";
-
-    // Kelas Node (Merepresentasikan 1 Blok)
-    class BlockNode {
-        constructor(index, data) {
-            this.data = data;
-            // Target X adalah posisi tujuan, X adalah posisi aktual saat ini (untuk animasi masuk)
-            this.targetX = canvas.parentElement.clientWidth - 50 - (index * nodeSpacing);
-            this.x = this.targetX + 100; // Mulai sedikit dari kanan untuk efek slide-in
-            this.y = canvas.parentElement.clientHeight / 2;
-            this.radius = 0; // Mulai dari 0 untuk efek membesar
-            this.targetRadius = baseRadius;
+    class NodeBlock {
+        constructor(index) {
+            this.targetX = canvas.width - 50 - (index * nodeSpacing);
+            this.x = this.targetX + 100; // Mulai dari kanan (masuk layar)
+            this.y = canvas.height / 2 + 20;
+            this.radius = 0;
+            this.targetRadius = 6;
+            this.data = {
+                id: Math.floor(Math.random() * 90000) + 10000,
+                tx: Math.floor(Math.random() * 300),
+                hash: "0x" + Math.random().toString(16).substr(2, 8) + "..."
+            };
         }
-
         update() {
-            // Aplikasikan LERP pada sumbu X dan Radius agar pergerakannya soft
-            this.x = lerp(this.x, this.targetX, 0.08);
+            this.x = lerp(this.x, this.targetX, 0.08); // Pergerakan garis yang soft
             this.radius = lerp(this.radius, this.targetRadius, 0.1);
         }
-
-        draw(ctx) {
+        draw() {
             ctx.beginPath();
             ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
-            
-            // Efek Node Bercahaya (Glow)
-            ctx.shadowBlur = 15;
-            ctx.shadowColor = glowColor;
-            ctx.fillStyle = glowColor;
-            ctx.fill();
-            
-            // Reset shadow agar tidak bocor ke elemen lain
-            ctx.shadowBlur = 0; 
+            ctx.shadowBlur = 10; ctx.shadowColor = "#00ffcc";
+            ctx.fillStyle = "#00ffcc"; ctx.fill();
+            ctx.shadowBlur = 0;
         }
     }
 
-    // Engine Render (Dijalankan 60 FPS)
-    function animate() {
-        // Bersihkan kanvas di setiap frame
+    function animateNodes() {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 1. Gambar Garis Penghubung terlebih dahulu (agar berada di belakang node)
-        ctx.beginPath();
-        ctx.strokeStyle = "rgba(0, 255, 204, 0.3)";
-        ctx.lineWidth = 2;
         
-        for (let i = 0; i < nodes.length; i++) {
-            nodes[i].update();
-            if (i === 0) {
-                ctx.moveTo(nodes[i].x, nodes[i].y);
-            } else {
-                ctx.lineTo(nodes[i].x, nodes[i].y);
-            }
-        }
-        ctx.stroke();
-
-        // 2. Gambar Node (Titik/Poligon) di atas garis
-        nodes.forEach(node => node.draw(ctx));
-
-        requestAnimationFrame(animate);
-    }
-
-    // Simulasi Menambahkan Blok Baru
-    function addNewBlock(blockData) {
-        // Geser semua targetX node lama ke kiri
-        nodes.forEach(node => {
-            node.targetX -= nodeSpacing;
+        // Gambar Garis Penghubung
+        ctx.beginPath();
+        ctx.strokeStyle = "rgba(0, 255, 204, 0.2)";
+        ctx.lineWidth = 2;
+        nodes.forEach((n, i) => {
+            n.update();
+            if (i === 0) ctx.moveTo(n.x, n.y);
+            else ctx.lineTo(n.x, n.y);
         });
-
-        // Tambahkan node baru di indeks 0 (paling kanan)
-        const newNode = new BlockNode(0, blockData);
-        nodes.unshift(newNode);
-
-        // Hapus memori node yang sudah keluar layar (optimalisasi memori)
-        if (nodes.length > 8) nodes.pop();
+        ctx.stroke();
+        
+        // Gambar Titik Node
+        nodes.forEach(n => n.draw());
+        requestAnimationFrame(animateNodes);
     }
 
-    // --- INTERAKSI MOUSE & TOOLTIP ---
+    for(let i=0; i<6; i++) nodes.push(new NodeBlock(i));
+    animateNodes();
+
+    // Tambah blok baru tiap 3 detik (Simulasi WebSocket)
+    setInterval(() => {
+        nodes.forEach(n => n.targetX -= nodeSpacing);
+        nodes.unshift(new NodeBlock(0));
+        if (nodes.length > 8) nodes.pop(); // Hapus dari memori
+    }, 3000);
+
+    // Interaksi Hover Canvas
     canvas.addEventListener("mousemove", (e) => {
         const rect = canvas.getBoundingClientRect();
-        mouseX = e.clientX - rect.left;
-        mouseY = e.clientY - rect.top;
-
+        const mx = e.clientX - rect.left, my = e.clientY - rect.top;
         let found = false;
 
-        nodes.forEach(node => {
-            // Deteksi tabrakan melingkar (Hitbox)
-            const dist = Math.hypot(node.x - mouseX, node.y - mouseY);
-            
-            if (dist < 20) { // Radius interaksi 20px
+        nodes.forEach(n => {
+            if (Math.hypot(n.x - mx, n.y - my) < 20) {
                 found = true;
-                if (hoveredNode !== node) {
-                    hoveredNode = node;
-                    node.targetRadius = baseRadius * 1.5; // Node membesar saat di-hover
-                    
-                    // Update Data Tooltip
-                    ttBlock.innerText = `#${node.data.height}`;
-                    ttHash.innerText = `${node.data.hash.slice(0,6)}...${node.data.hash.slice(-4)}`;
-                    ttTx.innerText = node.data.txCount;
-
-                    // Posisikan Tooltip tepat di atas node
-                    tooltip.style.left = `${node.x}px`;
-                    tooltip.style.top = `${node.y}px`;
-                    tooltip.classList.add("visible");
-                }
+                n.targetRadius = 10;
+                document.getElementById("tt-block").innerText = `#${n.data.id}`;
+                document.getElementById("tt-tx").innerText = n.data.tx;
+                document.getElementById("tt-hash").innerText = n.data.hash;
+                tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
+                tooltip.classList.add("show");
             } else {
-                node.targetRadius = baseRadius; // Kembalikan ukuran semula
+                n.targetRadius = 6;
             }
         });
-
-        if (!found) {
-            hoveredNode = null;
-            tooltip.classList.remove("visible");
-        }
+        if (!found) tooltip.classList.remove("show");
     });
 
-    // Inisialisasi: Buat beberapa blok awal
-    for(let i = 0; i < 5; i++) {
-        addNewBlock({
-            height: 18293040 + i,
-            hash: "0x8f2A9b" + Math.floor(Math.random() * 10000) + "3b1C",
-            txCount: Math.floor(Math.random() * 200) + 50
+    // === EFEK KEDALAMAN (TILT & GIROSKOP) ===
+    const cards = document.querySelectorAll('.tilt-effect');
+    
+    // PC: Mouse Tilt
+    document.addEventListener("mousemove", (e) => {
+        if(window.innerWidth < 900) return; // Matikan di HP (gunakan giroskop)
+        const xAxis = (window.innerWidth / 2 - e.pageX) / 40;
+        const yAxis = (window.innerHeight / 2 - e.pageY) / 40;
+        cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
+    });
+
+    // Mobile: Gyroscope Tilt (Device Orientation)
+    if (window.DeviceOrientationEvent) {
+        window.addEventListener('deviceorientation', (e) => {
+            if(window.innerWidth >= 900) return;
+            // Batasi rotasi agar tidak terlalu ekstrem
+            const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2; // Ponsel biasanya digenggam miring 45deg
+            const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
+            cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
         });
     }
-
-    // Mulai animasi
-    animate();
-
-    // Simulasi WebSocket: Menerima blok baru setiap 3 detik
-    setInterval(() => {
-        const lastHeight = nodes[0].data.height;
-        addNewBlock({
-            height: lastHeight + 1,
-            hash: "0x7aC" + Math.floor(Math.random() * 9999) + "fF0",
-            txCount: Math.floor(Math.random() * 300)
-        });
-    }, 3000);
 });
+
+// === 4. PENANGANAN HASH CERDAS (UX RIPPLE COPY) ===
+function copyHash(btn) {
+    const pill = btn.closest('.hash-pill');
+    const text = pill.querySelector('.hash-text').innerText;
+    
+    // Salin ke Clipboard
+    navigator.clipboard.writeText(text);
+
+    // Animasi Ripple Soft
+    const ripple = document.createElement("span");
+    ripple.classList.add("ripple");
+    
+    const rect = btn.getBoundingClientRect();
+    const size = Math.max(pill.clientWidth, pill.clientHeight);
+    ripple.style.width = ripple.style.height = `${size}px`;
+    ripple.style.left = `${rect.left - pill.getBoundingClientRect().left - size/2 + rect.width/2}px`;
+    ripple.style.top = `${rect.top - pill.getBoundingClientRect().top - size/2 + rect.height/2}px`;
+    
+    pill.appendChild(ripple);
+    
+    // Ubah Ikon Sementara (Visual Feedback)
+    const oldIcon = btn.innerHTML;
+    btn.innerHTML = `<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#00ffcc" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>`;
+    
+    setTimeout(() => {
+        ripple.remove();
+        btn.innerHTML = oldIcon;
+    }, 600);
+                      }
     </script>
 </body>
 </html>
