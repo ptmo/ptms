@@ -1,0 +1,590 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Premium L2 Explorer</title>
+    <!-- Menggunakan Ethers.js versi 6 via CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ethers/6.11.1/ethers.umd.min.js"></script>
+    <style>
+        :root {
+            --bg-abyss: #070709;
+            --glass-bg: rgba(20, 20, 25, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.05);
+            --glass-hover: rgba(0, 255, 204, 0.15);
+            --text-main: #f8f9fa;
+            --text-muted: #8b949e;
+            --accent-cyan: #00ffcc;
+        }
+
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+
+        body {
+            background-color: var(--bg-abyss);
+            color: var(--text-main);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            padding: 2rem 1rem;
+            overflow-x: hidden;
+            background-image: radial-gradient(circle at 50% 0%, #121c22 0%, var(--bg-abyss) 60%);
+            perspective: 1000px;
+        }
+
+        .explorer-dashboard { width: 100%; max-width: 1100px; }
+        .dashboard-header h1 { font-size: 1.4rem; display: flex; align-items: center; gap: 10px; margin-bottom: 2rem; }
+        .pulse-dot { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 12px var(--accent-cyan); animation: pulse 2s infinite ease-in-out; }
+
+        /* === OMNI-SEARCH & MARKET DATA BAR === */
+        .top-dashboard-section { display: flex; flex-direction: column; gap: 1.5rem; margin-bottom: 2rem; width: 100%; transform-style: preserve-3d; }
+        .market-data-panel { display: flex; justify-content: flex-start; gap: 2rem; padding: 0 0.5rem; transform: translateZ(10px); }
+        .market-item { display: flex; flex-direction: column; gap: 4px; }
+        .m-label { font-size: 0.65rem; color: var(--text-muted); letter-spacing: 1.5px; }
+        .m-value { font-size: 1.1rem; font-weight: 600; font-family: monospace; color: #fff; display: flex; align-items: center; gap: 8px; }
+        .m-change.positive { color: var(--accent-cyan); font-size: 0.8rem; background: rgba(0, 255, 204, 0.1); padding: 2px 6px; border-radius: 4px; transition: all 0.3s;}
+        .m-change.negative { color: #ff4444; font-size: 0.8rem; background: rgba(255, 68, 68, 0.1); padding: 2px 6px; border-radius: 4px; transition: all 0.3s;}
+        .sync-active { color: #f5a623; animation: blink 1.5s infinite; }
+        @keyframes blink { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+
+        .search-container { width: 100%; transform: translateZ(20px); }
+        .search-wrapper { position: relative; width: 100%; height: 60px; background: rgba(10, 10, 15, 0.6); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 16px; backdrop-filter: blur(10px); overflow: hidden; transition: all 0.3s ease; }
+        .search-wrapper:focus-within { border-color: var(--accent-cyan); box-shadow: 0 0 20px rgba(0, 255, 204, 0.2), inset 0 0 10px rgba(0, 255, 204, 0.1); }
+        .search-icon { position: absolute; left: 20px; top: 50%; transform: translateY(-50%); width: 20px; height: 20px; color: var(--text-muted); transition: color 0.3s; }
+        .search-wrapper:focus-within .search-icon { color: var(--accent-cyan); }
+        .omni-search { width: 100%; height: 100%; background: transparent; border: none; padding: 0 20px 0 55px; color: #fff; font-size: 1rem; font-family: monospace; outline: none; }
+        .omni-search::placeholder { color: rgba(255, 255, 255, 0.3); font-family: 'Inter', sans-serif; }
+
+        .scan-line { position: absolute; left: -100%; top: 0; width: 50%; height: 100%; background: linear-gradient(90deg, transparent, rgba(0, 255, 204, 0.4), transparent); pointer-events: none; opacity: 0; }
+        .search-wrapper.scanning .scan-line { opacity: 1; animation: sciFiScan 1.2s cubic-bezier(0.86, 0, 0.07, 1) infinite; }
+        @keyframes sciFiScan { 0% { left: -50%; } 100% { left: 100%; } }
+
+        /* === BENTO BOX GRID SYSTEM === */
+        .bento-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 1.25rem; }
+        .card-visualizer { grid-column: span 2; min-height: 260px; padding: 0 !important; overflow: hidden; justify-content: flex-start !important; }
+        .card-tps { grid-column: span 1; }
+        .card-gas { grid-column: span 1; }
+        .card-feed { grid-column: span 2; }
+        .card-wide { grid-column: span 2; }
+
+        .bento-card { background: var(--glass-bg); border: 1px solid var(--glass-border); border-radius: 24px; padding: 1.5rem; display: flex; flex-direction: column; justify-content: center; backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); transition: border-color 0.4s ease, box-shadow 0.4s ease, transform 0.1s; transform-style: preserve-3d; }
+        .bento-card:hover { border-color: var(--glass-hover); box-shadow: 0 10px 40px rgba(0,0,0,0.5); }
+
+        .label { font-size: 0.8rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; transform: translateZ(20px); }
+        .value { font-size: 2.8rem; font-weight: 700; transform: translateZ(30px); }
+        .value .unit { font-size: 1rem; color: var(--text-muted); font-weight: 400; }
+        .gradient-text { background: linear-gradient(90deg, #fff, var(--accent-cyan)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+
+        /* Canvas & Tooltip */
+        .canvas-container { position: relative; width: 100%; height: 100%; }
+        #nodeCanvas { width: 100%; height: 100%; cursor: crosshair; }
+        .card-header { position: absolute; top: 1.5rem; left: 1.5rem; z-index: 2; pointer-events: none; }
+        .glass-tooltip { position: absolute; background: rgba(5, 5, 8, 0.8); border: 1px solid var(--accent-cyan); border-radius: 12px; padding: 1rem; width: 180px; backdrop-filter: blur(10px); opacity: 0; transform: translate(-50%, -120%) scale(0.9); transition: all 0.3s cubic-bezier(0.16, 1, 0.3, 1); pointer-events: none; z-index: 10; }
+        .glass-tooltip.show { opacity: 1; transform: translate(-50%, -120%) scale(1); }
+        .tt-head { display: flex; justify-content: space-between; border-bottom: 1px solid rgba(255,255,255,0.1); padding-bottom: 5px; margin-bottom: 8px; }
+        .badge { font-size: 0.6rem; background: rgba(0,255,204,0.15); color: var(--accent-cyan); padding: 2px 6px; border-radius: 4px; }
+        .tt-hash { font-family: monospace; font-size: 0.75rem; color: var(--text-muted); }
+        @keyframes pulse { 0%, 100% { opacity: 0.5; transform: scale(0.9); } 50% { opacity: 1; transform: scale(1.1); box-shadow: 0 0 15px var(--accent-cyan); } }
+
+        /* === LIVE TRANSACTION FEED === */
+        .card-header-feed { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem; transform: translateZ(20px); }
+        .live-indicator { width: 8px; height: 8px; background: var(--accent-cyan); border-radius: 50%; box-shadow: 0 0 10px var(--accent-cyan); animation: pulse 1.5s infinite ease-in-out; }
+        .tx-feed-container { display: flex; flex-direction: column; gap: 0.6rem; overflow: hidden; height: 600px; position: relative; transform: translateZ(25px); }
+
+        /* === DETAIL TRANSAKSI & BADGES (Fixed Layout) === */
+        .tx-row { display: flex; justify-content: space-between; align-items: center; gap: 10px; background: rgba(255, 255, 255, 0.02); border: 1px solid rgba(255, 255, 255, 0.04); padding: 0.7rem 1.2rem; border-radius: 12px; animation: slideInDown 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .tx-info { display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+        .tx-hash-wrap { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+        .tx-hash-link { font-family: monospace; font-size: 0.85rem; color: var(--accent-cyan); text-decoration: none; letter-spacing: 0.5px; transition: text-shadow 0.3s; }
+        .tx-hash-link:hover { text-shadow: 0 0 10px rgba(0, 255, 204, 0.5); }
+        .tx-time { font-size: 0.7rem; color: var(--text-muted); }
+        .tx-amount { font-family: monospace; font-weight: 600; font-size: 0.9rem; color: #fff; }
+
+        .badge-group { display: flex; align-items: center; gap: 6px; }
+        .tx-block { font-size: 0.65rem; color: var(--text-muted); background: rgba(255, 255, 255, 0.05); padding: 3px 6px; border-radius: 4px; letter-spacing: 0.5px; white-space: nowrap; border: 1px solid transparent; }
+        .tx-details { display: flex; flex-direction: column; align-items: flex-end; gap: 6px; flex-shrink: 0; }
+        .tx-badge { font-size: 0.65rem; font-weight: 600; padding: 3px 6px; border-radius: 4px; text-transform: uppercase; letter-spacing: 0.5px; border: 1px solid transparent; white-space: nowrap; }
+
+        .type-send { background: rgba(0, 255, 136, 0.1); color: #00ff88; border-color: rgba(0, 255, 136, 0.2); }
+        .type-deploy { background: rgba(187, 102, 255, 0.1); color: #bb66ff; border-color: rgba(187, 102, 255, 0.2); }
+        .type-claim { background: rgba(255, 170, 0, 0.1); color: #ffaa00; border-color: rgba(255, 170, 0, 0.2); }
+        .type-approve { background: rgba(0, 204, 255, 0.1); color: #00ccff; border-color: rgba(0, 204, 255, 0.2); }
+        .type-call { background: rgba(139, 148, 158, 0.1); color: var(--text-muted); border-color: rgba(139, 148, 158, 0.2); }
+
+        @keyframes slideInDown { 0% { opacity: 0; transform: translateY(-20px); } 100% { opacity: 1; transform: translateY(0); } }
+        .tx-row.fade-out { animation: fadeOutDown 0.4s ease forwards; }
+        @keyframes fadeOutDown { to { opacity: 0; transform: translateY(20px); } }
+
+        /* SPA Buttons */
+        .back-btn { margin-top: 2rem; padding: 10px 20px; background: rgba(0,255,204,0.1); border: 1px solid var(--accent-cyan); color: var(--accent-cyan); border-radius: 8px; cursor: pointer; transition: 0.3s; width: fit-content; font-weight: 600; }
+        .back-btn:hover { background: rgba(0,255,204,0.3); }
+
+        /* === Mobile Responsiveness === */
+        @media (max-width: 600px) {
+            body { padding: 1rem; }
+            .bento-grid { gap: 1rem; }
+            .bento-card { transform: none !important; }
+            .card-visualizer { min-height: 200px; }
+            .value { font-size: 1.8rem; } 
+            .tx-feed-container { height: 600px; } 
+            .tx-hash-link { font-size: 0.75rem; }
+            .tx-row { padding: 0.6rem 0.8rem; }
+            .market-data-panel { flex-wrap: wrap; gap: 1rem; }
+            .search-wrapper { height: 50px; }
+            .omni-search { font-size: 0.85rem; padding-left: 45px; }
+            .search-icon { left: 15px; width: 18px; }
+            .tx-block, .tx-badge { font-size: 0.55rem; padding: 2px 4px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="explorer-dashboard">
+        <header class="dashboard-header">
+            <h1>L2 Explorer <span class="pulse-dot"></span></h1>
+        </header>
+
+        <!-- === TOP DATA BAR & SEARCH === -->
+        <div class="top-dashboard-section tilt-effect">
+            <div class="market-data-panel">
+                <div class="market-item">
+                    <span class="m-label">NATIVE TOKEN (ETH)</span>
+                    <span class="m-value"><span id="market-price-val">Loading...</span> <span class="m-change" id="market-change">0.0%</span></span>
+                </div>
+                <div class="market-item">
+                    <span class="m-label">MARKET CAP</span>
+                    <span class="m-value" id="market-cap-val">$0</span>
+                </div>
+                <div class="market-item">
+                    <span class="m-label">L1 SYNC STATUS</span>
+                    <span class="m-value sync-active" id="sync-status">Connecting...</span>
+                </div>
+            </div>
+
+            <div class="search-container">
+                <div class="search-wrapper">
+                    <svg class="search-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <circle cx="11" cy="11" r="8"></circle>
+                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                    </svg>
+                    <input type="text" class="omni-search" placeholder="Search by Txn Hash / Block / Address / ENS..." id="searchInput">
+                    <div class="scan-line"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ========================================== -->
+        <!-- PANEL 1: DASHBOARD UTAMA (Tampil Default)  -->
+        <!-- ========================================== -->
+        <main class="bento-grid" id="panel-dashboard">
+            <div class="bento-card card-visualizer tilt-effect">
+                <div class="card-header"><span class="label">Live Network Nodes</span></div>
+                <div class="canvas-container">
+                    <canvas id="nodeCanvas"></canvas>
+                    <div id="nodeTooltip" class="glass-tooltip">
+                        <div class="tt-head"><span id="tt-block">#0</span> <span class="badge">Finalized</span></div>
+                        <div class="tt-body">
+                            <div>Tx: <span id="tt-tx">0</span></div>
+                            <div class="tt-hash" id="tt-hash">0x...</div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="bento-card card-tps tilt-effect">
+                <span class="label">Live TPS</span>
+                <h2 class="value gradient-text" id="tps-value">0</h2>
+            </div>
+
+            <div class="bento-card card-gas tilt-effect">
+                <span class="label">Avg Gas Fee</span>
+                <h2 class="value" id="gas-value">0.00 <span class="unit">Gwei</span></h2>
+            </div>
+
+            <div class="bento-card card-feed tilt-effect">
+                <div class="card-header-feed">
+                    <span class="label">Live Transactions</span>
+                    <div class="live-indicator"></div>
+                </div>
+                <div class="tx-feed-container" id="tx-feed">
+                    <!-- Data transaksi disuntik via JS -->
+                </div>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- PANEL 2: DETAIL TRANSAKSI (SPA)            -->
+        <!-- ========================================== -->
+        <main class="bento-grid" id="panel-tx-detail" style="display: none;">
+            <div class="bento-card card-wide tilt-effect">
+                <span class="label">Transaction Details</span>
+                <h2 class="value" id="detail-tx-hash" style="font-size: 1.2rem; word-break: break-all;">0x...</h2>
+                <div class="tx-details-content" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <div><span class="label">Status:</span> <span id="detail-tx-status">...</span></div>
+                    <div><span class="label">Block:</span> <span id="detail-tx-block" style="color: #fff;">...</span></div>
+                    <div><span class="label">Value:</span> <span id="detail-tx-value" style="color: #fff; font-weight: 600;">...</span></div>
+                </div>
+                <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- PANEL 3: DETAIL ADDRESS/CONTRACT (SPA)     -->
+        <!-- ========================================== -->
+        <main class="bento-grid" id="panel-address-detail" style="display: none;">
+            <div class="bento-card card-wide tilt-effect">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                    <span class="tx-badge type-call" id="detail-address-type">Wallet</span>
+                    <span class="label" style="margin-bottom: 0;">Address Details</span>
+                </div>
+                <h2 class="value" id="detail-address-hash" style="font-size: 1.2rem; word-break: break-all;">0x...</h2>
+                <div style="margin-top: 1.5rem;">
+                    <span class="label">ETH Balance:</span>
+                    <h2 class="value gradient-text" id="detail-address-balance">0.00</h2>
+                </div>
+                <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+            </div>
+        </main>
+
+        <!-- ========================================== -->
+        <!-- PANEL 4: DETAIL BLOCK (SPA)                -->
+        <!-- ========================================== -->
+        <main class="bento-grid" id="panel-block-detail" style="display: none;">
+            <div class="bento-card card-wide tilt-effect">
+                <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 1rem;">
+                    <span class="tx-badge type-deploy">Block</span>
+                    <span class="label" style="margin-bottom: 0;">Block Details</span>
+                </div>
+                <h2 class="value" id="detail-block-number" style="font-size: 2rem;">#0</h2>
+                <div class="tx-details-content" style="margin-top: 1.5rem; display: flex; flex-direction: column; gap: 1rem;">
+                    <div><span class="label">Block Hash:</span> <span id="detail-block-hash" style="font-family: monospace; color: var(--text-muted); font-size: 0.9rem; word-break: break-all;">0x...</span></div>
+                    <div><span class="label">Transactions:</span> <span id="detail-block-txcount" style="color: #fff; font-weight: 600;">0</span> txs</div>
+                    <div><span class="label">Timestamp:</span> <span id="detail-block-time" style="color: #fff;">...</span></div>
+                </div>
+                <button class="back-btn" onclick="goHome()">Back to Dashboard</button>
+            </div>
+        </main>
+
+    </div>
+
+    <script>
+        // ==========================================
+        // FUNGSI KEMBALI KE DASHBOARD (SPA ROUTING)
+        // ==========================================
+        window.goHome = function() {
+            document.getElementById('panel-tx-detail').style.display = 'none';
+            document.getElementById('panel-address-detail').style.display = 'none';
+            document.getElementById('panel-block-detail').style.display = 'none';
+            document.getElementById('panel-dashboard').style.display = 'grid';
+        }
+
+        document.addEventListener("DOMContentLoaded", async () => {
+            // ==========================================
+            // 1. INISIALISASI WEB3 (Ethers.js v6)
+            // ==========================================
+            const RPC_URL = "wss://base-rpc.publicnode.com"; 
+            const provider = new ethers.WebSocketProvider(RPC_URL);
+
+            const tpsEl = document.getElementById("tps-value");
+            const gasEl = document.getElementById("gas-value");
+            const txFeed = document.getElementById("tx-feed");
+            const syncStatusEl = document.getElementById("sync-status");
+
+            // ==========================================
+            // 2. DATA MARKET API (CoinGecko)
+            // ==========================================
+            async function fetchLiveMarketData() {
+                try {
+                    const response = await fetch('https://api.coingecko.com/api/v3/simple/price?ids=ethereum&vs_currencies=usd&include_market_cap=true&include_24hr_change=true');
+                    const data = await response.json();
+                    const coin = data.ethereum;
+
+                    document.getElementById('market-price-val').innerText = `$${coin.usd.toLocaleString('en-US', {minimumFractionDigits: 2, maximumFractionDigits: 2})}`;
+                    
+                    const marketCap = coin.usd_market_cap;
+                    let capFormat = '$' + marketCap.toLocaleString();
+                    if (marketCap >= 1e12) capFormat = '$' + (marketCap / 1e12).toFixed(2) + 'T';
+                    else if (marketCap >= 1e9) capFormat = '$' + (marketCap / 1e9).toFixed(2) + 'B';
+                    document.getElementById('market-cap-val').innerText = capFormat;
+
+                    const changeEl = document.getElementById('market-change');
+                    changeEl.innerText = `${coin.usd_24h_change > 0 ? '+' : ''}${coin.usd_24h_change.toFixed(2)}%`;
+                    changeEl.className = `m-change ${coin.usd_24h_change < 0 ? 'negative' : 'positive'}`;
+                } catch (e) { console.log("CoinGecko API rate limit."); }
+            }
+            fetchLiveMarketData();
+            setInterval(fetchLiveMarketData, 60000);
+
+            // ==========================================
+            // 3. ANIMASI LERP (Transisi Angka Halus)
+            // ==========================================
+            const lerp = (start, end, factor) => start + (end - start) * factor;
+            let currentTps = 0, targetTps = 0;
+            let currentGas = 0, targetGas = 0;
+
+            function animateNumbers() {
+                currentTps = lerp(currentTps, targetTps, 0.05);
+                currentGas = lerp(currentGas, targetGas, 0.05);
+                tpsEl.innerText = Math.floor(currentTps).toLocaleString();
+                gasEl.innerHTML = `${currentGas.toFixed(4)} <span class="unit">Gwei</span>`;
+                requestAnimationFrame(animateNumbers);
+            }
+            animateNumbers();
+
+            // ==========================================
+            // 4. CANVAS NODE VISUALIZER ENGINE
+            // ==========================================
+            const canvas = document.getElementById("nodeCanvas");
+            const ctx = canvas.getContext("2d");
+            const tooltip = document.getElementById("nodeTooltip");
+            
+            function resizeCanvas() {
+                canvas.width = canvas.parentElement.clientWidth;
+                canvas.height = canvas.parentElement.clientHeight;
+            }
+            window.addEventListener('resize', resizeCanvas);
+            resizeCanvas();
+
+            let nodes = [];
+            const nodeSpacing = 120;
+
+            class NodeBlock {
+                constructor(index, blockData) {
+                    this.targetX = canvas.width - 60 - (index * nodeSpacing);
+                    this.x = this.targetX + 150;
+                    this.y = canvas.height / 2 + 10;
+                    this.radius = 0;
+                    this.targetRadius = 6;
+                    this.data = blockData;
+                }
+                update() {
+                    this.x = lerp(this.x, this.targetX, 0.06);
+                    this.radius = lerp(this.radius, this.targetRadius, 0.1);
+                }
+                draw() {
+                    ctx.beginPath();
+                    ctx.arc(this.x, this.y, this.radius, 0, Math.PI * 2);
+                    ctx.shadowBlur = 12; ctx.shadowColor = "#00ffcc";
+                    ctx.fillStyle = "#00ffcc"; ctx.fill();
+                    ctx.shadowBlur = 0;
+                }
+            }
+
+            function renderCanvas() {
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.beginPath(); ctx.strokeStyle = "rgba(0, 255, 204, 0.25)"; ctx.lineWidth = 2;
+                nodes.forEach((n, i) => { n.update(); if (i === 0) ctx.moveTo(n.x, n.y); else ctx.lineTo(n.x, n.y); });
+                ctx.stroke();
+                nodes.forEach(n => n.draw());
+                requestAnimationFrame(renderCanvas);
+            }
+            renderCanvas();
+
+            canvas.addEventListener("mousemove", (e) => {
+                const rect = canvas.getBoundingClientRect();
+                const mx = e.clientX - rect.left, my = e.clientY - rect.top;
+                let found = false;
+
+                nodes.forEach(n => {
+                    if (Math.hypot(n.x - mx, n.y - my) < 25) {
+                        found = true; n.targetRadius = 10;
+                        document.getElementById("tt-block").innerText = `#${n.data.number}`;
+                        document.getElementById("tt-tx").innerText = n.data.txCount;
+                        document.getElementById("tt-hash").innerText = `${n.data.hash.substring(0, 10)}...`;
+                        tooltip.style.left = `${n.x}px`; tooltip.style.top = `${n.y}px`;
+                        tooltip.classList.add("show");
+                    } else { n.targetRadius = 6; }
+                });
+                if (!found) tooltip.classList.remove("show");
+            });
+
+            // ==========================================
+            // 5. LIVE BLOCKCHAIN FEED (REAL-TIME ENGINE)
+            // ==========================================
+            async function fetchNetworkMacroData() {
+                try {
+                    const feeData = await provider.getFeeData();
+                    targetGas = parseFloat(ethers.formatUnits(feeData.gasPrice, "gwei"));
+                    if(syncStatusEl) { syncStatusEl.innerText = "Synced"; syncStatusEl.style.color = "#00ffcc"; syncStatusEl.style.animation = "none"; }
+                } catch (e) {
+                    if(syncStatusEl) { syncStatusEl.innerText = "Reconnecting..."; syncStatusEl.style.color = "#ff4444"; }
+                }
+            }
+
+            function spawnLiveTransactionUI(tx, blockNumber) {
+                const shortHash = `${tx.hash.substring(0, 8)}...${tx.hash.substring(tx.hash.length - 6)}`;
+                const amountEth = ethers.formatEther(tx.value);
+                const displayAmount = parseFloat(amountEth) > 0 ? `<span style="color:#fff;">${parseFloat(amountEth).toFixed(4)} ETH</span>` : ``; 
+
+                let txType = "Contract Call", badgeClass = "type-call";
+                if (tx.to === null) { txType = "Deploy Contract"; badgeClass = "type-deploy"; } 
+                else if (tx.data === "0x") { txType = "Send ETH"; badgeClass = "type-send"; } 
+                else {
+                    const selector = tx.data.substring(0, 10);
+                    switch (selector) {
+                        case "0xa9059cbb": txType = "Transfer"; badgeClass = "type-send"; break;
+                        case "0x095ea7b3": txType = "Approve"; badgeClass = "type-approve"; break;
+                        case "0x4e71d92d": case "0x34e19907": case "0xb460af94": txType = "Claim"; badgeClass = "type-claim"; break;
+                        case "0x38ed1739": case "0x7ff36ab5": txType = "Swap"; badgeClass = "type-claim"; break;
+                    }
+                }
+
+                const row = document.createElement("div");
+                row.className = "tx-row";
+                row.innerHTML = `
+                    <div class="tx-info">
+                        <div class="tx-hash-wrap">
+                            <a href="javascript:void(0)" onclick="document.getElementById('searchInput').value='${tx.hash}'; document.getElementById('searchInput').focus();" class="tx-hash-link">${shortHash}</a>
+                        </div>
+                        <span class="tx-time">Just now</span>
+                    </div>
+                    <div class="tx-details">
+                        <div class="badge-group">
+                            <span class="tx-block">Block #${blockNumber}</span>
+                            <span class="tx-badge ${badgeClass}">${txType}</span>
+                        </div>
+                        <div class="tx-amount">${displayAmount}</div>
+                    </div>
+                `;
+                txFeed.prepend(row);
+                if (txFeed.children.length > 10) {
+                    const lastTx = txFeed.lastElementChild;
+                    lastTx.classList.add("fade-out");
+                    setTimeout(() => { if (lastTx.parentNode) lastTx.remove(); }, 400);
+                }
+            }
+
+            async function processNewBlock(blockNumber) {
+                try {
+                    const block = await provider.getBlock(blockNumber, true);
+                    if (block && block.prefetchedTransactions) {
+                        targetTps = Math.floor(block.prefetchedTransactions.length / 2); 
+                        
+                        nodes.forEach(n => n.targetX -= nodeSpacing);
+                        nodes.unshift(new NodeBlock(0, { number: block.number, hash: block.hash, txCount: block.prefetchedTransactions.length }));
+                        if (nodes.length > 8) nodes.pop();
+
+                        const displayTxs = block.prefetchedTransactions.slice(0, 4);
+                        displayTxs.forEach((tx, index) => { setTimeout(() => { spawnLiveTransactionUI(tx, block.number); }, index * 400); });
+                    }
+                } catch (e) { console.error(`Gagal memproses blok #${blockNumber}`); }
+            }
+
+            fetchNetworkMacroData();
+            provider.getBlockNumber().then(processNewBlock);
+            provider.on("block", (blockNumber) => { fetchNetworkMacroData(); processNewBlock(blockNumber); });
+
+            // ==========================================
+            // 6. OMNI-SEARCH ENGINE (DENGAN SPA INTERNAL ROUTING)
+            // ==========================================
+            const searchInput = document.getElementById('searchInput');
+            const searchWrapper = document.querySelector('.search-wrapper');
+
+            function getSearchType(query) {
+                if (/^0x([A-Fa-f0-9]{64})$/.test(query)) return 'tx';
+                if (/^0x([A-Fa-f0-9]{40})$/.test(query)) return 'address';
+                if (/^\d+$/.test(query)) return 'block';
+                if (/.*\.eth$/.test(query)) return 'ens';
+                return 'unknown';
+            }
+
+            searchInput.addEventListener('keypress', function (e) {
+                if (e.key === 'Enter') {
+                    const query = this.value.trim();
+                    if (query) {
+                        searchWrapper.classList.add('scanning');
+                        searchInput.blur();
+                        
+                        const searchType = getSearchType(query);
+
+                        setTimeout(async () => {
+                            searchWrapper.classList.remove('scanning');
+                            
+                            const pDash = document.getElementById('panel-dashboard');
+                            const pTx = document.getElementById('panel-tx-detail');
+                            const pAddr = document.getElementById('panel-address-detail');
+                            const pBlock = document.getElementById('panel-block-detail');
+
+                            pDash.style.display = 'none'; pTx.style.display = 'none'; pAddr.style.display = 'none'; pBlock.style.display = 'none';
+
+                            switch (searchType) {
+                                case 'tx':
+                                    pTx.style.display = 'grid';
+                                    document.getElementById('detail-tx-hash').innerText = "Loading...";
+                                    try {
+                                        const txData = await provider.getTransaction(query);
+                                        const txReceipt = await provider.getTransactionReceipt(query);
+                                        if(!txData) throw new Error("Not Found");
+                                        document.getElementById('detail-tx-hash').innerText = query;
+                                        document.getElementById('detail-tx-status').innerText = txReceipt && txReceipt.status === 1 ? "Success" : "Failed / Pending";
+                                        document.getElementById('detail-tx-status').style.color = txReceipt && txReceipt.status === 1 ? "#00ffcc" : "#ff4444";
+                                        document.getElementById('detail-tx-block').innerText = txData.blockNumber;
+                                        document.getElementById('detail-tx-value').innerText = `${ethers.formatEther(txData.value)} ETH`;
+                                    } catch (e) { document.getElementById('detail-tx-hash').innerText = "Transaction Not Found."; }
+                                    break;
+
+                                case 'ens':
+                                case 'address':
+                                    pAddr.style.display = 'grid';
+                                    document.getElementById('detail-address-hash').innerText = "Resolving...";
+                                    try {
+                                        let targetAddr = query;
+                                        if(searchType === 'ens') {
+                                            targetAddr = await provider.resolveName(query);
+                                            if(!targetAddr) throw new Error("ENS Not Found");
+                                        }
+                                        document.getElementById('detail-address-hash').innerText = targetAddr;
+                                        const isContract = (await provider.getCode(targetAddr)) !== "0x";
+                                        const badge = document.getElementById('detail-address-type');
+                                        badge.innerText = isContract ? "Contract" : "Wallet";
+                                        badge.className = isContract ? "tx-badge type-deploy" : "tx-badge type-call";
+                                        const bal = await provider.getBalance(targetAddr);
+                                        document.getElementById('detail-address-balance').innerText = `${parseFloat(ethers.formatEther(bal)).toFixed(4)} ETH`;
+                                    } catch (e) { document.getElementById('detail-address-hash').innerText = "Address Not Found"; }
+                                    break;
+
+                                case 'block':
+                                    pBlock.style.display = 'grid';
+                                    document.getElementById('detail-block-number').innerText = "Loading...";
+                                    try {
+                                        const bData = await provider.getBlock(parseInt(query), false);
+                                        if(!bData) throw new Error("Block Not Found");
+                                        document.getElementById('detail-block-number').innerText = `#${bData.number}`;
+                                        document.getElementById('detail-block-hash').innerText = bData.hash;
+                                        document.getElementById('detail-block-txcount').innerText = bData.transactions.length;
+                                        document.getElementById('detail-block-time').innerText = new Date(bData.timestamp * 1000).toLocaleString();
+                                    } catch (e) { document.getElementById('detail-block-number').innerText = "Block Not Found"; }
+                                    break;
+                                    
+                                default:
+                                    alert('Format tidak valid. Harap masukkan Hash, Address, atau Block.');
+                                    pDash.style.display = 'grid';
+                            }
+                            searchInput.value = '';
+                        }, 1000); 
+                    }
+                }
+            });
+
+            // ==========================================
+            // 7. EFEK KEDALAMAN 3D (TILT)
+            // ==========================================
+            const cards = document.querySelectorAll('.tilt-effect');
+            document.addEventListener("mousemove", (e) => {
+                if(window.innerWidth < 900) return; 
+                const xAxis = (window.innerWidth / 2 - e.pageX) / 50;
+                const yAxis = (window.innerHeight / 2 - e.pageY) / 50;
+                cards.forEach(card => card.style.transform = `rotateY(${xAxis}deg) rotateX(${yAxis}deg)`);
+            });
+
+            if (window.DeviceOrientationEvent) {
+                window.addEventListener('deviceorientation', (e) => {
+                    if(window.innerWidth >= 900) return;
+                    const tiltX = Math.max(-10, Math.min(10, e.beta - 45)) / 2;
+                    const tiltY = Math.max(-10, Math.min(10, e.gamma)) / 2;
+                    cards.forEach(card => card.style.transform = `rotateY(${tiltY}deg) rotateX(${-tiltX}deg)`);
+                });
+            }
+        });
+    </script>
+</body>
+</html>
