@@ -3,354 +3,249 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Developer Portofolio | Web & Web3</title>
+    <title>Developer Portofolio | Premium Web & Web3</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
     <style>
-        /* === Variabel & Reset === */
+        /* === 1. VARIABLES & RESET === */
         :root {
-            --bg-color: #05050a;
+            /* Warna Dasar Holographic & Glass */
+            --bg-base: #0f111a;
+            --glass-bg: rgba(25, 25, 35, 0.4);
+            --glass-border: rgba(255, 255, 255, 0.15);
+            --glass-highlight: rgba(255, 255, 255, 0.05);
+            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
+            
+            /* Teks & Aksen */
             --text-main: #ffffff;
-            --text-muted: #8b8b99;
-            --accent: #00f0ff;
-            --accent-glow: rgba(0, 240, 255, 0.3);
-            --card-bg: rgba(255, 255, 255, 0.03);
-            --card-border: rgba(255, 255, 255, 0.05);
-            --bg-color: #05050a; /* Pastikan background tetap gelap total */
-    /* Warna Futuristik Baru (Aura/Iridescent) */
-    --futuristic-cyan: rgba(0, 240, 255, 0.2);   /* Soft Teal/Cyan */
-    --futuristic-purple: rgba(148, 0, 255, 0.15); /* Soft Violet/Purple */
-    
+            --text-muted: rgba(255, 255, 255, 0.6);
+            --accent: #00f2fe;
+            --bezier-smooth: cubic-bezier(0.25, 1, 0.5, 1);
+
+            /* Warna Cursor Glow (Futuristik) */
+            --futuristic-cyan: rgba(0, 240, 255, 0.2);   
+            --futuristic-purple: rgba(148, 0, 255, 0.15); 
         }
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Outfit', sans-serif;
-            background-color: var(--bg-color);
+            background-color: var(--bg-base);
             color: var(--text-main);
             overflow-x: hidden;
             line-height: 1.6;
         }
 
-        /* === Efek Cahaya Kursor Aura Futuristik (Premium LERP + Multi-layer) === */
-.cursor-glow {
-    position: fixed;
-    top: 0; left: 0;
-    /* Ukuran wadah dibuat sedikit lebih besar untuk menampung blur yang luas */
-    width: 600px; 
-    height: 600px;
-    pointer-events: none;
-    z-index: -1; /* Tetap di belakang konten */
-    transform: translate(-50%, -50%); /* Sentralisasi kursor */
-    will-change: transform; /* Optimasi performa LERP */
-    backface-visibility: hidden;
-}
+        /* === 2. HOLOGRAPHIC BACKGROUND (GLOWING ORBS) === */
+        .holographic-bg { 
+            position: fixed; /* Diubah ke fixed agar ikut saat di scroll */
+            top: 0; left: 0; 
+            width: 100vw; height: 100vh; 
+            overflow: hidden; 
+            z-index: -2; /* Paling belakang */
+            background: var(--bg-base); 
+            pointer-events: none;
+        }
+        .orb { 
+            position: absolute; 
+            border-radius: 50%; 
+            filter: blur(60px); 
+            opacity: 0.6; 
+            animation: floatOrbs 20s infinite ease-in-out alternate; 
+            will-change: transform;
+        }
+        .orb-1 { width: 300px; height: 300px; background: #4facfe; top: -50px; left: -100px; animation-delay: 0s; }
+        .orb-2 { width: 400px; height: 400px; background: #7f00ff; bottom: -100px; right: -50px; animation-delay: -5s; }
+        .orb-3 { width: 250px; height: 250px; background: #ff007f; top: 40%; left: 30%; animation-duration: 25s; }
 
-/* Wadah utama untuk memastikan blur tidak memotong *overflow* */
-.cursor-glow::before,
-.cursor-glow::after {
-    content: '';
-    position: absolute;
-    border-radius: 50%;
-    /* Gunakan blur besar untuk kelembutan maksimal (softness) */
-    filter: blur(70px); 
-    will-change: transform;
-}
-
-/* Lapisan 1: Warna Cyan/Teal (Core) - Sedikit lebih kecil & di tengah */
-.cursor-glow::before {
-    inset: 100px; /* Jarak dari tepi wadah */
-    background: radial-gradient(circle at center, var(--futuristic-cyan) 0%, transparent 65%);
-    opacity: 1;
-}
-
-/* Lapisan 2: Warna Violet/Purple (Aura Outer) - Lebih besar & menyebar */
-.cursor-glow::after {
-    inset: 0; /* Penuh mengisi wadah */
-    background: radial-gradient(circle at center, var(--futuristic-purple) 0%, transparent 70%);
-    /* Geser sedikit agar warnanya tidak bertumpuk sempurna, menciptakan efek Iridescent */
-    transform: translate(20px, 20px); 
-    opacity: 0.8;
-}
-
-        /* === Layout Container === */
-        .container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 0 2rem;
+        @keyframes floatOrbs {
+            0% { transform: translate(0, 0) scale(1); }
+            50% { transform: translate(30px, 50px) scale(1.1); }
+            100% { transform: translate(-20px, -40px) scale(0.9); }
         }
 
-        /* === Hero Section === */
-        .hero {
-            height: 100vh;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            position: relative;
+        /* === 3. EFEK CAHAYA KURSOR (PREMIUM LERP MULTI-LAYER) === */
+        .cursor-glow {
+            position: fixed;
+            top: 0; left: 0;
+            width: 600px; height: 600px;
+            pointer-events: none;
+            z-index: -1; /* Di atas orb, di bawah konten */
+            transform: translate(-50%, -50%);
+            will-change: transform;
+            backface-visibility: hidden;
         }
+        .cursor-glow::before,
+        .cursor-glow::after {
+            content: ''; position: absolute; border-radius: 50%;
+            filter: blur(70px); will-change: transform;
+        }
+        .cursor-glow::before {
+            inset: 100px; 
+            background: radial-gradient(circle at center, var(--futuristic-cyan) 0%, transparent 65%);
+            opacity: 1;
+        }
+        .cursor-glow::after {
+            inset: 0; 
+            background: radial-gradient(circle at center, var(--futuristic-purple) 0%, transparent 70%);
+            transform: translate(20px, 20px); 
+            opacity: 0.8;
+        }
+
+        /* === 4. STRUKTUR UTAMA === */
+        .container { max-width: 1200px; margin: 0 auto; padding: 0 2rem; position: relative; z-index: 1; }
+
+        .hero { height: 100vh; display: flex; flex-direction: column; justify-content: center; position: relative; }
         .hero h1 {
-            font-size: clamp(3rem, 8vw, 5rem);
-            font-weight: 800;
-            line-height: 1.1;
-            letter-spacing: -1px;
+            font-size: clamp(3rem, 8vw, 5rem); font-weight: 800; line-height: 1.1; letter-spacing: -1px;
             background: linear-gradient(90deg, #fff, var(--accent));
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            margin-bottom: 1rem;
+            -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin-bottom: 1rem;
         }
-        .hero p {
-            font-size: 1.2rem;
-            color: var(--text-muted);
-            max-width: 600px;
-            margin-bottom: 2rem;
-        }
+        .hero p { font-size: 1.2rem; color: var(--text-muted); max-width: 600px; margin-bottom: 2rem; }
 
-        /* === Tombol Standar Industri === */
+        /* Tombol Premium */
         .btn {
-            display: inline-block;
-            padding: 1rem 2.5rem;
-            background: rgba(255, 255, 255, 0.05);
+            display: inline-block; padding: 1rem 2.5rem;
+            background: var(--glass-highlight);
             border: 1px solid var(--accent);
             color: var(--accent);
-            text-decoration: none;
-            font-weight: 600;
-            border-radius: 50px;
-            transition: all 0.4s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            backdrop-filter: blur(10px);
-            cursor: pointer;
+            text-decoration: none; font-weight: 600; border-radius: 50px;
+            transition: all 0.4s var(--bezier-smooth);
+            backdrop-filter: blur(10px); cursor: pointer;
         }
         .btn:hover {
-            background: var(--accent);
-            color: var(--bg-color);
-            box-shadow: 0 0 20px var(--accent-glow);
-            transform: translateY(-3px);
+            background: var(--accent); color: var(--bg-base);
+            box-shadow: 0 0 20px rgba(0, 242, 254, 0.4); transform: translateY(-3px);
         }
 
-        /* === Grid Keahlian (Sesuai Standar Profesional) === */
-        .section-title {
-            font-size: 2.5rem;
-            margin: 6rem 0 3rem;
-            text-align: center;
+        /* === 5. KARTU GLASSMORPHISM (Untuk Keahlian & Portofolio) === */
+        .section-title { font-size: 2.5rem; margin: 6rem 0 3rem; text-align: center; }
+        .grid-layout {
+            display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+            gap: 2rem; margin-bottom: 6rem;
         }
-        .services-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
-            gap: 2rem;
-            margin-bottom: 6rem;
+        
+        .glass-card {
+            background: var(--glass-bg);
+            border: 1px solid var(--glass-border);
+            box-shadow: var(--glass-shadow);
+            padding: 2.5rem; border-radius: 20px;
+            backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px);
+            transition: all 0.5s var(--bezier-smooth);
+            position: relative; overflow: hidden;
         }
-        .card {
-            background: var(--card-bg);
-            border: 1px solid var(--card-border);
-            padding: 2.5rem;
-            border-radius: 20px;
-            backdrop-filter: blur(12px);
-            transition: all 0.4s ease;
-            position: relative;
-            overflow: hidden;
+        .glass-card:hover {
+            transform: translateY(-10px); border-color: var(--accent);
+            box-shadow: inset 0 0 20px rgba(0, 242, 254, 0.05), 0 10px 40px rgba(0, 0, 0, 0.6);
         }
-        .card:hover {
-            transform: translateY(-10px);
-            border-color: rgba(0, 240, 255, 0.3);
-            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
-        }
-        .card h3 {
-            font-size: 1.5rem;
-            margin-bottom: 1rem;
-            color: var(--accent);
-        }
-        .card p {
-            color: var(--text-muted);
-            font-size: 1rem;
-        }
+        .glass-card h3 { font-size: 1.4rem; margin-bottom: 1rem; color: var(--text-main); }
+        .glass-card p { color: var(--text-muted); font-size: 0.95rem; margin-bottom: 1.5rem; }
 
-        /* === Animasi Scroll === */
-        .reveal {
-            opacity: 0;
-            transform: translateY(40px);
-            transition: all 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-        }
-        .reveal.active {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        /* === Responsif Mobile === */
-        @media (max-width: 768px) {
-            .services-grid { grid-template-columns: 1fr; }
-            .hero { text-align: center; align-items: center; }
-        }
-
-        /* === Grid Portofolio === */
-        .portfolio-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-            gap: 2rem;
-            margin-bottom: 6rem;
-        }
-        .portfolio-card {
-            background: linear-gradient(145deg, rgba(255,255,255,0.02) 0%, rgba(255,255,255,0) 100%);
-            border: 1px solid var(--card-border);
-            padding: 2.5rem;
-            border-radius: 20px;
-            backdrop-filter: blur(12px);
-            transition: all 0.5s cubic-bezier(0.25, 0.46, 0.45, 0.94);
-            position: relative;
-            overflow: hidden;
-        }
-        .portfolio-card:hover {
-            transform: scale(1.02);
-            border-color: var(--accent);
-            box-shadow: inset 0 0 20px rgba(0, 240, 255, 0.05), 0 10px 40px rgba(0, 0, 0, 0.6);
-        }
-        .portfolio-card h3 {
-            font-size: 1.4rem;
-            margin-bottom: 1rem;
-            color: #fff;
-        }
-        .portfolio-card p {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-            margin-bottom: 1.5rem;
-        }
-        .tags {
-            display: flex;
-            flex-wrap: wrap;
-            gap: 0.5rem;
-        }
+        /* Tag Portofolio */
+        .tags { display: flex; flex-wrap: wrap; gap: 0.5rem; }
         .tag {
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--accent);
-            font-size: 0.8rem;
-            padding: 0.3rem 0.8rem;
-            border-radius: 50px;
-            border: 1px solid rgba(0, 240, 255, 0.2);
-            font-weight: 600;
+            background: rgba(0, 242, 254, 0.1); color: var(--accent);
+            font-size: 0.8rem; padding: 0.3rem 0.8rem;
+            border-radius: 50px; border: 1px solid rgba(0, 242, 254, 0.2); font-weight: 600;
         }
-        /* Kartu ke-5 dibuat full width untuk penekanan */
-        .full-width {
-            grid-column: 1 / -1;
-            text-align: center;
-            background: linear-gradient(145deg, rgba(0, 240, 255, 0.05) 0%, transparent 100%);
-        }
-        .full-width .tags {
-            justify-content: center;
+        .full-width { grid-column: 1 / -1; text-align: center; }
+        .full-width .tags { justify-content: center; }
+
+        /* === 6. ANIMASI SCROLL === */
+        .reveal { opacity: 0; transform: translateY(40px); transition: all 0.8s var(--bezier-smooth); }
+        .reveal.active { opacity: 1; transform: translateY(0); }
+
+        @media (max-width: 768px) {
+            .grid-layout { grid-template-columns: 1fr; }
+            .hero { text-align: center; align-items: center; }
         }
     </style>
 </head>
 <body>
 
-    <!-- Cahaya Kursor Background -->
+    <!-- Latar Belakang Holografik Orb -->
+    <div class="holographic-bg">
+        <div class="orb orb-1"></div>
+        <div class="orb orb-2"></div>
+        <div class="orb orb-3"></div>
+    </div>
+
+    <!-- Cahaya Kursor LERP -->
     <div class="cursor-glow" id="glow"></div>
 
     <div class="container">
-        <!-- Hero Bagian Atas -->
+        <!-- HERO SECTION -->
         <header class="hero reveal">
             <h1>Digital Architecture,<br>Elevated.</h1>
-            <p>Saya membangun sistem Website, Web App, dan DApp Web3 secara full-stack dengan fokus pada logika yang efisien dan antarmuka premium yang memanjakan mata.</p>
+            <p>Saya membangun sistem Website, Web App, dan DApp Web3 secara full-stack dengan fokus pada logika yang presisi dan antarmuka premium berstandar industri.</p>
             <div>
                 <a href="#contact" class="btn">Mulai Kolaborasi</a>
             </div>
         </header>
 
-        <!-- Grid Layanan/Keahlian -->
+        <!-- KEAHLIAN UTAMA -->
         <h2 class="section-title reveal">Keahlian Utama</h2>
-        <div class="services-grid">
-            <div class="card reveal">
+        <div class="grid-layout">
+            <div class="glass-card reveal">
                 <h3>Custom Web App</h3>
                 <p>Pengembangan aplikasi web berbasis data dengan arsitektur grid yang responsif, ringan, dan siap menangani trafik tinggi tanpa mengorbankan estetika.</p>
             </div>
-            <div class="card reveal">
+            <div class="glass-card reveal">
                 <h3>Web3 & DApp</h3>
-                <p>Integrasi blockchain, pengembangan smart contract, dan ekosistem desentralisasi dengan tingkat keamanan standar industri.</p>
+                <p>Integrasi blockchain, pengembangan smart contract, dan ekosistem desentralisasi dengan tingkat keamanan berlapis.</p>
             </div>
-            <div class="card reveal">
+            <div class="glass-card reveal">
                 <h3>Premium UI/UX</h3>
-                <p>Implementasi antarmuka pengguna dengan transisi yang sangat halus (smooth) dan efek pergerakan tingkat lanjut untuk pengalaman interaktif.</p>
+                <p>Implementasi antarmuka pengguna dengan transisi yang halus (smooth) dan desain glassmorphism tingkat lanjut.</p>
             </div>
         </div>
 
-        <!-- Grid Portofolio -->
+        <!-- PORTOFOLIO & SPESIALISASI -->
         <h2 class="section-title reveal">Portofolio & Spesialisasi</h2>
-        <div class="portfolio-grid">
-            
-            <!-- 1. Web Company & Institusi -->
-            <div class="portfolio-card reveal">
-                <h3>Website Profesional & Profil Bisnis</h3>
-                <p>Pengembangan website ultra-cepat untuk UMKM, profil perusahaan, *landing page* konversi tinggi, hingga portal institusi pendidikan/kampus. Desain modern, responsif, dan dioptimalkan untuk mesin pencari (SEO).</p>
-                <div class="tags">
-                    <span class="tag">Company Profile</span>
-                    <span class="tag">Landing Page</span>
-                    <span class="tag">Edu Portal</span>
-                </div>
+        <div class="grid-layout">
+            <div class="glass-card reveal">
+                <h3>Website & Company Profile</h3>
+                <p>Pengembangan website ultra-cepat untuk UMKM, profil perusahaan, *landing page* konversi tinggi, hingga portal institusi kampus.</p>
+                <div class="tags"><span class="tag">Company Profile</span><span class="tag">Landing Page</span></div>
             </div>
-
-            <!-- 2. Web App & Mobile APK -->
-            <div class="portfolio-card reveal">
-                <h3>Web App & Mobile App (APK)</h3>
-                <p>Membangun aplikasi interaktif berbasis web dan mobile dengan arsitektur CSS Grid yang presisi. Berpengalaman membuat logika kompleks seperti *game* Teka-Teki Silang (TTS) dengan UI/UX layar sentuh yang *smooth* dan responsif.</p>
-                <div class="tags">
-                    <span class="tag">PWA / APK</span>
-                    <span class="tag">Interactive UI</span>
-                    <span class="tag">CSS Grid Layout</span>
-                </div>
+            <div class="glass-card reveal">
+                <h3>Web App & Mobile APK</h3>
+                <p>Aplikasi interaktif berbasis web dan mobile. Berpengalaman membuat logika kompleks dengan UI/UX layar sentuh yang mulus.</p>
+                <div class="tags"><span class="tag">PWA / APK</span><span class="tag">Interactive UI</span></div>
             </div>
-
-            <!-- 3. DApp Web3 -->
-            <div class="portfolio-card reveal">
+            <div class="glass-card reveal">
                 <h3>Infrastruktur Web3 & DApp</h3>
-                <p>Pengembangan ekosistem desentralisasi berbasis *blockchain*. Mencakup pembuatan *smart contract*, infrastruktur Layer 2, hingga peluncuran token (*presale/claim* sistem) di jaringan seperti Solana (SPL) dengan keamanan tinggi.</p>
-                <div class="tags">
-                    <span class="tag">Smart Contract</span>
-                    <span class="tag">Token Presale</span>
-                    <span class="tag">Solana/EVM</span>
-                </div>
+                <p>Pembuatan *smart contract* dan peluncuran token (presale/claim) di jaringan blockchain dengan standar keamanan tinggi.</p>
+                <div class="tags"><span class="tag">Smart Contract</span><span class="tag">Token Presale</span></div>
             </div>
-
-            <!-- 4. TikTok Live Automation -->
-            <div class="portfolio-card reveal">
-                <h3>Sistem Automasi Live TikTok</h3>
-                <p>Menciptakan pengalaman *live stream* interaktif tanpa batas. Membangun *bot* AI 24/7, sistem *leaderboard* (Gacha) otomatis, pelacakan *reward* audiens premium, hingga generator sertifikat digital resolusi tinggi (*real-time*).</p>
-                <div class="tags">
-                    <span class="tag">Live Connector</span>
-                    <span class="tag">AI Bot</span>
-                    <span class="tag">Auto Leaderboard</span>
-                </div>
+            <div class="glass-card reveal">
+                <h3>Automasi Live TikTok</h3>
+                <p>Sistem AI bot 24/7, auto leaderboard, pelacakan *reward* audiens premium, hingga generator sertifikat digital resolusi tinggi.</p>
+                <div class="tags"><span class="tag">AI Bot</span><span class="tag">Auto Leaderboard</span></div>
             </div>
-
-            <!-- 5. Custom Request (Full Width) -->
-            <div class="portfolio-card reveal full-width">
+            <div class="glass-card reveal full-width">
                 <h3>Custom System Development</h3>
-                <p>Punya alur bisnis yang unik atau ide aplikasi yang belum pernah ada? Saya mengeksekusi sistem *custom* 100% sesuai kebutuhan spesifik Anda. Dari arsitektur *backend* yang ringan hingga pergerakan *frontend* yang elegan.</p>
-                <div class="tags">
-                    <span class="tag">Full-Stack Logic</span>
-                    <span class="tag">API Integration</span>
-                    <span class="tag">Scalable Architecture</span>
-                </div>
+                <p>Eksekusi sistem *custom* 100% sesuai kebutuhan unik Anda. Dari arsitektur *backend* yang ringan hingga pergerakan *frontend* yang elegan.</p>
+                <div class="tags"><span class="tag">Full-Stack Logic</span><span class="tag">API Integration</span></div>
             </div>
-
         </div>
 
-        <!-- Footer / Kontak -->
-        <div class="card reveal" id="contact" style="text-align: center; margin-bottom: 4rem;">
+        <!-- KONTAK -->
+        <div class="glass-card reveal full-width" id="contact" style="margin-bottom: 4rem;">
             <h3>Punya Ide Sistem atau Web App?</h3>
             <p style="margin-bottom: 2rem;">Sampaikan kebutuhan teknis Anda. Saya akan membangunnya dari nol hingga siap digunakan.</p>
             <a href="mailto:emailkamu@gmail.com" class="btn">Kirim Pesan</a>
         </div>
     </div>
 
+    <!-- JAVASCRIPT LOGIC -->
     <script>
-        // --- 1. Logika LERP untuk Cahaya Kursor (Pergerakan Soft & Smooth) ---
+        // 1. Logika LERP untuk Cahaya Kursor
         const glow = document.getElementById('glow');
-        let targetX = window.innerWidth / 2;
-        let targetY = window.innerHeight / 2;
-        let currentX = targetX;
-        let currentY = targetY;
+        let targetX = window.innerWidth / 2, targetY = window.innerHeight / 2;
+        let currentX = targetX, currentY = targetY;
 
-        window.addEventListener('mousemove', (e) => {
-            targetX = e.clientX;
-            targetY = e.clientY;
-        });
+        window.addEventListener('mousemove', (e) => { targetX = e.clientX; targetY = e.clientY; });
 
         function animateGlow() {
-            // Nilai 0.05 menentukan seberapa "soft" pergerakannya
             currentX += (targetX - currentX) * 0.05;
             currentY += (targetY - currentY) * 0.05;
             glow.style.transform = `translate(${currentX}px, ${currentY}px)`;
@@ -358,30 +253,20 @@
         }
         animateGlow();
 
-        // --- 2. Intersection Observer untuk Animasi Scroll Premium ---
+        // 2. Intersection Observer untuk Animasi Scroll Premium
         const reveals = document.querySelectorAll('.reveal');
-        const revealOptions = {
-            threshold: 0.1,
-            rootMargin: "0px 0px -50px 0px"
-        };
+        const revealOptions = { threshold: 0.1, rootMargin: "0px 0px -50px 0px" };
 
         const revealOnScroll = new IntersectionObserver(function(entries, observer) {
             entries.forEach(entry => {
                 if (!entry.isIntersecting) return;
                 entry.target.classList.add('active');
-                // Optional: hentikan observasi setelah elemen muncul untuk hemat performa
                 observer.unobserve(entry.target);
             });
         }, revealOptions);
 
-        reveals.forEach(reveal => {
-            revealOnScroll.observe(reveal);
-        });
-        
-        // Trigger aktif untuk elemen yang sudah ada di viewport saat pertama load
-        setTimeout(() => {
-            reveals[0].classList.add('active');
-        }, 100);
+        reveals.forEach(reveal => revealOnScroll.observe(reveal));
+        setTimeout(() => reveals[0].classList.add('active'), 100);
     </script>
 </body>
 </html>
