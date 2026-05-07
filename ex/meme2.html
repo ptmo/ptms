@@ -367,13 +367,13 @@
 
     <div class="price-section" id="buy">
     
-    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 320px; background: rgba(15, 23, 42, 0.4); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);"></div>
+    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 320px; background: rgba(15, 23, 42, 0.4); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;"></div>
 
     <div class="glass-box price-card">
         <div>
             <div class="price-label">Live Price $Glibby / USD</div>
             <div class="price-value-row">
-                <div class="price-num">$<span id="price-val">0.0000000</span></div>
+                <div class="price-num">$<span id="price-val">Loading...</span></div>
                 <div class="price-tag" id="price-perc">0.00%</div>
             </div>
         </div>
@@ -446,8 +446,10 @@
     </footer>
 
 <script>
-// API DEXSCREENER ANTI-CORS
-const API_URL = "https://api.dexscreener.com/latest/dex/pairs/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
+// KONFIGURASI 2 API
+const TOKEN_API = "https://api.dexscreener.com/latest/dex/tokens/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
+const PAIR_API = "https://api.dexscreener.com/latest/dex/pairs/solana/2AXXcN6oN9bBT5owwmTH53C7QHUXvhLeu718Kqt8rvY2";
+
 let candleChart;
 
 function initChart() {
@@ -457,7 +459,7 @@ function initChart() {
             type: 'candlestick',
             height: 320,
             toolbar: { show: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 800 }
+            animations: { enabled: true, easing: 'smooth', speed: 1000 }
         },
         plotOptions: {
             candlestick: {
@@ -479,7 +481,7 @@ function initChart() {
             opposite: true,
             labels: { 
                 style: { colors: '#64748b', fontSize: '10px' },
-                formatter: (val) => val.toFixed(6)
+                formatter: (val) => val ? val.toFixed(6) : ""
             }
         },
         tooltip: { theme: 'dark' }
@@ -490,67 +492,68 @@ function initChart() {
 
 async function updateDashboard() {
     try {
-        const res = await fetch(API_URL);
-        const data = await res.json();
+        // FETCH 1: Untuk Harga di Kartu (Token API)
+        const resToken = await fetch(TOKEN_API);
+        const dataToken = await resToken.json();
         
-        if (!data.pairs || data.pairs.length === 0) return;
-        const pair = data.pairs[0];
-        
-        // 1. Update UI Card (Data Live)
-        const now = parseFloat(pair.priceUsd);
-        const change24h = parseFloat(pair.priceChange.h24 || 0);
-        
-        document.getElementById('price-val').innerText = now < 0.0001 ? now.toFixed(8) : now.toFixed(6);
-        const percEl = document.getElementById('price-perc');
-        percEl.innerText = (change24h >= 0 ? "+" : "") + change24h.toFixed(2) + "%";
-        
-        const color = change24h >= 0 ? "#00FFA3" : "#FF4D4D";
-        document.getElementById('price-val').style.color = color;
-        percEl.style.color = color;
-        percEl.style.background = change24h >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
+        if (dataToken.pairs && dataToken.pairs.length > 0) {
+            const pairInfo = dataToken.pairs[0];
+            const nowPrice = parseFloat(pairInfo.priceUsd);
+            const change24 = parseFloat(pairInfo.priceChange.h24 || 0);
 
-        // 2. REKONSTRUKSI CANDLESTICK (Analytical Logic)
-        // Kita hitung Open, High, Low, Close untuk 4 periode berbeda
-        const m5 = parseFloat(pair.priceChange.m5 || 0);
-        const h1 = parseFloat(pair.priceChange.h1 || 0);
-        const h6 = parseFloat(pair.priceChange.h6 || 0);
+            const valEl = document.getElementById('price-val');
+            const percEl = document.getElementById('price-perc');
 
-        // Fungsi pembantu untuk estimasi High/Low agar terlihat analitis (Soft Volatility)
-        const getHL = (open, close) => {
-            const diff = Math.abs(open - close) * 0.2;
-            return [Math.max(open, close) + diff, Math.min(open, close) - diff];
-        };
+            valEl.innerText = nowPrice < 0.0001 ? nowPrice.toFixed(8) : nowPrice.toFixed(6);
+            percEl.innerText = (change24 >= 0 ? "+" : "") + change24.toFixed(2) + "%";
+            
+            const color = change24 >= 0 ? "#00FFA3" : "#FF4D4D";
+            valEl.style.color = color;
+            percEl.style.color = color;
+            percEl.style.background = change24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
+        }
 
-        const p5m_open = now / (1 + (m5 / 100));
-        const [p5m_h, p5m_l] = getHL(p5m_open, now);
+        // FETCH 2: Untuk Grafik (Pair API)
+        const resPair = await fetch(PAIR_API);
+        const dataPair = await resPair.json();
 
-        const h1_open = now / (1 + (h1 / 100));
-        const [h1_h, h1_l] = getHL(h1_open, now);
+        if (dataPair.pair) {
+            const p = dataPair.pair;
+            const live = parseFloat(p.priceUsd);
+            const m5 = parseFloat(p.priceChange.m5 || 0);
+            const h1 = parseFloat(p.priceChange.h1 || 0);
+            const h6 = parseFloat(p.priceChange.h6 || 0);
+            const h24 = parseFloat(p.priceChange.h24 || 0);
 
-        const h6_open = now / (1 + (h6 / 100));
-        const [h6_h, h6_l] = getHL(h6_open, now);
+            // LOGIKA REKONSTRUKSI ALUR HARGA (Analytical Flow)
+            const priceNow = live;
+            const price5m = priceNow / (1 + (m5 / 100));
+            const price1h = priceNow / (1 + (h1 / 100));
+            const price6h = priceNow / (1 + (h6 / 100));
+            const price24h = priceNow / (1 + (h24 / 100));
 
-        const h24_open = now / (1 + (change24h / 100));
-        const [h24_h, h24_l] = getHL(h24_open, now);
+            // Membuat lilin yang berkesinambungan (Open periode ini = Close periode sebelumnya)
+            const candleSeries = [
+                { x: '24H', y: [price24h, Math.max(price24h, price6h)*1.002, Math.min(price24h, price6h)*0.998, price6h] },
+                { x: '6H', y: [price6h, Math.max(price6h, price1h)*1.002, Math.min(price6h, price1h)*0.998, price1h] },
+                { x: '1H', y: [price1h, Math.max(price1h, price5m)*1.002, Math.min(price1h, price5m)*0.998, price5m] },
+                { x: 'NOW', y: [price5m, Math.max(price5m, priceNow)*1.002, Math.min(price5m, priceNow)*0.998, priceNow] }
+            ];
 
-        // Data 4 Lilin (History Rekonstruksi)
-        const candleSeries = [
-            { x: '24H', y: [h24_open, h24_h, h24_l, h6_open] },
-            { x: '6H', y: [h6_open, h6_h, h6_l, h1_open] },
-            { x: '1H', y: [h1_open, h1_h, h1_l, p5m_open] },
-            { x: 'NOW', y: [p5m_open, p5m_h, p5m_l, now] }
-        ];
-
-        candleChart.updateSeries([{ data: candleSeries }]);
+            candleChart.updateSeries([{ data: candleSeries }]);
+        }
 
     } catch (err) {
-        console.error("DexScreener API Error:", err);
+        console.error("DexScreener API Sync Error:", err);
     }
 }
 
-initChart();
-updateDashboard();
-setInterval(updateDashboard, 30000); // Sinkronisasi tiap 30 detik
+// Jalankan saat halaman siap
+document.addEventListener('DOMContentLoaded', () => {
+    initChart();
+    updateDashboard();
+    setInterval(updateDashboard, 30000); // Sinkronisasi tiap 30 detik
+});
 </script>
 </body>
 </html>
