@@ -2,13 +2,12 @@
 <html lang="id">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>CapyCoin ($CAPY) | Koin Paling Santuy di Galaksi</title>
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
-    
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
@@ -33,21 +32,32 @@
             padding: 0;
             box-sizing: border-box;
             scroll-behavior: smooth;
+            -webkit-font-smoothing: antialiased;
         }
 
         body {
-            font-family: 'Poppins', sans-serif;
+            font-family: 'Poppins', system-ui, sans-serif;
             background-color: var(--bg-space);
             color: var(--text-main);
             overflow-x: hidden;
             line-height: 1.6;
+            width: 100%;
         }
 
         h1, h2, h3, .brand-logo {
-            font-family: 'Quicksand', sans-serif; /* Font imut untuk heading */
+            font-family: 'Quicksand', sans-serif; 
         }
 
-        /* === AMBIENT GLOW (Futuristic Soft) === */
+        /* PERBAIKAN: Mengunci dimensi ikon agar tidak menyebabkan Layout Shift saat dimuat */
+        i[class^="fa-"] {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            width: 1em;
+            height: 1em;
+        }
+
+        /* === AMBIENT GLOW === */
         .glow-orb {
             position: absolute;
             border-radius: 50%;
@@ -55,6 +65,7 @@
             z-index: -1;
             opacity: 0.4;
             animation: float 8s ease-in-out infinite alternate;
+            pointer-events: none;
         }
         .orb-pink { width: 50vw; height: 50vw; background: var(--accent-pink); top: -10%; left: -10%; }
         .orb-cyan { width: 40vw; height: 40vw; background: var(--accent-cyan); bottom: 10%; right: -5%; animation-delay: -4s; }
@@ -65,7 +76,12 @@
         }
 
         /* === UTILITIES === */
-        .container { max-width: 1200px; margin: 0 auto; padding: 0 24px; }
+        .container { 
+            width: 100%;
+            max-width: 1200px; 
+            margin: 0 auto; 
+            padding: 0 24px; 
+        }
         
         .glass-panel {
             background: var(--glass-bg);
@@ -89,7 +105,7 @@
             justify-content: center;
             gap: 10px;
             padding: 0 28px;
-            height: 50px;
+            height: 50px; /* Tinggi mutlak dikunci */
             border-radius: 50px;
             font-size: 1rem;
             font-weight: 600;
@@ -97,6 +113,7 @@
             text-decoration: none;
             cursor: pointer;
             border: none;
+            white-space: nowrap;
             transition: all 0.3s ease;
         }
         .btn-primary {
@@ -118,23 +135,25 @@
             transform: translateY(-3px);
         }
 
-        /* === NAVBAR === */
+        /* === NAVBAR PRESISI === */
         header {
             position: fixed;
             top: 0; left: 0; width: 100%;
-            height: var(--nav-height);
+            height: var(--nav-height); /* PERBAIKAN: Tinggi absolut, anti menyusut */
             z-index: 1000;
             display: flex;
             align-items: center;
-            transition: background 0.3s ease;
+            transition: background 0.3s ease, border 0.3s ease;
         }
         header.scrolled {
-            background: rgba(11, 9, 20, 0.8);
+            background: rgba(11, 9, 20, 0.85);
             backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
             border-bottom: 1px solid var(--glass-border);
         }
         nav {
             width: 100%;
+            height: 100%;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -160,12 +179,16 @@
             transition: color 0.3s;
         }
         .nav-links a:hover { color: var(--accent-pink); }
+        .nav-action {
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+        }
 
         /* === HERO SECTION === */
         .hero {
             padding-top: calc(var(--nav-height) + 60px);
-            padding-bottom: 60px;
-            min-height: 100vh;
+            padding-bottom: 80px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -187,13 +210,14 @@
             gap: 8px;
         }
         .hero h1 {
-            font-size: clamp(3rem, 6vw, 5rem);
+            font-size: clamp(2.8rem, 5vw, 5rem);
             line-height: 1.1;
             margin-bottom: 20px;
             letter-spacing: -1px;
+            max-width: 900px;
         }
         .hero p {
-            font-size: clamp(1rem, 2vw, 1.2rem);
+            font-size: clamp(1rem, 2vw, 1.15rem);
             color: var(--text-soft);
             max-width: 600px;
             margin-bottom: 40px;
@@ -227,6 +251,9 @@
             align-items: center;
             gap: 15px;
         }
+        /* PERBAIKAN: Mencegah angka bergeser (layout shift) saat berubah */
+        #live-price { font-variant-numeric: tabular-nums; }
+        
         .price-change {
             font-size: 1rem;
             padding: 4px 12px;
@@ -235,7 +262,6 @@
             color: var(--accent-cyan);
             transition: all 0.3s ease;
         }
-        /* Animasi update harga */
         .flash-green { color: #00FFA3 !important; text-shadow: 0 0 10px rgba(0, 255, 163, 0.5); }
         .flash-red { color: #FF4D4D !important; text-shadow: 0 0 10px rgba(255, 77, 77, 0.5); }
 
@@ -248,14 +274,14 @@
             align-items: center;
         }
         .about-text h2 { font-size: 2.5rem; margin-bottom: 20px; }
-        .about-text p { color: var(--text-soft); margin-bottom: 20px; font-size: 1.1rem; }
+        .about-text p { color: var(--text-soft); margin-bottom: 20px; font-size: 1.05rem; }
         .about-visual {
             position: relative;
             height: 400px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 12rem;
+            font-size: 10rem;
         }
         .about-visual .glass-panel {
             position: absolute;
@@ -271,23 +297,28 @@
         .features-grid {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 30px;
+            gap: 24px;
         }
         .feature-card {
             padding: 40px 30px;
             text-align: center;
             transition: transform 0.3s ease;
+            min-height: 280px; /* Kunci tinggi minimum agar sejajar */
+            display: flex;
+            flex-direction: column;
+            align-items: center;
         }
-        .feature-card:hover { transform: translateY(-10px); }
+        .feature-card:hover { transform: translateY(-10px); border-color: rgba(255, 255, 255, 0.2); }
         .feature-icon {
-            width: 70px; height: 70px;
+            width: 64px; height: 64px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 2rem; color: var(--accent-cyan);
-            margin: 0 auto 20px;
+            font-size: 1.8rem; color: var(--accent-cyan);
+            margin-bottom: 24px;
+            flex-shrink: 0;
         }
-        .feature-card h3 { font-size: 1.5rem; margin-bottom: 15px; }
+        .feature-card h3 { font-size: 1.3rem; margin-bottom: 12px; }
         .feature-card p { color: var(--text-soft); font-size: 0.95rem; }
 
         /* === CONTACT === */
@@ -314,7 +345,7 @@
         /* === FOOTER === */
         footer {
             border-top: 1px solid var(--glass-border);
-            padding: 40px 0;
+            padding: 50px 0 30px;
             text-align: center;
             background: rgba(0, 0, 0, 0.2);
         }
@@ -325,18 +356,31 @@
             color: var(--text-main); font-size: 1.5rem; transition: color 0.3s;
         }
         .social-links a:hover { color: var(--accent-cyan); }
-        .disclaimer { font-size: 0.8rem; color: var(--text-soft); max-width: 600px; margin: 0 auto; }
+        .disclaimer { font-size: 0.8rem; color: var(--text-soft); max-width: 700px; margin: 0 auto; line-height: 1.8; }
 
-        /* === RESPONSIVE === */
+        /* === RESPONSIVE MOBILE PRESISI === */
         @media (max-width: 992px) {
             .about-grid { grid-template-columns: 1fr; text-align: center; gap: 40px; }
             .features-grid { grid-template-columns: repeat(2, 1fr); }
             .price-card { flex-direction: column; text-align: center; gap: 25px; padding: 30px; }
             .price-info { text-align: center; }
         }
+        
         @media (max-width: 768px) {
+            /* Perbaikan Navbar Mobile: Proporsional & Rapi */
+            :root { --nav-height: 70px; }
+            .container { padding: 0 20px; } /* Margin kiri-kanan terkunci rapat */
+            
             .nav-links { display: none; }
-            .features-grid { grid-template-columns: 1fr; }
+            .brand-logo { font-size: 1.4rem; }
+            .nav-action .btn { 
+                height: 38px; 
+                padding: 0 16px; 
+                font-size: 0.85rem; 
+            }
+
+            .hero { padding-top: calc(var(--nav-height) + 40px); }
+            .features-grid { grid-template-columns: 1fr; gap: 20px; }
             .contact-wrap { padding: 30px 20px; }
             .price-value { font-size: 2rem; flex-direction: column; gap: 10px; }
         }
@@ -358,8 +402,8 @@
                     <li><a href="#tokenomics">Tokenomics</a></li>
                     <li><a href="#contact">Kontak</a></li>
                 </ul>
-                <div>
-                    <a href="#buy" class="btn btn-primary" style="height: 40px; padding: 0 20px; font-size: 0.9rem;">Beli Sekarang</a>
+                <div class="nav-action">
+                    <a href="#buy" class="btn btn-primary">Beli Sekarang</a>
                 </div>
             </nav>
         </div>
@@ -373,7 +417,7 @@
         <h1>Koin Paling Santuy <br>di <span class="text-gradient">Galaksi</span></h1>
         <p>Lupakan stres melihat grafik merah. Bergabunglah dengan ekosistem meme coin premium yang dirancang khusus untuk chill, vibes, dan to the moon tanpa beban.</p>
         
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center;">
+        <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; width: 100%;">
             <a href="#buy" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Mulai Petualangan</a>
             <a href="#about" class="btn btn-glass"><i class="fa-solid fa-book-open"></i> Baca Whitepaper</a>
         </div>
@@ -386,8 +430,8 @@
                     <span class="price-change" id="price-change">+4.20%</span>
                 </div>
             </div>
-            <div>
-                <button class="btn btn-primary" style="font-size: 1.1rem; padding: 0 40px; height: 55px; width: 100%;">
+            <div style="width: 100%; max-width: 250px; margin: 0 auto;">
+                <button class="btn btn-primary" style="font-size: 1.1rem; padding: 0 20px; height: 55px; width: 100%;">
                     Buy Now <i class="fa-solid fa-cart-shopping" style="margin-left: 8px;"></i>
                 </button>
             </div>
@@ -469,7 +513,6 @@
     </footer>
 
     <script>
-        // Efek Navbar Background saat Scroll
         window.addEventListener('scroll', () => {
             const nav = document.getElementById('navbar');
             if (window.scrollY > 50) {
@@ -488,7 +531,7 @@
 
         setInterval(() => {
             // Randomize pergerakan harga kecil (Volatilitas)
-            const volatility = (Math.random() - 0.48) * 0.0000050; // Sedikit bias naik
+            const volatility = (Math.random() - 0.48) * 0.0000050; 
             currentPrice += volatility;
             
             // Randomize persentase
@@ -503,23 +546,23 @@
             priceElement.innerText = formattedPrice;
             changeElement.innerText = formattedChange;
 
-            // Efek Flash Warna berdasarkan pergerakan (Hijau naik, Merah turun)
+            // Efek Flash Warna
             if (volatility > 0) {
                 priceElement.className = "flash-green";
                 changeElement.style.color = "#00FFA3";
                 changeElement.style.background = "rgba(0, 255, 163, 0.1)";
             } else {
-                priceElement.className = "flash-red";
+            priceElement.className = "flash-red";
                 changeElement.style.color = "#FF4D4D";
                 changeElement.style.background = "rgba(255, 77, 77, 0.1)";
             }
 
-            // Hapus class flash setelah 500ms agar kembali normal (putih)
+            // Hapus class flash setelah 500ms
             setTimeout(() => {
                 priceElement.className = "";
             }, 500);
 
-        }, 3000); // Update setiap 3 detik
+        }, 3000); 
     </script>
 </body>
 </html>
