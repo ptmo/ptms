@@ -449,106 +449,129 @@
 const tokenAddress = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
 let chart;
 
-// 1. Inisialisasi Chart (Tetap Smooth & Soft)
+// 1. Inisialisasi Chart (Visual Premium & Industrial Standard)
 function initChart() {
     const options = {
-        series: [{ name: 'Price', data: [] }],
+        series: [{ name: 'Trend', data: [] }],
         chart: {
             type: 'area',
             height: 220,
             toolbar: { show: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 800 },
-            sparkline: { enabled: false }
+            sparkline: { enabled: false }, // Kita butuh grid agar informatif
+            animations: { enabled: true, easing: 'easeinout', speed: 1000 }
         },
-        stroke: { curve: 'smooth', width: 3 },
+        stroke: { curve: 'smooth', width: 3.5 }, // Garis tebal dan lembut
         fill: {
             type: 'gradient',
-            gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0, stops: [0, 100] }
+            gradient: {
+                shadeIntensity: 1,
+                opacityFrom: 0.4,
+                opacityTo: 0,
+                stops: [0, 95]
+            }
         },
         grid: {
-            borderColor: 'rgba(255,255,255,0.05)',
-            strokeDashArray: 4,
+            borderColor: 'rgba(255,255,255,0.03)',
+            strokeDashArray: 6,
             yaxis: { lines: { show: true } },
             xaxis: { lines: { show: false } }
         },
-        xaxis: { type: 'datetime', labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-        yaxis: { show: false },
-        tooltip: { theme: 'dark', x: { format: 'HH:mm' } },
-        colors: ['#ba68c8'],
-        noData: { text: 'Loading Analysis...', style: { color: '#64748b' } }
+        xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
+        yaxis: { labels: { show: false } },
+        tooltip: {
+            theme: 'dark',
+            x: { show: false },
+            y: { formatter: (val) => '$' + val.toFixed(6) }
+        },
+        colors: ['#ba68c8'], // Warna default $Glibby
+        noData: { text: 'Analyzing Market...', style: { color: '#64748b', fontSize: '14px' } }
     };
     chart = new ApexCharts(document.querySelector("#glibby-pro-chart"), options);
     chart.render();
 }
 
-// 2. Fungsi Utama: Update Harga & Chart
 async function updateDashboard() {
     const valEl = document.getElementById('price-val');
     const percEl = document.getElementById('price-perc');
 
     try {
-        // AMBIL DATA DARI DEXSCREENER DULU (Lebih Stabil untuk Harga Live)
-        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
-        const dexData = await dexRes.json();
+        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+        const data = await res.json();
         
-        if (dexData.pairs && dexData.pairs.length > 0) {
-            const pair = dexData.pairs[0];
-            const livePrice = parseFloat(pair.priceUsd);
-            const change24h = parseFloat(pair.priceChange.h24 || 0);
+        if (data.pairs && data.pairs.length > 0) {
+            const pair = data.pairs[0];
+            const now = parseFloat(pair.priceUsd);
+            
+            // Mengambil persentase perubahan dari DexScreener
+            const m5 = parseFloat(pair.priceChange.m5 || 0);
+            const h1 = parseFloat(pair.priceChange.h1 || 0);
+            const h6 = parseFloat(pair.priceChange.h6 || 0);
+            const h24 = parseFloat(pair.priceChange.h24 || 0);
 
-            // Update UI Harga agar TIDAK $0
-            valEl.innerText = livePrice < 0.0001 ? livePrice.toFixed(8) : livePrice.toFixed(6);
-            percEl.innerText = (change24h >= 0 ? "+" : "") + change24h + "%";
+            // Update UI Teks (Harga Live)
+            valEl.innerText = now < 0.0001 ? now.toFixed(8) : now.toFixed(6);
+            percEl.innerText = (h24 >= 0 ? "+" : "") + h24.toFixed(2) + "%";
 
-            // Atur Warna
-            const trendColor = change24h >= 0 ? "#00FFA3" : "#FF4D4D";
+            // Warna Dinamis
+            const trendColor = h24 >= 0 ? "#00FFA3" : "#FF4D4D";
             valEl.style.color = trendColor;
             percEl.style.color = trendColor;
-            percEl.style.background = change24h >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
+            percEl.style.background = h24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
 
-            // SEKARANG COBA AMBIL HISTORY UNTUK GRAFIK (GeckoTerminal)
-            try {
-                const histRes = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${tokenAddress}/candles?timeframe=m15`);
-                const histJson = await histRes.json();
-                const ohlcv = histJson.data.attributes.ohlcv_list;
+            // REKONSTRUKSI CHART (Analytical Logic)
+            // Menghitung estimasi harga di masa lalu berdasarkan persentase perubahan DexScreener
+            const p24h = now / (1 + (h24 / 100));
+            const p6h = now / (1 + (h6 / 100));
+            const p1h = now / (1 + (h1 / 100));
+            const p5m = now / (1 + (m5 / 100));
 
-                if (ohlcv && ohlcv.length > 0) {
-                    const history = ohlcv.map(item => ({
-                        x: new Date(item[0] * 1000),
-                        y: parseFloat(item[4])
-                    })).reverse();
+            const trendData = [
+                { x: '24H Ago', y: p24h },
+                { x: '6H Ago', y: p6h },
+                { x: '1H Ago', y: p1h },
+                { x: '5M Ago', y: p5m },
+                { x: 'Now', y: now }
+            ];
 
-                    const prices = history.map(h => h.y);
-                    const maxP = Math.max(...prices);
-                    const minP = Math.min(...prices);
+            const allPrices = trendData.map(d => d.y);
+            const max = Math.max(...allPrices);
+            const min = Math.min(...allPrices);
 
-                    chart.updateOptions({
-                        colors: [trendColor],
-                        series: [{ data: history }],
-                        annotations: {
-                            yaxis: [
-                                { y: maxP, borderColor: 'rgba(255,255,255,0.2)', label: { text: 'HIGH', style: { color: '#fff', background: '#475569' } } },
-                                { y: minP, borderColor: 'rgba(255,255,255,0.2)', label: { text: 'LOW', style: { color: '#fff', background: '#475569' } } }
-                            ]
+            // Update Chart dengan Visual Premium
+            chart.updateOptions({
+                colors: [trendColor],
+                series: [{ name: 'Price', data: trendData }],
+                annotations: {
+                    yaxis: [
+                        {
+                            y: max,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            label: { 
+                                text: 'HIGH', 
+                                style: { color: '#fff', background: '#334155', fontSize: '10px', padding: {left:5, right:5, top:2, bottom:2} } 
+                            }
+                        },
+                        {
+                            y: min,
+                            borderColor: 'rgba(255,255,255,0.1)',
+                            label: { 
+                                text: 'LOW', 
+                                style: { color: '#fff', background: '#334155', fontSize: '10px', padding: {left:5, right:5, top:2, bottom:2} } 
+                            }
                         }
-                    });
+                    ]
                 }
-            } catch (histErr) {
-                console.warn("History failed, showing price only.");
-                // Jika history gagal, kita buat titik tunggal saja agar tidak kosong melompong
-                chart.updateSeries([{ data: [{ x: new Date(), y: livePrice }] }]);
-            }
+            });
         }
     } catch (err) {
-        console.error("Critical Error:", err);
-        valEl.innerText = "Check Connection";
+        console.error("DexScreener API Error:", err);
     }
 }
 
-// Eksekusi
+// Jalankan
 initChart();
 updateDashboard();
-setInterval(updateDashboard, 30000); // Percepat update ke 30 detik
+setInterval(updateDashboard, 30000); 
 </script>
 </body>
 </html>
