@@ -367,7 +367,7 @@
 
     <div class="price-section" id="buy">
     
-    <div id="glibby-analytical-chart" style="margin-bottom: 15px; min-height: 250px;"></div>
+    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 300px;"></div>
 
     <div class="glass-box price-card">
         <div>
@@ -467,113 +467,98 @@
 
 <script>
 const tokenAddress = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
-let chart;
+let candleChart;
 
-// 1. Inisialisasi Chart dengan Konsep "Soft Analysis"
+// 1. Inisialisasi Candlestick Chart (Premium Setup)
 function initChart() {
     const options = {
-        series: [{ name: 'Price Trend', data: [] }],
+        series: [{ data: [] }],
         chart: {
-            type: 'area',
-            height: 250,
+            type: 'candlestick',
+            height: 300,
             toolbar: { show: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 1000 },
-            sparkline: { enabled: false } // Agar grid analitis muncul
+            background: 'transparent',
+            animations: { enabled: true, easing: 'easeinout', speed: 800 }
         },
-        stroke: { curve: 'smooth', width: 4 },
-        fill: {
-            type: 'gradient',
-            gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0, stops: [0, 100] }
+        plotOptions: {
+            candlestick: {
+                colors: {
+                    upward: '#00FFA3',   // Hijau Neon Glibby
+                    downward: '#FF4D4D'  // Merah Glibby
+                },
+                wick: { useFillColor: true }
+            }
         },
         grid: {
             borderColor: 'rgba(255,255,255,0.05)',
-            strokeDashArray: 5,
-            yaxis: { lines: { show: true } }, // Garis bantu horizontal untuk analisis harga
-            xaxis: { lines: { show: false } }
+            strokeDashArray: 4,
+            xaxis: { lines: { show: false } },
+            yaxis: { lines: { show: true } }
         },
-        xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
-        yaxis: { labels: { show: false } },
-        tooltip: {
-            theme: 'dark',
-            y: { formatter: (val) => '$' + val.toFixed(6) }
+        xaxis: {
+            type: 'datetime',
+            labels: { style: { colors: '#64748b' }, datetimeUTC: false },
+            axisBorder: { show: false }
         },
-        colors: ['#ba68c8'],
-        annotations: {
-            yaxis: [], // Akan diisi garis "Baseline" (Harga 24j lalu)
-        }
+        yaxis: {
+            labels: { 
+                style: { colors: '#64748b' },
+                formatter: (val) => val.toFixed(6)
+            },
+            opposite: true // Standar tradingview, harga di kanan
+        },
+        tooltip: { theme: 'dark' }
     };
-    chart = new ApexCharts(document.querySelector("#glibby-analytical-chart"), options);
-    chart.render();
+
+    candleChart = new ApexCharts(document.querySelector("#glibby-candle-chart"), options);
+    candleChart.render();
 }
 
+// 2. Mengambil Data OHLC (Open, High, Low, Close) dari Mainnet
 async function updateDashboard() {
     try {
-        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
-        const data = await res.json();
+        // AMBIL HARGA LIVE DARI DEXSCREENER (Untuk Card Bawah)
+        const resDex = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+        const dataDex = await resDex.json();
         
-        if (data.pairs && data.pairs.length > 0) {
-            const pair = data.pairs[0];
-            const now = parseFloat(pair.priceUsd);
-            
-            // Mengambil Data Volatilitas DexScreener
-            const h24 = parseFloat(pair.priceChange.h24 || 0);
-            const h6 = parseFloat(pair.priceChange.h6 || 0);
-            const h1 = parseFloat(pair.priceChange.h1 || 0);
-            const m5 = parseFloat(pair.priceChange.m5 || 0);
+        if (dataDex.pairs && dataDex.pairs.length > 0) {
+            const pair = dataDex.pairs[0];
+            const livePrice = parseFloat(pair.priceUsd);
+            const change = parseFloat(pair.priceChange.h24);
 
-            // Update UI Card Anda
-            const valEl = document.getElementById('price-val');
+            document.getElementById('price-val').innerText = livePrice.toFixed(8);
             const percEl = document.getElementById('price-perc');
-            valEl.innerText = now < 0.0001 ? now.toFixed(8) : now.toFixed(6);
-            percEl.innerText = (h24 >= 0 ? "+" : "") + h24.toFixed(2) + "%";
-
-            // Warna Dinamis (Green/Red)
-            const trendColor = h24 >= 0 ? "#00FFA3" : "#FF4D4D";
-            valEl.style.color = trendColor;
-            percEl.style.color = trendColor;
-            percEl.style.background = h24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
-
-            // REKONSTRUKSI TREN ANALITIS
-            // Menghitung titik harga historis berdasarkan % change DexScreener
-            const p24h = now / (1 + (h24 / 100));
-            const p6h = now / (1 + (h6 / 100));
-            const p1h = now / (1 + (h1 / 100));
-            const p5m = now / (1 + (m5 / 100));
-
-            const analyticalData = [
-                { x: '24H', y: p24h },
-                { x: '6H', y: p6h },
-                { x: '1H', y: p1h },
-                { x: '5M', y: p5m },
-                { x: 'Live', y: now }
-            ];
-
-            // Update Chart dengan Fitur "Analytical Baseline"
-            chart.updateOptions({
-                colors: [trendColor],
-                series: [{ data: analyticalData }],
-                annotations: {
-                    yaxis: [{
-                        y: p24h, // Garis baseline harga 24 jam lalu
-                        borderColor: 'rgba(255,255,255,0.2)',
-                        strokeDashArray: 3,
-                        label: {
-                            text: '24H OPEN',
-                            style: { color: '#fff', background: '#334155', fontSize: '10px' }
-                        }
-                    }]
-                }
-            });
+            percEl.innerText = (change >= 0 ? "+" : "") + change.toFixed(2) + "%";
+            
+            // Warna Card
+            const color = change >= 0 ? "#00FFA3" : "#FF4D4D";
+            document.getElementById('price-val').style.color = color;
+            percEl.style.color = color;
+            percEl.style.background = change >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
         }
+
+        // AMBIL DATA CANDLE (History OHLC) - Menggunakan GeckoTerminal (Backend Partner DexScreener)
+        // DexScreener Latest API tidak punya history, jadi kita pakai engine ini agar lilinnya muncul.
+        const resCandle = await fetch(`https://api.geckoterminal.com/api/v2/networks/solana/tokens/${tokenAddress}/candles?timeframe=m15`);
+        const jsonCandle = await resCandle.json();
+        const ohlcv = jsonCandle.data.attributes.ohlcv_list;
+
+        const formattedCandles = ohlcv.map(c => ({
+            x: new Date(c[0] * 1000),
+            y: [c[1], c[2], c[3], c[4]] // [Open, High, Low, Close]
+        })).reverse();
+
+        // Update Chart Lilin secara Smooth
+        candleChart.updateSeries([{ data: formattedCandles }]);
+
     } catch (err) {
-        console.error("DexScreener API Offline:", err);
+        console.error("Gagal update data candlestick:", err);
     }
 }
 
-// Jalankan
 initChart();
 updateDashboard();
-setInterval(updateDashboard, 30000); 
+setInterval(updateDashboard, 60000); // Update setiap 1 menit
 </script>
 </body>
 </html>
