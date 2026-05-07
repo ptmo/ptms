@@ -7,567 +7,570 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Quicksand:wght@500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Quicksand:wght@600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
     <style>
-        /* === VARIABEL & RESET === */
+        /* =========================================
+           1. CORE VARIABLES & RESET (ARCHITECTURAL FIX)
+           ========================================= */
         :root {
-            --bg-space: #0b0914;
+            --bg-base: #06050b;
             --text-main: #ffffff;
-            --text-soft: #a1a1aa;
-            --accent-cyan: #00f0ff;
-            --accent-pink: #ff71ce;
-            --glass-bg: rgba(255, 255, 255, 0.04);
+            --text-muted: #9ca3af;
+            --cyan: #00f0ff;
+            --pink: #ff71ce;
+            --glass-surface: rgba(255, 255, 255, 0.03);
             --glass-border: rgba(255, 255, 255, 0.08);
-            --glass-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.3);
-            --radius-lg: 30px;
-            --radius-md: 20px;
-            --radius-sm: 12px;
-            --nav-height: 80px;
+            --nav-h: 80px;
         }
 
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
-            scroll-behavior: smooth;
             -webkit-font-smoothing: antialiased;
         }
 
         body {
-            font-family: 'Poppins', system-ui, sans-serif;
-            background-color: var(--bg-space);
+            font-family: 'Poppins', sans-serif;
+            background-color: var(--bg-base);
             color: var(--text-main);
             overflow-x: hidden;
             line-height: 1.6;
-            width: 100%;
         }
 
-        h1, h2, h3, .brand-logo {
-            font-family: 'Quicksand', sans-serif; 
+        h1, h2, h3, .brand {
+            font-family: 'Quicksand', sans-serif;
         }
 
-        /* PERBAIKAN: Mengunci dimensi ikon agar tidak menyebabkan Layout Shift saat dimuat */
-        i[class^="fa-"] {
-            display: inline-flex;
-            justify-content: center;
-            align-items: center;
-            width: 1em;
-            height: 1em;
-        }
-
-        /* === AMBIENT GLOW === */
-        .glow-orb {
-            position: absolute;
+        /* =========================================
+           2. AMBIENT BACKGROUND & EFFECTS
+           ========================================= */
+        .ambient-light {
+            position: fixed;
+            width: 50vw; height: 50vw;
             border-radius: 50%;
-            filter: blur(120px);
+            filter: blur(150px);
             z-index: -1;
-            opacity: 0.4;
-            animation: float 8s ease-in-out infinite alternate;
+            opacity: 0.35;
             pointer-events: none;
+            animation: pulse 10s infinite alternate;
         }
-        .orb-pink { width: 50vw; height: 50vw; background: var(--accent-pink); top: -10%; left: -10%; }
-        .orb-cyan { width: 40vw; height: 40vw; background: var(--accent-cyan); bottom: 10%; right: -5%; animation-delay: -4s; }
+        .light-pink { top: -20%; left: -10%; background: var(--pink); }
+        .light-cyan { bottom: -10%; right: -10%; background: var(--cyan); animation-delay: -5s; }
 
-        @keyframes float {
-            0% { transform: translateY(0px) scale(1); }
-            100% { transform: translateY(30px) scale(1.1); }
-        }
-
-        /* === UTILITIES === */
-        .container { 
-            width: 100%;
-            max-width: 1200px; 
-            margin: 0 auto; 
-            padding: 0 24px; 
-        }
-        
-        .glass-panel {
-            background: var(--glass-bg);
-            backdrop-filter: blur(16px);
-            -webkit-backdrop-filter: blur(16px);
-            border: 1px solid var(--glass-border);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--glass-shadow);
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.3; }
+            100% { transform: scale(1.2); opacity: 0.5; }
         }
 
         .text-gradient {
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+            background: linear-gradient(135deg, var(--cyan), var(--pink));
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
         }
 
-        /* === TOMBOL === */
+        /* =========================================
+           3. BULLETPROOF LAYOUT UTILITIES
+           ========================================= */
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            margin: 0 auto;
+            /* Clamp memastikan padding kiri-kanan selalu responsif dan proporsional */
+            padding: 0 clamp(20px, 5vw, 40px);
+        }
+
+        /* Kelas Glass Panel absolut yang menjamin presisi 100% */
+        .glass-box {
+            background: var(--glass-surface);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border: 1px solid var(--glass-border);
+            border-radius: 24px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+
+        /* Mengunci semua seksi agar memiliki jarak napas yang pasti, mencegah tumpang tindih */
+        section {
+            padding-block: clamp(60px, 10vw, 120px);
+        }
+
+        /* =========================================
+           4. BUTTONS (PIXEL PERFECT SIZING)
+           ========================================= */
         .btn {
             display: inline-flex;
             align-items: center;
             justify-content: center;
-            gap: 10px;
-            padding: 0 28px;
-            height: 50px; /* Tinggi mutlak dikunci */
+            gap: 12px;
+            height: 52px;
+            padding-inline: 32px;
             border-radius: 50px;
-            font-size: 1rem;
-            font-weight: 600;
             font-family: 'Quicksand', sans-serif;
+            font-weight: 700;
+            font-size: 1rem;
             text-decoration: none;
-            cursor: pointer;
             border: none;
+            cursor: pointer;
             white-space: nowrap;
-            transition: all 0.3s ease;
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s;
         }
-        .btn-primary {
-            background: linear-gradient(135deg, var(--accent-cyan), var(--accent-pink));
+        .btn-glow {
+            background: linear-gradient(135deg, var(--cyan), var(--pink));
             color: #fff;
-            box-shadow: 0 4px 20px rgba(255, 113, 206, 0.4);
+            box-shadow: 0 4px 20px rgba(255, 113, 206, 0.3);
         }
-        .btn-primary:hover {
-            transform: translateY(-3px) scale(1.02);
+        .btn-glow:hover {
+            transform: translateY(-3px);
             box-shadow: 0 8px 25px rgba(0, 240, 255, 0.5);
         }
-        .btn-glass {
-            background: var(--glass-bg);
+        .btn-outline {
+            background: rgba(255, 255, 255, 0.05);
             color: var(--text-main);
             border: 1px solid var(--glass-border);
         }
-        .btn-glass:hover {
+        .btn-outline:hover {
             background: rgba(255, 255, 255, 0.1);
             transform: translateY(-3px);
         }
 
-        /* === NAVBAR PRESISI === */
+        /* =========================================
+           5. NAVBAR (LOCKED HEIGHT)
+           ========================================= */
         header {
             position: fixed;
             top: 0; left: 0; width: 100%;
-            height: var(--nav-height); /* PERBAIKAN: Tinggi absolut, anti menyusut */
-            z-index: 1000;
+            height: var(--nav-h);
             display: flex;
             align-items: center;
-            transition: background 0.3s ease, border 0.3s ease;
-        }
-        header.scrolled {
-            background: rgba(11, 9, 20, 0.85);
-            backdrop-filter: blur(20px);
-            -webkit-backdrop-filter: blur(20px);
+            z-index: 100;
+            background: rgba(6, 5, 11, 0.8);
+            backdrop-filter: blur(16px);
             border-bottom: 1px solid var(--glass-border);
         }
-        nav {
-            width: 100%;
-            height: 100%;
+        .nav-wrapper {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            width: 100%;
         }
-        .brand-logo {
+        .brand {
             font-size: 1.8rem;
             font-weight: 700;
-            display: flex;
-            align-items: center;
-            gap: 10px;
-            text-decoration: none;
             color: var(--text-main);
+            text-decoration: none;
+            display: flex; align-items: center; gap: 10px;
         }
         .nav-links {
-            display: flex;
-            gap: 30px;
-            list-style: none;
+            display: flex; gap: 32px; list-style: none;
         }
         .nav-links a {
-            color: var(--text-soft);
-            text-decoration: none;
-            font-weight: 500;
+            color: var(--text-muted); text-decoration: none; font-weight: 500;
             transition: color 0.3s;
         }
-        .nav-links a:hover { color: var(--accent-pink); }
-        .nav-action {
-            display: flex;
-            justify-content: flex-end;
-            align-items: center;
-        }
+        .nav-links a:hover { color: var(--pink); }
+        .nav-btn { height: 42px; padding-inline: 24px; font-size: 0.9rem; }
 
-        /* === HERO SECTION === */
+        /* =========================================
+           6. HERO SECTION & FLOATING EMOJIS (MODIFIED FOR PNG)
+           ========================================= */
         .hero {
-            padding-top: calc(var(--nav-height) + 60px);
-            padding-bottom: 80px;
+            padding-top: calc(var(--nav-h) + clamp(40px, 8vw, 80px));
             display: flex;
             flex-direction: column;
             align-items: center;
-            justify-content: center;
             text-align: center;
-            position: relative;
         }
-        .hero-badge {
+
+        /* PERBAIKAN: Menyesuaikan div pembungkus emoji agar rapi dan simetris */
+        .floating-emoji {
+            animation: float 4s ease-in-out infinite alternate;
+            display: flex; /* Menggunakan flex agar gambar sejajar horizontal */
+            justify-content: center; /* Di tengah secara horizontal */
+            align-items: center; /* Di tengah secara vertikal */
+            gap: 20px; /* Jarak pasti antar gambar */
+            margin-bottom: 24px; /* Jarak pasti ke badge di bawahnya */
+            pointer-events: none; /* Decorative */
+        }
+
+        /* PERBAIKAN: Mengunci dimensi gambar agar presisi dan responsif */
+        .emoji-img {
+            height: clamp(50px, 8vw, 80px); /* Tinggi responsif tapi terkunci aman */
+            width: auto; /* Mempertahankan aspect ratio asli gambar */
+            user-select: none;
+        }
+
+        .hero-pill {
             background: rgba(255, 113, 206, 0.1);
-            border: 1px solid rgba(255, 113, 206, 0.3);
-            color: var(--accent-pink);
-            padding: 8px 20px;
+            border: 1px solid rgba(255, 113, 206, 0.2);
+            color: var(--pink);
+            padding: 8px 24px;
             border-radius: 50px;
             font-size: 0.9rem;
             font-weight: 600;
-            margin-bottom: 25px;
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
+            margin-bottom: 32px;
         }
         .hero h1 {
-            font-size: clamp(2.8rem, 5vw, 5rem);
+            /* Typografi dinamis yang mustahil patah/cacat */
+            font-size: clamp(2.5rem, 6vw + 1rem, 5.5rem);
             line-height: 1.1;
-            margin-bottom: 20px;
-            letter-spacing: -1px;
-            max-width: 900px;
+            letter-spacing: -0.02em;
+            margin-bottom: 24px;
         }
         .hero p {
-            font-size: clamp(1rem, 2vw, 1.15rem);
-            color: var(--text-soft);
+            font-size: clamp(1rem, 2vw, 1.25rem);
+            color: var(--text-muted);
             max-width: 600px;
-            margin-bottom: 40px;
+            margin-bottom: 48px;
         }
-        .floating-emoji {
-            font-size: 4rem;
-            margin-bottom: 20px;
-            animation: float 4s ease-in-out infinite alternate;
-            display: inline-block;
+        .hero-actions {
+            display: flex;
+            gap: 16px;
+            flex-wrap: wrap;
+            justify-content: center;
         }
 
-        /* === REAL-TIME PRICE CARD === */
+        /* =========================================
+           7. PRICE CARD (SEAMLESS INTEGRATION)
+           ========================================= */
+        .price-container {
+            width: 100%;
+            max-width: 800px;
+            margin-top: 64px; /* Memberi jarak pasti dari tombol hero */
+        }
         .price-card {
-            margin-top: 50px;
-            padding: 30px 40px;
+            padding: clamp(24px, 4vw, 40px);
             display: flex;
             align-items: center;
             justify-content: space-between;
-            gap: 40px;
-            max-width: 800px;
-            width: 100%;
+            gap: 24px;
         }
         .price-info { text-align: left; }
-        .price-label { color: var(--text-soft); font-size: 0.9rem; font-weight: 500; }
-        .price-value { 
-            font-size: 2.5rem; 
-            font-weight: 700; 
-            color: var(--text-main);
-            font-family: 'Poppins', sans-serif;
-            display: flex;
-            align-items: center;
-            gap: 15px;
-        }
-        /* PERBAIKAN: Mencegah angka bergeser (layout shift) saat berubah */
-        #live-price { font-variant-numeric: tabular-nums; }
+        .price-label { color: var(--text-muted); font-size: 0.9rem; font-weight: 500; margin-bottom: 8px; }
+        .price-value-wrap { display: flex; align-items: center; gap: 16px; }
         
-        .price-change {
-            font-size: 1rem;
-            padding: 4px 12px;
-            border-radius: 8px;
-            background: rgba(0, 240, 255, 0.1);
-            color: var(--accent-cyan);
-            transition: all 0.3s ease;
+        /* Font Tabular untuk mencegah angka menari-nari */
+        .price-number { 
+            font-size: clamp(2rem, 4vw, 3rem); 
+            font-weight: 700; 
+            font-variant-numeric: tabular-nums; 
         }
-        .flash-green { color: #00FFA3 !important; text-shadow: 0 0 10px rgba(0, 255, 163, 0.5); }
-        .flash-red { color: #FF4D4D !important; text-shadow: 0 0 10px rgba(255, 77, 77, 0.5); }
+        .price-badge {
+            background: rgba(0, 240, 255, 0.1);
+            color: var(--cyan);
+            padding: 6px 12px;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 1rem;
+            transition: all 0.3s;
+        }
+        .price-btn { height: 60px; font-size: 1.1rem; padding-inline: 40px; }
 
-        /* === ABOUT SECTION === */
-        .section-padding { padding: 100px 0; }
-        .about-grid {
+        /* =========================================
+           8. ABOUT SECTION (STRUCTURAL PERFECTION)
+           ========================================= */
+        .about-layout {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 60px;
+            gap: clamp(40px, 8vw, 80px); /* Kunci absolut agar jarak selalu sempurna */
             align-items: center;
         }
-        .about-text h2 { font-size: 2.5rem; margin-bottom: 20px; }
-        .about-text p { color: var(--text-soft); margin-bottom: 20px; font-size: 1.05rem; }
+        .about-content h2 {
+            font-size: clamp(2rem, 4vw, 3rem);
+            margin-bottom: 24px;
+        }
+        .about-content p {
+            color: var(--text-muted);
+            font-size: 1.1rem;
+            margin-bottom: 24px;
+        }
         
-        .about-visual {
-            width: 100%; 
-            height: 400px;
+        /* Solusi Absolut untuk Box Visual */
+        .about-visual-box {
+            width: 100%;
+            aspect-ratio: 1 / 1; /* Menjamin bentuk kotak sempurna secara otomatis */
+            max-height: 450px;
             display: flex;
             justify-content: center;
             align-items: center;
-            font-size: 8rem; 
-            line-height: 1; /* PERBAIKAN: Mengunci posisi emoji agar 100% presisi di tengah vertikal */
-            border-radius: var(--radius-lg);
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-            user-select: none; /* Opsional: mencegah emoji ter-highlight biru */
+            font-size: clamp(5rem, 10vw, 9rem); /* Emoji responsif tanpa merusak layout */
+            line-height: 1;
+            user-select: none;
+            overflow: hidden; /* Mencegah konten meluber */
         }
+
+        /* =========================================
+           9. TOKENOMICS GRID
+           ========================================= */
+        .section-header { text-align: center; margin-bottom: 64px; }
+        .section-header h2 { font-size: clamp(2rem, 4vw, 3rem); margin-bottom: 16px; }
+        .section-header p { color: var(--text-muted); font-size: 1.1rem; }
         
-        /* === FEATURED / TOKENOMICS === */
-        .text-center { text-align: center; margin-bottom: 60px; }
-        .text-center h2 { font-size: 2.5rem; margin-bottom: 15px; }
-        
-        .features-grid {
+        .grid-3 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 24px;
         }
         .feature-card {
-            padding: 40px 30px;
+            padding: 40px 32px;
             text-align: center;
-            transition: transform 0.3s ease;
-            min-height: 280px; /* Kunci tinggi minimum agar sejajar */
             display: flex;
             flex-direction: column;
             align-items: center;
+            transition: transform 0.3s;
         }
-        .feature-card:hover { transform: translateY(-10px); border-color: rgba(255, 255, 255, 0.2); }
+        .feature-card:hover { transform: translateY(-10px); }
         .feature-icon {
-            width: 64px; height: 64px;
-            background: rgba(255, 255, 255, 0.05);
+            width: 72px; height: 72px;
+            background: rgba(0, 240, 255, 0.05);
             border-radius: 50%;
             display: flex; align-items: center; justify-content: center;
-            font-size: 1.8rem; color: var(--accent-cyan);
+            font-size: 2rem; color: var(--cyan);
             margin-bottom: 24px;
-            flex-shrink: 0;
         }
-        .feature-card h3 { font-size: 1.3rem; margin-bottom: 12px; }
-        .feature-card p { color: var(--text-soft); font-size: 0.95rem; }
+        .feature-card h3 { font-size: 1.5rem; margin-bottom: 16px; }
+        .feature-card p { color: var(--text-muted); }
 
-        /* === CONTACT === */
-        .contact-wrap {
-            max-width: 600px;
-            margin: 0 auto;
-            padding: 50px;
-            text-align: center;
-        }
-        .contact-wrap input, .contact-wrap textarea {
-            width: 100%;
-            background: rgba(0,0,0,0.2);
-            border: 1px solid var(--glass-border);
-            padding: 15px 20px;
-            border-radius: var(--radius-sm);
-            color: var(--text-main);
-            margin-bottom: 20px;
-            font-family: 'Poppins', sans-serif;
-            outline: none;
-            transition: border-color 0.3s;
-        }
-        .contact-wrap input:focus, .contact-wrap textarea:focus { border-color: var(--accent-pink); }
-
-        /* === FOOTER === */
+        /* =========================================
+           10. FOOTER
+           ========================================= */
         footer {
             border-top: 1px solid var(--glass-border);
-            padding: 50px 0 30px;
+            padding-block: 64px 32px;
             text-align: center;
-            background: rgba(0, 0, 0, 0.2);
+            background: rgba(0, 0, 0, 0.3);
         }
-        .social-links {
-            display: flex; justify-content: center; gap: 20px; margin: 20px 0;
-        }
-        .social-links a {
-            color: var(--text-main); font-size: 1.5rem; transition: color 0.3s;
-        }
-        .social-links a:hover { color: var(--accent-cyan); }
-        .disclaimer { font-size: 0.8rem; color: var(--text-soft); max-width: 700px; margin: 0 auto; line-height: 1.8; }
+        .socials { display: flex; justify-content: center; gap: 24px; margin: 24px 0; }
+        .socials a { color: var(--text-main); font-size: 1.5rem; transition: color 0.3s; }
+        .socials a:hover { color: var(--cyan); }
+        .disclaimer { color: var(--text-muted); font-size: 0.85rem; max-width: 800px; margin: 0 auto; line-height: 1.8; }
 
-        /* === RESPONSIVE MOBILE PRESISI === */
-        @media (max-width: 992px) {
-            .about-grid { grid-template-columns: 1fr; text-align: center; gap: 40px; }
-            .features-grid { grid-template-columns: repeat(2, 1fr); }
-            .price-card { flex-direction: column; text-align: center; gap: 25px; padding: 30px; }
-            .price-info { text-align: center; }
+        /* =========================================
+           11. IMAGE REPLACEMENTS (PNG EMOJIS)
+           ========================================= */
+        .brand-icon {
+            height: 1.2em; /* Mengikuti ukuran font brand secara otomatis */
+            width: auto;
+            margin-right: 8px;
+            display: inline-block;
+            vertical-align: middle;
         }
         
-        @media (max-width: 768px) {
-            /* Perbaikan Navbar Mobile: Proporsional & Rapi */
-            :root { --nav-height: 70px; }
-            .container { padding: 0 20px; } /* Margin kiri-kanan terkunci rapat */
-            
-            .nav-links { display: none; }
-            .brand-logo { font-size: 1.4rem; }
-            .nav-action .btn { 
-                height: 38px; 
-                padding: 0 16px; 
-                font-size: 0.85rem; 
-            }
+        .about-visual-box {
+            /* ... (kode sebelumnya tetap ada) ... */
+            gap: clamp(10px, 3vw, 30px); /* Menambahkan jarak presisi antar PNG di About box */
+        }
 
-            .hero { padding-top: calc(var(--nav-height) + 40px); }
-            .features-grid { grid-template-columns: 1fr; gap: 20px; }
-            .contact-wrap { padding: 30px 20px; }
-            .price-value { font-size: 2rem; flex-direction: column; gap: 10px; }
-            .about-visual {
-                height: 220px; /* PERBAIKAN: Proporsional untuk layar HP */
-                font-size: 5rem;
-                margin-top: 0; /* PERBAIKAN: Dihapus. Kita murni mengandalkan jarak 'gap' dari Grid agar simetris */
+        .about-img {
+            height: clamp(80px, 15vw, 160px); /* Ukuran PNG responsif untuk kotak About */
+            width: auto;
+            user-select: none;
+            filter: drop-shadow(0 10px 20px rgba(0,0,0,0.3)); /* Memberikan efek kedalaman/3D */
+            transition: transform 0.3s ease;
+        }
+        .about-img:hover {
+            transform: translateY(-10px) scale(1.05); /* Efek interaktif saat disentuh/di-hover */
+        }
+
+        /* =========================================
+            RESPONSIVE MOBILE FIX (THE MAGIC)
+           ========================================= */
+        @media (max-width: 992px) {
+            .about-layout { grid-template-columns: 1fr; text-align: center; }
+            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+            /* Memaksa elemen di tengah saat grid berubah menjadi 1 kolom */
+            .about-visual-box { margin: 0 auto; }
+        }
+
+        @media (max-width: 768px) {
+            :root { --nav-h: 70px; }
+            .nav-links { display: none; }
+            .grid-3 { grid-template-columns: 1fr; }
+            
+            .hero-actions { flex-direction: column; width: 100%; max-width: 320px; }
+            .hero-actions .btn { width: 100%; }
+
+            /* Perbaikan Presisi Price Card Mobile */
+            .price-card { 
+                flex-direction: column; 
+                text-align: center; 
             }
+            .price-info { text-align: center; }
+            .price-value-wrap { flex-direction: column; gap: 12px; margin-bottom: 24px; }
+            .price-card .btn { width: 100%; height: 52px; }
+            
+            /* Box Visual proporsional di mobile */
+            .about-visual-box { max-height: 300px; }
+            
+            /* Menyesuaikan jarak gap antar emoji di mobile */
+            .floating-emoji { gap: 12px; margin-bottom: 16px; }
+        }
+        
+        /* Animasi Flash Harga */
+        .up { color: #00FFA3 !important; }
+        .down { color: #FF4D4D !important; }
+        
+        /* Animasi Floating Orb */
+        @keyframes pulse {
+            0% { transform: scale(1); opacity: 0.3; }
+            100% { transform: scale(1.2); opacity: 0.5; }
+        }
+        
+        /* Keyframes untuk Floating Emojis (dipertahankan) */
+        @keyframes float {
+            0% { transform: translateY(0px) scale(1); }
+            100% { transform: translateY(30px) scale(1.1); }
         }
     </style>
 </head>
 <body>
 
-    <div class="glow-orb orb-pink"></div>
-    <div class="glow-orb orb-cyan"></div>
+    <div class="ambient-light light-pink"></div>
+    <div class="ambient-light light-cyan"></div>
 
-    <header id="navbar">
-        <div class="container">
-            <nav>
-                <a href="#" class="brand-logo">
-                    🦦 $CAPY
-                </a>
-                <ul class="nav-links">
-                    <li><a href="#about">Tentang</a></li>
-                    <li><a href="#tokenomics">Tokenomics</a></li>
-                    <li><a href="#contact">Kontak</a></li>
-                </ul>
-                <div class="nav-action">
-                    <a href="#buy" class="btn btn-primary">Beli Sekarang</a>
-                </div>
-            </nav>
+    <header>
+        <div class="container nav-wrapper">
+            <a href="#" class="brand">
+                <img src="path/to/otter-head.png" alt="Capy Logo" class="brand-icon"> $CAPY
+            </a>
+            <ul class="nav-links">
+                <li><a href="#about">Tentang</a></li>
+                <li><a href="#tokenomics">Tokenomics</a></li>
+            </ul>
+            <a href="#buy" class="btn btn-glow nav-btn">Beli Sekarang</a>
         </div>
     </header>
 
     <section class="hero container">
-        <div class="floating-emoji">🪐🦦🛸</div>
-        <div class="hero-badge">
-            <i class="fa-solid fa-sparkles"></i> Masa Depan Web3 Ada di Tangan Capybara
-        </div>
-        <h1>Koin Paling Santuy <br>di <span class="text-gradient">Galaksi</span></h1>
-        <p>Lupakan stres melihat grafik merah. Bergabunglah dengan ekosistem meme coin premium yang dirancang khusus untuk chill, vibes, dan to the moon tanpa beban.</p>
         
-        <div style="display: flex; gap: 15px; flex-wrap: wrap; justify-content: center; width: 100%;">
-            <a href="#buy" class="btn btn-primary"><i class="fa-solid fa-rocket"></i> Mulai Petualangan</a>
-            <a href="#about" class="btn btn-glass"><i class="fa-solid fa-book-open"></i> Baca Whitepaper</a>
+        <div class="floating-emoji">
+            <img src="path/to/saturn.png" alt="Planet Saturnus" class="emoji-img">
+            <img src="path/to/otter.png" alt="Berang-berang Lucu" class="emoji-img">
+            <img src="path/to/ufo.png" alt="Pesawat UFO" class="emoji-img">
         </div>
 
-        <div class="glass-panel price-card" id="buy">
-            <div class="price-info">
-                <div class="price-label">Harga Live $CAPY / USDT</div>
-                <div class="price-value">
-                    $<span id="live-price">0.0042069</span>
-                    <span class="price-change" id="price-change">+4.20%</span>
+        <div class="hero-badge hero-pill"><i class="fa-solid fa-sparkles"></i> Masa Depan Web3 Sangat Santuy</div>
+        <h1>Koin Paling Chill<br>di <span class="text-gradient">Galaksi</span></h1>
+        <p>Tinggalkan grafik merah yang membuat stres. Masuklah ke ekosistem premium yang dirancang untuk vibes, komunitas, dan to the moon tanpa beban pikiran.</p>
+        
+        <div class="hero-actions">
+            <a href="#buy" class="btn btn-glow"><i class="fa-solid fa-rocket"></i> Mulai Petualangan</a>
+            <a href="#about" class="btn btn-outline"><i class="fa-solid fa-book-open"></i> Baca Whitepaper</a>
+        </div>
+
+        <div class="price-container" id="buy">
+            <div class="glass-box price-card">
+                <div class="price-info">
+                    <div class="price-label">Harga Live $CAPY / USDT</div>
+                    <div class="price-value-wrap">
+                        <div class="price-number">$<span id="price-val">0.0042069</span></div>
+                        <div class="price-badge" id="price-perc">+4.20%</div>
+                    </div>
                 </div>
-            </div>
-            <div style="width: 100%; max-width: 250px; margin: 0 auto;">
-                <button class="btn btn-primary" style="font-size: 1.1rem; padding: 0 20px; height: 55px; width: 100%;">
-                    Buy Now <i class="fa-solid fa-cart-shopping" style="margin-left: 8px;"></i>
+                <button class="btn btn-glow price-btn">
+                    Buy Now <i class="fa-solid fa-cart-shopping"></i>
                 </button>
             </div>
         </div>
     </section>
 
-    <section id="about" class="section-padding container">
-        <div class="about-grid">
-            <div class="about-visual glass-panel">
-                🌌🦦
+    <section id="about" class="container">
+        <div class="about-layout">
+            <div class="glass-box about-visual-box">
+                <img src="path/to/galaxy-space.png" alt="Galaxy" class="about-img">
+                <img src="path/to/otter-chill.png" alt="Capybara Santuy" class="about-img">
             </div>
-            <div class="about-text">
-                <h2>Kenapa Harus <span class="text-gradient">Capybara?</span></h2>
-                <p>Di dunia kripto yang penuh drama dan fluktuasi gila, CapyCoin hadir sebagai anomali. Kami mengambil filosofi hidup hewan paling santai di bumi dan membawanya ke blockchain.</p>
-                <p>Tidak ada janji palsu, tidak ada roadmaps yang membingungkan. Hanya kontrak pintar yang transparan, komunitas yang solid, dan tentu saja, seni digital kelas premium.</p>
-                <a href="#" class="btn btn-glass" style="margin-top: 15px;">Gabung Komunitas Discord</a>
+            
+            <div class="about-content">
+                <h2>Kenapa Memilih <span class="text-gradient">Capybara?</span></h2>
+                <p>Di dunia kripto yang penuh drama, CapyCoin hadir sebagai anomali. Kami mengambil filosofi hidup hewan paling santai di bumi dan menyuntikkannya ke dalam arsitektur blockchain kelas institusi.</p>
+                <p>Tanpa janji palsu, tanpa roadmap yang mustahil. Hanya kontrak pintar yang transparan, likuiditas terkunci, dan komunitas premium yang solid.</p>
+                <a href="#" class="btn btn-outline" style="margin-top: 16px;">Gabung Discord Kami</a>
             </div>
         </div>
     </section>
 
-    <section id="tokenomics" class="section-padding container">
-        <div class="text-center">
+    <section id="tokenomics" class="container">
+        <div class="section-header">
             <h2>Tokenomics <span class="text-gradient">Premium</span></h2>
-            <p style="color: var(--text-soft);">Struktur berstandar industri untuk memastikan keamanan dan kelancaran ekosistem.</p>
+            <p>Struktur berstandar industri untuk ekosistem yang berkelanjutan.</p>
         </div>
-        <div class="features-grid">
-            <div class="feature-card glass-panel">
-                <div class="feature-icon"><i class="fa-solid fa-fire-flame-curved"></i></div>
-                <h3>0% Pajak Transaksi</h3>
-                <p>Beli dan jual sesuka hati tanpa potongan tersembunyi. Sepenuhnya desentralisasi, sepenuhnya milik Anda.</p>
+        <div class="grid-3">
+            <div class="glass-box feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-percent"></i></div>
+                <h3>0% Pajak</h3>
+                <p>Beli dan jual tanpa potongan tersembunyi. Sepenuhnya desentralisasi, hak murni milik Anda.</p>
             </div>
-            <div class="feature-card glass-panel">
+            <div class="glass-box feature-card">
                 <div class="feature-icon"><i class="fa-solid fa-lock"></i></div>
                 <h3>Kontrak Dilepas</h3>
-                <p>Liquidity Pool dikunci selama 100 tahun dan hak kepemilikan kontrak (renounced) telah diserahkan. Sangat aman (SAFU).</p>
+                <p>Likuiditas dikunci secara permanen dan hak milik kontrak telah diserahkan. 100% aman (SAFU).</p>
             </div>
-            <div class="feature-card glass-panel">
-                <div class="feature-icon"><i class="fa-solid fa-hand-holding-heart"></i></div>
-                <h3>100% Vibing</h3>
-                <p>Tidak ada presale untuk VCs (Venture Capital). Distribusi adil 100% dialokasikan langsung ke pool komunitas.</p>
+            <div class="glass-box feature-card">
+                <div class="feature-icon"><i class="fa-solid fa-users"></i></div>
+                <h3>Murni Komunitas</h3>
+                <p>Tidak ada jatah khusus untuk Venture Capital. Distribusi 100% adil ke publik peluncuran.</p>
             </div>
-        </div>
-    </section>
-
-    <section id="contact" class="section-padding container">
-        <div class="text-center">
-            <h2>Punya <span class="text-gradient">Pertanyaan?</span></h2>
-        </div>
-        <div class="contact-wrap glass-panel">
-            <form onsubmit="event.preventDefault(); alert('Pesan santuy Anda telah terkirim!');">
-                <input type="text" placeholder="Nama Anda (atau Alias Web3)" required>
-                <input type="email" placeholder="Alamat Email" required>
-                <textarea rows="4" placeholder="Ketik pesan Anda di sini..." required></textarea>
-                <button type="submit" class="btn btn-primary" style="width: 100%;">Kirim Pesan <i class="fa-solid fa-paper-plane"></i></button>
-            </form>
         </div>
     </section>
 
     <footer>
         <div class="container">
-            <div class="brand-logo" style="justify-content: center; margin-bottom: 10px;">🦦 $CAPY</div>
-            <p style="color: var(--text-soft); font-size: 0.9rem;">CapyCoin Global Ecosystem</p>
+            <div class="brand" style="justify-content: center; font-size: 2rem; margin-bottom: 8px;">
+                <img src="path/to/otter-head.png" alt="Capy Logo" class="brand-icon"> $CAPY
+            </div>
+            <p style="color: var(--text-muted);">Ekosistem Global CapyCoin</p>
             
-            <div class="social-links">
+            <div class="socials">
                 <a href="#"><i class="fa-brands fa-twitter"></i></a>
                 <a href="#"><i class="fa-brands fa-telegram"></i></a>
                 <a href="#"><i class="fa-brands fa-discord"></i></a>
-                <a href="#"><i class="fa-brands fa-reddit"></i></a>
             </div>
 
             <p class="disclaimer">
-                <strong>Disclaimer:</strong> $CAPY adalah meme coin yang dibuat murni untuk hiburan dan komunitas. Tidak memiliki nilai intrinsik atau ekspektasi keuntungan finansial. Harap lakukan riset Anda sendiri (DYOR) dan jangan investasikan uang yang Anda tidak rela kehilangannya. Tetap chill.
+                Disclaimer: $CAPY adalah meme coin eksperimental yang dibuat untuk hiburan komunitas. Aset ini tidak menjanjikan utilitas atau keuntungan finansial. Lakukan riset Anda sendiri (DYOR) dan tetap santai dalam berinvestasi.
             </p>
-            <p style="color: var(--text-soft); font-size: 0.8rem; margin-top: 20px;">
-                &copy; 2026 CapyCoin. All Rights Reserved.
+            <p style="color: var(--text-muted); font-size: 0.8rem; margin-top: 32px;">
+                &copy; 2026 CapyCoin Web3. Hak Cipta Dilindungi.
             </p>
         </div>
     </footer>
 
     <script>
-        window.addEventListener('scroll', () => {
-            const nav = document.getElementById('navbar');
-            if (window.scrollY > 50) {
-                nav.classList.add('scrolled');
-            } else {
-                nav.classList.remove('scrolled');
-            }
-        });
-
-        // Simulasi Real-Time Price Ticker
-        const priceElement = document.getElementById('live-price');
-        const changeElement = document.getElementById('price-change');
-        
+        const valEl = document.getElementById('price-val');
+        const percEl = document.getElementById('price-perc');
         let currentPrice = 0.0042069;
-        let baseChange = 4.20;
+        let basePerc = 4.20;
 
         setInterval(() => {
-            // Randomize pergerakan harga kecil (Volatilitas)
-            const volatility = (Math.random() - 0.48) * 0.0000050; 
-            currentPrice += volatility;
+            const isUp = Math.random() > 0.45; 
+            const change = (Math.random() * 0.0000080);
             
-            // Randomize persentase
-            const changeVol = (Math.random() - 0.48) * 0.1;
-            baseChange += changeVol;
-
-            // Format angka
-            const formattedPrice = currentPrice.toFixed(7);
-            const formattedChange = (baseChange > 0 ? "+" : "") + baseChange.toFixed(2) + "%";
-
-            // Update DOM
-            priceElement.innerText = formattedPrice;
-            changeElement.innerText = formattedChange;
-
-            // Efek Flash Warna
-            if (volatility > 0) {
-                priceElement.className = "flash-green";
-                changeElement.style.color = "#00FFA3";
-                changeElement.style.background = "rgba(0, 255, 163, 0.1)";
+            if(isUp) {
+                currentPrice += change;
+                basePerc += 0.05;
+                valEl.classList.remove('down');
+                valEl.classList.add('up');
+                percEl.style.color = "#00FFA3";
+                percEl.style.background = "rgba(0, 255, 163, 0.1)";
             } else {
-            priceElement.className = "flash-red";
-                changeElement.style.color = "#FF4D4D";
-                changeElement.style.background = "rgba(255, 77, 77, 0.1)";
+            currentPrice -= change;
+                basePerc -= 0.05;
+                valEl.classList.remove('up');
+                valEl.classList.add('down');
+                percEl.style.color = "#FF4D4D";
+                percEl.style.background = "rgba(255, 77, 77, 0.1)";
             }
 
-            // Hapus class flash setelah 500ms
-            setTimeout(() => {
-                priceElement.className = "";
-            }, 500);
+            valEl.innerText = currentPrice.toFixed(7);
+            percEl.innerText = (basePerc >= 0 ? "+" : "") + basePerc.toFixed(2) + "%";
 
-        }, 3000); 
+            setTimeout(() => {
+                valEl.classList.remove('up', 'down');
+            }, 600);
+        }, 2500);
     </script>
 </body>
 </html>
