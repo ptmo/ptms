@@ -367,7 +367,11 @@
 
     <div class="price-section" id="buy">
     
-    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 320px; background: rgba(0,0,0,0.2); border-radius: 20px;"></div>
+    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 320px; background: rgba(0,0,0,0.2); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05);">
+        <div id="loader" style="color: #64748b; text-align: center; padding-top: 140px; font-style: italic;">
+            Bypassing CORS & Fetching Mainnet Candles...
+        </div>
+    </div>
 
     <div class="glass-box price-card">
         <div>
@@ -469,7 +473,7 @@
 const TOKEN_ADDR = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
 let candleChart;
 
-// 1. Setup Chart Standar TradingView (Premium & Soft)
+// 1. Inisialisasi Chart Candlestick (Premium UI)
 function initChart() {
     const options = {
         series: [{ data: [] }],
@@ -477,7 +481,7 @@ function initChart() {
             type: 'candlestick',
             height: 320,
             toolbar: { show: false },
-            animations: { enabled: true, easing: 'easeinout', speed: 800 }
+            animations: { enabled: true, easing: 'smooth', speed: 1000 }
         },
         plotOptions: {
             candlestick: {
@@ -486,7 +490,7 @@ function initChart() {
             }
         },
         grid: {
-            borderColor: 'rgba(255,255,255,0.05)',
+            borderColor: 'rgba(255,255,255,0.03)',
             strokeDashArray: 4,
             yaxis: { lines: { show: true } }
         },
@@ -508,54 +512,71 @@ function initChart() {
     candleChart.render();
 }
 
-// 2. Mengambil Data Langsung dari DexScreener API
-async function fetchDexData() {
+// 2. Fetch Data Menggunakan CORS Proxy (Agar tidak Error 404/Blocked)
+async function updateDashboard() {
     try {
-        // Step 1: Ambil Data Pair & Harga Live
-        const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_ADDR}`);
-        const data = await res.json();
+        // Step A: Ambil Info Pair dari API Publik (CORS Aman)
+        const dexRes = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${TOKEN_ADDR}`);
+        const dexData = await dexRes.json();
         
-        if (!data.pairs || data.pairs.length === 0) return;
-        
-        const pair = data.pairs[0];
+        if (!dexData.pairs) return;
+        const pair = dexData.pairs[0];
         const pairAddr = pair.pairAddress;
+
+        // Update UI Card
         const currentPrice = parseFloat(pair.priceUsd);
         const change = parseFloat(pair.priceChange.h24);
-
-        // Update UI Card Anda
         document.getElementById('price-val').innerText = currentPrice.toFixed(8);
         const percEl = document.getElementById('price-perc');
         percEl.innerText = (change >= 0 ? "+" : "") + change.toFixed(2) + "%";
         
-        const color = change >= 0 ? "#00FFA3" : "#FF4D4D";
-        document.getElementById('price-val').style.color = color;
-        percEl.style.color = color;
+        const trendColor = change >= 0 ? "#00FFA3" : "#FF4D4D";
+        document.getElementById('price-val').style.color = trendColor;
+        percEl.style.color = trendColor;
         percEl.style.background = change >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
 
-        // Step 2: Ambil Real Candle History dari DexScreener (m15 / 15 Menit)
-        // Menggunakan provider data DexScreener untuk history
-        const candleRes = await fetch(`https://io.dexscreener.com/dex/chart/history/v1/solana/${pairAddr}?cb=${Date.now()}`);
-        const candleJson = await candleRes.json();
+        // Step B: Ambil History Candle via CORS Proxy (AllOrigins)
+        // Ini adalah trik "Standard Startup" untuk bypass blokir browser
+        const targetUrl = `https://io.dexscreener.com/dex/chart/history/v1/solana/${pairAddr}`;
+        const proxyUrl = `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+
+        const candleRes = await fetch(proxyUrl);
+        const candleData = await candleRes.json();
         
-        if (candleJson.candles) {
-            const formatted = candleJson.candles.map(c => ({
-                x: new Date(c.t), // Timestamp
+        if (candleData.candles) {
+            const formatted = candleData.candles.map(c => ({
+                x: new Date(c.t), 
                 y: [c.o, c.h, c.l, c.c] // Open, High, Low, Close
             }));
 
-            // Update Chart secara Smooth
+            // Sembunyikan loader & Update Chart
+            document.getElementById('loader').style.display = 'none';
             candleChart.updateSeries([{ data: formatted }]);
-        }
 
+            // Tambahkan Label Analitis (HIGH/LOW)
+            const prices = candleData.candles.map(c => c.h);
+            const maxP = Math.max(...prices);
+            const minP = Math.min(...candleData.candles.map(c => c.l));
+
+            candleChart.updateOptions({
+                annotations: {
+                    yaxis: [
+                        { y: maxP, borderColor: '#64748b', label: { text: 'HIGH', style: { color: '#fff', background: '#334155' } } },
+                        { y: minP, borderColor: '#64748b', label: { text: 'LOW', style: { color: '#fff', background: '#334155' } } }
+                    ]
+                }
+            });
+        }
     } catch (err) {
-        console.error("DexScreener Connection Error:", err);
+        console.error("Gagal bypass CORS:", err);
+        document.getElementById('loader').innerText = "Network Busy. Retrying...";
     }
 }
 
 // Eksekusi
 initChart();
-fetchDexData();
-setInterval(fetchDexData, 30000); // Sinkronisasi setiap 30 detik
+updateDashboard();
+setInterval(updateDashboard, 60000); // Sinkronisasi setiap 1 menit
 </script>
 </body>
 </html>
