@@ -367,7 +367,7 @@
 
     <div class="price-section" id="buy">
     
-    <div id="glibby-pro-chart" style="margin-bottom: 15px; min-height: 200px;"></div>
+    <div id="glibby-analytical-chart" style="margin-bottom: 15px; min-height: 250px;"></div>
 
     <div class="glass-box price-card">
         <div>
@@ -445,55 +445,68 @@
         </div>
     </footer>
 
+<script src="https://cdn.jsdelivr.net/npm/apexcharts"></script>
+
+<div class="price-section" id="buy">
+    
+    <div id="glibby-analytical-chart" style="margin-bottom: 15px; min-height: 250px;"></div>
+
+    <div class="glass-box price-card">
+        <div>
+            <div class="price-label">Live Price $Glibby / USD</div>
+            <div class="price-value-row">
+                <div class="price-num">$<span id="price-val">0.0000000</span></div>
+                <div class="price-tag" id="price-perc">0.00%</div>
+            </div>
+        </div>
+        <button class="btn btn-glow" onclick="window.open('https://dexscreener.com/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R')" style="height: 56px; padding: 0 40px; font-size: 1.1rem;">
+            Buy $Glibby Now <i class="fa-solid fa-cart-shopping"></i>
+        </button>
+    </div>
+</div>
+
 <script>
 const tokenAddress = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
 let chart;
 
-// 1. Inisialisasi Chart (Visual Premium & Industrial Standard)
+// 1. Inisialisasi Chart dengan Konsep "Soft Analysis"
 function initChart() {
     const options = {
-        series: [{ name: 'Trend', data: [] }],
+        series: [{ name: 'Price Trend', data: [] }],
         chart: {
             type: 'area',
-            height: 220,
+            height: 250,
             toolbar: { show: false },
-            sparkline: { enabled: false }, // Kita butuh grid agar informatif
-            animations: { enabled: true, easing: 'easeinout', speed: 1000 }
+            animations: { enabled: true, easing: 'easeinout', speed: 1000 },
+            sparkline: { enabled: false } // Agar grid analitis muncul
         },
-        stroke: { curve: 'smooth', width: 3.5 }, // Garis tebal dan lembut
+        stroke: { curve: 'smooth', width: 4 },
         fill: {
             type: 'gradient',
-            gradient: {
-                shadeIntensity: 1,
-                opacityFrom: 0.4,
-                opacityTo: 0,
-                stops: [0, 95]
-            }
+            gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0, stops: [0, 100] }
         },
         grid: {
-            borderColor: 'rgba(255,255,255,0.03)',
-            strokeDashArray: 6,
-            yaxis: { lines: { show: true } },
+            borderColor: 'rgba(255,255,255,0.05)',
+            strokeDashArray: 5,
+            yaxis: { lines: { show: true } }, // Garis bantu horizontal untuk analisis harga
             xaxis: { lines: { show: false } }
         },
         xaxis: { labels: { show: false }, axisBorder: { show: false }, axisTicks: { show: false } },
         yaxis: { labels: { show: false } },
         tooltip: {
             theme: 'dark',
-            x: { show: false },
             y: { formatter: (val) => '$' + val.toFixed(6) }
         },
-        colors: ['#ba68c8'], // Warna default $Glibby
-        noData: { text: 'Analyzing Market...', style: { color: '#64748b', fontSize: '14px' } }
+        colors: ['#ba68c8'],
+        annotations: {
+            yaxis: [], // Akan diisi garis "Baseline" (Harga 24j lalu)
+        }
     };
-    chart = new ApexCharts(document.querySelector("#glibby-pro-chart"), options);
+    chart = new ApexCharts(document.querySelector("#glibby-analytical-chart"), options);
     chart.render();
 }
 
 async function updateDashboard() {
-    const valEl = document.getElementById('price-val');
-    const percEl = document.getElementById('price-perc');
-
     try {
         const res = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
         const data = await res.json();
@@ -502,69 +515,58 @@ async function updateDashboard() {
             const pair = data.pairs[0];
             const now = parseFloat(pair.priceUsd);
             
-            // Mengambil persentase perubahan dari DexScreener
-            const m5 = parseFloat(pair.priceChange.m5 || 0);
-            const h1 = parseFloat(pair.priceChange.h1 || 0);
-            const h6 = parseFloat(pair.priceChange.h6 || 0);
+            // Mengambil Data Volatilitas DexScreener
             const h24 = parseFloat(pair.priceChange.h24 || 0);
+            const h6 = parseFloat(pair.priceChange.h6 || 0);
+            const h1 = parseFloat(pair.priceChange.h1 || 0);
+            const m5 = parseFloat(pair.priceChange.m5 || 0);
 
-            // Update UI Teks (Harga Live)
+            // Update UI Card Anda
+            const valEl = document.getElementById('price-val');
+            const percEl = document.getElementById('price-perc');
             valEl.innerText = now < 0.0001 ? now.toFixed(8) : now.toFixed(6);
             percEl.innerText = (h24 >= 0 ? "+" : "") + h24.toFixed(2) + "%";
 
-            // Warna Dinamis
+            // Warna Dinamis (Green/Red)
             const trendColor = h24 >= 0 ? "#00FFA3" : "#FF4D4D";
             valEl.style.color = trendColor;
             percEl.style.color = trendColor;
             percEl.style.background = h24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
 
-            // REKONSTRUKSI CHART (Analytical Logic)
-            // Menghitung estimasi harga di masa lalu berdasarkan persentase perubahan DexScreener
+            // REKONSTRUKSI TREN ANALITIS
+            // Menghitung titik harga historis berdasarkan % change DexScreener
             const p24h = now / (1 + (h24 / 100));
             const p6h = now / (1 + (h6 / 100));
             const p1h = now / (1 + (h1 / 100));
             const p5m = now / (1 + (m5 / 100));
 
-            const trendData = [
-                { x: '24H Ago', y: p24h },
-                { x: '6H Ago', y: p6h },
-                { x: '1H Ago', y: p1h },
-                { x: '5M Ago', y: p5m },
-                { x: 'Now', y: now }
+            const analyticalData = [
+                { x: '24H', y: p24h },
+                { x: '6H', y: p6h },
+                { x: '1H', y: p1h },
+                { x: '5M', y: p5m },
+                { x: 'Live', y: now }
             ];
 
-            const allPrices = trendData.map(d => d.y);
-            const max = Math.max(...allPrices);
-            const min = Math.min(...allPrices);
-
-            // Update Chart dengan Visual Premium
+            // Update Chart dengan Fitur "Analytical Baseline"
             chart.updateOptions({
                 colors: [trendColor],
-                series: [{ name: 'Price', data: trendData }],
+                series: [{ data: analyticalData }],
                 annotations: {
-                    yaxis: [
-                        {
-                            y: max,
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            label: { 
-                                text: 'HIGH', 
-                                style: { color: '#fff', background: '#334155', fontSize: '10px', padding: {left:5, right:5, top:2, bottom:2} } 
-                            }
-                        },
-                        {
-                            y: min,
-                            borderColor: 'rgba(255,255,255,0.1)',
-                            label: { 
-                                text: 'LOW', 
-                                style: { color: '#fff', background: '#334155', fontSize: '10px', padding: {left:5, right:5, top:2, bottom:2} } 
-                            }
+                    yaxis: [{
+                        y: p24h, // Garis baseline harga 24 jam lalu
+                        borderColor: 'rgba(255,255,255,0.2)',
+                        strokeDashArray: 3,
+                        label: {
+                            text: '24H OPEN',
+                            style: { color: '#fff', background: '#334155', fontSize: '10px' }
                         }
-                    ]
+                    }]
                 }
             });
         }
     } catch (err) {
-        console.error("DexScreener API Error:", err);
+        console.error("DexScreener API Offline:", err);
     }
 }
 
