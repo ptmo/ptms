@@ -344,7 +344,7 @@
                 <li><a href="#about">Tentang</a></li>
                 <li><a href="#tokenomics">Tokenomics</a></li>
             </ul>
-            <a href="#buy" class="btn btn-glow" style="height: 40px; padding: 0 20px; font-size: 0.9rem;">Beli Sekarang</a>
+            <a href="#buy" class="btn btn-glow" style="height: 40px; padding: 0 20px; font-size: 0.9rem;">Buy $Glibby</a>
         </div>
     </header>
 
@@ -366,18 +366,18 @@
     </section>
 
     <div class="price-section" id="buy">
-        <div class="glass-box price-card">
-            <div>
-                <div class="price-label">Harga Live $CAPY / USDT</div>
-                <div class="price-value-row">
-                    <div class="price-num">$<span id="price-val">0.0042069</span></div>
-                    <div class="price-tag" id="price-perc">+4.20%</div>
-                </div>
+    <div class="glass-box price-card">
+        <div>
+            <div class="price-label">Live Price $Glibby / USD</div>
+            <div class="price-value-row">
+                <div class="price-num">$<span id="price-val">0.0000000</span></div>
+                <div class="price-tag" id="price-perc">0.00%</div>
             </div>
-            <button class="btn btn-glow" style="height: 56px; padding: 0 40px; font-size: 1.1rem;">
-                Buy Now <i class="fa-solid fa-cart-shopping"></i>
-            </button>
         </div>
+        <button class="btn btn-glow" onclick="window.open('https://dexscreener.com/solana/ALAMAT_TOKEN_DISINI')" style="height: 56px; padding: 0 40px; font-size: 1.1rem;">
+            Buy $Glibby Now <i class="fa-solid fa-cart-shopping"></i>
+        </button>
+    </div>
     </div>
 
     <section id="about" class="section-block container">
@@ -444,29 +444,55 @@
 
     <script>
         const valEl = document.getElementById('price-val');
-        const percEl = document.getElementById('price-perc');
-        let currentPrice = 0.0042069;
-        let basePerc = 4.20;
+const percEl = document.getElementById('price-perc');
 
-        setInterval(() => {
-            const isUp = Math.random() > 0.45; 
-            const change = (Math.random() * 0.0000080);
+// MASUKKAN ALAMAT TOKEN SOLANA $GLIBBY DI SINI
+const tokenAddress = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R"; 
+
+async function getGlibbyPrice() {
+    try {
+        const response = await fetch(`https://api.dexscreener.com/latest/dex/tokens/${tokenAddress}`);
+        const data = await response.json();
+
+        if (data.pairs && data.pairs.length > 0) {
+            // Kita ambil pair dengan likuiditas tertinggi (biasanya indeks 0)
+            const pair = data.pairs[0];
             
-            if(isUp) {
-                currentPrice += change; basePerc += 0.05;
-                valEl.className = 'price-num color-up';
-                percEl.style.color = "#00FFA3"; percEl.style.background = "rgba(0, 255, 163, 0.1)";
+            const price = parseFloat(pair.priceUsd);
+            const change = parseFloat(pair.priceChange.h24); // Perubahan dalam 24 jam
+
+            // Update Harga
+            valEl.innerText = price < 0.0001 ? price.toFixed(8) : price.toFixed(6);
+
+            // Update Persentase & Warna
+            percEl.innerText = (change >= 0 ? "+" : "") + change.toFixed(2) + "%";
+            
+            if (change >= 0) {
+                valEl.style.color = "#00FFA3"; // Warna Hijau Neon
+                percEl.style.color = "#00FFA3";
+                percEl.style.background = "rgba(0, 255, 163, 0.1)";
             } else {
-                currentPrice -= change; basePerc -= 0.05;
-                valEl.className = 'price-num color-down';
-                percEl.style.color = "#FF4D4D"; percEl.style.background = "rgba(255, 77, 77, 0.1)";
+                valEl.style.color = "#FF4D4D"; // Warna Merah Glibby
+                percEl.style.color = "#FF4D4D";
+                percEl.style.background = "rgba(255, 77, 77, 0.1)";
             }
 
-            valEl.innerText = currentPrice.toFixed(7);
-            percEl.innerText = (basePerc >= 0 ? "+" : "") + basePerc.toFixed(2) + "%";
+            // Efek Flash saat data terupdate
+            valEl.classList.add('flash-effect');
+            setTimeout(() => { valEl.classList.remove('flash-effect'); }, 1000);
 
-            setTimeout(() => { valEl.className = 'price-num'; }, 600);
-        }, 2500);
+        }
+    } catch (error) {
+        console.error("Gagal mengambil data DexScreener:", error);
+        valEl.innerText = "Error Fetching";
+    }
+}
+
+// Jalankan saat halaman pertama kali dimuat
+getGlibbyPrice();
+
+// Update setiap 30 detik agar tidak terkena rate-limit API tapi tetap akurat
+setInterval(getGlibbyPrice, 30000);
     </script>
 </body>
 </html>
