@@ -294,7 +294,7 @@
         .footer-social a:hover { color: var(--cyan); }
         .footer-note { color: var(--text-muted); font-size: 0.85rem; max-width: 700px; margin: 0 auto; line-height: 1.8; }
 
-        .price-section2 {
+        .price-section {
         display: flex;
         flex-direction: column;
         align-items: center;
@@ -338,33 +338,6 @@
         @keyframes float { 0% { transform: translateY(0); } 100% { transform: translateY(20px); } }
         .color-up { color: #00FFA3 !important; }
         .color-down { color: #FF4D4D !important; }
-
-        .price-section {
-        display: flex;
-        flex-direction: column;
-        align-items: center;
-        width: 100%;
-        max-width: 500px;
-        margin: 0 auto;
-        padding: 10px;
-    }
-
-    /* Card Harga */
-    .price-card {
-        width: 100%;
-        margin-bottom: 25px; /* Memberi jarak ke chart di bawahnya */
-    }
-
-    /* Chart Profesional - Lilin Kecil & Padat */
-    #glibby-candle-chart {
-        width: 100%;
-        min-height: 350px;
-        background: rgba(15, 23, 42, 0.9) !important;
-        border-radius: 24px;
-        border: 1px solid rgba(255, 255, 255, 0.08);
-        box-shadow: 0 15px 35px rgba(0,0,0,0.4);
-        overflow: hidden;
-    }
     </style>
 </head>
 <body>
@@ -403,20 +376,21 @@
     </section>
 
     <div class="price-section" id="buy">
+    
+    <div id="glibby-candle-chart" style="margin-bottom: 20px; min-height: 350px; background: rgba(10, 15, 25, 0.6); border-radius: 24px; border: 1px solid rgba(255,255,255,0.05); overflow: hidden;"></div>
+
     <div class="glass-box price-card">
         <div>
             <div class="price-label">Live Price $Glibby / USD</div>
             <div class="price-value-row">
-                <div class="price-num">$<span id="price-val">...</span></div>
-                <div class="price-tag" id="price-perc">--%</div>
+                <div class="price-num">$<span id="price-val">Loading...</span></div>
+                <div class="price-tag" id="price-perc">0.00%</div>
             </div>
         </div>
-        <button class="btn btn-glow" onclick="window.open('https://dexscreener.com/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R')" style="height: 56px; width: 100%; margin-top: 15px; font-size: 1.1rem;">
+        <button class="btn btn-glow" onclick="window.open('https://dexscreener.com/solana/4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R')" style="height: 56px; padding: 0 40px; font-size: 1.1rem;">
             Buy $Glibby Now <i class="fa-solid fa-cart-shopping"></i>
         </button>
     </div>
-
-    <div id="glibby-candle-chart"></div>
     </div>
     
     <section id="about" class="section-block container">
@@ -493,14 +467,16 @@ function initChart() {
         chart: {
             type: 'candlestick',
             height: 350,
-            toolbar: { show: false },
-            animations: { enabled: true, easing: 'smooth', speed: 800 }
+            toolbar: {
+                show: false // Bersih, tapi tetap bisa digeser (panning aktif secara default di mobile/touch)
+            },
+            animations: { enabled: true, easing: 'smooth', speed: 800 },
+            scroller: { enabled: true } // Mengizinkan geser jika data meluap
         },
         plotOptions: {
             candlestick: {
                 colors: { upward: '#00FFA3', downward: '#FF4D4D' },
-                wick: { useFillColor: true },
-                candleWidthPercentage: '65%' // Membuat lilin kecil & padat
+                wick: { useFillColor: true }
             }
         },
         grid: {
@@ -510,12 +486,20 @@ function initChart() {
         },
         xaxis: {
             type: 'category',
-            labels: { show: false }, // Disembunyikan agar tampilan "Soft" dan tidak berantakan
-            axisBorder: { show: false }
+            labels: { 
+                show: true,
+                rotate: 0,
+                style: { colors: '#64748b', fontSize: '9px' }
+            },
+            axisBorder: { show: false },
+            axisTicks: { show: false }
         },
         yaxis: {
             opposite: true,
-            labels: { style: { colors: '#64748b', fontSize: '10px' }, formatter: v => v.toFixed(6) }
+            labels: { 
+                style: { colors: '#64748b', fontSize: '10px' },
+                formatter: (val) => val ? val.toFixed(6) : ""
+            }
         },
         tooltip: { theme: 'dark' }
     };
@@ -523,73 +507,82 @@ function initChart() {
     candleChart.render();
 }
 
-// Fungsi rekonstruksi riwayat (60 lilin kecil)
-function createDenseCandles(start, end, count) {
-    let result = [];
-    let step = (end - start) / count;
+// Fungsi Helper untuk membuat lilin sintetis yang padat
+function generateAnalyticalPoints(startPrice, endPrice, count, labelPrefix) {
+    let points = [];
+    let step = (endPrice - startPrice) / count;
+    
     for (let i = 0; i < count; i++) {
-        let o = start + (step * i);
-        let c = start + (step * (i + 1));
-        let noise = Math.abs(o - c) * 0.9;
-        let h = Math.max(o, c) + (noise * Math.random());
-        let l = Math.min(o, c) - (noise * Math.random());
-        result.push({ x: i, y: [o.toFixed(8), h.toFixed(8), l.toFixed(8), c.toFixed(8)] });
+        let open = startPrice + (step * i);
+        let close = startPrice + (step * (i + 1));
+        
+        // Tambahkan "Noise" Volatilitas agar lilin punya sumbu (Wick)
+        let volatility = Math.abs(open - close) * 0.5;
+        let high = Math.max(open, close) + (volatility * Math.random());
+        let low = Math.min(open, close) - (volatility * Math.random());
+        
+        points.push({
+            x: `${labelPrefix} ${i+1}`,
+            y: [open.toFixed(8), high.toFixed(8), low.toFixed(8), close.toFixed(8)]
+        });
     }
-    return result;
+    return points;
 }
 
-async function updatePrice() {
+async function updateDashboard() {
     try {
-        const res = await fetch(TOKEN_API).then(r => r.json());
-        if (res.pairs && res.pairs[0]) {
-            const p = res.pairs[0];
-            const now = parseFloat(p.priceUsd);
-            const c24 = parseFloat(p.priceChange.h24 || 0);
+        const [resToken, resPair] = await Promise.all([
+            fetch(TOKEN_API).then(r => r.json()),
+            fetch(PAIR_API).then(r => r.json())
+        ]);
+
+        // 1. Update UI Card
+        if (resToken.pairs && resToken.pairs.length > 0) {
+            const pInfo = resToken.pairs[0];
+            const nowP = parseFloat(pInfo.priceUsd);
+            const c24 = parseFloat(pInfo.priceChange.h24 || 0);
             
-            document.getElementById('price-val').innerText = now.toFixed(8);
-            const tag = document.getElementById('price-perc');
-            tag.innerText = (c24 >= 0 ? "+" : "") + c24.toFixed(2) + "%";
+            document.getElementById('price-val').innerText = nowP.toFixed(8);
+            const pEl = document.getElementById('price-perc');
+            pEl.innerText = (c24 >= 0 ? "+" : "") + c24.toFixed(2) + "%";
             const color = c24 >= 0 ? "#00FFA3" : "#FF4D4D";
             document.getElementById('price-val').style.color = color;
-            tag.style.color = color;
-            tag.style.background = c24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
+            pEl.style.color = color;
+            pEl.style.background = c24 >= 0 ? "rgba(0, 255, 163, 0.1)" : "rgba(255, 77, 77, 0.1)";
         }
-    } catch (e) { console.error("Price fetch failed"); }
-}
 
-async function updateChart() {
-    try {
-        const res = await fetch(PAIR_API).then(r => r.json());
-        if (res.pair) {
-            const p = res.pair;
-            const now = parseFloat(p.priceUsd);
-            const h24 = parseFloat(p.priceChange.h24 || 0);
-            const h6 = parseFloat(p.priceChange.h6 || 0);
+        // 2. Rekonstruksi Grafik Padat (30 Lilin)
+        if (resPair.pair) {
+            const p = resPair.pair;
+            const live = parseFloat(p.priceUsd);
+            const m5 = parseFloat(p.priceChange.m5 || 0);
             const h1 = parseFloat(p.priceChange.h1 || 0);
+            const h6 = parseFloat(p.priceChange.h6 || 0);
+            const h24 = parseFloat(p.priceChange.h24 || 0);
 
-            const prNow = now;
+            const prNow = live;
+            const pr5m = prNow / (1 + (m5 / 100));
             const pr1h = prNow / (1 + (h1 / 100));
             const pr6h = prNow / (1 + (h6 / 100));
             const pr24h = prNow / (1 + (h24 / 100));
 
-            // Membuat 60 lilin (25 di 24H, 20 di 6H, 15 di Now)
-            let finalData = [
-                ...createDenseCandles(pr24h, pr6h, 25),
-                ...createDenseCandles(pr6h, pr1h, 20),
-                ...createDenseCandles(pr1h, prNow, 15)
+            // Kita buat 30 lilin kecil agar grafik terlihat "berisi" dan informatif
+            let denseData = [
+                ...generateAnalyticalPoints(pr24h, pr6h, 10, '24H'),
+                ...generateAnalyticalPoints(pr6h, pr1h, 8, '6H'),
+                ...generateAnalyticalPoints(pr1h, pr5m, 7, '1H'),
+                ...generateAnalyticalPoints(pr5m, prNow, 5, 'Live')
             ];
-            candleChart.updateSeries([{ data: finalData }]);
+
+            candleChart.updateSeries([{ data: denseData }]);
         }
-    } catch (e) { console.error("Chart fetch failed"); }
+    } catch (err) { console.error(err); }
 }
 
 document.addEventListener('DOMContentLoaded', () => {
     initChart();
-    // Update secara mandiri agar tidak saling menunggu (Anti-Crash)
-    updatePrice();
-    updateChart();
-    setInterval(updatePrice, 20000);
-    setInterval(updateChart, 30000);
+    updateDashboard();
+    setInterval(updateDashboard, 15000); // Lebih Real-time (15 detik)
 });
 </script>
 </body>
