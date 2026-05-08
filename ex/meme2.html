@@ -429,9 +429,10 @@
             <p style="color: var(--text-muted);">Ekosistem Global CapyCoin</p>
             
             <div class="footer-social">
-                <a href="#"><i class="fa-brands fa-twitter"></i></a>
-                <a href="#"><i class="fa-brands fa-telegram"></i></a>
-                <a href="#"><i class="fa-brands fa-discord"></i></a>
+    <a href="#" id="link-twitter" target="_blank"><i class="fa-brands fa-twitter"></i></a>
+    <a href="#" id="link-telegram" target="_blank"><i class="fa-brands fa-telegram"></i></a>
+    <a href="#" id="link-discord" target="_blank"><i class="fa-brands fa-discord"></i></a>
+    <a href="#" id="link-website" target="_blank"><i class="fa-solid fa-globe"></i></a>
             </div>
 
             <p class="footer-note">
@@ -568,10 +569,54 @@ async function updateDashboard() {
     } catch (err) { console.error(err); }
 }
 
+// Gunakan alamat token yang sama dengan chart
+const TARGET_TOKEN = "4k3Dyjzvzp8eMZWUXbBCjEvwSkkk59S5iCNLY3QrkX6R";
+const PROFILE_API = "https://api.dexscreener.com/token-profiles/latest/v1";
+
+async function updateGlibbyProfile() {
+    try {
+        const response = await fetch(PROFILE_API);
+        const profiles = await response.json();
+
+        // Cari profile yang cocok dengan alamat token $Glibby
+        const myProfile = profiles.find(p => p.tokenAddress.toLowerCase() === TARGET_TOKEN.toLowerCase());
+
+        if (myProfile && myProfile.links) {
+            console.log("Profile Glibby ditemukan:", myProfile);
+
+            // Update Link Sosial Media Secara Otomatis
+            myProfile.links.forEach(link => {
+                if (link.type === 'twitter') {
+                    document.getElementById('link-twitter').href = link.url;
+                }
+                if (link.type === 'telegram') {
+                    document.getElementById('link-telegram').href = link.url;
+                }
+                if (link.type === 'discord') {
+                    document.getElementById('link-discord').href = link.url;
+                }
+                if (link.type === 'website') {
+                    document.getElementById('link-website').href = link.url;
+                }
+            });
+
+            // Opsional: Jika ingin mengganti logo website dengan logo terbaru dari DexScreener
+            if (myProfile.icon) {
+                const icons = document.querySelectorAll('.brand-icon');
+                icons.forEach(img => img.src = myProfile.icon);
+            }
+        }
+    } catch (err) {
+        console.error("Gagal sinkronisasi profil:", err);
+    }
+}
+
 document.addEventListener('DOMContentLoaded', () => {
     initChart();
     updateDashboard();
+    updateGlibbyProfile();
     setInterval(updateDashboard, 15000); // Lebih Real-time (15 detik)
+    setInterval(updateGlibbyProfile, 300000);
 });
 </script>
 </body>
