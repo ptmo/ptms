@@ -1,0 +1,761 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KODOK - The Palindrome Meme Token</title>
+    
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&display=swap" rel="stylesheet">
+    
+    <!-- FontAwesome for Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style>
+        /* ================= CSS VARIABLES ================= */
+        :root {
+            --brand-green-400: #7ed957;
+            --brand-green-500: #5c9e3e;
+            --brand-green-600: #437a2b;
+            --brand-pink: #ff9a9e;
+            --text-dark: #1e293b;
+            --text-muted: #64748b;
+            --bg-color: #f8fafc;
+        }
+
+        /* ================= RESET & BASE ================= */
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Plus Jakarta Sans', sans-serif;
+        }
+
+        body {
+            background: radial-gradient(circle at top left, #fdfbfb 0%, #ebedee 100%);
+            background-color: var(--bg-color);
+            color: var(--text-dark);
+            overflow-x: hidden;
+            line-height: 1.6;
+        }
+
+        a {
+            text-decoration: none;
+            color: inherit;
+        }
+
+        /* ================= AMBIENT BACKGROUND ================= */
+        .ambient-orb-1, .ambient-orb-2 {
+            position: absolute;
+            border-radius: 50%;
+            z-index: -1;
+            pointer-events: none;
+            filter: blur(80px);
+        }
+        .ambient-orb-1 {
+            top: -10%; left: -10%;
+            width: 50vw; height: 50vw;
+            background: rgba(126, 217, 87, 0.15);
+        }
+        .ambient-orb-2 {
+            top: 20%; right: -10%;
+            width: 60vw; height: 60vw;
+            background: rgba(255, 154, 158, 0.15);
+        }
+
+        /* ================= LAYOUT & CONTAINERS ================= */
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 0 20px;
+        }
+
+        /* ================= NAVIGATION ================= */
+        .navbar {
+            position: fixed;
+            top: 0; left: 0; width: 100%;
+            background: rgba(255, 255, 255, 0.8);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid rgba(255, 255, 255, 0.5);
+            z-index: 1000;
+        }
+
+        .nav-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            height: 80px;
+        }
+
+        .logo {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            font-size: 1.5rem;
+            font-weight: 800;
+            cursor: pointer;
+        }
+
+        .nav-links {
+            display: flex;
+            gap: 30px;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        .nav-links a:hover {
+            color: var(--brand-green-500);
+            transition: color 0.3s ease;
+        }
+
+        .menu-toggle {
+            display: none;
+            font-size: 1.5rem;
+            background: none;
+            border: none;
+            cursor: pointer;
+            color: var(--text-muted);
+        }
+
+        /* ================= TYPOGRAPHY & GRADIENTS ================= */
+        .text-gradient {
+            background: linear-gradient(90deg, var(--brand-green-400) 0%, var(--brand-pink) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        .text-gradient-green {
+            background: linear-gradient(90deg, var(--brand-green-500) 0%, var(--brand-green-400) 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+        }
+
+        /* ================= BUTTONS & BADGES ================= */
+        .btn {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 10px;
+            padding: 14px 30px;
+            border-radius: 50px;
+            font-weight: 600;
+            font-size: 1rem;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s ease;
+            width: 100%;
+            max-width: 280px; /* Mencegah tombol memanjang tak beraturan */
+        }
+
+        .btn-green {
+            background: linear-gradient(90deg, var(--brand-green-500) 0%, var(--brand-green-400) 100%);
+            color: white;
+            box-shadow: 0 4px 15px rgba(126, 217, 87, 0.3);
+        }
+
+        .btn-green:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(126, 217, 87, 0.4);
+        }
+
+        .btn-glass {
+            background: rgba(255, 255, 255, 0.8);
+            border: 1px solid #fff;
+            color: var(--text-dark);
+        }
+
+        .btn-glass:hover {
+            background: #fff;
+            transform: translateY(-2px);
+            box-shadow: 0 8px 25px rgba(0, 0, 0, 0.05);
+        }
+
+        .btn-nav {
+            padding: 10px 24px;
+            width: auto;
+            max-width: none;
+        }
+
+        .badge {
+            display: inline-flex;
+            justify-content: center;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 20px;
+            border-radius: 50px;
+            font-size: 0.875rem;
+            font-weight: 500;
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            width: 100%;
+            max-width: 320px; /* Mencegah badge kepanjangan di mobile */
+        }
+
+        .badge-pink {
+            color: #d946ef;
+            border-color: rgba(255, 154, 158, 0.5);
+        }
+
+        /* ================= GLASS CARDS ================= */
+        .glass-card {
+            background: rgba(255, 255, 255, 0.65);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid rgba(255, 255, 255, 0.9);
+            border-radius: 24px;
+            padding: 30px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.03);
+            position: relative;
+            overflow: hidden;
+        }
+
+        /* ================= SECTIONS: HERO ================= */
+        .hero-section {
+            padding-top: 140px;
+            padding-bottom: 60px;
+            display: flex;
+            align-items: center;
+            gap: 50px;
+        }
+
+        .hero-content {
+            flex: 1;
+            text-align: left;
+        }
+
+        .hero-title-wrapper {
+            position: relative;
+            display: inline-block;
+            margin-bottom: 20px;
+        }
+
+        .crown-icon {
+            position: absolute;
+            top: -25px;
+            left: 30px;
+            font-size: 2rem;
+            color: var(--brand-green-500);
+            transform: rotate(12deg);
+        }
+
+        .hero-title {
+            font-size: 5rem;
+            font-weight: 900;
+            line-height: 1.1;
+            letter-spacing: -2px;
+        }
+
+        .hero-subtitle {
+            font-size: 2.5rem;
+            font-weight: 700;
+            margin-bottom: 10px;
+        }
+
+        .hero-tagline {
+            font-size: 1.5rem;
+            font-weight: 700;
+            margin-bottom: 20px;
+        }
+
+        .hero-description {
+            color: var(--text-muted);
+            font-size: 1.125rem;
+            margin-bottom: 30px;
+            max-width: 500px;
+        }
+
+        .hero-actions, .hero-badges {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+
+        .hero-image {
+            flex: 1;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+
+        .hero-image img {
+            width: 100%;
+            max-width: 450px;
+            position: relative;
+            z-index: 10;
+            animation: bounce 6s infinite ease-in-out;
+            display: block; /* Memperbaiki masalah rata kiri pada gambar */
+            margin: 0 auto;
+        }
+
+        .image-glow {
+            position: absolute;
+            width: 100%;
+            max-width: 400px;
+            aspect-ratio: 1/1;
+            border-radius: 50%;
+            background: linear-gradient(to top right, rgba(126, 217, 87, 0.3), rgba(255, 154, 158, 0.3));
+            filter: blur(50px);
+            z-index: 1;
+        }
+
+        @keyframes bounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-20px); }
+        }
+
+        /* ================= BENTO GRID SYSTEM ================= */
+        .bento-grid {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 24px;
+            margin-bottom: 24px;
+        }
+
+        .bento-grid-bottom {
+            display: grid;
+            grid-template-columns: 2fr 1fr;
+            gap: 24px;
+            margin-bottom: 60px;
+        }
+
+        .features-grid {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 16px;
+            margin-top: 20px;
+        }
+
+        .feature-box {
+            background: rgba(255, 255, 255, 0.5);
+            border: 1px solid #fff;
+            border-radius: 16px;
+            padding: 20px 15px;
+            text-align: center;
+            transition: background 0.3s;
+        }
+
+        .feature-box:hover {
+            background: #fff;
+        }
+
+        .feature-icon {
+            font-size: 2rem;
+            margin-bottom: 10px;
+        }
+
+        .feature-title {
+            font-size: 0.9rem;
+            font-weight: 700;
+            margin-bottom: 5px;
+        }
+
+        .feature-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+        }
+
+        /* ================= ROADMAP ================= */
+        .roadmap-container {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            position: relative;
+            margin-top: 30px;
+        }
+
+        .roadmap-line {
+            position: absolute;
+            top: 25px;
+            left: 10%;
+            right: 10%;
+            height: 2px;
+            border-top: 2px dashed var(--brand-green-400);
+            z-index: 0;
+        }
+
+        .roadmap-step {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+            z-index: 10;
+            width: 20%;
+        }
+
+        .step-number {
+            width: 50px;
+            height: 50px;
+            background: var(--brand-green-500);
+            color: white;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 1.25rem;
+            font-weight: bold;
+            margin-bottom: 15px;
+            box-shadow: 0 4px 15px rgba(92, 158, 62, 0.4);
+        }
+
+        .step-title {
+            font-size: 0.875rem;
+            font-weight: 700;
+            text-align: center;
+        }
+
+        .step-desc {
+            font-size: 0.75rem;
+            color: var(--text-muted);
+            text-align: center;
+        }
+
+        /* ================= SOCIAL BUTTONS ================= */
+        .social-buttons {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 20px;
+        }
+
+        .btn-social {
+            padding: 8px 16px;
+            border-radius: 50px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            color: white;
+            border: none;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .bg-x { background: #000; }
+        .bg-tg { background: #3b82f6; }
+        .bg-dc { background: #6366f1; }
+
+        /* ================= FOOTER ================= */
+        footer {
+            border-top: 1px solid rgba(0, 0, 0, 0.05);
+            padding: 40px 0;
+            margin-top: 40px;
+        }
+
+        .footer-content {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 30px;
+        }
+
+        .footer-links {
+            display: flex;
+            gap: 20px;
+            font-size: 0.875rem;
+            color: var(--text-muted);
+        }
+
+        .footer-socials {
+            display: flex;
+            gap: 15px;
+            font-size: 1.25rem;
+            color: var(--text-muted);
+        }
+
+        .disclaimer-wrapper {
+            display: flex;
+            justify-content: center;
+        }
+
+        /* ================= MEDIA QUERIES (MOBILE FIXES) ================= */
+        @media (max-width: 1024px) {
+            .hero-title { font-size: 4rem; }
+            .hero-subtitle { font-size: 2rem; }
+            .features-grid { grid-template-columns: repeat(2, 1fr); }
+            .bento-grid, .bento-grid-bottom { grid-template-columns: 1fr; }
+        }
+
+        @media (max-width: 768px) {
+            /* Navbar Mobile */
+            .nav-links, .nav-btn { display: none; }
+            .menu-toggle { display: block; }
+
+            /* Hero Mobile - PRESISI TENGAH */
+            .hero-section {
+                flex-direction: column;
+                text-align: center;
+                padding-top: 120px;
+            }
+
+            .hero-content {
+                display: flex;
+                flex-direction: column;
+                align-items: center; /* Memaksa semua elemen anak ke tengah */
+                text-align: center;
+            }
+
+            .hero-description {
+                margin: 0 auto 30px auto;
+            }
+
+            .crown-icon {
+                left: 50%;
+                transform: translateX(-50%) rotate(12deg);
+                top: -30px;
+            }
+
+            /* Fix Buttons & Badges on Mobile */
+            .hero-actions, .hero-badges {
+                flex-direction: column;
+                width: 100%;
+                align-items: center;
+            }
+
+            .btn, .badge {
+                width: 100%;
+                max-width: 300px; /* Lebar maksimal konsisten */
+            }
+
+            /* Hero Image Mobile Fix */
+            .hero-image {
+                width: 100%;
+                margin-top: 20px;
+            }
+            
+            .hero-image img {
+                margin: 0 auto; /* Menengahkan gambar yang sebelumnya rata kiri */
+            }
+
+            /* Roadmap Mobile Fix */
+            .roadmap-container {
+                flex-direction: column;
+                gap: 30px;
+            }
+            
+            .roadmap-line {
+                display: none; /* Sembunyikan garis putus-putus di mobile */
+            }
+
+            .roadmap-step {
+                width: 100%;
+            }
+
+            /* Footer Mobile Fix */
+            .footer-content {
+                flex-direction: column;
+                gap: 20px;
+                text-align: center;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Ambient Background -->
+    <div class="ambient-orb-1"></div>
+    <div class="ambient-orb-2"></div>
+
+    <!-- Navbar -->
+    <nav class="navbar">
+        <div class="container nav-container">
+            <div class="logo">
+                <span>🐸</span> KODOK
+            </div>
+            <div class="nav-links">
+                <a href="#">About</a>
+                <a href="#">Features</a>
+                <a href="#">Roadmap</a>
+                <a href="#">Frogmunity</a>
+                <a href="#">Ribbitpaper</a>
+            </div>
+            <div class="nav-btn">
+                <button class="btn btn-green btn-nav">Buy KODOK ✨</button>
+            </div>
+            <button class="menu-toggle">
+                <i class="fa-solid fa-bars"></i>
+            </button>
+        </div>
+    </nav>
+
+    <main class="container">
+        
+        <!-- HERO SECTION -->
+        <section class="hero-section">
+            <div class="hero-content">
+                <div class="hero-title-wrapper">
+                    <i class="fa-solid fa-crown crown-icon"></i>
+                    <h1 class="hero-title text-gradient">KODOK</h1>
+                </div>
+                <h2 class="hero-subtitle">Dibalik Tetap Kodok.</h2>
+                <h3 class="hero-tagline text-gradient-green">The Palindrome Meme Token.</h3>
+                <p class="hero-description">
+                    Read it forward: KODOK. Read it backward: KODOK. Market may flip, but KODOK stays KODOK. A soft, playful meme token brand with a premium Web3 landing page.
+                </p>
+                
+                <div class="hero-actions">
+                    <button class="btn btn-green">Buy KODOK ✨</button>
+                    <button class="btn btn-glass">Read Ribbitpaper 📄</button>
+                </div>
+
+                <div class="hero-badges">
+                    <span class="badge">🟢 Palindrome Meme Token</span>
+                    <span class="badge badge-pink">🛡️ DYOR: Duitmu Yakin Ora Rungkad?</span>
+                </div>
+            </div>
+
+            <!-- Fix Image Alignment -->
+            <div class="hero-image">
+                <div class="image-glow"></div>
+                <!-- Ganti source image di bawah ini dengan gambar kodok 3D mu -->
+                <img src="https://via.placeholder.com/600x600.png?text=3D+Frog+Image+Here" alt="KODOK 3D">
+            </div>
+        </section>
+
+        <!-- BENTO GRID 1 -->
+        <div class="bento-grid">
+            <!-- Legend Card -->
+            <div class="glass-card">
+                <h3 style="font-size: 1.25rem; margin-bottom: 15px;">The Legend of KODOK ✨</h3>
+                <p style="color: var(--text-muted); font-size: 0.9rem;">
+                    Born from the digital swamp, KODOK is a meme token with a simple truth: read from the front or back, it stays the same. No fake promises. No complicated jargon. Just a memorable brand, a ribbiting community, and a token that embraces the chaos of crypto with humor and style.
+                </p>
+                <!-- Dekorasi Bawah -->
+                <div style="position: absolute; bottom: 0; left: 0; width: 100%; height: 80px; background: linear-gradient(to top, rgba(126, 217, 87, 0.2), transparent);"></div>
+            </div>
+
+            <!-- Features Card -->
+            <div class="glass-card">
+                <h3 style="font-size: 1.25rem;">Why KODOK? ✨</h3>
+                <div class="features-grid">
+                    <div class="feature-box">
+                        <div class="feature-icon" style="color: var(--brand-green-500);">♾️</div>
+                        <h4 class="feature-title">Palindrome Power</h4>
+                        <p class="feature-desc">Read forward or backward, stays KODOK.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">💧</div>
+                        <h4 class="feature-title">Liquidity Pond</h4>
+                        <p class="feature-desc">Healthy pond for smoother trading.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">🔔</div>
+                        <h4 class="feature-title">Ribbit Alert</h4>
+                        <p class="feature-desc">Community updates and launches.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">🔍</div>
+                        <h4 class="feature-title">Rungkad Detector</h4>
+                        <p class="feature-desc">Reminder to DYOR before you leap.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">🍃</div>
+                        <h4 class="feature-title">Lily Pad Roadmap</h4>
+                        <p class="feature-desc">Clean progressive jumps.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">😊</div>
+                        <h4 class="feature-title">Meme Generator</h4>
+                        <p class="feature-desc">Fuel for viral culture.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">👥</div>
+                        <h4 class="feature-title">Frogmunity</h4>
+                        <p class="feature-desc">One pond. One ribbit.</p>
+                    </div>
+                    <div class="feature-box">
+                        <div class="feature-icon">🔒</div>
+                        <h4 class="feature-title">Locked Pond</h4>
+                        <p class="feature-desc">Liquidity confidence.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- BENTO GRID 2 -->
+        <div class="bento-grid-bottom">
+            <!-- Roadmap Card -->
+            <div class="glass-card">
+                <h3 style="font-size: 1.25rem;">Lily Pad Roadmap ✨</h3>
+                <div class="roadmap-container">
+                    <div class="roadmap-line"></div>
+
+                  <div class="roadmap-step">
+                        <div class="step-number">1</div>
+                        <h4 class="step-title">Lily Pad 1</h4>
+                        <p class="step-desc">Token Launch</p>
+                    </div>
+                    <div class="roadmap-step">
+                        <div class="step-number">2</div>
+                        <h4 class="step-title">Lily Pad 2</h4>
+                        <p class="step-desc">Liquidity Pond</p>
+                    </div>
+                    <div class="roadmap-step">
+                        <div class="step-number">3</div>
+                        <h4 class="step-title">Lily Pad 3</h4>
+                        <p class="step-desc">Meme Invasion</p>
+                    </div>
+                    <div class="roadmap-step">
+                        <div class="step-number">4</div>
+                        <h4 class="step-title">Lily Pad 4</h4>
+                        <p class="step-desc">Community Ribbit</p>
+                    </div>
+                    <div class="roadmap-step">
+                        <div class="step-number">5</div>
+                        <h4 class="step-title">Lily Pad 5</h4>
+                        <p class="step-desc">KODOK Stays KODOK</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Join Community Card -->
+            <div class="glass-card" style="display: flex; flex-direction: column; justify-content: space-between;">
+                <div>
+                    <h3 style="font-size: 1.25rem; margin-bottom: 10px;">Join the Frogmunity ✨</h3>
+                    <p style="color: var(--text-muted); font-size: 0.9rem;">
+                        KODOK is powered by humor, identity, and community energy. We are not here to pretend to be the future of finance. We are here to make the swamp memorable.
+                    </p>
+                </div>
+                <div class="social-buttons">
+                    <button class="btn-social bg-x"><i class="fa-brands fa-x-twitter"></i> Follow</button>
+                    <button class="btn-social bg-tg"><i class="fa-brands fa-telegram"></i> Telegram</button>
+                    <button class="btn-social bg-dc"><i class="fa-brands fa-discord"></i> Discord</button>
+                </div>
+            </div>
+        </div>
+
+        </main>
+
+    <!-- FOOTER -->
+    <footer>
+        <div class="container">
+            <div class="footer-content">
+                <div class="logo" style="font-size: 1.25rem; filter: grayscale(100%);">
+                    <span>🐸</span> KODOK <span style="font-size: 0.75rem; font-weight: normal; margin-left: 10px;">&copy; 2024</span>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Ribbitpaper</a>
+                    <a href="#">Terms</a>
+                    <a href="#">Privacy</a>
+                </div>
+                <div class="footer-socials">
+                    <a href="#"><i class="fa-brands fa-x-twitter"></i></a>
+                    <a href="#"><i class="fa-brands fa-telegram"></i></a>
+                    <a href="#"><i class="fa-brands fa-discord"></i></a>
+                </div>
+            </div>
+
+          <div class="disclaimer-wrapper">
+                <div class="badge badge-pink" style="max-width: none; font-size: 0.75rem;">
+                    🛡️ KODOK is a meme token. Not financial advice. Not a bank. DYOR: Duitmu Yakin Ora Rungkad?
+                </div>
+            </div>
+        </div>
+    </footer>
+
+</body>
+</html>
