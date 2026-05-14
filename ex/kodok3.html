@@ -403,10 +403,15 @@
   overflow: hidden;
   z-index: 1;
 
-  transform: translate3d(0, 0, 0);
+  opacity: 0;
+  transform: translate3d(0, 22px, 0) scale(0.985);
+
   transition:
-    transform 0.18s ease,
+    opacity 0.75s cubic-bezier(0.16, 1, 0.3, 1),
+    transform 0.75s cubic-bezier(0.16, 1, 0.3, 1),
     box-shadow 0.18s ease;
+
+  transition-delay: var(--reveal-delay, 0ms);
 }
 
 .card::before {
@@ -418,12 +423,35 @@
     linear-gradient(315deg, rgba(255, 232, 239, 0.46), transparent 42%);
   z-index: -1;
   pointer-events: none;
+  opacity: 0.7;
+  transition: opacity 0.45s ease;
 }
 
-.card:hover {
-  transform: translate3d(0, -3px, 0);
+.card.is-visible {
+  opacity: 1;
+  transform: translate3d(0, 0, 0) scale(1);
+}
+
+.card.is-visible:hover {
+  transform: translate3d(0, -3px, 0) scale(1);
   box-shadow: 0 16px 40px rgba(23, 32, 51, 0.085);
 }
+
+.card.is-visible:hover::before {
+  opacity: 0.95;
+}
+
+    @media (prefers-reduced-motion: reduce) {
+  .card {
+    opacity: 1;
+    transform: none;
+    transition: none;
+  }
+
+  .card:hover {
+    transform: none;
+  }
+    }
 
 /* =========================================
    CARD PAD
@@ -1359,6 +1387,30 @@
     mobileMenu.querySelectorAll("a").forEach((link) => {
       link.addEventListener("click", () => mobileMenu.classList.remove("open"));
     });
+
+    const cards = document.querySelectorAll(".card");
+
+  cards.forEach((card, index) => {
+    const delay = Math.min(index * 80, 480);
+    card.style.setProperty("--reveal-delay", `${delay}ms`);
+  });
+
+  const revealObserver = new IntersectionObserver(
+    (entries, observer) => {
+      entries.forEach((entry) => {
+        if (!entry.isIntersecting) return;
+
+        entry.target.classList.add("is-visible");
+        observer.unobserve(entry.target);
+      });
+    },
+    {
+      threshold: 0.14,
+      rootMargin: "0px 0px -40px 0px",
+    }
+  );
+
+  cards.forEach((card) => revealObserver.observe(card));
   </script>
 </body>
 </html>
